@@ -20,8 +20,8 @@ from base.models import Announcement, AnnouncementView
 from employee.filters import EmployeeWorkInformationFilter
 from employee.forms import EmployeeWorkInformationUpdateForm
 from employee.models import EmployeeWorkInformation
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import HorillaFormView, HorillaListView
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import JoydigiFormView, JoydigiListView
 
 
 @method_decorator(login_required, name="dispatch")
@@ -62,7 +62,7 @@ class DashboardWorkTypeRequest(WorkRequestListView):
     def get_queryset(self):
         """Filter queryset based on permissions and request context."""
 
-        queryset = HorillaListView.get_queryset(self)
+        queryset = JoydigiListView.get_queryset(self)
         queryset = queryset.filter(
             employee_id__is_active=True,
             approved=False,
@@ -107,7 +107,7 @@ class ShiftRequestToApprove(ShiftRequestList):
         self.search_url = reverse("dashboard-shift-request")
 
     def get_queryset(self):
-        queryset = HorillaListView.get_queryset(self)
+        queryset = JoydigiListView.get_queryset(self)
         queryset = queryset.filter(
             approved=False, canceled=False, employee_id__is_active=True
         )
@@ -119,7 +119,7 @@ class ShiftRequestToApprove(ShiftRequestList):
 @method_decorator(
     manager_can_enter("employee.view_employeeworkinformation"), name="dispatch"
 )
-class EmployeeWorkInformationList(HorillaListView):
+class EmployeeWorkInformationList(JoydigiListView):
     """
     Employee work information progress list
     """
@@ -164,7 +164,7 @@ class EmployeeWorkInformationList(HorillaListView):
 @method_decorator(
     manager_can_enter("employee.change_employeeworkinformation"), name="dispatch"
 )
-class EmployeeWorkInformationFormView(HorillaFormView):
+class EmployeeWorkInformationFormView(JoydigiFormView):
     """
     form view for edit work information
     """
@@ -191,7 +191,7 @@ class EmployeeWorkInformationFormView(HorillaFormView):
 
 
 @method_decorator(login_required, name="dispatch")
-class DashboardAnnouncementView(HorillaListView):
+class DashboardAnnouncementView(JoydigiListView):
     """
     list view for dashboard announcement
     """
@@ -220,7 +220,7 @@ class DashboardAnnouncementView(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("base.view_announcement"), name="dispatch")
-class AnnouncementViewedByList(HorillaListView):
+class AnnouncementViewedByList(JoydigiListView):
     """
     List view for announcement viewed by on detail view
     """

@@ -1,5 +1,5 @@
 {% load i18n %}
-{% load horillafilters %}
+{% load joydigifilters %}
 {% load static %}
 
 <div class="modal-box px-5 bg-white w-full max-w-md md:min-w-[700px] rounded-lg shadow-card p-0 transition-all duration-300 opacity-100 scale-100">
@@ -18,7 +18,7 @@
                 aria-label="{% trans 'Close' %}"
                 onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')"
             >
-                <img src="{% static 'horilla_theme/assets/icons/close.svg' %}" alt="">
+                <img src="{% static 'joydigi_theme/assets/icons/close.svg' %}" alt="">
             </button>
         </div>
 
@@ -36,7 +36,7 @@
                     <ion-icon name="attach-outline"></ion-icon>
                 </a>
                 {% if document.document %}
-                    {% if perms.horilla_documents.change_documentrequest %}
+                    {% if perms.joydigi_documents.change_documentrequest %}
                         {% if document.status == "approved" %}
                             <a class="oh-btn oh-btn--success w-100 oh-btn--disabled" title="{% trans 'Approved' %}">
                                 <ion-icon class="me-1" name="checkmark-outline"></ion-icon>

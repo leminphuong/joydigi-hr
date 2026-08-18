@@ -1,4 +1,4 @@
-# Gunicorn configuration for Horilla-HR
+# Gunicorn configuration for Joydigi-HR
 # This file provides advanced configuration options for the WSGI server
 
 import multiprocessing
@@ -34,7 +34,7 @@ loglevel = os.environ.get("GUNICORN_LOG_LEVEL", "info")
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
 
 # Process naming
-proc_name = "horilla-hrms"
+proc_name = "joydigi-hrms"
 
 # Server mechanics
 pidfile = "/tmp/gunicorn.pid"

@@ -8,9 +8,9 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
 from employee.cbv.employee_profile import EmployeeProfileView
-from horilla import settings
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import HorillaListView, HorillaProfileView
+from joydigi import settings
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import JoydigiListView, JoydigiProfileView
 from onboarding.filters import CandidateTaskFilter
 from onboarding.models import CandidateTask
 from recruitment.cbv import skill_zone
@@ -25,7 +25,7 @@ from recruitment.views import views
 @method_decorator(
     all_manager_can_enter(perm="recruitment.view_candidate"), name="dispatch"
 )
-class CandidateProfileView(HorillaProfileView):
+class CandidateProfileView(JoydigiProfileView):
     """
     Candidate ProfileView
     """
@@ -75,7 +75,7 @@ class CandidateProfileView(HorillaProfileView):
 @method_decorator(
     all_manager_can_enter(perm="recruitment.view_candidate"), name="dispatch"
 )
-class CandidateProfileTasks(HorillaListView):
+class CandidateProfileTasks(JoydigiListView):
     """
     CandidateProfileTasks
     """

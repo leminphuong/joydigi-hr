@@ -12,8 +12,8 @@ from rest_framework.views import APIView
 
 from base.models import Company
 from facedetection.forms import FaceDetectionSetupForm
-from horilla.decorators import hx_request_required
-from horilla.http.response import HorillaRedirect
+from joydigi.decorators import hx_request_required
+from joydigi.http.response import JoydigiRedirect
 
 from .serializers import *
 
@@ -185,4 +185,4 @@ def enable_disable_face_detection(request):
         instance.save()
         message = _("enabled") if instance.start else _("disabled")
         messages.success(request, _("Face detection {} successfully").format(message))
-    return HorillaRedirect(request)
+    return JoydigiRedirect(request)

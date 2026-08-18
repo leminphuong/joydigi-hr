@@ -18,11 +18,11 @@ from base.cbv.work_type_request import WorkRequestListView
 from base.methods import filtersubordinates, is_reportingmanager
 from base.models import WorkTypeRequest
 from employee.models import Employee
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import HorillaTabView
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import JoydigiTabView
 
 
-class WorkAndShiftTabView(HorillaTabView):
+class WorkAndShiftTabView(JoydigiTabView):
     """
     generic tab view for work type and shift
     """

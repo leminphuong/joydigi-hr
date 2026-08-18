@@ -1,7 +1,7 @@
 from employee.models import Employee
-from horilla.horilla_middlewares import _thread_locals
-from horilla.methods import handle_no_permission
-from horilla_views.cbv_methods import decorator_with_arguments
+from joydigi.joydigi_middlewares import _thread_locals
+from joydigi.methods import handle_no_permission
+from joydigi_views.cbv_methods import decorator_with_arguments
 from onboarding.models import OnboardingStage, OnboardingTask
 from recruitment.models import Recruitment
 

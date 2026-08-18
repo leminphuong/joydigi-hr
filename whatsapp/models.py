@@ -2,13 +2,13 @@ from django.db import models
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
-from base.horilla_company_manager import HorillaCompanyManager
+from base.joydigi_company_manager import JoydigiCompanyManager
 from base.models import Company
-from horilla.models import HorillaModel
-from horilla_views.cbv_methods import render_template
+from joydigi.models import JoydigiModel
+from joydigi_views.cbv_methods import render_template
 
 
-class WhatsappCredientials(HorillaModel):
+class WhatsappCredientials(JoydigiModel):
     meta_token = models.TextField()
     meta_business_id = models.CharField(max_length=255)
     meta_phone_number_id = models.CharField(max_length=255)
@@ -22,7 +22,7 @@ class WhatsappCredientials(HorillaModel):
     company_id = models.ManyToManyField(Company, blank=True, verbose_name="Company")
     is_primary = models.BooleanField(default=False)
 
-    objects = HorillaCompanyManager()
+    objects = JoydigiCompanyManager()
 
     def __str__(self):
         return f"WhatsApp Business {self.meta_business_id} ({self.meta_phone_number})"

@@ -16,7 +16,7 @@ from django.utils.translation import gettext_lazy as _
 
 from base.filters import FilterSet
 from employee.models import Employee
-from horilla.filters import HorillaFilterSet, filter_by_name
+from joydigi.filters import JoydigiFilterSet, filter_by_name
 from payroll.models.models import (
     Allowance,
     Contract,
@@ -30,7 +30,7 @@ from payroll.models.models import (
 from payroll.models.tax_models import TaxBracket
 
 
-class ContractFilter(HorillaFilterSet):
+class ContractFilter(JoydigiFilterSet):
     """
     Filter set class for Contract model
 
@@ -116,7 +116,7 @@ class ContractFilter(HorillaFilterSet):
         return queryset
 
 
-class AllowanceFilter(HorillaFilterSet):
+class AllowanceFilter(JoydigiFilterSet):
     """
     Filter set class for Allowance model.
     """
@@ -165,7 +165,7 @@ class AllowanceFilter(HorillaFilterSet):
         return queryset.distinct()
 
 
-class DeductionFilter(HorillaFilterSet):
+class DeductionFilter(JoydigiFilterSet):
     """
     Filter set class for Deduction model.
     """
@@ -214,7 +214,7 @@ class DeductionFilter(HorillaFilterSet):
         return queryset.distinct()
 
 
-class PayslipFilter(HorillaFilterSet):
+class PayslipFilter(JoydigiFilterSet):
     """
     Filter set class for payslip model.
     """
@@ -385,7 +385,7 @@ class PayslipFilter(HorillaFilterSet):
             self.form.fields[field].widget.attrs["id"] = f"{uuid.uuid4()}"
 
 
-class LoanAccountFilter(HorillaFilterSet):
+class LoanAccountFilter(JoydigiFilterSet):
     """
     LoanAccountFilter
     """
@@ -430,7 +430,7 @@ class LoanAccountFilter(HorillaFilterSet):
         ]
 
 
-class ReimbursementFilter(HorillaFilterSet):
+class ReimbursementFilter(JoydigiFilterSet):
     """
     ReimbursementFilter
     """
@@ -462,7 +462,7 @@ class ReimbursementFilter(HorillaFilterSet):
         ).distinct()
 
 
-class TaxBracketFilter(HorillaFilterSet):
+class TaxBracketFilter(JoydigiFilterSet):
     """
     Filter set class for TaxBracket model.
     """
@@ -483,7 +483,7 @@ class TaxBracketFilter(HorillaFilterSet):
         ).distinct()
 
 
-class FilingStatusFilter(HorillaFilterSet):
+class FilingStatusFilter(JoydigiFilterSet):
     """
     Filter set class for TaxBracket model.
     """
@@ -546,7 +546,7 @@ class PayslipReGroup:
     ]
 
 
-class PayslipAutoGenerateFilter(HorillaFilterSet):
+class PayslipAutoGenerateFilter(JoydigiFilterSet):
 
     search = django_filters.CharFilter(method="search_method")
 

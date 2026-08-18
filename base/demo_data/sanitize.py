@@ -139,8 +139,8 @@ def sanitize_loaded_records() -> dict[str, int]:
 
         n = 0
         for project in Project.objects.filter(
-            Q(title__icontains="Horilla")
-            | Q(description__icontains="Horilla")
+            Q(title__icontains="Joydigi")
+            | Q(description__icontains="Joydigi")
             | Q(title__icontains="Odoo")
         ):
             project.title = apply_replacements(project.title) or project.title
@@ -163,7 +163,7 @@ def sanitize_loaded_records() -> dict[str, int]:
         try:
             from pms.models import Meetings
 
-            for meeting in Meetings.objects.filter(title__icontains="Horilla"):
+            for meeting in Meetings.objects.filter(title__icontains="Joydigi"):
                 meeting.title = apply_replacements(meeting.title) or meeting.title
                 meeting.save(update_fields=["title"])
                 n += 1
@@ -174,7 +174,7 @@ def sanitize_loaded_records() -> dict[str, int]:
 
             for model in (Objective, EmployeeObjective):
                 for obj in model.objects.filter(
-                    Q(title__icontains="Horilla") | Q(title__icontains="Odoo")
+                    Q(title__icontains="Joydigi") | Q(title__icontains="Odoo")
                 ):
                     obj.title = apply_replacements(obj.title) or obj.title
                     obj.save(update_fields=["title"])

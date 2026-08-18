@@ -2,7 +2,7 @@
 {% block content %}
     {% load static %}
     {% load i18n %}
-    {% load horillafilters %}
+    {% load joydigifilters %}
     {% load basefilters %}
     {% general_section as general_section %}
     {% employee_section as employee_section %}
@@ -151,7 +151,7 @@
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
-                                                    {% if perms.base.view_tags or perms.employee.view_employeetag or perms.horilla_audit.view_audittag %}
+                                                    {% if perms.base.view_tags or perms.employee.view_employeetag or perms.joydigi_audit.view_audittag %}
                                                         <a
                                                             id="ticket_type"
                                                             href="{% url 'tag-view' %}"
@@ -160,7 +160,7 @@
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
-                                                    {% if perms.horilla_audit.view_auditmodelconfig %}
+                                                    {% if perms.joydigi_audit.view_auditmodelconfig %}
                                                         <a
                                                             id="auditTracking"
                                                             href="{% url 'audit-model-settings' %}"
@@ -186,7 +186,7 @@
                                                     </div>
                                                 {% endif %}
                                                 <div class="oh-input-group">
-                                                    {% if perms.horilla_backup.view_googledrivebackup %}
+                                                    {% if perms.joydigi_backup.view_googledrivebackup %}
                                                         <a
                                                             id="date"
                                                             href="{% url 'gdrive' %}"
@@ -194,8 +194,8 @@
                                                         >{% trans "Google Drive Backup" %}</a>
                                                     {% endif %}
                                                 </div>
-                                                {% if "horilla_ldap"|app_installed %}
-                                                    {% if perms.horilla_ldap.add_ldapsettings or perms.horilla_ldap.update_ldapsettings %}
+                                                {% if "joydigi_ldap"|app_installed %}
+                                                    {% if perms.joydigi_ldap.add_ldapsettings or perms.joydigi_ldap.update_ldapsettings %}
                                                         <div class="oh-input-group">
                                                             <a
                                                                 id="date"

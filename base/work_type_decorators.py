@@ -4,7 +4,7 @@ decorator functions for base
 
 from base.models import MultipleApprovalManagers
 from employee.models import EmployeeWorkInformation
-from horilla.methods import handle_no_permission
+from joydigi.methods import handle_no_permission
 
 decorator_with_arguments = (
     lambda decorator: lambda *args, **kwargs: lambda func: decorator(

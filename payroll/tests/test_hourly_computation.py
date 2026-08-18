@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from horilla.testkit import make_company, make_employee
+from joydigi.testkit import make_company, make_employee
 from payroll.methods.methods import compute_salary_on_period, hourly_computation
 from payroll.models.models import Contract
 
@@ -14,7 +14,7 @@ from payroll.models.models import Contract
 class HourlyComputationTests(TestCase):
     def setUp(self):
         company = make_company("Hourly Co")
-        self.employee = make_employee(company=company, email="hourly@test.horilla")
+        self.employee = make_employee(company=company, email="hourly@test.joydigi")
         Contract.objects.filter(employee_id=self.employee).delete()
         self.workday = date(2024, 1, 8)  # Monday
         self.start = date(2024, 1, 1)

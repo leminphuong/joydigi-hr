@@ -11,7 +11,7 @@ if apps.is_installed("payroll"):
 
     from base.methods import has_export_access
     from base.models import Company
-    from horilla.decorators import login_required, permission_required
+    from joydigi.decorators import login_required, permission_required
     from payroll.filters import PayslipFilter
     from payroll.models.models import Payslip
     from report.dynamic_filter_utils import (

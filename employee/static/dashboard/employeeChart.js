@@ -245,7 +245,7 @@ $(document).ready(function () {
 
     function genderChart(dataSet, labels) {
         const centerImage = new Image();
-        centerImage.src = "/static/horilla_theme/assets/img/icons/gender.svg";
+        centerImage.src = "/static/joydigi_theme/assets/img/icons/gender.svg";
 
         if (document.getElementById("genderChart")) {
             const ctx = document.getElementById("genderChart").getContext("2d");

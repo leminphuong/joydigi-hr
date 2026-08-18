@@ -13,11 +13,11 @@ from django.db import models
 from django.urls import reverse, reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
-from base.horilla_company_manager import HorillaCompanyManager
+from base.joydigi_company_manager import JoydigiCompanyManager
 from base.models import Company
 from employee.models import Employee
-from horilla.models import HorillaModel
-from horilla_views.cbv_methods import render_template
+from joydigi.models import JoydigiModel
+from joydigi_views.cbv_methods import render_template
 
 
 def validate_schedule_time_format(value):
@@ -38,7 +38,7 @@ def validate_schedule_time_format(value):
         raise ValidationError(_("Invalid format, it should be HH:MM format")) from error
 
 
-class BiometricDevices(HorillaModel):
+class BiometricDevices(JoydigiModel):
     """
     Model: BiometricDevices
 
@@ -118,7 +118,7 @@ class BiometricDevices(HorillaModel):
         verbose_name=_("Company"),
     )
 
-    objects = HorillaCompanyManager()
+    objects = JoydigiCompanyManager()
 
     def __str__(self):
         return f"{self.name} - {self.machine_type}"

@@ -5,13 +5,13 @@ from django.utils.translation import gettext_lazy as _
 
 from asset.filters import AssetFilter
 from asset.models import Asset
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import HorillaDetailedView, HorillaListView
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import JoydigiDetailedView, JoydigiListView
 
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("asset.view_asset"), name="dispatch")
-class AssetListView(HorillaListView):
+class AssetListView(JoydigiListView):
     """
     list view for batch number
     """
@@ -63,7 +63,7 @@ class AssetListView(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("asset.view_asset"), name="dispatch")
-class AssetInformationView(HorillaDetailedView):
+class AssetInformationView(JoydigiDetailedView):
     """
     Detail view of the page
     """

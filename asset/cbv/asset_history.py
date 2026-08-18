@@ -12,15 +12,15 @@ from asset.filters import AssetHistoryFilter
 from asset.forms import AssetHistoryExportForm
 from asset.models import AssetAssignment
 from base.methods import export_data, has_export_access
-from horilla_views.cbv_methods import (
+from joydigi_views.cbv_methods import (
     hx_request_required,
     login_required,
     permission_required,
 )
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 
@@ -37,7 +37,7 @@ class AssetHistoryView(TemplateView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("asset.view_assetassignment"), name="dispatch")
-class AssetHistorylistView(HorillaListView):
+class AssetHistorylistView(JoydigiListView):
     """
     list view
     """
@@ -76,7 +76,7 @@ class AssetHistorylistView(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("asset.view_assetassignment"), name="dispatch")
-class AssetHistoryNavView(HorillaNavView):
+class AssetHistoryNavView(JoydigiNavView):
     """
     navbar
     """
@@ -154,7 +154,7 @@ class AssetHistoryExportView(TemplateView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("asset.view_assetassignment"), name="dispatch")
-class AssetHistoryDetailView(HorillaDetailedView):
+class AssetHistoryDetailView(JoydigiDetailedView):
     """
     detail view of the page
     """

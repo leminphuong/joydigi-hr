@@ -48,7 +48,7 @@
     width: 100%;
   }
   /* Column sizing mirrors the real Employee list table exactly
-     (horilla_theme/templates/generic/horilla_list_table.html): natural
+     (joydigi_theme/templates/generic/joydigi_list_table.html): natural
      auto layout with a per-column MIN-width floor (not a fixed width),
      so short numeric columns don't get force-stretched to fill 100%
      and long headers don't need to wrap. */
@@ -88,7 +88,7 @@
     height: 30px !important;
     background-color: #fff;
     /* Same muted text color the real Employee list uses on every cell
-       (horilla_list_table.html's text-[#666], including its own name
+       (joydigi_list_table.html's text-[#666], including its own name
        cell) — was previously unset here, inheriting plain black. */
     color: #666;
     border-bottom: 1px solid hsl(213, 22%, 93%);
@@ -161,7 +161,7 @@
   body.dark .ms-table-wrap .fixed-table tbody tr:hover td { background-color: #2e2e2e !important; }
 
   /* Row-checked highlight — .highlight-selected is the same class
-     highlightRow() (static/index/index.js) uses on every Horilla list
+     highlightRow() (static/index/index.js) uses on every Joydigi list
      table. Its own rule (index.html) tints it with the company's theme
      color via color-mix(), but every <td> here has its own opaque
      background-color for the sticky columns, which paints over it — so
@@ -496,7 +496,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
   </div>
 </div>
 
-<!-- Table — Horilla fixed-table pattern (horilla_list_table.html) -->
+<!-- Table — Joydigi fixed-table pattern (joydigi_list_table.html) -->
 <div class="ms-table-wrap" id="msAttendanceTable">
   <!-- Column visibility toggle — positioned over the header row's right
        edge, same spot the real Employee list's toggle occupies inside its
@@ -509,7 +509,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
        "Columns" panel, so it looks identical to the Employee list's.
        Behavior is a plain click-toggle + localStorage instead of
        Alpine.js/backend-persisted (ToggleColumn/ColumnOrder models),
-       since this is a bespoke table, not a HorillaListView. Drag-to-
+       since this is a bespoke table, not a JoydigiListView. Drag-to-
        reorder is intentionally not implemented, so no drag handles or
        "drag to reorder" hint are shown — only show/hide. -->
   <div style="position:absolute; top:6px; right:24px; z-index:7;">
@@ -642,11 +642,11 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
               >
             </th>
             {% comment %}
-              Sort controls mirror horilla_theme/generic/horilla_list_table.html's own
+              Sort controls mirror joydigi_theme/generic/joydigi_list_table.html's own
               sortable-column pattern exactly (fa-solid fa-arrow-up/down, text-primary-600,
               cursor-pointer, both arrows stacked when this column isn't the active sort) —
               just against a plain ?sort=&dir= pair + Python sorted() in the view instead of
-              HorillaListView's session-cached sortby() machinery, since `rows` here is a
+              JoydigiListView's session-cached sortby() machinery, since `rows` here is a
               plain list of dicts, not a queryset a .order_by() could apply to.
             {% endcomment %}
             <th data-col="employee">

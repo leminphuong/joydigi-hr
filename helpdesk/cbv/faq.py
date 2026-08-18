@@ -12,13 +12,13 @@ from base.models import Tags
 from helpdesk.cbv.tags import DynamicTagsCreateFormView
 from helpdesk.forms import FAQCategoryForm, FAQForm
 from helpdesk.models import FAQ, FAQCategory
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import HorillaFormView
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import JoydigiFormView
 
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("helpdesk.change_faqcategory"), name="dispatch")
-class FaqCategoryCreateFormView(HorillaFormView):
+class FaqCategoryCreateFormView(JoydigiFormView):
     """
     form view for create and update faq categories
     """
@@ -47,7 +47,7 @@ class FaqCategoryCreateFormView(HorillaFormView):
         return super().form_valid(form)
 
 
-# class DynamicFaqTagCreate(HorillaFormView):
+# class DynamicFaqTagCreate(JoydigiFormView):
 #     """
 #     form view for dynamic creation of tags
 #     """
@@ -69,7 +69,7 @@ class FaqCategoryCreateFormView(HorillaFormView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("helpdesk.change_faq"), name="dispatch")
-class FaqCreateFormView(HorillaFormView):
+class FaqCreateFormView(JoydigiFormView):
     """
     form view for create and update faqs
     """

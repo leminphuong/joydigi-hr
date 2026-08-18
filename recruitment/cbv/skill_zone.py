@@ -7,8 +7,8 @@ from django.http import HttpResponse
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import HorillaFormView, HorillaListView
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import JoydigiFormView, JoydigiListView
 from recruitment.cbv_decorators import manager_can_enter
 from recruitment.forms import SkillZoneCandidateForm, SkillZoneCreateForm
 from recruitment.models import Candidate, SkillZone, SkillZoneCandidate
@@ -16,7 +16,7 @@ from recruitment.models import Candidate, SkillZone, SkillZoneCandidate
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("recruitment.add_skillzone"), name="dispatch")
-class SkillZoneFormView(HorillaFormView):
+class SkillZoneFormView(JoydigiFormView):
     """
     form view for create talent pool
     """
@@ -49,7 +49,7 @@ class SkillZoneFormView(HorillaFormView):
 @method_decorator(
     manager_can_enter("recruitment.add_skillzonecandidate"), name="dispatch"
 )
-class SkillZoneCandidateFormView(HorillaFormView):
+class SkillZoneCandidateFormView(JoydigiFormView):
     """
     form view for create talent pool candidate
     """
@@ -87,7 +87,7 @@ class SkillZoneCandidateFormView(HorillaFormView):
 @method_decorator(
     manager_can_enter("recruitment.add_skillzonecandidate"), name="dispatch"
 )
-class SkillZoneProfileListView(HorillaListView):
+class SkillZoneProfileListView(JoydigiListView):
     """
     Talent Pool Candidate profile List View
     """

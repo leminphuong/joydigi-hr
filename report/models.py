@@ -1,12 +1,12 @@
 from django.db import models
 
-from base.horilla_company_manager import HorillaCompanyManager
+from base.joydigi_company_manager import JoydigiCompanyManager
 from base.models import Company
-from horilla import horilla_middlewares
-from horilla.models import HorillaModel
+from joydigi import joydigi_middlewares
+from joydigi.models import JoydigiModel
 
 
-class ReportTemplate(HorillaModel):
+class ReportTemplate(JoydigiModel):
     """
     A saved field arrangement (Rows/Columns/renderer/aggregator) for a
     report's pivot table, so an employee can reload their own preferred
@@ -20,7 +20,7 @@ class ReportTemplate(HorillaModel):
         Company, null=True, editable=False, on_delete=models.PROTECT
     )
 
-    objects = HorillaCompanyManager(related_company_field="company_id")
+    objects = JoydigiCompanyManager(related_company_field="company_id")
 
     class Meta:
         ordering = ["-created_at"]
@@ -30,7 +30,7 @@ class ReportTemplate(HorillaModel):
         return f"{self.name} ({self.report_slug})"
 
     def save(self, *args, **kwargs):
-        request = getattr(horilla_middlewares._thread_locals, "request", None)
+        request = getattr(joydigi_middlewares._thread_locals, "request", None)
         selected_company = request.session.get("selected_company") if request else None
         if (
             not self.id

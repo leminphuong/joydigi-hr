@@ -9,8 +9,8 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
-from horilla_views.cbv_methods import hx_request_required, login_required
-from horilla_views.generic.cbv.views import HorillaTabView, TemplateView
+from joydigi_views.cbv_methods import hx_request_required, login_required
+from joydigi_views.generic.cbv.views import JoydigiTabView, TemplateView
 from recruitment.models import RejectReason, Skill, Stage
 
 
@@ -24,7 +24,7 @@ class RecruitmentSettingsView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class RecruitmentSettingsTabView(HorillaTabView):
+class RecruitmentSettingsTabView(JoydigiTabView):
     """
     tab view for recruitment settings, shows reject reason and skill as tabs
     """

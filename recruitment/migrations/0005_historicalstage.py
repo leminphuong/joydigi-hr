@@ -9,7 +9,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('horilla_audit', '0002_auditmodelconfig'),
+        ('joydigi_audit', '0002_auditmodelconfig'),
         ('recruitment', '0004_alter_recruitmentgeneralsetting_company_id'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
@@ -33,7 +33,7 @@ class Migration(migrations.Migration):
                 ('history_type', models.CharField(choices=[('+', 'Created'), ('~', 'Changed'), ('-', 'Deleted')], max_length=1)),
                 ('created_by', models.ForeignKey(blank=True, db_constraint=False, editable=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to=settings.AUTH_USER_MODEL, verbose_name='Created By')),
                 ('history_relation', models.ForeignKey(db_constraint=False, on_delete=django.db.models.deletion.DO_NOTHING, related_name='history_set', to='recruitment.stage')),
-                ('history_tags', models.ManyToManyField(to='horilla_audit.audittag')),
+                ('history_tags', models.ManyToManyField(to='joydigi_audit.audittag')),
                 ('history_user', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
                 ('modified_by', models.ForeignKey(blank=True, db_constraint=False, editable=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to=settings.AUTH_USER_MODEL, verbose_name='Modified By')),
                 ('recruitment_id', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to='recruitment.recruitment', verbose_name='Recruitment')),

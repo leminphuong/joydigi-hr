@@ -10,8 +10,8 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
 from base.methods import filtersubordinates
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import HorillaListView
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import JoydigiListView
 from pms.cbv.feedback import RequestedFeedbackTab
 from pms.filters import EmployeeObjectiveFilter, KeyResultFilter
 from pms.models import EmployeeKeyResult, EmployeeObjective
@@ -66,7 +66,7 @@ class DashboardFeedbackView(RequestedFeedbackTab):
 
 
 @method_decorator(login_required, name="dispatch")
-class KeyResultStatus(HorillaListView):
+class KeyResultStatus(JoydigiListView):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -104,11 +104,11 @@ class KeyResultStatus(HorillaListView):
 
     @method_decorator(login_required, name="dispatch")
     def dispatch(self, *args, **kwargs):
-        return super(HorillaListView, self).dispatch(*args, **kwargs)
+        return super(JoydigiListView, self).dispatch(*args, **kwargs)
 
 
 @method_decorator(login_required, name="dispatch")
-class DasboardObjectivesRisk(HorillaListView):
+class DasboardObjectivesRisk(JoydigiListView):
     """
     list view for objectives at risk
     """

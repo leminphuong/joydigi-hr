@@ -12,7 +12,7 @@ from django import template
 from django.apps import apps
 from django.template.defaultfilters import register
 
-from horilla_auth.models import HorillaUser
+from joydigi_auth.models import JoydigiUser
 from recruitment.models import CandidateRating
 
 # from django.forms.boundfield
@@ -26,7 +26,7 @@ def is_stagemanager(user):
     This method is used to check the employee is stage or recruitment manager
     """
     try:
-        cached = getattr(user, "_horilla_is_stagemanager", None)
+        cached = getattr(user, "_joydigi_is_stagemanager", None)
         if cached is not None:
             return cached
         employee_obj = user.employee_get
@@ -34,7 +34,7 @@ def is_stagemanager(user):
             employee_obj.stage_set.filter(is_active=True).exists()
             or employee_obj.recruitment_set.exists()
         )
-        setattr(user, "_horilla_is_stagemanager", result)
+        setattr(user, "_joydigi_is_stagemanager", result)
         return result
     except Exception:
         return False
@@ -46,7 +46,7 @@ def is_any_manager(request):
     This method is used to check the employee is stage or recruitment manager
     """
     user = request.user
-    cached = getattr(user, "_horilla_is_any_manager", None)
+    cached = getattr(user, "_joydigi_is_any_manager", None)
     if cached is not None:
         return cached
     employee = user.employee_get
@@ -56,7 +56,7 @@ def is_any_manager(request):
         or employee.onboardingstage_set.exists()
         or employee.onboarding_task.exists()
     )
-    setattr(user, "_horilla_is_any_manager", result)
+    setattr(user, "_joydigi_is_any_manager", result)
     return result
 
 
@@ -66,12 +66,12 @@ def is_recruitmentmangers(user):
     This method is used to check the employee is recruitment manager
     """
     try:
-        cached = getattr(user, "_horilla_is_recruitmentmanager", None)
+        cached = getattr(user, "_joydigi_is_recruitmentmanager", None)
         if cached is not None:
             return cached
         employee_obj = user.employee_get
         result = employee_obj.recruitment_set.exists()
-        setattr(user, "_horilla_is_recruitmentmanager", result)
+        setattr(user, "_joydigi_is_recruitmentmanager", result)
         return result
     except Exception:
         return False
@@ -114,7 +114,7 @@ def employee(uid):
     Returns:
         user object
     """
-    return HorillaUser.objects.get(id=uid).employee_get if uid is not None else None
+    return JoydigiUser.objects.get(id=uid).employee_get if uid is not None else None
 
 
 @register.filter(name="media_path")

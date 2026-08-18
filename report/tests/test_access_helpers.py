@@ -7,7 +7,7 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.http import HttpResponse
 from django.test import RequestFactory, SimpleTestCase, TestCase
 
-from horilla.testkit import make_user
+from joydigi.testkit import make_user
 from report.sidebar import employee_accessibility, menu_accessibility
 from report.views import check_export_access
 

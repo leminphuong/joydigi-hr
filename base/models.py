@@ -16,14 +16,14 @@ from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
-from base.horilla_company_manager import HorillaCompanyManager
-from horilla import horilla_middlewares
-from horilla.horilla_middlewares import _thread_locals
-from horilla.methods import get_horilla_model_class
-from horilla.models import HorillaModel, NoPermissionModel, upload_path
-from horilla_audit.models import HorillaAuditInfo, HorillaAuditLog
-from horilla_auth.models import HorillaUser
-from horilla_views.cbv_methods import render_template
+from base.joydigi_company_manager import JoydigiCompanyManager
+from joydigi import joydigi_middlewares
+from joydigi.joydigi_middlewares import _thread_locals
+from joydigi.methods import get_joydigi_model_class
+from joydigi.models import JoydigiModel, NoPermissionModel, upload_path
+from joydigi_audit.models import JoydigiAuditInfo, JoydigiAuditLog
+from joydigi_auth.models import JoydigiUser
+from joydigi_views.cbv_methods import render_template
 
 # Create your models here.
 WEEKS = [
@@ -89,7 +89,7 @@ def clear_messages(request):
         pass
 
 
-class Company(HorillaModel):
+class Company(JoydigiModel):
     """
     Company model
     """
@@ -152,7 +152,7 @@ class Company(HorillaModel):
         return self.pk
 
 
-class CompanyGroupAssignment(HorillaModel):
+class CompanyGroupAssignment(JoydigiModel):
     """
     Company-scoped membership of a user in an auth Group.
 
@@ -164,7 +164,7 @@ class CompanyGroupAssignment(HorillaModel):
     """
 
     user = models.ForeignKey(
-        HorillaUser,
+        JoydigiUser,
         on_delete=models.CASCADE,
         related_name="company_group_assignments",
         verbose_name=_("User"),
@@ -207,7 +207,7 @@ class CompanyGroupAssignment(HorillaModel):
             user.groups.remove(group)
 
 
-class Department(HorillaModel):
+class Department(JoydigiModel):
     """
     Department model
     """
@@ -217,7 +217,7 @@ class Department(HorillaModel):
     )
     company_id = models.ManyToManyField(Company, blank=True, verbose_name=_("Company"))
 
-    objects = HorillaCompanyManager()
+    objects = JoydigiCompanyManager()
 
     class Meta:
         """
@@ -298,7 +298,7 @@ class Department(HorillaModel):
         return str(self.department)
 
 
-class JobPosition(HorillaModel):
+class JobPosition(JoydigiModel):
     """
     JobPosition model
     """
@@ -314,7 +314,7 @@ class JobPosition(HorillaModel):
     )
     company_id = models.ManyToManyField(Company, blank=True, verbose_name=_("Company"))
 
-    objects = HorillaCompanyManager("department_id__company_id")
+    objects = JoydigiCompanyManager("department_id__company_id")
 
     class Meta:
         """
@@ -351,7 +351,7 @@ class JobPosition(HorillaModel):
         )
 
 
-class JobRole(HorillaModel):
+class JobRole(JoydigiModel):
     """JobRole model"""
 
     job_position_id = models.ForeignKey(
@@ -362,7 +362,7 @@ class JobRole(HorillaModel):
     )
     company_id = models.ManyToManyField(Company, blank=True, verbose_name=_("Company"))
 
-    objects = HorillaCompanyManager("job_position_id__department_id__company_id")
+    objects = JoydigiCompanyManager("job_position_id__department_id__company_id")
 
     class Meta:
         """
@@ -377,7 +377,7 @@ class JobRole(HorillaModel):
         return f"{self.job_role} - {self.job_position_id.job_position}"
 
 
-class WorkType(HorillaModel):
+class WorkType(JoydigiModel):
     """
     WorkType model
     """
@@ -385,7 +385,7 @@ class WorkType(HorillaModel):
     work_type = models.CharField(max_length=50, verbose_name=_("Work Type"))
     company_id = models.ManyToManyField(Company, blank=True, verbose_name=_("Company"))
 
-    objects = HorillaCompanyManager()
+    objects = JoydigiCompanyManager()
 
     class Meta:
         """
@@ -451,7 +451,7 @@ class WorkType(HorillaModel):
         return self
 
 
-class RotatingWorkType(HorillaModel):
+class RotatingWorkType(JoydigiModel):
     """
     RotatingWorkType model
     """
@@ -479,7 +479,7 @@ class RotatingWorkType(HorillaModel):
         blank=True,
         null=True,
     )
-    objects = HorillaCompanyManager("employee_id__employee_work_info__company_id")
+    objects = JoydigiCompanyManager("employee_id__employee_work_info__company_id")
 
     class Meta:
         """
@@ -567,7 +567,7 @@ class RotatingWorkType(HorillaModel):
         return additional_work_types
 
 
-class RotatingWorkTypeAssign(HorillaModel):
+class RotatingWorkTypeAssign(JoydigiModel):
     """
     RotatingWorkTypeAssign model
     """
@@ -626,13 +626,13 @@ class RotatingWorkTypeAssign(HorillaModel):
         blank=True,
         null=True,
     )
-    history = HorillaAuditLog(
+    history = JoydigiAuditLog(
         related_name="history_set",
         bases=[
-            HorillaAuditInfo,
+            JoydigiAuditInfo,
         ],
     )
-    objects = HorillaCompanyManager("employee_id__employee_work_info__company_id")
+    objects = JoydigiCompanyManager("employee_id__employee_work_info__company_id")
 
     class Meta:
         """
@@ -723,7 +723,7 @@ class RotatingWorkTypeAssign(HorillaModel):
         )
 
 
-class EmployeeType(HorillaModel):
+class EmployeeType(JoydigiModel):
     """
     EmployeeType model
     """
@@ -731,7 +731,7 @@ class EmployeeType(HorillaModel):
     employee_type = models.CharField(max_length=50, verbose_name=_("Employee Type"))
     company_id = models.ManyToManyField(Company, blank=True, verbose_name=_("Company"))
 
-    objects = HorillaCompanyManager()
+    objects = JoydigiCompanyManager()
 
     class Meta:
         """
@@ -793,7 +793,7 @@ class EmployeeShiftDay(models.Model):
     day = models.CharField(max_length=20, choices=DAY)
     company_id = models.ManyToManyField(Company, blank=True, verbose_name=_("Company"))
 
-    objects = HorillaCompanyManager()
+    objects = JoydigiCompanyManager()
 
     class Meta:
         """
@@ -807,7 +807,7 @@ class EmployeeShiftDay(models.Model):
         return str(_(self.day).capitalize())
 
 
-class EmployeeShift(HorillaModel):
+class EmployeeShift(JoydigiModel):
     """
     EmployeeShift model
     """
@@ -840,7 +840,7 @@ class EmployeeShift(HorillaModel):
             verbose_name=_("Grace Time"),
         )
 
-    objects = HorillaCompanyManager()
+    objects = JoydigiCompanyManager()
 
     class Meta:
         """
@@ -900,7 +900,7 @@ class EmployeeShift(HorillaModel):
         return self
 
 
-class EmployeeShiftSchedule(HorillaModel):
+class EmployeeShiftSchedule(JoydigiModel):
     """
     EmployeeShiftSchedule model
     """
@@ -930,13 +930,13 @@ class EmployeeShiftSchedule(HorillaModel):
         blank=True,
         verbose_name=_("Automatic Check Out Time"),
         help_text=_(
-            "Time at which the horilla will automatically check out the employee attendance if they forget."
+            "Time at which the joydigi will automatically check out the employee attendance if they forget."
         ),
     )
 
     company_id = models.ManyToManyField(Company, blank=True, verbose_name=_("Company"))
 
-    objects = HorillaCompanyManager()
+    objects = JoydigiCompanyManager()
 
     class Meta:
         """
@@ -1024,7 +1024,7 @@ class EmployeeShiftSchedule(HorillaModel):
         return dict(DAY).get(self.day.day)
 
 
-class RotatingShift(HorillaModel):
+class RotatingShift(JoydigiModel):
     """
     RotatingShift model
     """
@@ -1054,7 +1054,7 @@ class RotatingShift(HorillaModel):
         blank=True,
         null=True,
     )
-    objects = HorillaCompanyManager("employee_id__employee_work_info__company_id")
+    objects = JoydigiCompanyManager("employee_id__employee_work_info__company_id")
 
     class Meta:
         """
@@ -1149,7 +1149,7 @@ class RotatingShift(HorillaModel):
         return total_shifts
 
 
-class RotatingShiftAssign(HorillaModel):
+class RotatingShiftAssign(JoydigiModel):
     """
     RotatingShiftAssign model
     """
@@ -1207,13 +1207,13 @@ class RotatingShiftAssign(HorillaModel):
         blank=True,
         null=True,
     )
-    history = HorillaAuditLog(
+    history = JoydigiAuditLog(
         related_name="history_set",
         bases=[
-            HorillaAuditInfo,
+            JoydigiAuditInfo,
         ],
     )
-    objects = HorillaCompanyManager("employee_id__employee_work_info__company_id")
+    objects = JoydigiCompanyManager("employee_id__employee_work_info__company_id")
 
     def rotating_column(self):
         """
@@ -1331,7 +1331,7 @@ class RotatingShiftAssign(HorillaModel):
 # ---------------------------------------------------------------------------
 
 
-class Roster(HorillaModel):
+class Roster(JoydigiModel):
     """
     Forward-planning shift roster entry: one employee, one date, one shift.
     Planners assign shifts in advance; employees see published entries via My Roster.
@@ -1382,7 +1382,7 @@ class Roster(HorillaModel):
         verbose_name=_("Created By"),
     )
 
-    objects = HorillaCompanyManager("employee__employee_work_info__company_id")
+    objects = JoydigiCompanyManager("employee__employee_work_info__company_id")
 
     class Meta:
         verbose_name = _("Roster Entry")
@@ -1439,7 +1439,7 @@ class BaserequestFile(models.Model):
     objects = models.Manager()
 
 
-class WorkTypeRequest(HorillaModel):
+class WorkTypeRequest(JoydigiModel):
     """
     WorkTypeRequest model
     """
@@ -1478,13 +1478,13 @@ class WorkTypeRequest(HorillaModel):
     approved = models.BooleanField(default=False, verbose_name=_("Approved"))
     canceled = models.BooleanField(default=False, verbose_name=_("Canceled"))
     work_type_changed = models.BooleanField(default=False)
-    history = HorillaAuditLog(
+    history = JoydigiAuditLog(
         related_name="history_set",
         bases=[
-            HorillaAuditInfo,
+            JoydigiAuditInfo,
         ],
     )
-    objects = HorillaCompanyManager("employee_id__employee_work_info__company_id")
+    objects = JoydigiCompanyManager("employee_id__employee_work_info__company_id")
 
     class Meta:
         """
@@ -1620,7 +1620,7 @@ class WorkTypeRequest(HorillaModel):
         return False
 
     def clean(self):
-        request = getattr(horilla_middlewares._thread_locals, "request", None)
+        request = getattr(joydigi_middlewares._thread_locals, "request", None)
         if not request.user.is_superuser:
             if self.requested_date < timezone.now().date():
                 raise ValidationError(_("Date must be greater than or equal to today"))
@@ -1648,7 +1648,7 @@ class WorkTypeRequest(HorillaModel):
             {self.employee_id.employee_last_name} - {self.requested_date}"
 
 
-class WorkTypeRequestComment(HorillaModel):
+class WorkTypeRequestComment(JoydigiModel):
     """
     WorkTypeRequestComment Model
     """
@@ -1665,7 +1665,7 @@ class WorkTypeRequestComment(HorillaModel):
         return f"{self.comment}"
 
 
-class ShiftRequest(HorillaModel):
+class ShiftRequest(JoydigiModel):
     """
     ShiftRequest model
     """
@@ -1714,13 +1714,13 @@ class ShiftRequest(HorillaModel):
     approved = models.BooleanField(default=False, verbose_name=_("Approved"))
     canceled = models.BooleanField(default=False, verbose_name=_("Canceled"))
     shift_changed = models.BooleanField(default=False)
-    history = HorillaAuditLog(
+    history = JoydigiAuditLog(
         related_name="history_set",
         bases=[
-            HorillaAuditInfo,
+            JoydigiAuditInfo,
         ],
     )
-    objects = HorillaCompanyManager("employee_id__employee_work_info__company_id")
+    objects = JoydigiCompanyManager("employee_id__employee_work_info__company_id")
 
     class Meta:
         """
@@ -1769,7 +1769,7 @@ class ShiftRequest(HorillaModel):
 
     def user_availability(self):
         """
-        This method for get custom column for HorillaUser availability.
+        This method for get custom column for JoydigiUser availability.
         """
 
         return render_template(
@@ -1864,7 +1864,7 @@ class ShiftRequest(HorillaModel):
 
     def clean(self):
 
-        request = getattr(horilla_middlewares._thread_locals, "request", None)
+        request = getattr(joydigi_middlewares._thread_locals, "request", None)
         if not request.user.is_superuser:
             if not self.pk and self.requested_date < timezone.now().date():
                 raise ValidationError(_("Date must be greater than or equal to today"))
@@ -1936,7 +1936,7 @@ class ShiftRequest(HorillaModel):
             {self.employee_id.employee_last_name} - {self.requested_date}"
 
 
-class ShiftRequestComment(HorillaModel):
+class ShiftRequestComment(JoydigiModel):
     """
     ShiftRequestComment Model
     """
@@ -1953,13 +1953,13 @@ class ShiftRequestComment(HorillaModel):
         return f"{self.comment}"
 
 
-class Tags(HorillaModel):
+class Tags(JoydigiModel):
     title = models.CharField(max_length=30)
     color = models.CharField(max_length=30)
     company_id = models.ForeignKey(
         Company, null=True, editable=False, on_delete=models.PROTECT
     )
-    objects = HorillaCompanyManager(related_company_field="company_id")
+    objects = JoydigiCompanyManager(related_company_field="company_id")
 
     class Meta:
         verbose_name = _("Tag")
@@ -2010,7 +2010,7 @@ class Tags(HorillaModel):
         return url
 
 
-class HorillaMailTemplate(HorillaModel):
+class JoydigiMailTemplate(JoydigiModel):
     title = models.CharField(max_length=100, unique=True)
     body = models.TextField()
     company_id = models.ForeignKey(
@@ -2020,13 +2020,13 @@ class HorillaMailTemplate(HorillaModel):
         on_delete=models.CASCADE,
         verbose_name=_("Company"),
     )
-    objects = HorillaCompanyManager(related_company_field="company_id")
+    objects = JoydigiCompanyManager(related_company_field="company_id")
 
     def __str__(self) -> str:
         return f"{self.title}"
 
 
-class DynamicEmailConfiguration(HorillaModel):
+class DynamicEmailConfiguration(JoydigiModel):
     """
     SingletonModel to keep the mail server configurations
     """
@@ -2149,7 +2149,7 @@ CONDITION_CHOICE = [
 ]
 
 
-class MultipleApprovalCondition(HorillaModel):
+class MultipleApprovalCondition(JoydigiModel):
     """
     Multiple approve conditions
     """
@@ -2192,7 +2192,7 @@ class MultipleApprovalCondition(HorillaModel):
         on_delete=models.CASCADE,
         verbose_name=_("Company"),
     )
-    objects = HorillaCompanyManager()
+    objects = JoydigiCompanyManager()
 
     def __str__(self) -> str:
         return f"{self.condition_field} {self.condition_operator}"
@@ -2386,7 +2386,7 @@ class MultipleApprovalManagers(models.Model):
     sequence = models.IntegerField(null=False, blank=False)
     employee_id = models.IntegerField(null=True, blank=True)
     reporting_manager = models.CharField(max_length=100, null=True, blank=True)
-    objects = HorillaCompanyManager(related_company_field="condition_id__company_id")
+    objects = JoydigiCompanyManager(related_company_field="condition_id__company_id")
 
     class Meta:
         verbose_name = _("Multiple Approval Managers")
@@ -2405,7 +2405,7 @@ class DynamicPagination(models.Model):
     """
 
     user_id = models.OneToOneField(
-        HorillaUser,
+        JoydigiUser,
         on_delete=models.CASCADE,
         blank=True,
         null=True,
@@ -2445,7 +2445,7 @@ class AnnouncementExpire(models.Model):
     objects = models.Manager()
 
 
-class Announcement(HorillaModel):
+class Announcement(JoydigiModel):
     """
     Announcement Model for storing all announcements.
     """
@@ -2487,7 +2487,7 @@ class Announcement(HorillaModel):
     filtered_employees = models.ManyToManyField(
         Employee, related_name="announcement_filtered_employees", editable=False
     )
-    objects = HorillaCompanyManager(related_company_field="company_id")
+    objects = JoydigiCompanyManager(related_company_field="company_id")
 
     class Meta:
         verbose_name = _("Announcement")
@@ -2536,7 +2536,7 @@ class Announcement(HorillaModel):
         )
 
 
-class AnnouncementComment(HorillaModel):
+class AnnouncementComment(JoydigiModel):
     """
     AnnouncementComment Model
     """
@@ -2554,7 +2554,7 @@ class AnnouncementView(models.Model):
     Announcement View Model
     """
 
-    user = models.ForeignKey(HorillaUser, on_delete=models.CASCADE)
+    user = models.ForeignKey(JoydigiUser, on_delete=models.CASCADE)
     announcement = models.ForeignKey(Announcement, on_delete=models.CASCADE)
     viewed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -2629,7 +2629,7 @@ class DriverViewed(models.Model):
         ("pipeline", "pipeline"),
         ("settings", "settings"),
     ]
-    user = models.ForeignKey(HorillaUser, on_delete=models.CASCADE)
+    user = models.ForeignKey(JoydigiUser, on_delete=models.CASCADE)
     viewed = models.CharField(max_length=10, choices=choices)
 
     def user_viewed(self):
@@ -2639,7 +2639,7 @@ class DriverViewed(models.Model):
         return self.user.driverviewed_set.values_list("viewed", flat=True)
 
 
-class DashboardEmployeeCharts(HorillaModel):
+class DashboardEmployeeCharts(JoydigiModel):
     """
     dashboard employee chart
     """
@@ -2673,7 +2673,7 @@ class BiometricAttendance(models.Model):
         related_name="biometric_enabled_company",
         verbose_name=_("Company"),
     )
-    objects = HorillaCompanyManager()
+    objects = JoydigiCompanyManager()
 
     def __str__(self):
         return f"{self.is_installed}"
@@ -2711,7 +2711,7 @@ class AttendanceAllowedIP(models.Model):
     additional_data = models.JSONField(
         null=True, blank=True, default=default_additional_data
     )
-    objects = HorillaCompanyManager(related_company_field="company_id")
+    objects = JoydigiCompanyManager(related_company_field="company_id")
 
     def clean(self):
         """
@@ -2729,7 +2729,7 @@ class AttendanceAllowedIP(models.Model):
         return f"AttendanceAllowedIP ({company}) - {'enabled' if self.is_enabled else 'disabled'}"
 
 
-class TrackLateComeEarlyOut(HorillaModel):
+class TrackLateComeEarlyOut(JoydigiModel):
     is_enable = models.BooleanField(
         default=True,
         verbose_name=_("Enable"),
@@ -2743,7 +2743,7 @@ class TrackLateComeEarlyOut(HorillaModel):
         on_delete=models.CASCADE,
         verbose_name=_("Company"),
     )
-    objects = HorillaCompanyManager()
+    objects = JoydigiCompanyManager()
 
     class Meta:
         verbose_name = _("Track Late Arrival & Early Departure")
@@ -2766,7 +2766,7 @@ class TrackLateComeEarlyOut(HorillaModel):
         return super().save(*args, **kwargs)
 
 
-class Holidays(HorillaModel):
+class Holidays(JoydigiModel):
     ASSIGNING_TYPE = [
         ("department", _("Department")),
         ("job_position", _("Job Position")),
@@ -2803,7 +2803,7 @@ class Holidays(HorillaModel):
         on_delete=models.PROTECT,
         verbose_name=_("Company"),
     )
-    objects = HorillaCompanyManager(related_company_field="company_id")
+    objects = JoydigiCompanyManager(related_company_field="company_id")
 
     class Meta:
         verbose_name = _("Holiday")
@@ -2902,7 +2902,7 @@ class Holidays(HorillaModel):
         return qs
 
 
-class CompanyLeaves(HorillaModel):
+class CompanyLeaves(JoydigiModel):
     based_on_week = models.CharField(
         max_length=100,
         choices=WEEKS,
@@ -2914,7 +2914,7 @@ class CompanyLeaves(HorillaModel):
         max_length=100, choices=WEEK_DAYS, verbose_name=_("Based On Week Day")
     )
     company_id = models.ManyToManyField(Company, blank=True, verbose_name=_("Company"))
-    objects = HorillaCompanyManager()
+    objects = JoydigiCompanyManager()
 
     class Meta:
         unique_together = ("based_on_week", "based_on_week_day")
@@ -2997,7 +2997,7 @@ class CompanyLeaves(HorillaModel):
         return url
 
 
-class PenaltyAccounts(HorillaModel):
+class PenaltyAccounts(JoydigiModel):
     """
     LateComeEarlyOutPenaltyAccount
     """
@@ -3113,7 +3113,7 @@ class NotificationSound(models.Model):
     sound_enabled = models.BooleanField(default=False)
 
 
-class IntegrationApps(HorillaModel, NoPermissionModel):
+class IntegrationApps(JoydigiModel, NoPermissionModel):
     app_label = models.CharField(max_length=255)
     company = models.ForeignKey(
         "base.Company",
@@ -3135,7 +3135,7 @@ class SetupChecklistDismissal(models.Model):
     """
 
     user = models.ForeignKey(
-        HorillaUser,
+        JoydigiUser,
         on_delete=models.CASCADE,
         related_name="setup_checklist_dismissals",
     )
@@ -3158,7 +3158,7 @@ class SetupChecklistDismissal(models.Model):
         return f"{self.user} — {self.company or 'global'}"
 
 
-class DefaultExportPermission(HorillaModel):
+class DefaultExportPermission(JoydigiModel):
     """
     Per-company toggle for the "Default Export Access" setting. When
     enabled for a company, every user of that company may export data
@@ -3180,7 +3180,7 @@ class DefaultExportPermission(HorillaModel):
         return f"Default Export Access for {self.company_id} is {'enabled' if self.is_enabled else 'disabled'}"
 
 
-class CompanyLanguageSetting(HorillaModel):
+class CompanyLanguageSetting(JoydigiModel):
     """
     Per-company list of enabled languages for the navbar language switcher.
     When a company has one or more languages configured here, only those

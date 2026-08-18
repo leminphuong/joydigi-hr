@@ -26,7 +26,6 @@ postgresql://postgres:admin123@localhost:5432/joydigi_hr
 
 venv\Scripts\activate
 python manage.py migrate
-python manage.py compilemessages
 python manage.py collectstatic
 python manage.py runserver
 
@@ -38,3 +37,4 @@ Docker
 GCP Storage 
 Supportted Formats for DATABASE_URL nhiều Data
 
+d3f6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d

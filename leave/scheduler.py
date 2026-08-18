@@ -3,7 +3,7 @@ from datetime import datetime
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from horilla.signals import post_scheduler, pre_scheduler
+from joydigi.signals import post_scheduler, pre_scheduler
 
 
 def leave_reset():

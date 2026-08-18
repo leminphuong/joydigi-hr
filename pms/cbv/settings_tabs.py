@@ -10,8 +10,8 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
-from horilla_views.cbv_methods import hx_request_required, login_required
-from horilla_views.generic.cbv.views import HorillaTabView, TemplateView
+from joydigi_views.cbv_methods import hx_request_required, login_required
+from joydigi_views.generic.cbv.views import JoydigiTabView, TemplateView
 from pms.cbv.objectives import ObjectiveTemplateList, ObjectiveTemplateNav
 from pms.cbv.period import PeriodList, PeriodNav
 from pms.cbv.question_template import QuestionTemplateList, QuestionTemplateNav
@@ -35,7 +35,7 @@ class PerformanceSettingsView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class PerformanceSettingsTabView(HorillaTabView):
+class PerformanceSettingsTabView(JoydigiTabView):
     """
     tab view for performance settings
     """
@@ -133,7 +133,7 @@ class PerformanceSettingsPeriodTab(TemplateView):
 # The nav/list pairs below reuse the existing Objective Template / Question
 # Template / Period nav bars and list views as-is, only overriding the ids
 # they render (list container, bulk-select store, view id) to be unique to
-# this settings tab. This is necessary because HorillaTabView keeps every
+# this settings tab. This is necessary because JoydigiTabView keeps every
 # visited tab's content in the DOM at once (hidden via CSS, not destroyed),
 # so the originals' shared "#listContainer" / "#selectedInstances" ids would
 # silently collide across tabs the moment more than one has been opened.

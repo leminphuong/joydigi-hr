@@ -1,4 +1,4 @@
-{% load i18n horillafilters %}
+{% load i18n joydigifilters %}
 {% if instance.update_compensation %}
 {% if instance.is_fixed %}
     <span class="oh-timeoff-modal__stat-count">{{instance.amount|currency_symbol_position}} Deduct From {{instance.get_update_compensation_display}}</span>

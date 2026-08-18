@@ -14,7 +14,7 @@
       "state": "Nevada",
       "city": "Las Vegas",
       "zip": "89101",
-      "icon": "base/icon/Horilla_2.png",
+      "icon": "base/icon/Joydigi_2.png",
       "date_format": null,
       "time_format": null
     }
@@ -34,7 +34,7 @@
       "state": "Karnataka",
       "city": "Bengaluru",
       "zip": "560001",
-      "icon": "base/icon/Horilla_3.png",
+      "icon": "base/icon/Joydigi_3.png",
       "date_format": null,
       "time_format": null
     }
@@ -54,7 +54,7 @@
       "state": "England",
       "city": "London",
       "zip": "SE1 1LB",
-      "icon": "base/icon/Horilla_1.png",
+      "icon": "base/icon/Joydigi_1.png",
       "date_format": null,
       "time_format": null
     }
@@ -67,7 +67,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "department": "Engineering",
+      "department": "Kỹ thuật",
       "company_id": []
     }
   },
@@ -79,7 +79,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "department": "Sales",
+      "department": "bán hàng",
       "company_id": []
     }
   },
@@ -91,7 +91,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "department": "Human Resources",
+      "department": "Nhân sự",
       "company_id": []
     }
   },
@@ -103,7 +103,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "department": "Marketing",
+      "department": "Tiếp thị",
       "company_id": []
     }
   },
@@ -115,7 +115,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "department": "Finance",
+      "department": "Tài chính",
       "company_id": []
     }
   },
@@ -127,7 +127,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "department": "Operations",
+      "department": "Hoạt động",
       "company_id": [
         1,
         2,
@@ -143,7 +143,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Software Engineer",
+      "job_position": "Kỹ sư phần mềm",
       "department_id": 1,
       "company_id": []
     }
@@ -156,7 +156,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Backend Engineer",
+      "job_position": "Kỹ sư phụ trợ",
       "department_id": 1,
       "company_id": []
     }
@@ -169,7 +169,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Sales Associate",
+      "job_position": "Cộng tác viên bán hàng",
       "department_id": 2,
       "company_id": []
     }
@@ -182,7 +182,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Training and Development Coordinator",
+      "job_position": "Điều phối viên đào tạo và phát triển",
       "department_id": 3,
       "company_id": []
     }
@@ -195,7 +195,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Compensation and Benefits Specialist",
+      "job_position": "Chuyên gia bồi thường và phúc lợi",
       "department_id": 3,
       "company_id": []
     }
@@ -208,7 +208,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Recruiter",
+      "job_position": "Nhà tuyển dụng",
       "department_id": 3,
       "company_id": []
     }
@@ -221,7 +221,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Marketing Specialist",
+      "job_position": "Chuyên gia tiếp thị",
       "department_id": 4,
       "company_id": []
     }
@@ -234,7 +234,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Digital Marketing Specialist",
+      "job_position": "Chuyên gia tiếp thị kỹ thuật số",
       "department_id": 4,
       "company_id": []
     }
@@ -247,7 +247,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Content Creator",
+      "job_position": "Người sáng tạo nội dung",
       "department_id": 4,
       "company_id": []
     }
@@ -260,7 +260,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Social Media Coordinator",
+      "job_position": "Điều phối viên truyền thông xã hội",
       "department_id": 4,
       "company_id": []
     }
@@ -273,7 +273,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Chief Financial Officer",
+      "job_position": "Giám đốc tài chính",
       "department_id": 5,
       "company_id": []
     }
@@ -286,7 +286,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Financial Analyst",
+      "job_position": "Nhà phân tích tài chính",
       "department_id": 5,
       "company_id": []
     }
@@ -299,7 +299,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Accounts Payable Clerk",
+      "job_position": "Thư ký tài khoản phải trả",
       "department_id": 5,
       "company_id": []
     }
@@ -312,7 +312,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Tax Accountant",
+      "job_position": "Kế toán thuế",
       "department_id": 5,
       "company_id": []
     }
@@ -325,7 +325,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "System Administrator",
+      "job_position": "Quản trị viên hệ thống",
       "department_id": 1,
       "company_id": []
     }
@@ -338,7 +338,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Frontend Engineer",
+      "job_position": "Kỹ sư giao diện người dùng",
       "department_id": 1,
       "company_id": []
     }
@@ -351,7 +351,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Mobile Engineer",
+      "job_position": "Kỹ sư di động",
       "department_id": 1,
       "company_id": []
     }
@@ -364,7 +364,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Sales Representative",
+      "job_position": "Đại diện bán hàng",
       "department_id": 2,
       "company_id": []
     }
@@ -377,7 +377,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Sales Manager",
+      "job_position": "Giám đốc bán hàng",
       "department_id": 2,
       "company_id": []
     }
@@ -390,7 +390,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Business Development Manager",
+      "job_position": "Giám đốc phát triển kinh doanh",
       "department_id": 2,
       "company_id": []
     }
@@ -403,7 +403,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Field Sales Executive",
+      "job_position": "Nhân viên kinh doanh hiện trường",
       "department_id": 2,
       "company_id": []
     }
@@ -416,7 +416,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "HR Manager",
+      "job_position": "Giám đốc nhân sự",
       "department_id": 3,
       "company_id": []
     }
@@ -429,7 +429,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "HR Business Partner",
+      "job_position": "Đối tác kinh doanh nhân sự",
       "department_id": 3,
       "company_id": []
     }
@@ -442,7 +442,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "job_position": "Senior Manager",
+      "job_position": "Quản lý cấp cao",
       "department_id": 6,
       "company_id": []
     }
@@ -456,7 +456,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 1,
-      "job_role": "Junior Software Engineer",
+      "job_role": "Kỹ sư phần mềm trẻ",
       "company_id": []
     }
   },
@@ -469,7 +469,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 2,
-      "job_role": "Junior Backend Engineer",
+      "job_role": "Kỹ sư phụ trợ cơ sở",
       "company_id": []
     }
   },
@@ -482,7 +482,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 3,
-      "job_role": "Intern",
+      "job_role": "Thực tập sinh",
       "company_id": []
     }
   },
@@ -495,7 +495,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 3,
-      "job_role": "Sales Manager",
+      "job_role": "Giám đốc bán hàng",
       "company_id": []
     }
   },
@@ -508,7 +508,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 3,
-      "job_role": "Trainer",
+      "job_role": "huấn luyện viên",
       "company_id": []
     }
   },
@@ -521,7 +521,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 4,
-      "job_role": "Hr Manager",
+      "job_role": "Người quản lý nhân sự",
       "company_id": []
     }
   },
@@ -534,7 +534,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 5,
-      "job_role": "Junior Manager",
+      "job_role": "Quản lý cấp dưới",
       "company_id": []
     }
   },
@@ -547,7 +547,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 6,
-      "job_role": "Junior Manager",
+      "job_role": "Quản lý cấp dưới",
       "company_id": []
     }
   },
@@ -560,7 +560,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 6,
-      "job_role": "Hr Intern",
+      "job_role": "Thực tập sinh nhân sự",
       "company_id": []
     }
   },
@@ -573,7 +573,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 5,
-      "job_role": "Hr Intern",
+      "job_role": "Thực tập sinh nhân sự",
       "company_id": []
     }
   },
@@ -586,7 +586,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 7,
-      "job_role": "Marketing Manager",
+      "job_role": "Giám đốc tiếp thị",
       "company_id": []
     }
   },
@@ -599,7 +599,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 8,
-      "job_role": "Marketing Researcher",
+      "job_role": "Nhà nghiên cứu tiếp thị",
       "company_id": []
     }
   },
@@ -612,7 +612,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 9,
-      "job_role": "Intern",
+      "job_role": "Thực tập sinh",
       "company_id": []
     }
   },
@@ -625,7 +625,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 10,
-      "job_role": "Intern",
+      "job_role": "Thực tập sinh",
       "company_id": []
     }
   },
@@ -638,7 +638,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 11,
-      "job_role": "Finance Manager",
+      "job_role": "Giám đốc tài chính",
       "company_id": []
     }
   },
@@ -651,7 +651,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 12,
-      "job_role": "Trainer",
+      "job_role": "huấn luyện viên",
       "company_id": []
     }
   },
@@ -664,7 +664,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 13,
-      "job_role": "Marketing Executive",
+      "job_role": "Nhân viên tiếp thị",
       "company_id": []
     }
   },
@@ -677,7 +677,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 14,
-      "job_role": "Marketing Executive",
+      "job_role": "Nhân viên tiếp thị",
       "company_id": []
     }
   },
@@ -690,7 +690,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 15,
-      "job_role": "System engineer",
+      "job_role": "Kỹ sư hệ thống",
       "company_id": []
     }
   },
@@ -703,7 +703,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 15,
-      "job_role": "Maintenance Head",
+      "job_role": "Trưởng phòng bảo trì",
       "company_id": []
     }
   },
@@ -716,7 +716,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 16,
-      "job_role": "Intern",
+      "job_role": "Thực tập sinh",
       "company_id": []
     }
   },
@@ -729,7 +729,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 16,
-      "job_role": "Trainer",
+      "job_role": "huấn luyện viên",
       "company_id": []
     }
   },
@@ -742,7 +742,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 16,
-      "job_role": "Team Lead",
+      "job_role": "Trưởng nhóm",
       "company_id": []
     }
   },
@@ -755,7 +755,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 17,
-      "job_role": "Team Lead",
+      "job_role": "Trưởng nhóm",
       "company_id": []
     }
   },
@@ -768,7 +768,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 16,
-      "job_role": "Frontend Engineer",
+      "job_role": "Kỹ sư giao diện người dùng",
       "company_id": []
     }
   },
@@ -781,7 +781,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 17,
-      "job_role": "Project Manager",
+      "job_role": "Người quản lý dự án",
       "company_id": []
     }
   },
@@ -794,7 +794,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 16,
-      "job_role": "Senior Dev",
+      "job_role": "Nhà phát triển cao cấp",
       "company_id": []
     }
   },
@@ -807,7 +807,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 17,
-      "job_role": "Senior Dev",
+      "job_role": "Nhà phát triển cao cấp",
       "company_id": []
     }
   },
@@ -820,7 +820,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 15,
-      "job_role": "Intern",
+      "job_role": "Thực tập sinh",
       "company_id": []
     }
   },
@@ -833,7 +833,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 1,
-      "job_role": "Senior Dev",
+      "job_role": "Nhà phát triển cao cấp",
       "company_id": []
     }
   },
@@ -846,7 +846,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 2,
-      "job_role": "Senior Dev",
+      "job_role": "Nhà phát triển cao cấp",
       "company_id": []
     }
   },
@@ -859,7 +859,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 2,
-      "job_role": "intern",
+      "job_role": "thực tập sinh",
       "company_id": []
     }
   },
@@ -872,7 +872,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 4,
-      "job_role": "trainer",
+      "job_role": "huấn luyện viên",
       "company_id": []
     }
   },
@@ -885,7 +885,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 18,
-      "job_role": "Senior",
+      "job_role": "cao cấp",
       "company_id": []
     }
   },
@@ -898,7 +898,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 19,
-      "job_role": "Senior",
+      "job_role": "cao cấp",
       "company_id": []
     }
   },
@@ -911,7 +911,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 20,
-      "job_role": "Senior",
+      "job_role": "cao cấp",
       "company_id": []
     }
   },
@@ -924,7 +924,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 21,
-      "job_role": "Senior",
+      "job_role": "cao cấp",
       "company_id": []
     }
   },
@@ -937,7 +937,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 22,
-      "job_role": "Senior",
+      "job_role": "cao cấp",
       "company_id": []
     }
   },
@@ -950,7 +950,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 23,
-      "job_role": "Senior",
+      "job_role": "cao cấp",
       "company_id": []
     }
   },
@@ -963,7 +963,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 18,
-      "job_role": "Junior",
+      "job_role": "Thiếu niên",
       "company_id": []
     }
   },
@@ -976,7 +976,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 19,
-      "job_role": "Junior",
+      "job_role": "Thiếu niên",
       "company_id": []
     }
   },
@@ -989,7 +989,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 20,
-      "job_role": "Junior",
+      "job_role": "Thiếu niên",
       "company_id": []
     }
   },
@@ -1002,7 +1002,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 21,
-      "job_role": "Junior",
+      "job_role": "Thiếu niên",
       "company_id": []
     }
   },
@@ -1015,7 +1015,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 22,
-      "job_role": "Junior",
+      "job_role": "Thiếu niên",
       "company_id": []
     }
   },
@@ -1028,7 +1028,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 23,
-      "job_role": "Junior",
+      "job_role": "Thiếu niên",
       "company_id": []
     }
   },
@@ -1041,7 +1041,7 @@
       "modified_by": 1,
       "is_active": true,
       "job_position_id": 24,
-      "job_role": "Senior",
+      "job_role": "cao cấp",
       "company_id": []
     }
   },
@@ -1053,7 +1053,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "work_type": "Work From Office",
+      "work_type": "Làm việc từ văn phòng",
       "company_id": []
     }
   },
@@ -1065,7 +1065,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "work_type": "Work From Home",
+      "work_type": "Làm việc tại nhà",
       "company_id": []
     }
   },
@@ -1077,7 +1077,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "work_type": "Hybrid",
+      "work_type": "lai",
       "company_id": []
     }
   },
@@ -1089,7 +1089,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "work_type": "Remote",
+      "work_type": "Từ xa",
       "company_id": []
     }
   },
@@ -1101,7 +1101,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "name": "WFH to WFO",
+      "name": "WFH sang WFO",
       "work_type1": 2,
       "work_type2": 1,
       "additional_data": {}
@@ -1115,7 +1115,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "name": "WFO to WFH",
+      "name": "WFO sang WFH",
       "work_type1": 1,
       "work_type2": 2,
       "additional_data": {}
@@ -1585,7 +1585,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "employee_type": "Permanent",
+      "employee_type": "vĩnh viễn",
       "company_id": []
     }
   },
@@ -1597,7 +1597,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "employee_type": "Temporary",
+      "employee_type": "Tạm thời",
       "company_id": []
     }
   },
@@ -1609,7 +1609,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "employee_type": "Trainee",
+      "employee_type": "Thực tập sinh",
       "company_id": []
     }
   },
@@ -1677,7 +1677,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "employee_shift": "Regular Shift",
+      "employee_shift": "Ca thường xuyên",
       "weekly_full_time": "40:00",
       "full_time": "200:00",
       "company_id": []
@@ -1691,7 +1691,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "employee_shift": "Night Shift",
+      "employee_shift": "ca đêm",
       "weekly_full_time": "40:00",
       "full_time": "200:00",
       "company_id": []
@@ -1705,7 +1705,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "employee_shift": "Morning Shift",
+      "employee_shift": "Ca sáng",
       "weekly_full_time": "40:00",
       "full_time": "200:00",
       "company_id": []
@@ -2023,7 +2023,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "name": "Morning to Night",
+      "name": "Sáng đến tối",
       "shift1": 3,
       "shift2": 2,
       "additional_data": {}
@@ -2037,7 +2037,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "name": "Night to Morning",
+      "name": "Đêm đến sáng",
       "shift1": 2,
       "shift2": 3,
       "additional_data": {}
@@ -2286,7 +2286,7 @@
       "previous_work_type_id": null,
       "requested_date": "2025-07-01",
       "requested_till": "2025-07-30",
-      "description": "need work from home for a month",
+      "description": "cần làm việc tại nhà trong một tháng",
       "is_permanent_work_type": false,
       "approved": false,
       "canceled": false,
@@ -2306,7 +2306,7 @@
       "previous_work_type_id": null,
       "requested_date": "2025-07-10",
       "requested_till": "2025-07-15",
-      "description": "requesting for work from home",
+      "description": "yêu cầu làm việc ở nhà",
       "is_permanent_work_type": false,
       "approved": false,
       "canceled": false,
@@ -2326,7 +2326,7 @@
       "previous_work_type_id": null,
       "requested_date": "2025-07-01",
       "requested_till": "2025-07-10",
-      "description": "need a work type change",
+      "description": "cần thay đổi loại công việc",
       "is_permanent_work_type": false,
       "approved": false,
       "canceled": false,
@@ -2346,7 +2346,7 @@
       "previous_work_type_id": null,
       "requested_date": "2025-07-04",
       "requested_till": "2025-07-15",
-      "description": "requesting for work from home",
+      "description": "yêu cầu làm việc ở nhà",
       "is_permanent_work_type": false,
       "approved": false,
       "canceled": false,
@@ -2366,7 +2366,7 @@
       "previous_work_type_id": null,
       "requested_date": "2025-07-01",
       "requested_till": "2025-07-30",
-      "description": "remote work type for a month",
+      "description": "kiểu làm việc từ xa trong một tháng",
       "is_permanent_work_type": false,
       "approved": false,
       "canceled": false,
@@ -2387,7 +2387,7 @@
       "reallocate_approved": false,
       "reallocate_canceled": false,
       "requested_till": "2025-07-29",
-      "description": "shift change (copy)",
+      "description": "thay đổi ca (bản sao)",
       "is_permanent_shift": false,
       "approved": false,
       "canceled": false,
@@ -2420,7 +2420,7 @@
       "reallocate_approved": false,
       "reallocate_canceled": false,
       "requested_till": "2025-07-29",
-      "description": "shift change (copy) (copy)",
+      "description": "thay đổi ca (bản sao) (bản sao)",
       "is_permanent_shift": false,
       "approved": false,
       "canceled": false,
@@ -2453,7 +2453,7 @@
       "reallocate_approved": false,
       "reallocate_canceled": false,
       "requested_till": "2025-07-29",
-      "description": "shift change (copy) (copy) (copy)",
+      "description": "thay đổi ca (bản sao) (bản sao) (bản sao)",
       "is_permanent_shift": false,
       "approved": false,
       "canceled": false,
@@ -2486,7 +2486,7 @@
       "reallocate_approved": false,
       "reallocate_canceled": false,
       "requested_till": "2025-07-29",
-      "description": "shift change (copy) (copy) (copy) (copy)",
+      "description": "thay đổi ca (bản sao) (bản sao) (bản sao) (bản sao)",
       "is_permanent_shift": false,
       "approved": false,
       "canceled": false,
@@ -2521,7 +2521,7 @@
       "reallocate_approved": false,
       "reallocate_canceled": false,
       "requested_till": "2025-07-28",
-      "description": "need a shift change",
+      "description": "cần thay đổi ca",
       "is_permanent_shift": false,
       "approved": false,
       "canceled": false,
@@ -2544,7 +2544,7 @@
       "reallocate_approved": false,
       "reallocate_canceled": false,
       "requested_till": "2025-07-18",
-      "description": "need night shift",
+      "description": "cần ca đêm",
       "is_permanent_shift": false,
       "approved": true,
       "canceled": false,
@@ -2567,7 +2567,7 @@
       "reallocate_approved": false,
       "reallocate_canceled": false,
       "requested_till": "2025-07-29",
-      "description": "shift change",
+      "description": "thay đổi ca",
       "is_permanent_shift": false,
       "approved": true,
       "canceled": false,
@@ -2590,7 +2590,7 @@
       "reallocate_approved": false,
       "reallocate_canceled": false,
       "requested_till": "2025-07-22",
-      "description": "shift change",
+      "description": "thay đổi ca",
       "is_permanent_shift": false,
       "approved": false,
       "canceled": true,
@@ -2613,7 +2613,7 @@
       "reallocate_approved": false,
       "reallocate_canceled": false,
       "requested_till": "2025-07-22",
-      "description": "shift change",
+      "description": "thay đổi ca",
       "is_permanent_shift": false,
       "approved": false,
       "canceled": false,
@@ -2636,7 +2636,7 @@
       "reallocate_approved": false,
       "reallocate_canceled": false,
       "requested_till": "2025-07-30",
-      "description": "shift change",
+      "description": "thay đổi ca",
       "is_permanent_shift": false,
       "approved": false,
       "canceled": false,
@@ -2659,7 +2659,7 @@
       "reallocate_approved": false,
       "reallocate_canceled": false,
       "requested_till": "2025-07-29",
-      "description": "shift change (copy)",
+      "description": "thay đổi ca (bản sao)",
       "is_permanent_shift": false,
       "approved": false,
       "canceled": false,
@@ -2682,7 +2682,7 @@
       "reallocate_approved": false,
       "reallocate_canceled": false,
       "requested_till": "2025-07-29",
-      "description": "shift change (copy) (copy)",
+      "description": "thay đổi ca (bản sao) (bản sao)",
       "is_permanent_shift": false,
       "approved": false,
       "canceled": false,
@@ -2705,7 +2705,7 @@
       "reallocate_approved": false,
       "reallocate_canceled": false,
       "requested_till": "2025-07-29",
-      "description": "shift change (copy) (copy) (copy)",
+      "description": "thay đổi ca (bản sao) (bản sao) (bản sao)",
       "is_permanent_shift": false,
       "approved": false,
       "canceled": false,
@@ -2728,7 +2728,7 @@
       "reallocate_approved": false,
       "reallocate_canceled": false,
       "requested_till": "2025-07-29",
-      "description": "shift change (copy) (copy) (copy) (copy)",
+      "description": "thay đổi ca (bản sao) (bản sao) (bản sao) (bản sao)",
       "is_permanent_shift": false,
       "approved": false,
       "canceled": false,
@@ -2743,7 +2743,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "FAQ",
+      "title": "Câu hỏi thường gặp",
       "color": "#949494",
       "company_id": null
     }
@@ -2756,7 +2756,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Recruitment",
+      "title": "tuyển dụng",
       "color": "#fb8787",
       "company_id": null
     }
@@ -2769,7 +2769,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Payroll",
+      "title": "Bảng lương",
       "color": "#a16879",
       "company_id": null
     }
@@ -2782,7 +2782,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Attendance",
+      "title": "Tham dự",
       "color": "#afbcee",
       "company_id": null
     }
@@ -2795,7 +2795,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Employee",
+      "title": "nhân viên",
       "color": "#806d8d",
       "company_id": null
     }
@@ -2808,7 +2808,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Leave",
+      "title": "Rời khỏi",
       "color": "#66cffd",
       "company_id": null
     }
@@ -2821,7 +2821,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Biometric",
+      "title": "sinh trắc học",
       "color": "#e35959",
       "company_id": null
     }
@@ -2834,7 +2834,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Asset",
+      "title": "Tài sản",
       "color": "#4cbdef",
       "company_id": null
     }
@@ -2847,7 +2847,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Dashboard",
+      "title": "Trang tổng quan",
       "color": "#8a8585",
       "company_id": null
     }
@@ -2860,7 +2860,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Import",
+      "title": "Nhập khẩu",
       "color": "#1dc56e",
       "company_id": null
     }
@@ -2873,7 +2873,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Export",
+      "title": "Xuất khẩu",
       "color": "#70a5eb",
       "company_id": null
     }
@@ -2886,7 +2886,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Request",
+      "title": "Yêu cầu",
       "color": "#bec30c",
       "company_id": null
     }
@@ -2899,7 +2899,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Allocation",
+      "title": "Phân bổ",
       "color": "#046d88;",
       "company_id": null
     }
@@ -2912,7 +2912,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Stage",
+      "title": "Sân khấu",
       "color": "#b8a5fa;",
       "company_id": null
     }
@@ -2925,7 +2925,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Manager",
+      "title": "Người quản lý",
       "color": "#00b2ba",
       "company_id": null
     }
@@ -2938,7 +2938,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Pipeline",
+      "title": "Đường ống",
       "color": "#843787",
       "company_id": null
     }
@@ -2951,7 +2951,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Resume",
+      "title": "Tiếp tục",
       "color": "#63a189",
       "company_id": null
     }
@@ -2964,7 +2964,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Skill Zone",
+      "title": "Vùng kỹ năng",
       "color": "#f4b74e",
       "company_id": null
     }
@@ -2977,7 +2977,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Interview",
+      "title": "Phỏng vấn",
       "color": "#f5dcb3",
       "company_id": null
     }
@@ -2990,7 +2990,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Candidate",
+      "title": "ứng viên",
       "color": "#b2e1f5",
       "company_id": null
     }
@@ -3081,7 +3081,7 @@
       "created_by": null,
       "modified_by": null,
       "is_active": true,
-      "name": "New Year's Day",
+      "name": "ngày đầu năm mới",
       "start_date": "2025-01-01",
       "end_date": "2025-01-01",
       "recurring": false,
@@ -3096,7 +3096,7 @@
       "created_by": null,
       "modified_by": null,
       "is_active": true,
-      "name": "Good Friday",
+      "name": "Thứ Sáu Tuần Thánh",
       "start_date": "2025-04-18",
       "end_date": "2025-04-18",
       "recurring": false,
@@ -3111,7 +3111,7 @@
       "created_by": null,
       "modified_by": null,
       "is_active": true,
-      "name": "Easter Monday",
+      "name": "Thứ Hai Phục Sinh",
       "start_date": "2025-04-21",
       "end_date": "2025-04-21",
       "recurring": false,
@@ -3126,7 +3126,7 @@
       "created_by": null,
       "modified_by": null,
       "is_active": true,
-      "name": "Founders' Day",
+      "name": "Ngày sáng lập",
       "start_date": "2025-06-01",
       "end_date": "2025-06-01",
       "recurring": false,
@@ -3171,7 +3171,7 @@
       "created_by": null,
       "modified_by": null,
       "is_active": true,
-      "name": "Labor Day",
+      "name": "ngày lao động",
       "start_date": "2025-05-01",
       "end_date": "2025-05-01",
       "recurring": false,
@@ -3186,7 +3186,7 @@
       "created_by": null,
       "modified_by": null,
       "is_active": true,
-      "name": "World Health Day",
+      "name": "Ngày sức khỏe thế giới",
       "start_date": "2025-04-07",
       "end_date": "2025-04-07",
       "recurring": false,
@@ -3201,7 +3201,7 @@
       "created_by": null,
       "modified_by": null,
       "is_active": true,
-      "name": "United Nations Day",
+      "name": "Ngày Liên hợp quốc",
       "start_date": "2025-10-24",
       "end_date": "2025-10-24",
       "recurring": false,
@@ -3216,7 +3216,7 @@
       "created_by": null,
       "modified_by": null,
       "is_active": true,
-      "name": "Children's Day",
+      "name": "Ngày thiếu nhi",
       "start_date": "2025-11-20",
       "end_date": "2025-11-20",
       "recurring": false,
@@ -3231,7 +3231,7 @@
       "created_by": null,
       "modified_by": null,
       "is_active": true,
-      "name": "Christmas",
+      "name": "giáng sinh",
       "start_date": "2025-12-25",
       "end_date": "2025-12-25",
       "recurring": false,
@@ -3295,28 +3295,28 @@
     }
   },
   {
-    "model": "base.horillamailtemplate",
+    "model": "base.joydigimailtemplate",
     "pk": 1,
     "fields": {
       "created_at": "2025-07-05T09:39:13.733Z",
       "created_by": null,
       "modified_by": null,
       "is_active": true,
-      "title": "Offer letter",
-      "body": "<p style=\"font-size: 12.8px; text-align: center;\"><span style=\"font-weight: bolder;\"><span style=\"font-family: &quot;Courier New&quot;; font-size: 24px;\">Congratulations! Job Offer at {{instance.get_company}}</span></span></p><p style=\"font-size: 12.8px;\">username:{{instance.get_email}}</p><p style=\"font-size: 12.8px;\">password:{{instance.phone}}</p><p style=\"font-size: 12.8px;\"><i><span style=\"font-size: 14px;\">Dear {{instance.get_full_name}},</span></i></p><p style=\"font-size: 12.8px;\">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; I am delighted to extend an official offer of employment to you for the position of [Job Title] at [Company Name]. We were thoroughly impressed with your skills, experience, and the passion you demonstrated during the interview process.</p><p style=\"font-size: 12.8px;\"><span style=\"font-size: 12.8px;\">Here are the details of your job offer:&nbsp;</span></p><p style=\"font-size: 12.8px;\"><span style=\"font-size: 12.8px;\">&nbsp; &nbsp; Job Position: {{instance.get_job_position}}</span></p><p style=\"font-size: 12.8px;\"><span style=\"font-size: 12.8px;\">We believe that your unique talents will make a significant contribution to our team, and we are thrilled about the prospect of you joining us. Please take the time to review the attached detailed job description, as well as the terms and conditions outlined in the employment contract.</span><br></p><p style=\"font-size: 12.8px;\"><span style=\"font-size: 12.8px;\">To signify your acceptance of this job offer, please confirm your agreement by [Date to Respond]. If you have any questions or need further clarification, feel free to contact me directly</span><br></p><p style=\"font-size: 12.8px;\"><span style=\"font-size: 12.8px;\">We are excited about the value you will bring to [Company Name], and we eagerly anticipate the positive impact you'll have on our team.</span><br></p><p style=\"font-size: 12.8px;\"><span style=\"font-size: 12.8px;\">Welcome aboard, and we look forward to a successful and fulfilling working relationship!</span><br></p><p style=\"font-size: 12.8px;\"><span style=\"font-size: 12.8px;\">Warm regards,</span></p>",
+      "title": "Thư mời",
+      "body": "<p style=\"font-size: 12.8px; text-align: center;\"><span style=\"font-weight: bolder;\"><span style=\"font-family: &quot;Courier New&quot;; font-size: 24px;\">Xin chúc mừng! Lời mời làm việc tại {{instance.get_company}}</span></span></p><p style=\"font-size: 12.8px;\">Tên người dùng:{{instance.get_email}}ZXQPH00000 009ZXQ<p style=\"font-size: 12.8px;\">mật khẩu:{{instance.phone}}</p><p style=\"font-size: 12.8px;\"><i><span style=\"font-size: 14px;\">Dear {{instance.get_full_name}},</span></i>ZXQPH000000019ZXQ<p style=\"font-size: 12.8px;\">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Tôi rất vui mừng được gửi lời mời làm việc chính thức tới bạn cho vị trí [Job Title] tại [Company Name]. Chúng tôi thực sự ấn tượng với kỹ năng, kinh nghiệm và niềm đam mê mà bạn thể hiện trong quá trình phỏng vấn.</p><p style=\"font-size: 12.8px;\"><span style=\"font-size: 12.8px;\">Dưới đây là chi tiết về công việc của bạn ưu đãi:&nbsp;</span></p><p style=\"font-size: 12.8px;\"><span style=\"font-size: 12.8px;\">&nbsp; &nbsp; Vị trí công việc: {{instance.get_job_position}}</span></p><p style=\"font-size: 12.8px;\"><span style=\"font-size: 12.8px;\">Chúng tôi tin rằng tài năng độc đáo của bạn sẽ đóng góp đáng kể cho nhóm của chúng tôi và chúng tôi rất vui mừng về viễn cảnh bạn tham gia cùng chúng tôi. Vui lòng dành thời gian để xem lại mô tả công việc chi tiết đính kèm, cũng như các điều khoản và điều kiện được nêu trong hợp đồng lao động.</span><br></p><p style=\"font-size: 12.8px;\"><span style=\"font-size: 12.8px;\">TĐể biểu thị sự chấp nhận của bạn với lời mời làm việc này, vui lòng xác nhận sự đồng ý của bạn bằng cách [Date to Respond]. Nếu bạn có bất kỳ câu hỏi nào hoặc cần làm rõ thêm, vui lòng liên hệ trực tiếp với tôi</span><br></p><p style=\"font-size: 12.8px;\"><span style=\"font-size: 12.8px;\">Chúng tôi rất vui mừng về giá trị bạn sẽ mang lại cho [Company Name], và chúng tôi háo hức dự đoán tác động tích cực mà bạn sẽ tạo ra đối với nhóm của chúng tôi.</span><br></p><p style=\"font-size: 12.8px;\"><span style=\"font-size: 12.8px;\">Chào mừng bạn tham gia và chúng tôi mong đợi một công việc thành công và trọn vẹn mối quan hệ!</span><br></p>ZXQPH000000084ZXQ<span style=\"font-size: 12.8px;\">Trân trọng,</span></p>",
       "company_id": null
     }
   },
   {
-    "model": "base.horillamailtemplate",
+    "model": "base.joydigimailtemplate",
     "pk": 2,
     "fields": {
       "created_at": "2025-07-12T10:23:52.188Z",
       "created_by": 1,
       "modified_by": 1,
       "is_active": false,
-      "title": "Leave Request Mail",
-      "body": "<p>Dear,</p><p>This is to inform you that {{ model_instance.employee_id }} has submitted a leave request for {{model_instance.requested_days}} days. Please take the necessary actions to review and process the request at your earliest convenience.<br><br>If you require any additional information or updates, feel free to communicate directly with {{ model_instance.employee_id }}.<br><br>Thank you for your prompt attention to this matter.</p>",
+      "title": "Để lại thư yêu cầu",
+      "body": "<p>Dear,</p><p>Điều này nhằm thông báo cho bạn rằng {{ model_instance.employee_id }} đã gửi yêu cầu nghỉ phép trong {{model_instance.requested_days}} ngày. Vui lòng thực hiện các hành động cần thiết để xem xét và xử lý yêu cầu trong thời gian sớm nhất có thể.<br><br>Nếu bạn cần bất kỳ thông tin hoặc cập nhật bổ sung nào, vui lòng liên hệ trực tiếp với {{ model_instance.employee_id }}.<br><br>Cảm ơn bạn đã nhanh chóng quan tâm đến vấn đề này vấn đề.</p>",
       "company_id": 1
     }
   },
@@ -3328,8 +3328,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Q2 Performance Highlights — Thank You, Team!",
-      "description": "<p><strong>Dear Team,</strong></p><p>We are pleased to share strong quarterly results across all companies. Thank you for your dedication and collaboration.</p><p><em>— The Leadership Team</em></p>",
+      "title": "Điểm nổi bật về hiệu suất trong quý 2 - Cảm ơn nhóm!",
+      "description": "<p><strong>D Đội ngũ thân yêu,</strong></p><p>Chúng tôi rất vui được chia sẻ kết quả hàng quý tốt đẹp trên tất cả các công ty. Cảm ơn sự cống hiến và hợp tác của bạn.</p><p><em>— Nhóm Lãnh đạo</em></p>",
       "expire_date": "2025-08-31",
       "disable_comments": false,
       "attachments": [],
@@ -3346,8 +3346,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Mid-Year Performance Reviews — Schedule Now Open",
-      "description": "<p>Mid-year performance reviews are now open. Please complete self-assessments and schedule 1-on-1 discussions with your manager.</p>",
+      "title": "Đánh giá hiệu suất giữa năm - Lên lịch ngay bây giờ",
+      "description": "<p>Đánh giá hiệu suất giữa năm hiện đang mở. Vui lòng hoàn thành phần tự đánh giá và lên lịch thảo luận 1-1 với người quản lý của bạn.</p>",
       "expire_date": "2025-07-28",
       "disable_comments": false,
       "attachments": [],
@@ -3364,8 +3364,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Annual Leave Encashment — Submit Before Deadline",
-      "description": "<p><strong>From: Human Resources</strong></p><p>Unused annual leave encashment requests must be submitted before the published deadline. Apply via Leave → Leave Request.</p>",
+      "title": "Tiền mặt nghỉ phép hàng năm - Gửi trước thời hạn",
+      "description": "<p><strong>Từ: Nhân sự</strong></p><p>Các yêu cầu đổi tiền mặt nghỉ phép hàng năm chưa sử dụng phải được gửi trước thời hạn công bố. Đăng ký qua Nghỉ phép → Yêu cầu nghỉ phép.</p>",
       "expire_date": "2025-07-15",
       "disable_comments": false,
       "attachments": [],
@@ -3382,8 +3382,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Mandatory Cybersecurity Awareness Training",
-      "description": "<p>All employees must complete cybersecurity awareness training by the published deadline. Topics include phishing, password hygiene, MFA, and incident reporting.</p>",
+      "title": "Đào tạo nâng cao nhận thức về an ninh mạng bắt buộc",
+      "description": "<p>Tất cả nhân viên phải hoàn thành khóa đào tạo nâng cao nhận thức về an ninh mạng trước thời hạn đã công bố. Các chủ đề bao gồm lừa đảo, vệ sinh mật khẩu, MFA và báo cáo sự cố.</p>",
       "expire_date": "2025-07-20",
       "disable_comments": true,
       "attachments": [],
@@ -3400,8 +3400,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Employee of the Month",
-      "description": "<p>We are delighted to recognize outstanding contributions across Engineering and other departments.</p>",
+      "title": "Nhân viên của tháng",
+      "description": "<p>Chúng tôi rất vui mừng được ghi nhận những đóng góp xuất sắc của bộ phận Kỹ thuật và các bộ phận khác.</p>",
       "expire_date": "2025-07-31",
       "disable_comments": false,
       "attachments": [],
@@ -3418,8 +3418,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Updated Work-From-Home Policy",
-      "description": "<p>The remote work policy has been updated. Engineering &amp; Finance may take up to 3 WFH days per week; Sales, Marketing &amp; HR up to 2. Wednesday remains the in-office anchor day.</p>",
+      "title": "Chính sách làm việc tại nhà đã cập nhật",
+      "description": "<p>Chính sách làm việc từ xa đã được cập nhật. Kỹ thuật &amp; Finance có thể mất tới 3 ngày WFH mỗi tuần; Bán hàng, Tiếp thị &amp; HR lên tới 2. Thứ Tư vẫn là ngày cố định tại văn phòng.</p>",
       "expire_date": "2025-08-31",
       "disable_comments": false,
       "attachments": [],
@@ -3436,8 +3436,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Compensation Review Cycle",
-      "description": "<p>The compensation review cycle is underway. Updated letters will appear under Profile → Documents when available. Compensation details are confidential.</p>",
+      "title": "Chu kỳ xem xét bồi thường",
+      "description": "<p>Chu kỳ xem xét bồi thường đang được tiến hành. Các chữ cái cập nhật sẽ xuất hiện trong Hồ sơ → Tài liệu khi có sẵn. Chi tiết bồi thường được giữ bí mật.</p>",
       "expire_date": "2025-07-31",
       "disable_comments": true,
       "attachments": [],
@@ -3454,8 +3454,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Company Family Day",
-      "description": "<p>Join us for Company Family Day. Guests, meals, and activities details will be shared by HR. Please register in advance.</p>",
+      "title": "Ngày gia đình công ty",
+      "description": "<p>Hãy tham gia cùng chúng tôi trong Ngày gia đình công ty. Thông tin chi tiết về khách, bữa ăn và hoạt động sẽ được bộ phận nhân sự chia sẻ. Vui lòng đăng ký trước.</p>",
       "expire_date": "2025-07-26",
       "disable_comments": false,
       "attachments": [],
@@ -3472,8 +3472,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Scheduled IT Infrastructure Maintenance",
-      "description": "<p><strong>From: IT Department</strong></p><p>A planned infrastructure maintenance window will run this weekend. Internal systems may be briefly unavailable overnight.</p>",
+      "title": "Bảo trì cơ sở hạ tầng CNTT theo lịch trình",
+      "description": "<p><strong>Từ: Phòng CNTT</strong></p><p>A cửa sổ bảo trì cơ sở hạ tầng theo kế hoạch sẽ diễn ra vào cuối tuần này. Hệ thống nội bộ có thể không hoạt động trong thời gian ngắn qua đêm.</p>",
       "expire_date": "2025-07-15",
       "disable_comments": true,
       "attachments": [],
@@ -3490,8 +3490,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Employee Referral Program — Earn Referral Bonuses",
-      "description": "<p>Our employee referral program is open. Refer qualified candidates for open roles and earn a referral bonus upon successful hire.</p>",
+      "title": "Chương trình giới thiệu nhân viên - Kiếm tiền thưởng giới thiệu",
+      "description": "<p>Chương trình giới thiệu nhân viên của chúng tôi đang mở. Giới thiệu các ứng viên đủ điều kiện cho các vai trò đang mở và kiếm tiền thưởng giới thiệu khi tuyển dụng thành công.</p>",
       "expire_date": "2025-09-30",
       "disable_comments": false,
       "attachments": [],
@@ -3510,7 +3510,7 @@
       "is_active": true,
       "announcement_id": 1,
       "employee_id": 4,
-      "comment": "Incredible milestone! Really proud of what we've achieved together. The 96% retention rate is what stands out most to me — shows how much people love being here."
+      "comment": "Cột mốc đáng kinh ngạc! Thực sự tự hào về những gì chúng ta đã cùng nhau đạt được. Tỷ lệ giữ chân 96% là điều nổi bật nhất đối với tôi - cho thấy mọi người yêu thích việc ở đây đến mức nào."
     }
   },
   {
@@ -3523,7 +3523,7 @@
       "is_active": true,
       "announcement_id": 1,
       "employee_id": 9,
-      "comment": "18% above revenue target is no small feat. Looking forward to the All-Hands on July 10 to see the department-wise breakdown. Great work everyone!"
+      "comment": "Vượt 18% mục tiêu doanh thu là một thành tích không hề nhỏ. Hãy đón chờ All-Hands vào ngày 10 tháng 7 để xem phân tích chi tiết theo từng bộ phận. Làm tốt lắm mọi người!"
     }
   },
   {
@@ -3536,7 +3536,7 @@
       "is_active": true,
       "announcement_id": 1,
       "employee_id": 16,
-      "comment": "Customer sat at 4.7/5 — that's phenomenal. Our product team put in a lot of quiet work this quarter that deserves recognition. 🙌"
+      "comment": "Khách hàng ngồi ở vị trí 4,7/5 - thật phi thường. Nhóm sản phẩm của chúng tôi đã thực hiện rất nhiều công việc thầm lặng trong quý này và đáng được ghi nhận. 🙌"
     }
   },
   {
@@ -3549,7 +3549,7 @@
       "is_active": true,
       "announcement_id": 2,
       "employee_id": 13,
-      "comment": "Quick question — does the self-assessment in Horilla auto-save as you fill it, or do you need to submit all at once? Want to start early but take time on each section."
+      "comment": "Câu hỏi nhanh — bản tự đánh giá trong Joydigi có tự động lưu khi bạn điền vào hay bạn cần gửi tất cả cùng một lúc? Muốn bắt đầu sớm nhưng phải mất thời gian cho từng phần."
     }
   },
   {
@@ -3562,7 +3562,7 @@
       "is_active": true,
       "announcement_id": 2,
       "employee_id": 7,
-      "comment": "Thanks for the clear timeline. Having the deadlines in one place is really helpful. July 12 for self-assessment is noted."
+      "comment": "Cảm ơn vì dòng thời gian rõ ràng. Có thời hạn ở một nơi thực sự hữu ích. Ngày 12 tháng 7 để tự đánh giá được ghi nhận."
     }
   },
   {
@@ -3575,7 +3575,7 @@
       "is_active": true,
       "announcement_id": 5,
       "employee_id": 2,
-      "comment": "Congratulations Emma! Well-deserved — the API migration work was exceptional. You set the bar high for the whole team. 🏆"
+      "comment": "Chúc mừng Đoàn Trung Phúc! Rất xứng đáng - công việc di chuyển API thật đặc biệt. Bạn đã đặt tiêu chuẩn cao cho toàn đội. 🏆"
     }
   },
   {
@@ -3588,7 +3588,7 @@
       "is_active": true,
       "announcement_id": 5,
       "employee_id": 11,
-      "comment": "Emma, the way you handled the production incident was impressive — the whole team stayed calm because of your quick response. Congrats! 👏"
+      "comment": "Đoàn Trung Phúc, cách anh xử lý sự cố trong sản xuất thật ấn tượng - cả ekip đều bình tĩnh vì phản ứng nhanh của anh. Xin chúc mừng! 👏"
     }
   },
   {
@@ -3601,7 +3601,7 @@
       "is_active": true,
       "announcement_id": 5,
       "employee_id": 6,
-      "comment": "Very well deserved, Emma! Your backend documentation saved us hours during onboarding last month. Huge contribution that often goes unseen. Congrats!"
+      "comment": "Xứng đáng lắm Đoàn Trung Phúc! Tài liệu phụ trợ của bạn đã giúp chúng tôi tiết kiệm hàng giờ trong quá trình triển khai vào tháng trước. Đóng góp to lớn thường không được nhìn thấy. Xin chúc mừng!"
     }
   },
   {
@@ -3614,7 +3614,7 @@
       "is_active": true,
       "announcement_id": 5,
       "employee_id": 17,
-      "comment": "Congrats Emma! I was one of the juniors you mentored this quarter — learned so much from you. This recognition is very well earned. 🙌"
+      "comment": "Chúc mừng Đoàn Trung Phúc! Tôi là một trong những học sinh cấp dưới mà bạn đã dìu dắt trong quý này - đã học được rất nhiều điều từ bạn. Sự công nhận này là rất tốt kiếm được. 🙌"
     }
   },
   {
@@ -3627,7 +3627,7 @@
       "is_active": true,
       "announcement_id": 6,
       "employee_id": 7,
-      "comment": "Great news for the software team! The extra WFH day will make a real difference for deep focus work. Thanks for listening to the survey feedback."
+      "comment": "Tin vui cho nhóm phần mềm! Ngày WFH bổ sung sẽ tạo ra sự khác biệt thực sự cho công việc tập trung sâu. Cảm ơn bạn đã lắng nghe phản hồi khảo sát."
     }
   },
   {
@@ -3640,7 +3640,7 @@
       "is_active": true,
       "announcement_id": 6,
       "employee_id": 16,
-      "comment": "Appreciate the transparency in sharing the reasoning. The Wednesday anchor day makes sense — it keeps team alignment without sacrificing flexibility."
+      "comment": "Đánh giá cao sự minh bạch trong việc chia sẻ lý luận. Ngày cố định thứ Tư rất có ý nghĩa - nó giúp duy trì sự liên kết trong nhóm mà không làm mất đi tính linh hoạt."
     }
   },
   {
@@ -3653,7 +3653,7 @@
       "is_active": true,
       "announcement_id": 8,
       "employee_id": 5,
-      "comment": "Just registered! Bringing my two kids. The kids' zone sounds amazing — they've been asking when the next company event is. Can't wait! 😊"
+      "comment": "Vừa đăng ký! Mang theo hai đứa con của tôi. Khu vực dành cho trẻ em nghe có vẻ tuyệt vời — họ đã hỏi khi nào sự kiện tiếp theo của công ty sẽ diễn ra. Không thể chờ đợi! 😊"
     }
   },
   {
@@ -3666,7 +3666,7 @@
       "is_active": true,
       "announcement_id": 8,
       "employee_id": 13,
-      "comment": "Will transport be arranged from the Whitefield office as well? A few of us are based there and would love to join but need to plan the commute."
+      "comment": "Việc vận chuyển cũng sẽ được sắp xếp từ văn phòng Whitefield chứ? Một số người trong chúng tôi sống ở đó và muốn tham gia nhưng cần lên kế hoạch đi lại."
     }
   },
   {
@@ -3679,7 +3679,7 @@
       "is_active": true,
       "announcement_id": 8,
       "employee_id": 20,
-      "comment": "So excited for Family Day! Last year's talent show was unforgettable. Already planning my entry this time. 🎉"
+      "comment": "Thật vui mừng cho Ngày Gia đình! Cuộc thi tài năng năm ngoái thật khó quên. Đã lên kế hoạch cho lần nhập cảnh của tôi lần này. 🎉"
     }
   },
   {
@@ -3692,7 +3692,7 @@
       "is_active": true,
       "announcement_id": 10,
       "employee_id": 15,
-      "comment": "Already shared the open positions with two former colleagues this morning. Fingers crossed they apply! The updated bonus structure is very competitive."
+      "comment": "Sáng nay đã chia sẻ các vị trí còn trống với hai đồng nghiệp cũ. Những ngón tay vượt qua họ áp dụng! Cơ cấu tiền thưởng được cập nhật rất cạnh tranh."
     }
   },
   {
@@ -3705,7 +3705,7 @@
       "is_active": true,
       "announcement_id": 10,
       "employee_id": 22,
-      "comment": "I referred someone last quarter and the process was smooth — HR confirmed within 3 days. Happy to share my experience with anyone who has questions."
+      "comment": "Tôi đã giới thiệu ai đó vào quý trước và quá trình này diễn ra suôn sẻ - bộ phận nhân sự đã xác nhận trong vòng 3 ngày. Rất vui được chia sẻ kinh nghiệm của tôi với bất cứ ai có thắc mắc."
     }
   }
 ]

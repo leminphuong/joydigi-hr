@@ -15,18 +15,18 @@ from base.decorators import manager_can_enter
 from base.filters import RotatingWorkTypeFilter
 from base.forms import RotatingWorkTypeForm
 from base.models import RotatingWorkType
-from horilla.decorators import permission_required
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import (
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi.decorators import permission_required
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
 )
 
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("base.view_rotatingworktype"), name="dispatch")
-class RotatingWorkTypeList(HorillaListView):
+class RotatingWorkTypeList(JoydigiListView):
     """
     list view of Rotating work types in settings
     """
@@ -92,7 +92,7 @@ class RotatingWorkTypeList(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("base.view_rotatingworktype"), name="dispatch")
-class RotatingWorkTypeNav(HorillaNavView):
+class RotatingWorkTypeNav(JoydigiNavView):
     """
     navbar of Rotating worktype
     """
@@ -118,7 +118,7 @@ class RotatingWorkTypeNav(HorillaNavView):
 
 @method_decorator(manager_can_enter("base.add_rotatingworktype"), name="dispatch")
 @method_decorator(login_required, name="dispatch")
-class DynamicRotatingWorkTypeCreate(HorillaFormView):
+class DynamicRotatingWorkTypeCreate(JoydigiFormView):
     """
     form view for creating dynamic rotating work type
     """

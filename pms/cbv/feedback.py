@@ -16,15 +16,15 @@ from base.decorators import manager_can_enter
 from base.methods import choosesubordinates, is_reportingmanager
 from employee.cbv.employee_profile import EmployeeProfileView
 from employee.models import Employee
-from horilla.http.response import HorillaRedirect
-from horilla_auth.models import HorillaUser
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
-    HorillaTabView,
+from joydigi.http.response import JoydigiRedirect
+from joydigi_auth.models import JoydigiUser
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
+    JoydigiTabView,
     TemplateView,
 )
 from notifications.signals import notify
@@ -44,7 +44,7 @@ class FeedbackViewPage(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class FeedbackListView(HorillaListView):
+class FeedbackListView(JoydigiListView):
     """
     list view
     """
@@ -167,7 +167,7 @@ class FeedbackListView(HorillaListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class FeedbackGenericTabView(HorillaTabView):
+class FeedbackGenericTabView(JoydigiTabView):
     """
     tab view of the page
     """
@@ -352,7 +352,7 @@ class AllFeedbackTab(FeedbackListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class AnonymousFeedbackTab(HorillaListView):
+class AnonymousFeedbackTab(JoydigiListView):
     """
     anonymous feedback tab
     """
@@ -417,7 +417,7 @@ class AnonymousFeedbackTab(HorillaListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class FeedbacknavView(HorillaNavView):
+class FeedbacknavView(JoydigiNavView):
     """
     navbar
     """
@@ -485,7 +485,7 @@ class FeedbacknavView(HorillaNavView):
 
 
 @method_decorator(login_required, name="dispatch")
-class AddAnonymousFeedbackForm(HorillaFormView):
+class AddAnonymousFeedbackForm(JoydigiFormView):
     """
     form view
     """
@@ -526,7 +526,7 @@ class AddAnonymousFeedbackForm(HorillaFormView):
                 message = _("Feedback Created Successfully")
                 if feedback.based_on == "employee":
                     notify.send(
-                        HorillaUser.objects.filter(username="Horilla Bot").first(),
+                        JoydigiUser.objects.filter(username="Joydigi Bot").first(),
                         recipient=feedback.employee_id.employee_user_id,
                         verb="You received an anonymous feedback!",
                         verb_ar="لقد تلقيت تقييمًا مجهولًا!",
@@ -538,7 +538,7 @@ class AddAnonymousFeedbackForm(HorillaFormView):
                     )
             feedback.save()
             messages.success(self.request, message)
-            return HorillaRedirect(self.request)
+            return JoydigiRedirect(self.request)
         return super().form_valid(form)
 
 
@@ -552,7 +552,7 @@ class PerformanceTab(SelfFeedbacktab):
         super().__init__(**kwargs)
         pk = self.request.resolver_match.kwargs.get("pk")
         self.search_url = reverse("individual-performance-tab-list", kwargs={"pk": pk})
-        # HorillaListView defaults selected_instances_key_id to the shared
+        # JoydigiListView defaults selected_instances_key_id to the shared
         # "selectedInstances" bucket, so a bulk-select made on any other list
         # using that same default (most don't override it) leaked into this
         # tab's "Select"/"Unselect" count. Scope it to this tab instead.
@@ -578,7 +578,7 @@ EmployeeProfileView.add_tab(
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("pms.change_feedback"), name="dispatch")
-class FeedbackUpdateFormView(HorillaFormView):
+class FeedbackUpdateFormView(JoydigiFormView):
     """
     Form View for update feedback
     """
@@ -633,7 +633,7 @@ class FeedbackUpdateFormView(HorillaFormView):
 
 
 @method_decorator(login_required, name="dispatch")
-class AnounyFeedbackDetailView(HorillaDetailedView):
+class AnounyFeedbackDetailView(JoydigiDetailedView):
 
     model = AnonymousFeedback
 

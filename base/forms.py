@@ -52,7 +52,7 @@ from base.models import (
     EmployeeShiftSchedule,
     EmployeeType,
     Holidays,
-    HorillaMailTemplate,
+    JoydigiMailTemplate,
     JobPosition,
     JobRole,
     MultipleApprovalCondition,
@@ -74,13 +74,13 @@ from base.widgets import CustomModelChoiceWidget
 from employee.filters import EmployeeFilter
 from employee.forms import MultipleFileField
 from employee.models import Employee, EmployeeTag
-from horilla import horilla_middlewares
-from horilla.horilla_middlewares import _thread_locals
-from horilla.methods import get_horilla_model_class
-from horilla_audit.models import AuditTag
-from horilla_auth.models import HorillaUser
-from horilla_widgets.widgets.horilla_multi_select_field import HorillaMultiSelectField
-from horilla_widgets.widgets.select_widgets import HorillaMultiSelectWidget
+from joydigi import joydigi_middlewares
+from joydigi.joydigi_middlewares import _thread_locals
+from joydigi.methods import get_joydigi_model_class
+from joydigi_audit.models import AuditTag
+from joydigi_auth.models import JoydigiUser
+from joydigi_widgets.widgets.joydigi_multi_select_field import JoydigiMultiSelectField
+from joydigi_widgets.widgets.select_widgets import JoydigiMultiSelectWidget
 
 # your form here
 
@@ -193,7 +193,7 @@ class ModelForm(forms.ModelForm):
 
         reload_queryset(self.fields)
 
-        request = getattr(horilla_middlewares._thread_locals, "request", None)
+        request = getattr(joydigi_middlewares._thread_locals, "request", None)
 
         today = date.today()
         now = datetime.now()
@@ -435,11 +435,11 @@ class AssignUserGroup(Form):
     Form to assign employees to a group (searchable multi-select).
     """
 
-    employee = HorillaMultiSelectField(
+    employee = JoydigiMultiSelectField(
         queryset=Employee.objects.filter(
             is_active=True, employee_user_id__isnull=False
         ),
-        widget=HorillaMultiSelectWidget(
+        widget=JoydigiMultiSelectWidget(
             filter_route_name="employee-widget-filter",
             filter_class=EmployeeFilter,
             filter_instance_context_name="f",
@@ -476,7 +476,7 @@ class AssignUserGroup(Form):
             {"data-placeholder": _("Search employees...")}
         )
         from base.auth_backends import company_scoped_active, get_assigned_company_ids
-        from horilla.horilla_middlewares import _thread_locals
+        from joydigi.joydigi_middlewares import _thread_locals
 
         self._grantable_company_ids = None
         if not company_scoped_active():
@@ -656,9 +656,9 @@ class AssignPermission(Form):
     Forms to assign user permision
     """
 
-    employee = HorillaMultiSelectField(
+    employee = JoydigiMultiSelectField(
         queryset=Employee.objects.all(),
-        widget=HorillaMultiSelectWidget(
+        widget=JoydigiMultiSelectWidget(
             filter_route_name="employee-widget-filter",
             filter_class=EmployeeFilter,
             filter_instance_context_name="f",
@@ -705,7 +705,7 @@ class AssignPermission(Form):
         ).values_list("employee_user_id", flat=True)
         permissions = self.cleaned_data["permissions"]
         permissions = Permission.objects.filter(codename__in=permissions)
-        users = HorillaUser.objects.filter(id__in=user_ids)
+        users = JoydigiUser.objects.filter(id__in=user_ids)
         for user in users:
             user.user_permissions.add(*permissions)
 
@@ -917,7 +917,7 @@ class JobPositionMultiForm(ModelForm):
     JobPosition model's form
     """
 
-    department_id = HorillaMultiSelectField(
+    department_id = JoydigiMultiSelectField(
         queryset=Department.objects.all(),
         label=JobPosition._meta.get_field("department_id").verbose_name,
         widget=forms.SelectMultiple(
@@ -1230,9 +1230,9 @@ class RotatingWorkTypeAssignForm(ModelForm):
         "rotate_every": 12,
     }
 
-    # employee_id = HorillaMultiSelectField(
+    # employee_id = JoydigiMultiSelectField(
     #     queryset=Employee.objects.filter(employee_work_info__isnull=False),
-    #     widget=HorillaMultiSelectWidget(
+    #     widget=JoydigiMultiSelectWidget(
     #         filter_route_name="employee-widget-filter",
     #         filter_class=EmployeeFilter,
     #         filter_instance_context_name="f",
@@ -1276,11 +1276,11 @@ class RotatingWorkTypeAssignForm(ModelForm):
         request = getattr(_thread_locals, "request", None)
         self.fields["employee_id"].initial = request.GET.get("emp_id")
         if not self.instance.pk and not request.GET.get("emp_id"):
-            self.fields["employee_id"] = HorillaMultiSelectField(
+            self.fields["employee_id"] = JoydigiMultiSelectField(
                 queryset=Employee.objects.filter(
                     employee_work_info__isnull=False, is_active=True
                 ),
-                widget=HorillaMultiSelectWidget(
+                widget=JoydigiMultiSelectWidget(
                     filter_route_name="employee-widget-filter",
                     filter_class=EmployeeFilter,
                     filter_instance_context_name="f",
@@ -1616,7 +1616,7 @@ class EmployeeShiftScheduleUpdateForm(ModelForm):
         """
 
         context = {"form": self}
-        table_html = render_to_string("horilla_form.html", context)
+        table_html = render_to_string("joydigi_form.html", context)
         return table_html
 
     def clean(self):
@@ -1704,7 +1704,7 @@ class EmployeeShiftScheduleForm(ModelForm):
         """
 
         context = {"form": self}
-        table_html = render_to_string("horilla_form.html", context)
+        table_html = render_to_string("joydigi_form.html", context)
         return table_html
 
     def clean(self):
@@ -1903,9 +1903,9 @@ class RotatingShiftAssignForm(ModelForm):
         "rotate_every": 12,
     }
 
-    # employee_id = HorillaMultiSelectField(
+    # employee_id = JoydigiMultiSelectField(
     #     queryset=Employee.objects.filter(employee_work_info__isnull=False),
-    #     widget=HorillaMultiSelectWidget(
+    #     widget=JoydigiMultiSelectWidget(
     #         filter_route_name="employee-widget-filter",
     #         filter_class=EmployeeFilter,
     #         filter_instance_context_name="f",
@@ -1950,11 +1950,11 @@ class RotatingShiftAssignForm(ModelForm):
         request = getattr(_thread_locals, "request", None)
         self.fields["employee_id"].initial = request.GET.get("emp_id")
         if not self.instance.pk and not request.GET.get("emp_id"):
-            self.fields["employee_id"] = HorillaMultiSelectField(
+            self.fields["employee_id"] = JoydigiMultiSelectField(
                 queryset=Employee.objects.filter(
                     employee_work_info__isnull=False, is_active=True
                 ),
-                widget=HorillaMultiSelectWidget(
+                widget=JoydigiMultiSelectWidget(
                     filter_route_name="employee-widget-filter",
                     filter_class=EmployeeFilter,
                     filter_instance_context_name="f",
@@ -2227,7 +2227,7 @@ class ShiftRequestForm(ModelForm):
         Render the form fields as HTML table rows with Bootstrap styling.
         """
         context = {"form": self}
-        table_html = render_to_string("horilla_form.html", context)
+        table_html = render_to_string("joydigi_form.html", context)
         return table_html
 
     def save(self, commit: bool = ...):
@@ -2295,7 +2295,7 @@ class ShiftAllocationForm(ModelForm):
         Render the form fields as HTML table rows with Bootstrap styling.
         """
         context = {"form": self}
-        table_html = render_to_string("horilla_form.html", context)
+        table_html = render_to_string("joydigi_form.html", context)
         return table_html
 
     def save(self, commit: bool = ...):
@@ -2346,7 +2346,7 @@ class WorkTypeRequestForm(ModelForm):
         Render the form fields as HTML table rows with Bootstrap styling.
         """
         context = {"form": self}
-        table_html = render_to_string("horilla_form.html", context)
+        table_html = render_to_string("joydigi_form.html", context)
         return table_html
 
     def save(self, commit: bool = ...):
@@ -2470,7 +2470,7 @@ class ChangeUsernameForm(forms.Form):
 
     def clean_password(self):
         username = self.cleaned_data.get("username")
-        if HorillaUser.objects.filter(username=username).exists():
+        if JoydigiUser.objects.filter(username=username).exists():
             raise forms.ValidationError(_("Username already exists."))
         password = self.cleaned_data.get("password")
         if not self.user.check_password(password):
@@ -2537,7 +2537,7 @@ excluded_fields = [
     "created_by",
     "modified_by",
     "additional_data",
-    "horilla_history",
+    "joydigi_history",
     "additional_data",
 ]
 
@@ -2648,7 +2648,7 @@ class TagsForm(ModelForm):
         Render the form fields as HTML table rows with Bootstrap styling.
         """
         context = {"form": self}
-        table_html = render_to_string("horilla_form.html", context)
+        table_html = render_to_string("joydigi_form.html", context)
         return table_html
 
 
@@ -2732,7 +2732,7 @@ class DynamicMailConfForm(ModelForm):
         Render the form fields as HTML table rows with Bootstrap styling.
         """
         context = {"form": self}
-        table_html = render_to_string("horilla_form.html", context)
+        table_html = render_to_string("joydigi_form.html", context)
         return table_html
 
 
@@ -2752,7 +2752,7 @@ class MailTemplateForm(ModelForm):
     cols = {"title": 12, "body": 12, "company_id": 12}
 
     class Meta:
-        model = HorillaMailTemplate
+        model = JoydigiMailTemplate
         fields = "__all__"
         widgets = {
             "body": forms.Textarea(
@@ -2929,9 +2929,9 @@ class AnnouncementForm(ModelForm):
     Announcement Form
     """
 
-    employees = HorillaMultiSelectField(
+    employees = JoydigiMultiSelectField(
         queryset=Employee.objects.all(),
-        widget=HorillaMultiSelectWidget(
+        widget=JoydigiMultiSelectWidget(
             filter_route_name="employee-widget-filter",
             filter_class=EmployeeFilter,
             filter_instance_context_name="f",
@@ -3019,7 +3019,7 @@ class AnnouncementForm(ModelForm):
         cleaned_data = super().clean()
 
         # Remove 'employees' field error if it's handled manually
-        if isinstance(self.fields["employees"], HorillaMultiSelectField):
+        if isinstance(self.fields["employees"], JoydigiMultiSelectField):
             self.errors.pop("employees", None)
             employee_data = self.fields["employees"].queryset.filter(
                 id__in=self.data.getlist("employees")
@@ -3153,7 +3153,7 @@ class PassWordResetForm(forms.Form):
         user.
         """
         username = self.cleaned_data["email"]
-        user = HorillaUser.objects.get(username=username)
+        user = JoydigiUser.objects.get(username=username)
         employee = user.employee_get
         email = employee.email
         work_mail = None
@@ -3435,7 +3435,7 @@ class CompanyLeaveForm(ModelForm):
         choices = [("", "All")] + list(self.fields["based_on_week"].choices[1:])
         self.fields["based_on_week"].choices = choices
         self.fields["based_on_week"].widget.option_template_name = (
-            "horilla_widgets/select_option.html"
+            "joydigi_widgets/select_option.html"
         )
 
 
@@ -3453,7 +3453,7 @@ class PenaltyAccountForm(ModelForm):
         employee = kwargs.pop("employee", None)
         super().__init__(*args, **kwargs)
         if apps.is_installed("leave") and employee:
-            LeaveType = get_horilla_model_class(app_label="leave", model="leavetype")
+            LeaveType = get_joydigi_model_class(app_label="leave", model="leavetype")
             available_leaves = employee.available_leave.all()
             assigned_leave_types = LeaveType.objects.filter(
                 id__in=available_leaves.values_list("leave_type_id", flat=True)

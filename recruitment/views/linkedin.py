@@ -8,9 +8,9 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
-from horilla.config import logger
-from horilla.decorators import login_required, permission_required
-from horilla.http.response import HorillaRedirect
+from joydigi.config import logger
+from joydigi.decorators import login_required, permission_required
+from joydigi.http.response import JoydigiRedirect
 from recruitment.models import LinkedInAccount
 
 
@@ -25,7 +25,7 @@ def update_isactive_linkedin(request, obj_id):
     """
     linkedin_account = LinkedInAccount.find(obj_id)
     if not linkedin_account:
-        return HorillaRedirect(
+        return JoydigiRedirect(
             request, message=_("No LinkedIn Account found matching the query.")
         )
 
@@ -55,14 +55,14 @@ def delete_linkedin_account(request, pk, return_redirect=True):
     except Exception as e:
         logger.error(e)
         messages.error(request, _("Something went wrong"))
-    return HorillaRedirect(request)
+    return JoydigiRedirect(request)
 
 
 @login_required
 def validate_linkedin_token(request, pk):
     linkedin_account = LinkedInAccount.find(pk)
     if not linkedin_account:
-        return HorillaRedirect(
+        return JoydigiRedirect(
             request, message=_("No LinkedIn Account found matching the query.")
         )
 

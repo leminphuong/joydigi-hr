@@ -1,6 +1,6 @@
 # Demo data
 
-Enterprise demo fixtures and the post-load seeder used by Horilla HR.
+Enterprise demo fixtures and the post-load seeder used by Joydigi HR.
 
 ## Load
 

@@ -9,15 +9,15 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
 from employee.models import Employee
-from horilla.methods import get_horilla_model_class
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import HorillaFormView
+from joydigi.methods import get_joydigi_model_class
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import JoydigiFormView
 from payroll.forms.component_forms import AssetFineForm, LoanAccountForm
 from payroll.models.models import LoanAccount
 
 
 @method_decorator(login_required, name="dispatch")
-class AssetFineFormView(HorillaFormView):
+class AssetFineFormView(JoydigiFormView):
     """
     form view for create asset assign form
     """
@@ -28,7 +28,7 @@ class AssetFineFormView(HorillaFormView):
 
     def form_valid(self, form: AssetFineForm) -> HttpResponse:
         if apps.is_installed("asset"):
-            Asset = get_horilla_model_class(app_label="asset", model="asset")
+            Asset = get_joydigi_model_class(app_label="asset", model="asset")
         asset_id = self.request.GET["asset_id"]
         employee_id = self.request.GET["employee_id"]
         asset = Asset.objects.get(id=asset_id)

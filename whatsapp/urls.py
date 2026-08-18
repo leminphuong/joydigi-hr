@@ -1,7 +1,7 @@
 from django.urls import path
 from django.views.generic import TemplateView
 
-from horilla.decorators import login_required
+from joydigi.decorators import login_required
 from whatsapp import views
 from whatsapp.cbv import whatsapp
 

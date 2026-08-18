@@ -36,11 +36,11 @@ def copy_demo_media(load_dir: Path | None = None) -> dict[str, int]:
     media = Path(settings.MEDIA_ROOT)
 
     icons = _copy_glob(root / "icons", media / "base" / "icon", "*.png")
-    # Also accept legacy Horilla_*.png already under media if icons/ was empty
+    # Also accept legacy Joydigi_*.png already under media if icons/ was empty
     if icons == 0:
         legacy = media / "base" / "icon"
         if legacy.exists():
-            icons = len(list(legacy.glob("Horilla_*.png")))
+            icons = len(list(legacy.glob("Joydigi_*.png")))
 
     avatars = _copy_glob(
         root / "avatars", media / "employee" / "profile", "avatar_*.jpg"

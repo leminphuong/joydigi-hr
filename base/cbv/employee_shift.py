@@ -10,17 +10,17 @@ from django.utils.translation import gettext_lazy as _
 
 from base.filters import EmployeeShiftFilter
 from base.models import EmployeeShift
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiListView,
+    JoydigiNavView,
 )
 
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="base.view_employeeshift"), name="dispatch")
-class EmployeeShiftListView(HorillaListView):
+class EmployeeShiftListView(JoydigiListView):
     """
     List view of the employee shift page
     """
@@ -82,7 +82,7 @@ class EmployeeShiftListView(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="base.view_employeeshift"), name="dispatch")
-class EmployeeShiftDetailView(HorillaDetailedView):
+class EmployeeShiftDetailView(JoydigiDetailedView):
     """
     detail view for employee shift, also registered as the related-object-link
     target for EmployeeShift via detail_view_url_name
@@ -108,7 +108,7 @@ class EmployeeShiftDetailView(HorillaDetailedView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="base.view_employeeshift"), name="dispatch")
-class EmployeeShiftNav(HorillaNavView):
+class EmployeeShiftNav(JoydigiNavView):
     """
     Nav bar
     """

@@ -25,12 +25,12 @@ from base.methods import (
     is_reportingmanager,
 )
 from base.models import PenaltyAccounts
-from horilla_views.cbv_methods import hx_request_required, login_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import hx_request_required, login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 from leave.filters import LeaveRequestFilter
@@ -54,7 +54,7 @@ class LeaveRequestsView(TemplateView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("leave.view_leaverequest"), name="dispatch")
-class LeaveRequestsListView(HorillaListView):
+class LeaveRequestsListView(JoydigiListView):
     """
     Lits view of the page
     """
@@ -212,7 +212,7 @@ class LeaveRequestsListView(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("leave.view_leaverequest"), name="dispatch")
-class LeaveRequestsNavView(HorillaNavView):
+class LeaveRequestsNavView(JoydigiNavView):
     """
     nav bar
     """
@@ -322,7 +322,7 @@ class LeaveRequestsExportNav(TemplateView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("leave.view_leaverequest"), name="dispatch")
-class LeaveRequestsDetailView(HorillaDetailedView):
+class LeaveRequestsDetailView(JoydigiDetailedView):
     """
     detail view of page
     """
@@ -381,7 +381,7 @@ class LeaveRequestsDetailView(HorillaDetailedView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("leave.add_leaverequest"), name="dispatch")
-class LeaveRequestFormView(HorillaFormView):
+class LeaveRequestFormView(JoydigiFormView):
     """
     form view
     """
@@ -587,7 +587,7 @@ class LeaveClashListView(LeaveRequestsListView):
     """
 
     def get_queryset(self):
-        queryset = HorillaListView.get_queryset(self)
+        queryset = JoydigiListView.get_queryset(self)
         pk = self.kwargs.get("pk")
         record = LeaveRequest.objects.get(id=pk)
         if record.status != "rejected" or record.status != "cancelled":

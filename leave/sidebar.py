@@ -7,7 +7,7 @@ from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
 from base.templatetags.basefilters import is_leave_approval_manager, is_reportingmanager
-from horilla.menu import settings_menu
+from joydigi.menu import settings_menu
 from leave.templatetags.leavefilters import is_compensatory
 
 MENU = _("Leave")

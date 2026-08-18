@@ -9,7 +9,7 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.utils.translation import gettext as _
 
-from horilla.decorators import decorator_with_arguments
+from joydigi.decorators import decorator_with_arguments
 from offboarding.models import (
     Offboarding,
     OffboardingGeneralSetting,

@@ -1,7 +1,7 @@
 {% load i18n %}
 <div class="flex items-center justify-center gap-1" onclick="event.stopPropagation()">
     {% if instance.document %}
-        {% if perms.horilla_documents.change_documentrequest %}
+        {% if perms.joydigi_documents.change_documentrequest %}
             {% if instance.status == "approved" %}
                 <button class="oh-btn oh-btn--light-bkg oh-btn--sq-sm" disabled title="{% trans 'Approve' %}">
                     <ion-icon name="checkmark-outline"></ion-icon>
@@ -50,7 +50,7 @@
         </button>
     {% endif %}
 
-    {% if not instance.document_request_id or perms.horilla_documents.change_documentrequest %}
+    {% if not instance.document_request_id or perms.joydigi_documents.change_documentrequest %}
         <form
             hx-confirm="{% trans 'Are you sure you want to delete this Document Request?' %}"
             hx-post="{% url 'document-delete' instance.id %}"

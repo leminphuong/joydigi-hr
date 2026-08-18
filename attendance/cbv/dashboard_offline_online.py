@@ -12,13 +12,13 @@ from django.utils.translation import gettext_lazy as _
 from base.decorators import manager_can_enter
 from employee.filters import EmployeeFilter
 from employee.models import Employee
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import HorillaListView
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import JoydigiListView
 
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("leave.view_leaverequest"), name="dispatch")
-class DashboardOfflineEmployees(HorillaListView):
+class DashboardOfflineEmployees(JoydigiListView):
     """
     list view for offline employees in dashboard
     """
@@ -61,7 +61,7 @@ class DashboardOfflineEmployees(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("leave.view_leaverequest"), name="dispatch")
-class DashboardOnlineEmployees(HorillaListView):
+class DashboardOnlineEmployees(JoydigiListView):
     """
     list view for online employees in dashboard
     """

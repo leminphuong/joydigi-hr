@@ -7,19 +7,19 @@ from django.utils.translation import gettext_lazy as _
 from base.methods import filtersubordinates, is_reportingmanager
 from helpdesk.filter import TicketFilter, TicketReGroup
 from helpdesk.models import TICKET_STATUS, Ticket
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.kanban import HorillaKanbanView
-from horilla_views.generic.cbv.pipeline import Pipeline
-from horilla_views.generic.cbv.views import (
-    HorillaListView,
-    HorillaNavView,
-    HorillaSectionView,
-    HorillaTabView,
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.kanban import JoydigiKanbanView
+from joydigi_views.generic.cbv.pipeline import Pipeline
+from joydigi_views.generic.cbv.views import (
+    JoydigiListView,
+    JoydigiNavView,
+    JoydigiSectionView,
+    JoydigiTabView,
 )
 
 
 @method_decorator(login_required, name="dispatch")
-class TicketPipelineView(HorillaSectionView):
+class TicketPipelineView(JoydigiSectionView):
     """
     Offboarding Pipeline View
     """
@@ -32,7 +32,7 @@ class TicketPipelineView(HorillaSectionView):
 
 
 @method_decorator(login_required, name="dispatch")
-class TicketPipelineNav(HorillaNavView):
+class TicketPipelineNav(JoydigiNavView):
     """
     Offboarding Pipeline Navigation View
     """
@@ -115,7 +115,7 @@ class TicketPipelineNav(HorillaNavView):
 
 
 @method_decorator(login_required, name="dispatch")
-class TicketTabView(HorillaTabView):
+class TicketTabView(JoydigiTabView):
     """
     Pipeline List View
     """
@@ -233,7 +233,7 @@ class TicketTabView(HorillaTabView):
 
 
 @method_decorator(login_required, name="dispatch")
-class TicketListView(HorillaListView):
+class TicketListView(JoydigiListView):
     """
     Pipeline List View
     """
@@ -405,7 +405,7 @@ class TicketListView(HorillaListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class TicketCardView(HorillaKanbanView):
+class TicketCardView(JoydigiKanbanView):
     model = Ticket
     filter_class = TicketFilter
     group_key = "status"

@@ -28,7 +28,7 @@ from attendance.models import (
 from base.filters import FilterSet
 from employee.filters import EmployeeFilter
 from employee.models import Employee
-from horilla.filters import HorillaFilterSet, filter_by_name
+from joydigi.filters import JoydigiFilterSet, filter_by_name
 
 
 class DurationInSecondsFilter(django_filters.CharFilter):
@@ -55,7 +55,7 @@ class DurationInSecondsFilter(django_filters.CharFilter):
         return qs
 
 
-class AttendanceOverTimeFilter(HorillaFilterSet):
+class AttendanceOverTimeFilter(JoydigiFilterSet):
     """
     Filter set class for AttendanceOverTime model
 
@@ -135,7 +135,7 @@ class AttendanceOverTimeFilter(HorillaFilterSet):
         ] = _("Work Location")
 
 
-class LateComeEarlyOutFilter(HorillaFilterSet):
+class LateComeEarlyOutFilter(JoydigiFilterSet):
     """
     LateComeEarlyOutFilter class
     """
@@ -243,7 +243,7 @@ class LateComeEarlyOutFilter(HorillaFilterSet):
             self.form.fields[field].widget.attrs["id"] = f"{uuid.uuid4()}"
 
 
-class AttendanceActivityFilter(HorillaFilterSet):
+class AttendanceActivityFilter(JoydigiFilterSet):
     """
     Filter set class for AttendanceActivity model
 
@@ -330,7 +330,7 @@ class AttendanceActivityFilter(HorillaFilterSet):
         ] = _("Work Location")
 
 
-class AttendanceFilters(HorillaFilterSet):
+class AttendanceFilters(JoydigiFilterSet):
     """
     Filter set class for Attendance model
 
@@ -688,7 +688,7 @@ class AttendanceBreakpointFilter(FilterSet):
         ]
 
 
-class GraceTimeFilter(HorillaFilterSet):
+class GraceTimeFilter(JoydigiFilterSet):
 
     search = django_filters.CharFilter(method="search_method")
 
@@ -704,7 +704,7 @@ class GraceTimeFilter(HorillaFilterSet):
         return ((queryset.filter(company_id__company__icontains=value))).distinct()
 
 
-class AttendanceGeneralSettingFilter(HorillaFilterSet):
+class AttendanceGeneralSettingFilter(JoydigiFilterSet):
 
     search = django_filters.CharFilter(method="search_method")
 

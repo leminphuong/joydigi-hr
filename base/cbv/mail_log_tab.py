@@ -14,9 +14,9 @@ from accessibility.cbv_decorators import enter_if_accessible
 from base.filters import MailLogFilter
 from base.models import EmailLog
 from employee.models import Employee
-from horilla.http.response import HorillaRedirect
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import HorillaDetailedView, HorillaListView
+from joydigi.http.response import JoydigiRedirect
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import JoydigiDetailedView, JoydigiListView
 
 
 def _check_reporting_manager(request, *args, **kwargs):
@@ -32,7 +32,7 @@ def _check_reporting_manager(request, *args, **kwargs):
     ),
     name="dispatch",
 )
-class MailLogTabList(HorillaListView):
+class MailLogTabList(JoydigiListView):
     """
     list view for mail log  tab
     """
@@ -57,7 +57,7 @@ class MailLogTabList(HorillaListView):
         pk = kwargs.get("pk")
         if not Employee.objects.filter(id=pk).exists():
             messages.error(request, _("Employee not found."))
-            return HorillaRedirect(request)
+            return JoydigiRedirect(request)
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -101,7 +101,7 @@ class MailLogTabList(HorillaListView):
     ),
     name="dispatch",
 )
-class MailLogDetailView(HorillaDetailedView):
+class MailLogDetailView(JoydigiDetailedView):
     """
     detail view for mail log tab
     """

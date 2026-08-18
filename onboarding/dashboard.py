@@ -12,7 +12,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils.translation import gettext_lazy as _
 
-from horilla.methods import handle_no_permission
+from joydigi.methods import handle_no_permission
 
 
 def _has_onboarding_permission(request):

@@ -14,8 +14,8 @@ from attendance.filters import LateComeEarlyOutFilter
 from attendance.methods.utils import strtime_seconds
 from attendance.models import AttendanceLateComeEarlyOut, AttendanceValidationCondition
 from base.methods import filtersubordinates
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import HorillaListView
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import JoydigiListView
 
 
 @method_decorator(login_required, name="dispatch")
@@ -91,7 +91,7 @@ class DashboardaAttendanceOT(OTAttendancesList):
 
 
 @method_decorator(login_required, name="dispatch")
-class DashboardOnBreak(HorillaListView):
+class DashboardOnBreak(JoydigiListView):
     """
     view for on break employee list
     """

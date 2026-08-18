@@ -1,6 +1,6 @@
 from django.shortcuts import redirect
 
-from horilla.decorators import login_required
+from joydigi.decorators import login_required
 
 
 @login_required

@@ -1,11 +1,11 @@
-"""Company isolation via HorillaCompanyManager + selected-company context."""
+"""Company isolation via JoydigiCompanyManager + selected-company context."""
 
 from datetime import date, timedelta
 
 from django.test import TestCase
 
 from base.models import Holidays
-from horilla.testkit import CompanyFilterTestMixin, make_company
+from joydigi.testkit import CompanyFilterTestMixin, make_company
 
 
 class HolidayCompanyIsolationTests(CompanyFilterTestMixin, TestCase):

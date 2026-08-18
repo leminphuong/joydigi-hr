@@ -1,4 +1,4 @@
-{% load i18n recruitmentfilters horillafilters %}
+{% load i18n recruitmentfilters joydigifilters %}
 <div onclick="event.stopPropagation()">
     {% with request.user.employee_get.candidate_rating.all as candidate_ratings %}
     {% if candidate_ratings|has_candidate_rating:instance %}

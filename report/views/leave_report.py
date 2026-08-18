@@ -10,7 +10,7 @@ if apps.is_installed("leave"):
 
     from base.methods import has_export_access
     from base.models import Company
-    from horilla.decorators import login_required, permission_required
+    from joydigi.decorators import login_required, permission_required
     from leave.filters import AssignedLeaveFilter, LeaveRequestFilter
     from leave.models import AvailableLeave, LeaveRequest
     from report.dynamic_filter_utils import (

@@ -1,66 +1,943 @@
 [
-  {"model":"project.project","pk":1001,"fields":{"title":"HR Analytics Dashboard","status":"in_progress","start_date":"2026-07-01","end_date":"2026-11-30","document":null,"description":"Deliver a self-service workforce analytics dashboard for HR and business leaders.","company_id":1,"managers":[37],"members":[12,13,68]}},
-  {"model":"project.project","pk":1002,"fields":{"title":"Customer Onboarding Automation","status":"new","start_date":"2026-09-01","end_date":"2027-01-31","document":null,"description":"Automate customer onboarding milestones, notifications, and ownership handoffs.","company_id":1,"managers":[37],"members":[12,13]}},
-  {"model":"project.project","pk":1003,"fields":{"title":"Mobile Expense Approvals","status":"completed","start_date":"2026-02-01","end_date":"2026-06-30","document":null,"description":"Release mobile-first expense approval workflows with audit-ready approval history.","company_id":2,"managers":[1],"members":[12,22,28]}},
-  {"model":"project.project","pk":1004,"fields":{"title":"Security Remediation Program","status":"on_hold","start_date":"2026-07-15","end_date":"2026-12-15","document":null,"description":"Address prioritized security findings while a third-party dependency upgrade is pending.","company_id":1,"managers":[37],"members":[13,68]}},
-  {"model":"project.project","pk":1005,"fields":{"title":"Legacy Data Archival","status":"cancelled","start_date":"2026-04-01","end_date":"2026-07-31","document":null,"description":"Retire the proposed archival initiative after the retention strategy was superseded.","company_id":3,"managers":[1],"members":[27,30]}},
-
-  {"model":"project.projectstage","pk":1001,"fields":{"title":"Planned","project":1001,"sequence":1,"is_end_stage":false}},
-  {"model":"project.projectstage","pk":1002,"fields":{"title":"Build","project":1001,"sequence":2,"is_end_stage":false}},
-  {"model":"project.projectstage","pk":1003,"fields":{"title":"Validate","project":1001,"sequence":3,"is_end_stage":false}},
-  {"model":"project.projectstage","pk":1004,"fields":{"title":"Released","project":1001,"sequence":4,"is_end_stage":true}},
-  {"model":"project.projectstage","pk":1005,"fields":{"title":"Planned","project":1002,"sequence":1,"is_end_stage":false}},
-  {"model":"project.projectstage","pk":1006,"fields":{"title":"Design","project":1002,"sequence":2,"is_end_stage":false}},
-  {"model":"project.projectstage","pk":1007,"fields":{"title":"Build","project":1002,"sequence":3,"is_end_stage":false}},
-  {"model":"project.projectstage","pk":1008,"fields":{"title":"Launched","project":1002,"sequence":4,"is_end_stage":true}},
-  {"model":"project.projectstage","pk":1009,"fields":{"title":"Discovery","project":1003,"sequence":1,"is_end_stage":false}},
-  {"model":"project.projectstage","pk":1010,"fields":{"title":"Implementation","project":1003,"sequence":2,"is_end_stage":false}},
-  {"model":"project.projectstage","pk":1011,"fields":{"title":"Quality Review","project":1003,"sequence":3,"is_end_stage":false}},
-  {"model":"project.projectstage","pk":1012,"fields":{"title":"Completed","project":1003,"sequence":4,"is_end_stage":true}},
-  {"model":"project.projectstage","pk":1013,"fields":{"title":"Backlog","project":1004,"sequence":1,"is_end_stage":false}},
-  {"model":"project.projectstage","pk":1014,"fields":{"title":"In Remediation","project":1004,"sequence":2,"is_end_stage":false}},
-  {"model":"project.projectstage","pk":1015,"fields":{"title":"Blocked","project":1004,"sequence":3,"is_end_stage":false}},
-  {"model":"project.projectstage","pk":1016,"fields":{"title":"Verified","project":1004,"sequence":4,"is_end_stage":true}},
-  {"model":"project.projectstage","pk":1017,"fields":{"title":"Assessment","project":1005,"sequence":1,"is_end_stage":false}},
-  {"model":"project.projectstage","pk":1018,"fields":{"title":"Preparation","project":1005,"sequence":2,"is_end_stage":false}},
-  {"model":"project.projectstage","pk":1019,"fields":{"title":"Migration","project":1005,"sequence":3,"is_end_stage":false}},
-  {"model":"project.projectstage","pk":1020,"fields":{"title":"Closed","project":1005,"sequence":4,"is_end_stage":true}},
-
-  {"model":"project.task","pk":1001,"fields":{"title":"Define dashboard metrics","project":1001,"stage":1004,"status":"completed","start_date":"2026-07-01","end_date":"2026-07-10","document":null,"description":"Agree the workforce metrics, definitions, and business owners.","sequence":1,"task_managers":[37],"task_members":[12,13]}},
-  {"model":"project.task","pk":1002,"fields":{"title":"Model workforce data","project":1001,"stage":1004,"status":"completed","start_date":"2026-07-11","end_date":"2026-07-25","document":null,"description":"Create the reporting model and validate source-system mappings.","sequence":2,"task_managers":[37],"task_members":[12,68]}},
-  {"model":"project.task","pk":1003,"fields":{"title":"Build dashboard APIs","project":1001,"stage":1003,"status":"in_progress","start_date":"2026-07-28","end_date":"2026-08-21","document":null,"description":"Implement secure dashboard APIs and data access controls.","sequence":3,"task_managers":[37],"task_members":[12,13]}},
-  {"model":"project.task","pk":1004,"fields":{"title":"Prepare export reports","project":1001,"stage":1001,"status":"to_do","start_date":"2026-08-24","end_date":"2026-09-10","document":null,"description":"Add scheduled CSV exports for executive reporting packs.","sequence":4,"task_managers":[37],"task_members":[68]}},
-  {"model":"project.task","pk":1005,"fields":{"title":"Map onboarding journey","project":1002,"stage":1005,"status":"to_do","start_date":"2026-09-01","end_date":"2026-09-14","document":null,"description":"Map customer milestones, touchpoints, and escalation paths.","sequence":1,"task_managers":[37],"task_members":[12]}},
-  {"model":"project.task","pk":1006,"fields":{"title":"Design automation rules","project":1002,"stage":1006,"status":"to_do","start_date":"2026-09-15","end_date":"2026-10-05","document":null,"description":"Define automation triggers, ownership, and exception handling.","sequence":2,"task_managers":[37],"task_members":[13]}},
-  {"model":"project.task","pk":1007,"fields":{"title":"Configure milestone notifications","project":1002,"stage":1007,"status":"to_do","start_date":"2026-10-06","end_date":"2026-10-25","document":null,"description":"Configure timely customer and internal milestone notifications.","sequence":3,"task_managers":[37],"task_members":[12,13]}},
-  {"model":"project.task","pk":1008,"fields":{"title":"Run launch readiness review","project":1002,"stage":1008,"status":"to_do","start_date":"2027-01-15","end_date":"2027-01-31","document":null,"description":"Confirm governance, support coverage, and launch acceptance criteria.","sequence":4,"task_managers":[37],"task_members":[12,13]}},
-  {"model":"project.task","pk":1009,"fields":{"title":"Prototype mobile approval flow","project":1003,"stage":1012,"status":"completed","start_date":"2026-02-01","end_date":"2026-02-20","document":null,"description":"Validate the core mobile approval workflow with finance stakeholders.","sequence":1,"task_managers":[1],"task_members":[12,22]}},
-  {"model":"project.task","pk":1010,"fields":{"title":"Implement approval audit trail","project":1003,"stage":1012,"status":"completed","start_date":"2026-02-23","end_date":"2026-03-20","document":null,"description":"Capture approval events and decision metadata for audit review.","sequence":2,"task_managers":[1],"task_members":[12,28]}},
-  {"model":"project.task","pk":1011,"fields":{"title":"Complete mobile regression testing","project":1003,"stage":1012,"status":"completed","start_date":"2026-03-23","end_date":"2026-04-10","document":null,"description":"Complete device, browser, and accessibility regression testing.","sequence":3,"task_managers":[1],"task_members":[22,28]}},
-  {"model":"project.task","pk":1012,"fields":{"title":"Publish release notes","project":1003,"stage":1012,"status":"completed","start_date":"2026-06-15","end_date":"2026-06-30","document":null,"description":"Publish release notes and operational handover guidance.","sequence":4,"task_managers":[1],"task_members":[12]}},
-  {"model":"project.task","pk":1013,"fields":{"title":"Prioritize dependency upgrade","project":1004,"stage":1015,"status":"in_progress","start_date":"2026-07-15","end_date":"2026-08-15","document":null,"description":"Assess the vendor dependency upgrade needed before remediation can continue.","sequence":1,"task_managers":[37],"task_members":[13]}},
-  {"model":"project.task","pk":1014,"fields":{"title":"Remediate authentication finding","project":1004,"stage":1014,"status":"in_progress","start_date":"2026-07-20","end_date":"2026-08-30","document":null,"description":"Apply the approved remediation for the authentication finding.","sequence":2,"task_managers":[37],"task_members":[13,68]}},
-  {"model":"project.task","pk":1015,"fields":{"title":"Review supplier security evidence","project":1004,"stage":1013,"status":"to_do","start_date":"2026-08-15","end_date":"2026-09-05","document":null,"description":"Review supplier security evidence and update the risk register.","sequence":3,"task_managers":[37],"task_members":[68]}},
-  {"model":"project.task","pk":1016,"fields":{"title":"Validate remediation controls","project":1004,"stage":1016,"status":"to_do","start_date":"2026-09-15","end_date":"2026-10-01","document":null,"description":"Validate technical and process controls after dependency resolution.","sequence":4,"task_managers":[37],"task_members":[13,68]}},
-  {"model":"project.task","pk":1017,"fields":{"title":"Assess archival options","project":1005,"stage":1020,"status":"expired","start_date":"2026-04-01","end_date":"2026-04-15","document":null,"description":"Evaluate archival options against updated retention requirements.","sequence":1,"task_managers":[1],"task_members":[27]}},
-  {"model":"project.task","pk":1018,"fields":{"title":"Draft migration approach","project":1005,"stage":1020,"status":"expired","start_date":"2026-04-16","end_date":"2026-05-10","document":null,"description":"Draft the migration approach before cancellation of the initiative.","sequence":2,"task_managers":[1],"task_members":[30]}},
-  {"model":"project.task","pk":1019,"fields":{"title":"Confirm retention decision","project":1005,"stage":1020,"status":"expired","start_date":"2026-05-11","end_date":"2026-06-01","document":null,"description":"Record the decision to supersede the archival initiative.","sequence":3,"task_managers":[1],"task_members":[27,30]}},
-  {"model":"project.task","pk":1020,"fields":{"title":"Close archival workstream","project":1005,"stage":1020,"status":"expired","start_date":"2026-06-02","end_date":"2026-07-31","document":null,"description":"Close the workstream and preserve the decision record.","sequence":4,"task_managers":[1],"task_members":[27]}},
-
-  {"model":"project.timesheet","pk":1001,"fields":{"project_id":1001,"task_id":1001,"employee_id":12,"date":"2026-07-03","time_spent":"06:30","status":"completed","description":"Prepared metric definitions with HR reporting stakeholders."}},
-  {"model":"project.timesheet","pk":1002,"fields":{"project_id":1001,"task_id":1002,"employee_id":68,"date":"2026-07-18","time_spent":"07:15","status":"completed","description":"Validated workforce data mappings and reconciliation results."}},
-  {"model":"project.timesheet","pk":1003,"fields":{"project_id":1001,"task_id":1003,"employee_id":12,"date":"2026-07-30","time_spent":"05:45","status":"in_Progress","description":"Implemented dashboard API authorization checks."}},
-  {"model":"project.timesheet","pk":1004,"fields":{"project_id":1001,"task_id":1003,"employee_id":13,"date":"2026-08-01","time_spent":"04:30","status":"in_Progress","description":"Reviewed API response contracts with dashboard consumers."}},
-  {"model":"project.timesheet","pk":1005,"fields":{"project_id":1003,"task_id":1009,"employee_id":22,"date":"2026-02-12","time_spent":"06:00","status":"completed","description":"Tested the mobile approval prototype with finance approvers."}},
-  {"model":"project.timesheet","pk":1006,"fields":{"project_id":1003,"task_id":1010,"employee_id":12,"date":"2026-03-05","time_spent":"07:30","status":"completed","description":"Implemented immutable approval audit events."}},
-  {"model":"project.timesheet","pk":1007,"fields":{"project_id":1003,"task_id":1011,"employee_id":28,"date":"2026-03-29","time_spent":"05:15","status":"completed","description":"Completed accessibility and device regression checks."}},
-  {"model":"project.timesheet","pk":1008,"fields":{"project_id":1003,"task_id":1012,"employee_id":12,"date":"2026-06-24","time_spent":"03:45","status":"completed","description":"Prepared release notes and support handover material."}},
-  {"model":"project.timesheet","pk":1009,"fields":{"project_id":1004,"task_id":1013,"employee_id":13,"date":"2026-07-22","time_spent":"04:00","status":"in_Progress","description":"Assessed vendor upgrade compatibility and remediation impact."}},
-  {"model":"project.timesheet","pk":1010,"fields":{"project_id":1004,"task_id":1014,"employee_id":68,"date":"2026-07-28","time_spent":"06:45","status":"in_Progress","description":"Implemented the approved authentication control changes."}},
-  {"model":"project.timesheet","pk":1011,"fields":{"project_id":1004,"task_id":1014,"employee_id":13,"date":"2026-07-31","time_spent":"05:30","status":"in_Progress","description":"Reviewed remediation evidence and follow-up findings."}},
-  {"model":"project.timesheet","pk":1012,"fields":{"project_id":1005,"task_id":1017,"employee_id":27,"date":"2026-04-08","time_spent":"04:30","status":"completed","description":"Documented archival options and retention constraints."}},
-  {"model":"project.timesheet","pk":1013,"fields":{"project_id":1005,"task_id":1018,"employee_id":30,"date":"2026-04-28","time_spent":"05:00","status":"completed","description":"Drafted migration sequencing and rollback requirements."}},
-  {"model":"project.timesheet","pk":1014,"fields":{"project_id":1005,"task_id":1019,"employee_id":27,"date":"2026-05-20","time_spent":"03:30","status":"completed","description":"Recorded the approved retention strategy decision."}},
-  {"model":"project.timesheet","pk":1015,"fields":{"project_id":1001,"task_id":null,"employee_id":37,"date":"2026-07-31","time_spent":"02:15","status":"completed","description":"Led the weekly analytics delivery and risk review."}},
-  {"model":"project.timesheet","pk":1016,"fields":{"project_id":1004,"task_id":null,"employee_id":37,"date":"2026-07-30","time_spent":"01:45","status":"in_Progress","description":"Coordinated security remediation governance and dependency escalation."}}
+  {
+    "model": "project.project",
+    "pk": 1001,
+    "fields": {
+      "title": "Bảng điều khiển phân tích nhân sự",
+      "status": "in_progress",
+      "start_date": "2026-07-01",
+      "end_date": "2026-11-30",
+      "document": null,
+      "description": "Cung cấp bảng điều khiển phân tích lực lượng lao động tự phục vụ cho các nhà lãnh đạo nhân sự và doanh nghiệp.",
+      "company_id": 1,
+      "managers": [
+        37
+      ],
+      "members": [
+        12,
+        13,
+        68
+      ]
+    }
+  },
+  {
+    "model": "project.project",
+    "pk": 1002,
+    "fields": {
+      "title": "Tự động hóa quá trình giới thiệu khách hàng",
+      "status": "new",
+      "start_date": "2026-09-01",
+      "end_date": "2027-01-31",
+      "document": null,
+      "description": "Tự động hóa các mốc giới thiệu, thông báo và chuyển giao quyền sở hữu của khách hàng.",
+      "company_id": 1,
+      "managers": [
+        37
+      ],
+      "members": [
+        12,
+        13
+      ]
+    }
+  },
+  {
+    "model": "project.project",
+    "pk": 1003,
+    "fields": {
+      "title": "Phê duyệt chi phí di động",
+      "status": "completed",
+      "start_date": "2026-02-01",
+      "end_date": "2026-06-30",
+      "document": null,
+      "description": "Phát hành quy trình phê duyệt chi phí đầu tiên trên thiết bị di động với lịch sử phê duyệt sẵn sàng kiểm tra.",
+      "company_id": 2,
+      "managers": [
+        1
+      ],
+      "members": [
+        12,
+        22,
+        28
+      ]
+    }
+  },
+  {
+    "model": "project.project",
+    "pk": 1004,
+    "fields": {
+      "title": "Chương trình khắc phục bảo mật",
+      "status": "on_hold",
+      "start_date": "2026-07-15",
+      "end_date": "2026-12-15",
+      "document": null,
+      "description": "Giải quyết các phát hiện bảo mật được ưu tiên trong khi chờ nâng cấp phần phụ thuộc của bên thứ ba.",
+      "company_id": 1,
+      "managers": [
+        37
+      ],
+      "members": [
+        13,
+        68
+      ]
+    }
+  },
+  {
+    "model": "project.project",
+    "pk": 1005,
+    "fields": {
+      "title": "Lưu trữ dữ liệu kế thừa",
+      "status": "cancelled",
+      "start_date": "2026-04-01",
+      "end_date": "2026-07-31",
+      "document": null,
+      "description": "Hủy bỏ sáng kiến lưu trữ được đề xuất sau khi chiến lược lưu giữ được thay thế.",
+      "company_id": 3,
+      "managers": [
+        1
+      ],
+      "members": [
+        27,
+        30
+      ]
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1001,
+    "fields": {
+      "title": "Đã lên kế hoạch",
+      "project": 1001,
+      "sequence": 1,
+      "is_end_stage": false
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1002,
+    "fields": {
+      "title": "xây dựng",
+      "project": 1001,
+      "sequence": 2,
+      "is_end_stage": false
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1003,
+    "fields": {
+      "title": "Xác thực",
+      "project": 1001,
+      "sequence": 3,
+      "is_end_stage": false
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1004,
+    "fields": {
+      "title": "Đã phát hành",
+      "project": 1001,
+      "sequence": 4,
+      "is_end_stage": true
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1005,
+    "fields": {
+      "title": "Đã lên kế hoạch",
+      "project": 1002,
+      "sequence": 1,
+      "is_end_stage": false
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1006,
+    "fields": {
+      "title": "Thiết kế",
+      "project": 1002,
+      "sequence": 2,
+      "is_end_stage": false
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1007,
+    "fields": {
+      "title": "xây dựng",
+      "project": 1002,
+      "sequence": 3,
+      "is_end_stage": false
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1008,
+    "fields": {
+      "title": "Đã ra mắt",
+      "project": 1002,
+      "sequence": 4,
+      "is_end_stage": true
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1009,
+    "fields": {
+      "title": "khám phá",
+      "project": 1003,
+      "sequence": 1,
+      "is_end_stage": false
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1010,
+    "fields": {
+      "title": "Thực hiện",
+      "project": 1003,
+      "sequence": 2,
+      "is_end_stage": false
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1011,
+    "fields": {
+      "title": "Đánh giá chất lượng",
+      "project": 1003,
+      "sequence": 3,
+      "is_end_stage": false
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1012,
+    "fields": {
+      "title": "Đã hoàn thành",
+      "project": 1003,
+      "sequence": 4,
+      "is_end_stage": true
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1013,
+    "fields": {
+      "title": "Tồn đọng",
+      "project": 1004,
+      "sequence": 1,
+      "is_end_stage": false
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1014,
+    "fields": {
+      "title": "Đang khắc phục",
+      "project": 1004,
+      "sequence": 2,
+      "is_end_stage": false
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1015,
+    "fields": {
+      "title": "Bị chặn",
+      "project": 1004,
+      "sequence": 3,
+      "is_end_stage": false
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1016,
+    "fields": {
+      "title": "Đã xác minh",
+      "project": 1004,
+      "sequence": 4,
+      "is_end_stage": true
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1017,
+    "fields": {
+      "title": "Đánh giá",
+      "project": 1005,
+      "sequence": 1,
+      "is_end_stage": false
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1018,
+    "fields": {
+      "title": "Chuẩn bị",
+      "project": 1005,
+      "sequence": 2,
+      "is_end_stage": false
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1019,
+    "fields": {
+      "title": "Di chuyển",
+      "project": 1005,
+      "sequence": 3,
+      "is_end_stage": false
+    }
+  },
+  {
+    "model": "project.projectstage",
+    "pk": 1020,
+    "fields": {
+      "title": "Đã đóng",
+      "project": 1005,
+      "sequence": 4,
+      "is_end_stage": true
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1001,
+    "fields": {
+      "title": "Xác định số liệu bảng điều khiển",
+      "project": 1001,
+      "stage": 1004,
+      "status": "completed",
+      "start_date": "2026-07-01",
+      "end_date": "2026-07-10",
+      "document": null,
+      "description": "Thống nhất các số liệu, định nghĩa về lực lượng lao động và chủ doanh nghiệp.",
+      "sequence": 1,
+      "task_managers": [
+        37
+      ],
+      "task_members": [
+        12,
+        13
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1002,
+    "fields": {
+      "title": "Dữ liệu lực lượng lao động mẫu",
+      "project": 1001,
+      "stage": 1004,
+      "status": "completed",
+      "start_date": "2026-07-11",
+      "end_date": "2026-07-25",
+      "document": null,
+      "description": "Tạo mô hình báo cáo và xác thực ánh xạ hệ thống nguồn.",
+      "sequence": 2,
+      "task_managers": [
+        37
+      ],
+      "task_members": [
+        12,
+        68
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1003,
+    "fields": {
+      "title": "Xây dựng API trang tổng quan",
+      "project": 1001,
+      "stage": 1003,
+      "status": "in_progress",
+      "start_date": "2026-07-28",
+      "end_date": "2026-08-21",
+      "document": null,
+      "description": "Triển khai API bảng điều khiển an toàn và kiểm soát truy cập dữ liệu.",
+      "sequence": 3,
+      "task_managers": [
+        37
+      ],
+      "task_members": [
+        12,
+        13
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1004,
+    "fields": {
+      "title": "Lập báo cáo xuất khẩu",
+      "project": 1001,
+      "stage": 1001,
+      "status": "to_do",
+      "start_date": "2026-08-24",
+      "end_date": "2026-09-10",
+      "document": null,
+      "description": "Thêm xuất CSV theo lịch trình cho gói báo cáo điều hành.",
+      "sequence": 4,
+      "task_managers": [
+        37
+      ],
+      "task_members": [
+        68
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1005,
+    "fields": {
+      "title": "Bản đồ hành trình làm quen",
+      "project": 1002,
+      "stage": 1005,
+      "status": "to_do",
+      "start_date": "2026-09-01",
+      "end_date": "2026-09-14",
+      "document": null,
+      "description": "Lập bản đồ các cột mốc quan trọng của khách hàng, điểm tiếp xúc và đường dẫn leo thang.",
+      "sequence": 1,
+      "task_managers": [
+        37
+      ],
+      "task_members": [
+        12
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1006,
+    "fields": {
+      "title": "Quy tắc tự động hóa thiết kế",
+      "project": 1002,
+      "stage": 1006,
+      "status": "to_do",
+      "start_date": "2026-09-15",
+      "end_date": "2026-10-05",
+      "document": null,
+      "description": "Xác định trình kích hoạt tự động hóa, quyền sở hữu và xử lý ngoại lệ.",
+      "sequence": 2,
+      "task_managers": [
+        37
+      ],
+      "task_members": [
+        13
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1007,
+    "fields": {
+      "title": "Định cấu hình thông báo cột mốc",
+      "project": 1002,
+      "stage": 1007,
+      "status": "to_do",
+      "start_date": "2026-10-06",
+      "end_date": "2026-10-25",
+      "document": null,
+      "description": "Định cấu hình thông báo cột mốc nội bộ và khách hàng kịp thời.",
+      "sequence": 3,
+      "task_managers": [
+        37
+      ],
+      "task_members": [
+        12,
+        13
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1008,
+    "fields": {
+      "title": "Chạy đánh giá sẵn sàng khởi chạy",
+      "project": 1002,
+      "stage": 1008,
+      "status": "to_do",
+      "start_date": "2027-01-15",
+      "end_date": "2027-01-31",
+      "document": null,
+      "description": "Xác nhận quản trị, phạm vi hỗ trợ và khởi chạy các tiêu chí chấp nhận.",
+      "sequence": 4,
+      "task_managers": [
+        37
+      ],
+      "task_members": [
+        12,
+        13
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1009,
+    "fields": {
+      "title": "Luồng phê duyệt nguyên mẫu trên thiết bị di động",
+      "project": 1003,
+      "stage": 1012,
+      "status": "completed",
+      "start_date": "2026-02-01",
+      "end_date": "2026-02-20",
+      "document": null,
+      "description": "Xác thực quy trình phê duyệt di động cốt lõi với các bên liên quan về tài chính.",
+      "sequence": 1,
+      "task_managers": [
+        1
+      ],
+      "task_members": [
+        12,
+        22
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1010,
+    "fields": {
+      "title": "Thực hiện quy trình kiểm tra phê duyệt",
+      "project": 1003,
+      "stage": 1012,
+      "status": "completed",
+      "start_date": "2026-02-23",
+      "end_date": "2026-03-20",
+      "document": null,
+      "description": "Ghi lại các sự kiện phê duyệt và siêu dữ liệu quyết định để đánh giá kiểm toán.",
+      "sequence": 2,
+      "task_managers": [
+        1
+      ],
+      "task_members": [
+        12,
+        28
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1011,
+    "fields": {
+      "title": "Hoàn thành thử nghiệm hồi quy trên thiết bị di động",
+      "project": 1003,
+      "stage": 1012,
+      "status": "completed",
+      "start_date": "2026-03-23",
+      "end_date": "2026-04-10",
+      "document": null,
+      "description": "Hoàn thành kiểm tra hồi quy thiết bị, trình duyệt và khả năng truy cập.",
+      "sequence": 3,
+      "task_managers": [
+        1
+      ],
+      "task_members": [
+        22,
+        28
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1012,
+    "fields": {
+      "title": "Xuất bản ghi chú phát hành",
+      "project": 1003,
+      "stage": 1012,
+      "status": "completed",
+      "start_date": "2026-06-15",
+      "end_date": "2026-06-30",
+      "document": null,
+      "description": "Xuất bản ghi chú phát hành và hướng dẫn bàn giao vận hành.",
+      "sequence": 4,
+      "task_managers": [
+        1
+      ],
+      "task_members": [
+        12
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1013,
+    "fields": {
+      "title": "Ưu tiên nâng cấp phụ thuộc",
+      "project": 1004,
+      "stage": 1015,
+      "status": "in_progress",
+      "start_date": "2026-07-15",
+      "end_date": "2026-08-15",
+      "document": null,
+      "description": "Đánh giá nhu cầu nâng cấp phần phụ thuộc của nhà cung cấp trước khi có thể tiếp tục khắc phục.",
+      "sequence": 1,
+      "task_managers": [
+        37
+      ],
+      "task_members": [
+        13
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1014,
+    "fields": {
+      "title": "Khắc phục việc phát hiện xác thực",
+      "project": 1004,
+      "stage": 1014,
+      "status": "in_progress",
+      "start_date": "2026-07-20",
+      "end_date": "2026-08-30",
+      "document": null,
+      "description": "Áp dụng biện pháp khắc phục đã được phê duyệt cho phát hiện xác thực.",
+      "sequence": 2,
+      "task_managers": [
+        37
+      ],
+      "task_members": [
+        13,
+        68
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1015,
+    "fields": {
+      "title": "Xem xét bằng chứng bảo mật của nhà cung cấp",
+      "project": 1004,
+      "stage": 1013,
+      "status": "to_do",
+      "start_date": "2026-08-15",
+      "end_date": "2026-09-05",
+      "document": null,
+      "description": "Xem xét bằng chứng bảo mật của nhà cung cấp và cập nhật sổ đăng ký rủi ro.",
+      "sequence": 3,
+      "task_managers": [
+        37
+      ],
+      "task_members": [
+        68
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1016,
+    "fields": {
+      "title": "Xác thực các biện pháp kiểm soát khắc phục",
+      "project": 1004,
+      "stage": 1016,
+      "status": "to_do",
+      "start_date": "2026-09-15",
+      "end_date": "2026-10-01",
+      "document": null,
+      "description": "Xác thực các biện pháp kiểm soát kỹ thuật và quy trình sau khi giải quyết vấn đề phụ thuộc.",
+      "sequence": 4,
+      "task_managers": [
+        37
+      ],
+      "task_members": [
+        13,
+        68
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1017,
+    "fields": {
+      "title": "Đánh giá các tùy chọn lưu trữ",
+      "project": 1005,
+      "stage": 1020,
+      "status": "expired",
+      "start_date": "2026-04-01",
+      "end_date": "2026-04-15",
+      "document": null,
+      "description": "Đánh giá các tùy chọn lưu trữ dựa trên các yêu cầu lưu giữ được cập nhật.",
+      "sequence": 1,
+      "task_managers": [
+        1
+      ],
+      "task_members": [
+        27
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1018,
+    "fields": {
+      "title": "Dự thảo phương pháp di chuyển",
+      "project": 1005,
+      "stage": 1020,
+      "status": "expired",
+      "start_date": "2026-04-16",
+      "end_date": "2026-05-10",
+      "document": null,
+      "description": "Soạn thảo phương pháp di chuyển trước khi hủy sáng kiến.",
+      "sequence": 2,
+      "task_managers": [
+        1
+      ],
+      "task_members": [
+        30
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1019,
+    "fields": {
+      "title": "Xác nhận quyết định lưu giữ",
+      "project": 1005,
+      "stage": 1020,
+      "status": "expired",
+      "start_date": "2026-05-11",
+      "end_date": "2026-06-01",
+      "document": null,
+      "description": "Ghi quyết định thay thế sáng kiến lưu trữ.",
+      "sequence": 3,
+      "task_managers": [
+        1
+      ],
+      "task_members": [
+        27,
+        30
+      ]
+    }
+  },
+  {
+    "model": "project.task",
+    "pk": 1020,
+    "fields": {
+      "title": "Đóng luồng công việc lưu trữ",
+      "project": 1005,
+      "stage": 1020,
+      "status": "expired",
+      "start_date": "2026-06-02",
+      "end_date": "2026-07-31",
+      "document": null,
+      "description": "Đóng luồng công việc và lưu giữ hồ sơ quyết định.",
+      "sequence": 4,
+      "task_managers": [
+        1
+      ],
+      "task_members": [
+        27
+      ]
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1001,
+    "fields": {
+      "project_id": 1001,
+      "task_id": 1001,
+      "employee_id": 12,
+      "date": "2026-07-03",
+      "time_spent": "06:30",
+      "status": "completed",
+      "description": "Các định nghĩa số liệu được chuẩn bị sẵn với các bên liên quan trong báo cáo nhân sự."
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1002,
+    "fields": {
+      "project_id": 1001,
+      "task_id": 1002,
+      "employee_id": 68,
+      "date": "2026-07-18",
+      "time_spent": "07:15",
+      "status": "completed",
+      "description": "Ánh xạ dữ liệu lực lượng lao động đã được xác thực và kết quả đối chiếu."
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1003,
+    "fields": {
+      "project_id": 1001,
+      "task_id": 1003,
+      "employee_id": 12,
+      "date": "2026-07-30",
+      "time_spent": "05:45",
+      "status": "in_Progress",
+      "description": "Đã triển khai kiểm tra ủy quyền API trang tổng quan."
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1004,
+    "fields": {
+      "project_id": 1001,
+      "task_id": 1003,
+      "employee_id": 13,
+      "date": "2026-08-01",
+      "time_spent": "04:30",
+      "status": "in_Progress",
+      "description": "Đã xem xét hợp đồng phản hồi API với người dùng bảng điều khiển."
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1005,
+    "fields": {
+      "project_id": 1003,
+      "task_id": 1009,
+      "employee_id": 22,
+      "date": "2026-02-12",
+      "time_spent": "06:00",
+      "status": "completed",
+      "description": "Đã thử nghiệm nguyên mẫu phê duyệt di động với người phê duyệt tài chính."
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1006,
+    "fields": {
+      "project_id": 1003,
+      "task_id": 1010,
+      "employee_id": 12,
+      "date": "2026-03-05",
+      "time_spent": "07:30",
+      "status": "completed",
+      "description": "Triển khai các sự kiện kiểm tra phê duyệt bất biến."
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1007,
+    "fields": {
+      "project_id": 1003,
+      "task_id": 1011,
+      "employee_id": 28,
+      "date": "2026-03-29",
+      "time_spent": "05:15",
+      "status": "completed",
+      "description": "Đã hoàn tất kiểm tra hồi quy thiết bị và khả năng truy cập."
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1008,
+    "fields": {
+      "project_id": 1003,
+      "task_id": 1012,
+      "employee_id": 12,
+      "date": "2026-06-24",
+      "time_spent": "03:45",
+      "status": "completed",
+      "description": "Đã chuẩn bị ghi chú phát hành và tài liệu bàn giao hỗ trợ."
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1009,
+    "fields": {
+      "project_id": 1004,
+      "task_id": 1013,
+      "employee_id": 13,
+      "date": "2026-07-22",
+      "time_spent": "04:00",
+      "status": "in_Progress",
+      "description": "Đánh giá khả năng tương thích nâng cấp của nhà cung cấp và tác động khắc phục."
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1010,
+    "fields": {
+      "project_id": 1004,
+      "task_id": 1014,
+      "employee_id": 68,
+      "date": "2026-07-28",
+      "time_spent": "06:45",
+      "status": "in_Progress",
+      "description": "Thực hiện các thay đổi kiểm soát xác thực đã được phê duyệt."
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1011,
+    "fields": {
+      "project_id": 1004,
+      "task_id": 1014,
+      "employee_id": 13,
+      "date": "2026-07-31",
+      "time_spent": "05:30",
+      "status": "in_Progress",
+      "description": "Đã xem xét bằng chứng khắc phục và các phát hiện tiếp theo."
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1012,
+    "fields": {
+      "project_id": 1005,
+      "task_id": 1017,
+      "employee_id": 27,
+      "date": "2026-04-08",
+      "time_spent": "04:30",
+      "status": "completed",
+      "description": "Các tùy chọn lưu trữ tài liệu và các ràng buộc lưu giữ."
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1013,
+    "fields": {
+      "project_id": 1005,
+      "task_id": 1018,
+      "employee_id": 30,
+      "date": "2026-04-28",
+      "time_spent": "05:00",
+      "status": "completed",
+      "description": "Đã soạn thảo các yêu cầu về trình tự di chuyển và khôi phục."
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1014,
+    "fields": {
+      "project_id": 1005,
+      "task_id": 1019,
+      "employee_id": 27,
+      "date": "2026-05-20",
+      "time_spent": "03:30",
+      "status": "completed",
+      "description": "Ghi lại quyết định chiến lược lưu giữ đã được phê duyệt."
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1015,
+    "fields": {
+      "project_id": 1001,
+      "task_id": null,
+      "employee_id": 37,
+      "date": "2026-07-31",
+      "time_spent": "02:15",
+      "status": "completed",
+      "description": "Dẫn đầu việc phân phối phân tích hàng tuần và đánh giá rủi ro."
+    }
+  },
+  {
+    "model": "project.timesheet",
+    "pk": 1016,
+    "fields": {
+      "project_id": 1004,
+      "task_id": null,
+      "employee_id": 37,
+      "date": "2026-07-30",
+      "time_spent": "01:45",
+      "status": "in_Progress",
+      "description": "Phối hợp quản lý khắc phục vấn đề bảo mật và leo thang sự phụ thuộc."
+    }
+  }
 ]

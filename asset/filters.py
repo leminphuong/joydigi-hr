@@ -11,12 +11,12 @@ from django.utils.translation import gettext_lazy as _
 from django_filters import FilterSet
 
 from base.methods import reload_queryset
-from horilla.filters import HorillaFilterSet
+from joydigi.filters import JoydigiFilterSet
 
 from .models import Asset, AssetAssignment, AssetCategory, AssetLot, AssetRequest
 
 
-class CustomFilterSet(HorillaFilterSet):
+class CustomFilterSet(JoydigiFilterSet):
     """
     Custom FilterSet class that applies specific CSS classes to filter
     widgets.
@@ -381,7 +381,7 @@ class AssetHistoryReGroup:
     ]
 
 
-class AssetRenewalFilter(HorillaFilterSet):
+class AssetRenewalFilter(JoydigiFilterSet):
     """
     Filter set for the Asset Renewal page — expiring/expired active assignments.
     Filters operate on AssetAssignment with traversal into the related Asset.

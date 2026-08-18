@@ -24,13 +24,13 @@ from employee.models import (
     EmployeeWorkInformation,
     Policy,
 )
-from horilla.filters import FilterSet, HorillaFilterSet, filter_by_name
-from horilla.horilla_middlewares import _thread_locals
-from horilla_documents.models import Document, DocumentRequest
-from horilla_views.templatetags.generic_template_filters import getattribute
+from joydigi.filters import FilterSet, JoydigiFilterSet, filter_by_name
+from joydigi.joydigi_middlewares import _thread_locals
+from joydigi_documents.models import Document, DocumentRequest
+from joydigi_views.templatetags.generic_template_filters import getattribute
 
 
-class EmployeeFilter(HorillaFilterSet):
+class EmployeeFilter(JoydigiFilterSet):
     """
     Filter set class for Candidate model
 
@@ -310,7 +310,7 @@ class DocumentRequestFilter(FilterSet):
         ]
 
 
-class DocumentPipelineFilter(HorillaFilterSet):
+class DocumentPipelineFilter(JoydigiFilterSet):
     """
     Filter set class for TaxBracket model.
     """
@@ -367,7 +367,7 @@ class DisciplinaryActionFilter(FilterSet):
         ]
 
 
-class ActionTypeFilter(HorillaFilterSet):
+class ActionTypeFilter(JoydigiFilterSet):
 
     search = django_filters.CharFilter(method="search_method")
 
@@ -397,7 +397,7 @@ class EmployeeTagFilter(FilterSet):
         ]
 
 
-class EmployeeWorkInformationFilter(HorillaFilterSet):
+class EmployeeWorkInformationFilter(JoydigiFilterSet):
 
     search = django_filters.CharFilter(
         field_name="employee_id__employee_first_name", lookup_expr="icontains"

@@ -25,19 +25,19 @@ from asset.forms import AssetAllocationForm, AssetReassignForm, AssetRequestForm
 from asset.models import Asset, AssetAssignment, AssetRequest, ReturnImages
 from base.methods import filtersubordinates
 from employee.models import Employee
-from horilla.horilla_middlewares import _thread_locals
-from horilla.http.response import HorillaRedirect
-from horilla_views.cbv_methods import (
+from joydigi.joydigi_middlewares import _thread_locals
+from joydigi.http.response import JoydigiRedirect
+from joydigi_views.cbv_methods import (
     login_required,
     owner_can_enter,
     permission_required,
 )
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
-    HorillaTabView,
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
+    JoydigiTabView,
     TemplateView,
 )
 from notifications.signals import notify
@@ -53,7 +53,7 @@ class RequestAndAllocationView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class AllocationList(HorillaListView):
+class AllocationList(JoydigiListView):
     """
     For both  asset allocation and asset tab
     """
@@ -172,7 +172,7 @@ class AssetAllocationList(AllocationList):
 
 
 @method_decorator(login_required, name="dispatch")
-class AssetRequestList(HorillaListView):
+class AssetRequestList(JoydigiListView):
     """
     Asset Request Tab
     """
@@ -247,7 +247,7 @@ class AssetAllocationDelete(DeleteView):
         self.object.delete()
         messages.success(request, _("Allocation deleted successfully"))
 
-        return HorillaFormView.HttpResponse()
+        return JoydigiFormView.HttpResponse()
 
 
 @method_decorator(login_required, name="dispatch")
@@ -267,11 +267,11 @@ class AssetRequestDelete(DeleteView):
         self.object.delete()
         messages.success(request, _("Asset request deleted successfully"))
 
-        return HorillaFormView.HttpResponse()
+        return JoydigiFormView.HttpResponse()
 
 
 @method_decorator(login_required, name="dispatch")
-class RequestAndAllocationTab(HorillaTabView):
+class RequestAndAllocationTab(JoydigiTabView):
     """
     Tab View
     """
@@ -359,7 +359,7 @@ class RequestAndAllocationTab(HorillaTabView):
 
 
 @method_decorator(login_required, name="dispatch")
-class RequestAndAllocationNav(HorillaNavView):
+class RequestAndAllocationNav(JoydigiNavView):
     """
     Nav bar
     """
@@ -405,7 +405,7 @@ class RequestAndAllocationNav(HorillaNavView):
     ),
     name="dispatch",
 )
-class AssetDetailView(HorillaDetailedView):
+class AssetDetailView(JoydigiDetailedView):
     """
     detail view of asset tab
     """
@@ -443,7 +443,7 @@ class AssetDetailView(HorillaDetailedView):
     ),
     name="dispatch",
 )
-class AssetRequestDetailView(HorillaDetailedView):
+class AssetRequestDetailView(JoydigiDetailedView):
     """
     detail view of asset request tab
     """
@@ -480,7 +480,7 @@ class AssetRequestDetailView(HorillaDetailedView):
     ),
     name="dispatch",
 )
-class AssetAllocationDetailView(HorillaDetailedView):
+class AssetAllocationDetailView(JoydigiDetailedView):
     """
     detail view of asset allocation tab
     """
@@ -512,7 +512,7 @@ class AssetAllocationDetailView(HorillaDetailedView):
 
 
 @method_decorator(login_required, name="dispatch")
-class AssetRequestCreateForm(HorillaFormView):
+class AssetRequestCreateForm(JoydigiFormView):
     """
     Create Asset request
     """
@@ -532,7 +532,7 @@ class AssetRequestCreateForm(HorillaFormView):
                 has_perm = request.user.has_perm("asset.change_assetrequest")
                 if not (is_owner or has_perm):
                     messages.error(request, _("You don't have permission."))
-                    return HorillaRedirect(request)
+                    return JoydigiRedirect(request)
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
@@ -562,7 +562,7 @@ class AssetRequestCreateForm(HorillaFormView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="asset.add_asset"), name="dispatch")
-class AssetAllocationFormView(HorillaFormView):
+class AssetAllocationFormView(JoydigiFormView):
     """
     Create Asset Allocation
     """
@@ -612,7 +612,7 @@ class AssetAllocationFormView(HorillaFormView):
 @method_decorator(
     permission_required(perm="asset.add_assetassignment"), name="dispatch"
 )
-class AssetApproveFormView(HorillaFormView):
+class AssetApproveFormView(JoydigiFormView):
     """
     Create Asset Allocation
     """
@@ -706,7 +706,7 @@ class AssetRenewalView(TemplateView):
 @method_decorator(
     permission_required(perm="asset.change_assetassignment"), name="dispatch"
 )
-class AssetRenewalNav(HorillaNavView):
+class AssetRenewalNav(JoydigiNavView):
     """
     Nav bar for the asset renewal page.
     """
@@ -726,7 +726,7 @@ class AssetRenewalNav(HorillaNavView):
 @method_decorator(
     permission_required(perm="asset.change_assetassignment"), name="dispatch"
 )
-class ExpiringAssignmentList(HorillaListView):
+class ExpiringAssignmentList(JoydigiListView):
     """
     Lists active assignments whose asset expires within 30 days (or is already expired).
     """
@@ -770,7 +770,7 @@ class ExpiringAssignmentList(HorillaListView):
 @method_decorator(
     permission_required(perm="asset.change_assetassignment"), name="dispatch"
 )
-class AssetReassignFormView(HorillaFormView):
+class AssetReassignFormView(JoydigiFormView):
     """
     Modal form to swap the asset on an existing assignment to a replacement.
     """

@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ("base", "0001_initial"),
         ("employee", "0001_initial"),
-        ("horilla_audit", "0001_initial"),
+        ("joydigi_audit", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -661,7 +661,7 @@ class Migration(migrations.Migration):
                         to="pms.employeeobjective",
                     ),
                 ),
-                ("history_tags", models.ManyToManyField(to="horilla_audit.audittag")),
+                ("history_tags", models.ManyToManyField(to="joydigi_audit.audittag")),
                 (
                     "history_user",
                     models.ForeignKey(
@@ -769,7 +769,7 @@ class Migration(migrations.Migration):
                         verbose_name="Created By",
                     ),
                 ),
-                ("history_tags", models.ManyToManyField(to="horilla_audit.audittag")),
+                ("history_tags", models.ManyToManyField(to="joydigi_audit.audittag")),
                 (
                     "history_user",
                     models.ForeignKey(
@@ -891,7 +891,7 @@ class Migration(migrations.Migration):
                         verbose_name="Created By",
                     ),
                 ),
-                ("history_tags", models.ManyToManyField(to="horilla_audit.audittag")),
+                ("history_tags", models.ManyToManyField(to="joydigi_audit.audittag")),
                 (
                     "history_user",
                     models.ForeignKey(
@@ -1093,7 +1093,7 @@ class Migration(migrations.Migration):
                         to="pms.employeeobjective",
                     ),
                 ),
-                ("history_tags", models.ManyToManyField(to="horilla_audit.audittag")),
+                ("history_tags", models.ManyToManyField(to="joydigi_audit.audittag")),
                 (
                     "history_user",
                     models.ForeignKey(
@@ -1494,7 +1494,7 @@ class Migration(migrations.Migration):
                         to="pms.employeeobjective",
                     ),
                 ),
-                ("history_tags", models.ManyToManyField(to="horilla_audit.audittag")),
+                ("history_tags", models.ManyToManyField(to="joydigi_audit.audittag")),
                 (
                     "history_user",
                     models.ForeignKey(

@@ -1,6 +1,6 @@
 {% load i18n %}
 {% load basefilters %}
-{% load horillafilters %}
+{% load joydigifilters %}
 {% get_company as theme_obj %}
 <div id="leave-tab">
     {% comment %} {% include "leave/user_leave/user_leave.html" %} {% endcomment %}
@@ -212,7 +212,7 @@
             </div>
         </div>
     {% endif %}
-    {% include "generic/horilla_list.html" %}
+    {% include "generic/joydigi_list.html" %}
 </div>
 
 <div class="oh-modal" id="rejectModal" role="dialog" aria-labelledby="rejectModal" aria-hidden="true">

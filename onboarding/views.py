@@ -43,19 +43,19 @@ from base.methods import (
     get_pagination,
     sortby,
 )
-from base.models import HorillaMailTemplate, JobPosition
+from base.models import JoydigiMailTemplate, JobPosition
 from employee.models import Employee, EmployeeBankDetails, EmployeeWorkInformation
-from horilla import settings
-from horilla.decorators import (
+from joydigi import settings
+from joydigi.decorators import (
     hx_request_required,
     logger,
     login_required,
     permission_required,
 )
-from horilla.group_by import group_by_queryset as general_group_by
-from horilla.http.response import HorillaRedirect
-from horilla_auth.models import HorillaUser
-from horilla_documents.models import Document
+from joydigi.group_by import group_by_queryset as general_group_by
+from joydigi.http.response import JoydigiRedirect
+from joydigi_auth.models import JoydigiUser
+from joydigi_documents.models import Document
 from notifications.signals import notify
 from onboarding.decorators import (
     all_manager_can_enter,
@@ -209,7 +209,7 @@ def stage_update(request, stage_id, recruitment_id):
                     </script>
                     """
                 )
-            return HorillaRedirect(request)
+            return JoydigiRedirect(request)
     return render(
         request,
         "onboarding/stage_update.html",
@@ -225,7 +225,7 @@ def update_stage_order(request, pk):
     """
     recruitment = Recruitment.find(pk)
     if not recruitment:
-        return HorillaRedirect(request, message=_("Recruitment not found."))
+        return JoydigiRedirect(request, message=_("Recruitment not found."))
 
     if request.method == "POST":
         try:
@@ -274,7 +274,7 @@ def stage_delete(request, stage_id):
         messages.error(request, _("Stage not found."))
     except ProtectedError:
         messages.error(request, _("There are candidates in this stage..."))
-    return HorillaRedirect(request)
+    return JoydigiRedirect(request)
 
 
 @login_required
@@ -333,7 +333,7 @@ def task_creation(request):
                 redirect=reverse("onboarding-view"),
             )
             messages.success(request, _("New task created successfully..."))
-            return HorillaRedirect(request)
+            return JoydigiRedirect(request)
     return render(
         request, "onboarding/task_form.html", {"form": form, "stage_id": stage_id}
     )
@@ -384,7 +384,7 @@ def task_update(
                 icon="people-circle",
                 redirect=reverse("onboarding-view"),
             )
-            return HorillaRedirect(request)
+            return JoydigiRedirect(request)
     return render(
         request,
         "onboarding/task_update.html",
@@ -466,7 +466,7 @@ def candidate_update(request, obj_id):
     """
     candidate = Candidate.find(obj_id)
     if not candidate:
-        return HorillaRedirect(request, message=_("Candidate not found."))
+        return JoydigiRedirect(request, message=_("Candidate not found."))
     form = OnboardingCandidateForm(instance=candidate)
     if request.method == "POST":
         form = OnboardingCandidateForm(request.POST, request.FILES, instance=candidate)
@@ -599,7 +599,7 @@ def candidates_view(request):
     previous_data = request.GET.urlencode()
     page_number = request.GET.get("page")
     page_obj = paginator_qry(candidate_filter_obj.qs, page_number)
-    mail_templates = HorillaMailTemplate.objects.all()
+    mail_templates = JoydigiMailTemplate.objects.all()
     data_dict = parse_qs(previous_data)
     get_key_instances(Candidate, data_dict)
     return render(
@@ -701,7 +701,7 @@ def candidate_filter(request):
 #         return HttpResponse("<script>window.location.reload()</script>")
 
 #     bodys = list(
-#         HorillaMailTemplate.objects.filter(id__in=template_attachment_ids).values_list(
+#         JoydigiMailTemplate.objects.filter(id__in=template_attachment_ids).values_list(
 #             "body", flat=True
 #         )
 #     )
@@ -813,11 +813,11 @@ def email_send(request):
 
     if not candidates:
         messages.info(request, _("Please choose candidates"))
-        return HorillaRedirect(request)
+        return JoydigiRedirect(request)
 
     # Fetch PDF templates
     bodys = list(
-        HorillaMailTemplate.objects.filter(id__in=template_attachment_ids).values_list(
+        JoydigiMailTemplate.objects.filter(id__in=template_attachment_ids).values_list(
             "body", flat=True
         )
     )
@@ -900,7 +900,7 @@ def email_send(request):
             if company and company.icon and os.path.exists(company.icon.path):
                 image_path = company.icon.path
             else:
-                image_path = finders.find("images/ui/horilla-sticker-round.png")
+                image_path = finders.find("images/ui/joydigi-sticker-round.png")
 
             if image_path:
                 with open(image_path, "rb") as f:
@@ -944,7 +944,7 @@ def email_send(request):
         except Exception as e:
             logger.error(e)
 
-    return HorillaRedirect(request)
+    return JoydigiRedirect(request)
 
 
 def onboarding_query_grouper(request, queryset):
@@ -1147,7 +1147,7 @@ def user_creation(request, token):
         if onboarding_portal.count == 3:
             return redirect("employee-bank-details", token)
         candidate = onboarding_portal.candidate_id
-        user = HorillaUser.objects.filter(username=candidate.email).first()
+        user = JoydigiUser.objects.filter(username=candidate.email).first()
         form = UserCreationForm(instance=user)
         try:
             if request.method == "POST":
@@ -1253,10 +1253,10 @@ def employee_creation(request, token):
     user = portal_user.get(session_key)
     if user is None:
         # Fallback for direct/opened links where in-memory portal state is absent.
-        user = HorillaUser.objects.filter(username=candidate.email).first()
+        user = JoydigiUser.objects.filter(username=candidate.email).first()
     elif not getattr(user, "pk", None):
         # Related filters require a saved instance; resolve persisted user by email/username.
-        user = HorillaUser.objects.filter(username=candidate.email).first() or user
+        user = JoydigiUser.objects.filter(username=candidate.email).first() or user
 
     if user is None:
         messages.error(
@@ -1368,9 +1368,9 @@ def employee_bank_details(request, token):
     """
     onboarding_portal = OnboardingPortal.objects.filter(token=token).first()
     if not onboarding_portal:
-        return HorillaRedirect(request, message=_("Onboarding portal not found."))
+        return JoydigiRedirect(request, message=_("Onboarding portal not found."))
 
-    user = HorillaUser.objects.filter(
+    user = JoydigiUser.objects.filter(
         username=onboarding_portal.candidate_id.email
     ).first()
     employee = Employee.objects.filter(employee_user_id=user).first()
@@ -1496,7 +1496,7 @@ def get_status(request, task_id):
     cand_id = request.GET.get("cand_id")
     cand_stage = request.GET.get("cand_stage")
     if not cand_id or not cand_stage:
-        return HorillaRedirect(request, message=_("Missing required parameters."))
+        return JoydigiRedirect(request, message=_("Missing required parameters."))
     cand_stage_obj = CandidateStage.find(cand_stage)
     onboarding_task = OnboardingTask.find(task_id)
     candidate = Candidate.find(cand_id)
@@ -1504,7 +1504,7 @@ def get_status(request, task_id):
         candidate_id=candidate, onboarding_task_id=onboarding_task
     ).first()
     if not cand_stage_obj or not onboarding_task or not candidate or not candidate_task:
-        return HorillaRedirect(request, message=_("Object not found."))
+        return JoydigiRedirect(request, message=_("Object not found."))
     status = candidate_task.status
 
     return render(
@@ -1537,7 +1537,7 @@ def assign_task(request, task_id):
     cand_id = request.GET.get("cand_id")
     cand_stage = request.GET.get("cand_stage")
     if not stage_id or not cand_id or not cand_stage:
-        return HorillaRedirect(request, message=_("Missing required parameters."))
+        return JoydigiRedirect(request, message=_("Missing required parameters."))
     cand_stage_obj = CandidateStage.find(cand_stage)
     onboarding_task = OnboardingTask.find(task_id)
     candidate = Candidate.find(cand_id)
@@ -1548,7 +1548,7 @@ def assign_task(request, task_id):
         or not candidate
         or not onboarding_stage
     ):
-        return HorillaRedirect(request, message=_("Object not found."))
+        return JoydigiRedirect(request, message=_("Object not found."))
 
     cand_task, created = CandidateTask.objects.get_or_create(
         candidate_id=candidate,
@@ -2016,10 +2016,10 @@ def change_task_status(request):
     task_id = request.GET.get("task_id")
     status = request.GET.get("status")
     if not task_id or not status:
-        return HorillaRedirect(request, message=_("Task ID or status is missing"))
+        return JoydigiRedirect(request, message=_("Task ID or status is missing"))
     candidate_task = CandidateTask.find(task_id)
     if not candidate_task:
-        return HorillaRedirect(request, message=_("Candidate task not found"))
+        return JoydigiRedirect(request, message=_("Candidate task not found"))
     if status in [
         "todo",
         "scheduled",
@@ -2090,7 +2090,7 @@ def add_to_rejected_candidates(request):
             form.save()
             form = RejectedCandidateForm()
             messages.success(request, _("Candidate reject reason saved"))
-            return HorillaRedirect(request)
+            return JoydigiRedirect(request)
     return render(request, "onboarding/rejection/form.html", {"form": form})
 
 
@@ -2120,7 +2120,7 @@ def undo_rejected_candidate(request, candidate_id):
         # fire even when the button uses hx-swap="none" (which discards the response body).
         response["HX-Trigger"] = "reloadCandidatesList"
         return response
-    return HorillaRedirect(request)
+    return JoydigiRedirect(request)
 
 
 @login_required

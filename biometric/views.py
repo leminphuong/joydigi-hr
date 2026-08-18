@@ -31,15 +31,15 @@ from attendance.models import AttendanceActivity
 from attendance.views.clock_in_out import clock_in, clock_out
 from base.methods import get_key_instances, get_pagination
 from employee.models import Employee, EmployeeWorkInformation
-from horilla.decorators import (
+from joydigi.decorators import (
     hx_request_required,
     install_required,
     login_required,
     permission_required,
 )
-from horilla.filters import HorillaPaginator
-from horilla.http.response import HorillaRedirect
-from horilla.settings import TIME_ZONE
+from joydigi.filters import JoydigiPaginator
+from joydigi.http.response import JoydigiRedirect
+from joydigi.settings import TIME_ZONE
 
 from .anviz import CrossChexCloudAPI
 from .cosec import COSECBiometric
@@ -75,7 +75,7 @@ def paginator_qry(qryset, page_number):
     """
     This method is used to paginate query set
     """
-    paginator = HorillaPaginator(qryset, get_pagination())
+    paginator = JoydigiPaginator(qryset, get_pagination())
     qryset = paginator.get_page(page_number)
     return qryset
 
@@ -433,7 +433,7 @@ def biometric_device_schedule(request, device_id):
                         seconds=str_time_seconds(device.scheduler_duration),
                     )
                     scheduler.start()
-                    return HorillaRedirect(request)
+                    return JoydigiRedirect(request)
                 except Exception as error:
                     logger.error("An error comes in biometric_device_schedule ", error)
                     script = """
@@ -463,7 +463,7 @@ def biometric_device_schedule(request, device_id):
                     seconds=str_time_seconds(device.scheduler_duration),
                 )
                 scheduler.start()
-                return HorillaRedirect(request)
+                return JoydigiRedirect(request)
             elif device.machine_type == "dahua":
                 device.is_scheduler = True
                 device.is_live = False
@@ -476,7 +476,7 @@ def biometric_device_schedule(request, device_id):
                     seconds=str_time_seconds(device.scheduler_duration),
                 )
                 scheduler.start()
-                return HorillaRedirect(request)
+                return JoydigiRedirect(request)
             elif device.machine_type == "cosec":
                 device.is_scheduler = True
                 device.is_live = False
@@ -493,7 +493,7 @@ def biometric_device_schedule(request, device_id):
                     seconds=str_time_seconds(device.scheduler_duration),
                 )
                 scheduler.start()
-                return HorillaRedirect(request)
+                return JoydigiRedirect(request)
             elif device.machine_type == "etimeoffice":
                 device.is_scheduler = True
                 device.is_live = False
@@ -506,9 +506,9 @@ def biometric_device_schedule(request, device_id):
                     seconds=str_time_seconds(device.scheduler_duration),
                 )
                 scheduler.start()
-                return HorillaRedirect(request)
+                return JoydigiRedirect(request)
             else:
-                return HorillaRedirect(request)
+                return JoydigiRedirect(request)
 
         context["scheduler_form"] = scheduler_form
         response = render(request, "biometric/scheduler_device_form.html", context)
@@ -1532,7 +1532,7 @@ def edit_cosec_user(request, user_id, device_id):
                     messages.success(
                         request, _("Biometric user data updated successfully")
                     )
-                    return HorillaRedirect(request)
+                    return JoydigiRedirect(request)
                 if update_user.get("error"):
                     error = update_user.get("error")
                     if "validity-date-yyyy" in error:
@@ -1553,7 +1553,7 @@ def edit_cosec_user(request, user_id, device_id):
 @login_required
 @install_required
 @permission_required("biometric.delete_biometricemployees")
-def delete_horilla_cosec_user(request, user_id, device_id):
+def delete_joydigi_cosec_user(request, user_id, device_id):
     """
     View function to delete a user from a COSEC biometric device and database.
 
@@ -1814,7 +1814,7 @@ def add_biometric_user(request, device_id):
             if device.machine_type == "zk":
                 conn.disable_device()
                 logger.error("An error occurred: ", str(error))
-        return HorillaRedirect(request)
+        return JoydigiRedirect(request)
     return render(
         request,
         "biometric/add_biometric_user.html",
@@ -1827,7 +1827,7 @@ def add_biometric_user(request, device_id):
 @hx_request_required
 def map_biometric_users(request, device_id):
     """
-    Maps an horilla employee to a biometric user on a specified biometric device.
+    Maps an joydigi employee to a biometric user on a specified biometric device.
     """
     device = BiometricDevices.find(device_id)
     form = MapBioUsers(request.POST or None)
@@ -2472,10 +2472,10 @@ def cosec_biometric_attendance_scheduler(device_id):
 
 def dahua_biometric_attendance_logs(device):
     """
-    Retrieves logs from a Dahua biometric device and marks attendance in Horilla.
+    Retrieves logs from a Dahua biometric device and marks attendance in Joydigi.
 
     This function fetches biometric logs from the specified device, processes the attendance records,
-    and updates the attendance system in Horilla. If an employee has an active clock-in record,
+    and updates the attendance system in Joydigi. If an employee has an active clock-in record,
     it marks their clock-out; otherwise, it registers a new clock-in entry.
 
     Args:

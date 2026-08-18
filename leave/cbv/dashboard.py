@@ -7,8 +7,8 @@ from django.utils.translation import gettext_lazy as _
 
 from base.decorators import manager_can_enter
 from base.methods import filtersubordinates
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import HorillaListView
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import JoydigiListView
 from leave.cbv.leave_allocation_request import LeaveAllocationRequests
 from leave.cbv.leave_requests import LeaveRequestsListView
 from leave.cbv.my_leave_request import MyLeaveRequestListView
@@ -85,7 +85,7 @@ class LeaveRequestsToApprove(LeaveRequestsListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("leave.view_leaverequest"), name="dispatch")
-class DashboardOnLeave(HorillaListView):
+class DashboardOnLeave(JoydigiListView):
     """
     list view for on leave in dashboard
     """

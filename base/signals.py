@@ -15,7 +15,7 @@ from django.shortcuts import redirect, render
 from django.utils.translation import gettext as _
 
 from base.models import Announcement, PenaltyAccounts
-from horilla.methods import get_horilla_model_class
+from joydigi.methods import get_joydigi_model_class
 
 
 @receiver(post_save, sender=PenaltyAccounts)
@@ -27,7 +27,7 @@ def create_deduction_cutleave_from_penalty(sender, instance, created, **kwargs):
     if created:
         penalty_amount = instance.penalty_amount
         if apps.is_installed("payroll") and penalty_amount:
-            Deduction = get_horilla_model_class(app_label="payroll", model="deduction")
+            Deduction = get_joydigi_model_class(app_label="payroll", model="deduction")
             penalty = Deduction()
             if instance.late_early_id:
                 penalty.title = f"{instance.late_early_id.get_type_display()} penalty"
@@ -75,7 +75,7 @@ def delete_deduction_cutleave_from_penalty(sender, instance, **kwargs):
     """
     # Check if the deduction model is installed
     if apps.is_installed("payroll"):
-        Deduction = get_horilla_model_class(app_label="payroll", model="deduction")
+        Deduction = get_joydigi_model_class(app_label="payroll", model="deduction")
 
         if instance.late_early_id:
             title = f"{instance.late_early_id.get_type_display()} penalty"
@@ -186,7 +186,7 @@ _HRMS_GROUP_MIGRATE_APPS = {
     "project",
     "pms",
     "biometric",
-    "horilla_documents",
+    "joydigi_documents",
 }
 
 # name -> permission rules
@@ -208,7 +208,7 @@ _DEFAULT_HRMS_GROUPS = {
             "onboarding",
             "offboarding",
             "asset",
-            "horilla_documents",
+            "joydigi_documents",
             "helpdesk",
             "pms",
         ),
@@ -292,9 +292,9 @@ _ALL_HRMS_APP_LABELS = (
     "project",
     "pms",
     "biometric",
-    "horilla_documents",
-    "horilla_automations",
-    "horilla_audit",
+    "joydigi_documents",
+    "joydigi_automations",
+    "joydigi_audit",
     "accessibility",
 )
 

@@ -32,14 +32,14 @@ def candidate_convert():
     """
     Converts candidates to a "converted" state if they already exist as users.
     """
-    from horilla_auth.models import HorillaUser
+    from joydigi_auth.models import JoydigiUser
     from recruitment.models import Candidate
 
     mails = list(
         Candidate.objects.filter(is_active=True).values_list("email", flat=True)
     )
     existing_emails = list(
-        HorillaUser.objects.filter(email__in=mails).values_list("email", flat=True)
+        JoydigiUser.objects.filter(email__in=mails).values_list("email", flat=True)
     )
     Candidate.objects.filter(
         is_active=True,

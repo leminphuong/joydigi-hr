@@ -1,7 +1,7 @@
 """
 employee/sidebar.py
 
-To set Horilla sidebar for employee
+To set Joydigi sidebar for employee
 """
 
 from django.urls import reverse_lazy
@@ -9,7 +9,7 @@ from django.utils.translation import gettext_lazy as _
 
 from accessibility.methods import check_is_accessible
 from base.templatetags.basefilters import is_reportingmanager
-from horilla.horilla_middlewares import _thread_locals
+from joydigi.joydigi_middlewares import _thread_locals
 
 request = getattr(_thread_locals, "request", None)
 MENU = _("Employee")
@@ -59,7 +59,7 @@ SUBMENUS = [
 
 def document_accessibility(request, submenu, user_perms, *args, **kwargs):
     return request.user.has_perm(
-        "horilla_documents.view_documentrequest"
+        "joydigi_documents.view_documentrequest"
     ) or is_reportingmanager(request.user)
 
 

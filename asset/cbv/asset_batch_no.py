@@ -13,12 +13,12 @@ from django.utils.translation import gettext_lazy as _
 from asset.filters import AssetBatchNoFilter
 from asset.forms import AssetBatchForm
 from asset.models import AssetLot
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 
@@ -35,7 +35,7 @@ class AssetBatchNoView(TemplateView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("asset.view_assetlot"), name="dispatch")
-class AssetBatchNoListView(HorillaListView):
+class AssetBatchNoListView(JoydigiListView):
     """
     list view for batch number
     """
@@ -67,7 +67,7 @@ class AssetBatchNoListView(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("asset.view_assetlot"), name="dispatch")
-class AssetBatchNoNav(HorillaNavView):
+class AssetBatchNoNav(JoydigiNavView):
     """
     Nav bar
     """
@@ -91,7 +91,7 @@ class AssetBatchNoNav(HorillaNavView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("asset.add_assetlot"), name="dispatch")
-class AssetBatchCreateFormView(HorillaFormView):
+class AssetBatchCreateFormView(JoydigiFormView):
     """
     form view for create batch number
     """
@@ -131,7 +131,7 @@ class DynamicCreateBatchNo(AssetBatchCreateFormView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("asset.view_assetlot"), name="dispatch")
-class AssetBatchDetailView(HorillaDetailedView):
+class AssetBatchDetailView(JoydigiDetailedView):
     """
     detail view of the page
     """

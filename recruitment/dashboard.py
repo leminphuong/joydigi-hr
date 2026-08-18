@@ -13,7 +13,7 @@ from django.shortcuts import render
 from django.utils.translation import gettext as _
 
 from employee.models import Employee
-from horilla.methods import handle_no_permission
+from joydigi.methods import handle_no_permission
 from recruitment.models import Recruitment, Stage
 
 

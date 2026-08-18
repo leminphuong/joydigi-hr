@@ -14,16 +14,16 @@ from base.filters import HolidayFilter
 from base.forms import HolidayForm, HolidaysColumnExportForm
 from base.methods import has_export_access
 from base.models import Holidays
-from horilla_views.cbv_methods import (
+from joydigi_views.cbv_methods import (
     hx_request_required,
     login_required,
     permission_required,
 )
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 
@@ -38,7 +38,7 @@ class HolidaysView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class HolidayListView(HorillaListView):
+class HolidayListView(JoydigiListView):
     """
     list view
     """
@@ -85,7 +85,7 @@ class HolidayListView(HorillaListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class HolidayNavView(HorillaNavView):
+class HolidayNavView(JoydigiNavView):
     """
     nav bar
     """
@@ -147,7 +147,7 @@ class HolidayNavView(HorillaNavView):
 
 
 @method_decorator(login_required, name="dispatch")
-class HolidayDetailView(HorillaDetailedView):
+class HolidayDetailView(JoydigiDetailedView):
     """
     detail view of the page
     """
@@ -193,7 +193,7 @@ class HolidayExport(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class HolidayFormView(HorillaFormView):
+class HolidayFormView(JoydigiFormView):
     """
     form view for create button
     """

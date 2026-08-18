@@ -2,7 +2,7 @@ from django.urls import path
 from django.views.generic import RedirectView
 
 from base.views import object_delete
-from horilla_audit.methods import history_tracking
+from joydigi_audit.methods import history_tracking
 from pms import cbvs
 from pms import dashboard as pms_dashboard
 from pms.cbv import (

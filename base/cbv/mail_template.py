@@ -13,21 +13,21 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
 from base.forms import MailTemplateForm
-from base.models import HorillaMailTemplate
-from horilla.http.response import HorillaRedirect
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import HorillaFormView, HorillaNavView
+from base.models import JoydigiMailTemplate
+from joydigi.http.response import JoydigiRedirect
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import JoydigiFormView, JoydigiNavView
 
 
 @method_decorator(login_required, name="dispatch")
-@method_decorator(permission_required("base.add_horillamailtemplate"), name="dispatch")
-class MailTemplateFormView(HorillaFormView):
+@method_decorator(permission_required("base.add_joydigimailtemplate"), name="dispatch")
+class MailTemplateFormView(JoydigiFormView):
     """
     form view for create and edit mail template
     """
 
     form_class = MailTemplateForm
-    model = HorillaMailTemplate
+    model = JoydigiMailTemplate
     template_name = "cbv/mail_template/form_inherit.html"
     new_display_title = _("Add Template")
 
@@ -48,23 +48,23 @@ class MailTemplateFormView(HorillaFormView):
             form.save()
 
             messages.success(self.request, message)
-            return HorillaRedirect(self.request)
+            return JoydigiRedirect(self.request)
         return super().form_valid(form)
 
 
 @method_decorator(login_required, name="dispatch")
-@method_decorator(permission_required("base.add_horillamailtemplate"), name="dispatch")
-class MailTemplateDuplicateForm(HorillaFormView):
+@method_decorator(permission_required("base.add_joydigimailtemplate"), name="dispatch")
+class MailTemplateDuplicateForm(JoydigiFormView):
     """
     from view for duplicate mail templates
     """
 
-    model = HorillaMailTemplate
+    model = JoydigiMailTemplate
     form_class = MailTemplateForm
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        original_object = HorillaMailTemplate.objects.get(id=self.kwargs["pk"])
+        original_object = JoydigiMailTemplate.objects.get(id=self.kwargs["pk"])
         form = self.form_class(instance=original_object)
 
         for field_name, field in form.fields.items():
@@ -98,13 +98,13 @@ class MailTemplateDuplicateForm(HorillaFormView):
             message = _("Template Added")
             messages.success(self.request, message)
             form.save()
-            return HorillaRedirect(self.request)
+            return JoydigiRedirect(self.request)
         return self.form_invalid(form)
 
 
 @method_decorator(login_required, name="dispatch")
-@method_decorator(permission_required("base.view_horillamailtemplate"), name="dispatch")
-class MailTemplateNavView(HorillaNavView):
+@method_decorator(permission_required("base.view_joydigimailtemplate"), name="dispatch")
+class MailTemplateNavView(JoydigiNavView):
     """
     Mail Template Nav View
     """

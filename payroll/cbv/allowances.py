@@ -9,12 +9,12 @@ from django.utils.decorators import method_decorator
 from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
 
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import (
-    HorillaCardView,
-    HorillaDetailedView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiCardView,
+    JoydigiDetailedView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 from payroll.filters import AllowanceFilter
@@ -33,7 +33,7 @@ class AllowanceViewPage(TemplateView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="payroll.view_allowance"), name="dispatch")
-class AllowanceListView(HorillaListView):
+class AllowanceListView(JoydigiListView):
     """
     list view of the page
     """
@@ -165,7 +165,7 @@ class AllowanceListView(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="payroll.view_allowance"), name="dispatch")
-class AllowanceNavView(HorillaNavView):
+class AllowanceNavView(JoydigiNavView):
     """
     nav bar of the page
     """
@@ -211,7 +211,7 @@ class AllowanceNavView(HorillaNavView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="payroll.view_allowance"), name="dispatch")
-class AllowancesCardView(HorillaCardView):
+class AllowancesCardView(JoydigiCardView):
     """
     card view for the page
     """
@@ -326,7 +326,7 @@ class AllowancesCardView(HorillaCardView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="payroll.view_allowance"), name="dispatch")
-class AllowanceDetailView(HorillaDetailedView):
+class AllowanceDetailView(JoydigiDetailedView):
     """
     detail view for allowances
     """

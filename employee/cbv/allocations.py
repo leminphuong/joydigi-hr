@@ -22,22 +22,22 @@ from django.views.generic import View
 
 from base.forms import AddToUserGroupForm, ModelForm, forms
 from base.methods import paginator_qry
-from base.templatetags.horillafilters import app_installed
+from base.templatetags.joydigifilters import app_installed
 from base.views import get_models_in_app
 from employee.methods.methods import get_model_class
 from employee.models import Employee, EmployeeBankDetails, EmployeeWorkInformation
 from employee.models import models as django_models
-from horilla.horilla_middlewares import _thread_locals
-from horilla.http import HorillaRedirect
-from horilla_views.cbv_methods import (
+from joydigi.joydigi_middlewares import _thread_locals
+from joydigi.http import JoydigiRedirect
+from joydigi_views.cbv_methods import (
     hx_request_required,
     login_required,
     render_template,
 )
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
     TemplateView,
 )
 
@@ -67,7 +67,7 @@ logger = logging.getLogger(__name__)
 @method_decorator(
     all_manager_can_enter(perm="recruitment.view_recruitment"), name="dispatch"
 )
-class AllocationView(HorillaDetailedView):
+class AllocationView(JoydigiDetailedView):
     """
     AllocationView
     """
@@ -116,7 +116,7 @@ class AllocationView(HorillaDetailedView):
                 messages.info(
                     request, _("Allocation feature not possible to this candidate")
                 )
-                return HorillaFormView.HttpResponse()
+                return JoydigiFormView.HttpResponse()
         else:
             instance = Employee.objects.get(pk=pk)
 
@@ -274,7 +274,7 @@ class BankInfo(ModelForm):
 @method_decorator(
     all_manager_can_enter(perm="recruitment.view_recruitment"), name="dispatch"
 )
-class PersonalFormView(HorillaFormView):
+class PersonalFormView(JoydigiFormView):
     """
     PersonalFormView
     """
@@ -323,7 +323,7 @@ class PersonalFormView(HorillaFormView):
 @method_decorator(
     all_manager_can_enter(perm="recruitment.view_recruitment"), name="dispatch"
 )
-class WorkFormView(HorillaFormView):
+class WorkFormView(JoydigiFormView):
     """
     WorkFormView
     """
@@ -393,7 +393,7 @@ def work_info_post_save(sender, instance, created, **kwargs):
 @method_decorator(
     all_manager_can_enter(perm="recruitment.view_recruitment"), name="dispatch"
 )
-class BankFormView(HorillaFormView):
+class BankFormView(JoydigiFormView):
     """
     WorkFormView
     """
@@ -637,7 +637,7 @@ if app_installed("asset"):
     @method_decorator(
         all_manager_can_enter(perm="recruitment.view_recruitment"), name="dispatch"
     )
-    class AssetAllocationList(HorillaListView):
+    class AssetAllocationList(JoydigiListView):
         """
         AssetAllocationLists
         """
@@ -797,7 +797,7 @@ if app_installed("asset"):
     @method_decorator(
         all_manager_can_enter(perm="recruitment.view_recruitment"), name="dispatch"
     )
-    class AssetCategoryAllocationList(HorillaListView):
+    class AssetCategoryAllocationList(JoydigiListView):
         """
         Lists asset categories for the employee and lets managers raise an
         AssetRequest for the selected categories instead of allocating an
@@ -998,7 +998,7 @@ class GroupAssignView(TemplateView):
         employee_id = request.GET.get("employee")
         employee = Employee.objects.filter(id=employee_id).first()
         if not employee:
-            return HorillaRedirect(request, message=_("Employee not found"))
+            return JoydigiRedirect(request, message=_("Employee not found"))
         groups = employee.employee_user_id.groups.all()
         form = AddToUserGroupForm(
             initial={
@@ -1320,12 +1320,12 @@ class Summary(TemplateView):
         instance_id = request.GET.get("instance_id")
 
         if not instance_id:
-            return HorillaRedirect(request, message=_("Employee ID missing."))
+            return JoydigiRedirect(request, message=_("Employee ID missing."))
 
         try:
             Employee.objects.get(pk=instance_id)
         except Employee.DoesNotExist:
-            return HorillaRedirect(
+            return JoydigiRedirect(
                 request, message=_("No Employee found matching the query.")
             )
 

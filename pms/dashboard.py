@@ -12,7 +12,7 @@ from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.shortcuts import render
 
-from horilla.decorators import permission_required
+from joydigi.decorators import permission_required
 
 
 def _parse_period(request):

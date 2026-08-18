@@ -38,7 +38,7 @@ from base.models import (
 )
 from employee.filters import EmployeeFilter
 from employee.models import Employee
-from horilla.decorators import hx_request_required, login_required, manager_can_enter
+from joydigi.decorators import hx_request_required, login_required, manager_can_enter
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -134,7 +134,7 @@ def build_monthly_summary(from_date, to_date, employee_qs):
     # Fetch worked seconds + minimum per record; classify as full (1.0),
     # half (0.5), or absent (0.0) using the default grace time.
     # Using values() + Python loop instead of annotate(Count()) avoids the
-    # GROUP BY join-multiplication caused by HorillaCompanyManager's work-info
+    # GROUP BY join-multiplication caused by JoydigiCompanyManager's work-info
     # join.
     from attendance.methods.utils import strtime_seconds as _strtime_secs
     from attendance.models import GraceTime as _GraceTime
@@ -655,12 +655,12 @@ def attendance_monthly_summary_table(request):
         from_date, to_date, employee_qs
     )
 
-    # Sorting — mirrors the outcome of HorillaListView's sortby() (query
+    # Sorting — mirrors the outcome of JoydigiListView's sortby() (query
     # param + toggling asc/desc, arrows reflected in the header) without its
     # session-cached Reverse()-object machinery, since `rows` here is a
     # plain list of dicts built by build_monthly_summary(), not a queryset
     # a .order_by() could apply to. "Working Days" is deliberately excluded
-    # (like HorillaListView leaves some columns out of its sortby_mapping)
+    # (like JoydigiListView leaves some columns out of its sortby_mapping)
     # since it's the same fleet-wide value on every row — sorting by it is
     # a no-op.
     def _dept_name(row):
@@ -688,7 +688,7 @@ def attendance_monthly_summary_table(request):
     if sort_key in SORT_KEYS:
         rows = sorted(rows, key=SORT_KEYS[sort_key], reverse=(sort_dir == "desc"))
 
-    # Same convention as HorillaListView.select_all(): every pk matching the
+    # Same convention as JoydigiListView.select_all(): every pk matching the
     # current filters (not just this page) is baked into the "Select" button
     # at render time, so clicking it needs no extra request. Derived from
     # `rows` (the same list summary_totals/"Employees" is built from) rather

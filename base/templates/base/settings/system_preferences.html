@@ -1,7 +1,7 @@
 {% extends 'settings.html' %}
 {% block settings %}
     {% load i18n %}
-    {% load horillafilters %}
+    {% load joydigifilters %}
 
     <div class="mb-4">
         <h4 class="text-base font-semibold text-[#333]">{% trans "System Preferences" %}</h4>
@@ -45,16 +45,16 @@
         </div>
     {% endif %}
 
-    {% if perms.horilla_audit.view_accountblockunblock or perms.horilla_audit.view_historytrackingfields or perms.base.view_defaultexportpermission %}
+    {% if perms.joydigi_audit.view_accountblockunblock or perms.joydigi_audit.view_historytrackingfields or perms.base.view_defaultexportpermission %}
         <div class="border border-[#ebebeb] rounded-md overflow-hidden mb-5">
             <h5 class="text-sm font-semibold bg-[#f3f3f3] px-4 py-3 text-[#333]">
                 {% trans "Data & Access Controls" %}
             </h5>
             <div class="p-4">
-                {% if perms.horilla_audit.view_accountblockunblock %}
+                {% if perms.joydigi_audit.view_accountblockunblock %}
                     {% include "base/audit_tag/employee_account_block_unblock.html" %}
                 {% endif %}
-                {% if perms.horilla_audit.view_historytrackingfields %}
+                {% if perms.joydigi_audit.view_historytrackingfields %}
                     {% include "base/audit_tag/history_tracking_fields.html" %}
                 {% endif %}
                 {% if perms.base.view_defaultexportpermission %}

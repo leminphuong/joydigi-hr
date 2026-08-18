@@ -8,11 +8,11 @@ from django.test import TestCase
 
 class LeaveRequestCleanGateTests(TestCase):
     def setUp(self):
-        from horilla.testkit import make_company, make_employee
+        from joydigi.testkit import make_company, make_employee
         from leave.models import LeaveType
 
         company = make_company("Leave Clean Co")
-        self.employee = make_employee(company=company, email="clean@test.horilla")
+        self.employee = make_employee(company=company, email="clean@test.joydigi")
         self.leave_type = LeaveType.objects.create(
             name="Casual Clean Gate",
             total_days=10,

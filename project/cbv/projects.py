@@ -15,12 +15,12 @@ from django.views.generic import ListView
 
 from base.methods import has_export_access
 from employee.models import Employee
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import (
-    HorillaCardView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiCardView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 from project.cbv.cbv_decorators import is_projectmanager_or_member_or_perms
@@ -46,7 +46,7 @@ class ProjectsView(TemplateView):
 @method_decorator(
     is_projectmanager_or_member_or_perms("project.view_project"), name="dispatch"
 )
-class ProjectsNavView(HorillaNavView):
+class ProjectsNavView(JoydigiNavView):
     """
     Nav bar
     """
@@ -148,7 +148,7 @@ class ProjectsNavView(HorillaNavView):
 @method_decorator(
     is_projectmanager_or_member_or_perms("project.view_project"), name="dispatch"
 )
-class ProjectsList(HorillaListView):
+class ProjectsList(JoydigiListView):
     """
     Projects list view
     """
@@ -278,7 +278,7 @@ class ProjectsList(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 # @method_decorator(permission_required("project.add_project"), name="dispatch")
-class ProjectFormView(HorillaFormView):
+class ProjectFormView(JoydigiFormView):
     """
     form view for create project
     """
@@ -330,7 +330,7 @@ class DynamicProjectCreationFormView(ProjectFormView):
 @method_decorator(
     is_projectmanager_or_member_or_perms("project.view_project"), name="dispatch"
 )
-class ProjectCardView(HorillaCardView):
+class ProjectCardView(JoydigiCardView):
     """
     For card view
     """

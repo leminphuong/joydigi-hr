@@ -16,15 +16,15 @@ from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 
 from base.methods import get_subordinates
-from horilla.http import HorillaRedirect
-from horilla.methods import handle_no_permission
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import (
-    HorillaCardView,
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi.http import JoydigiRedirect
+from joydigi.methods import handle_no_permission
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiCardView,
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 from project.cbv.cbv_decorators import is_projectmanager_or_member_or_perms
@@ -51,7 +51,7 @@ class TasksTemplateView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class TaskListView(HorillaListView):
+class TaskListView(JoydigiListView):
     """
     list view of the page
     """
@@ -178,7 +178,7 @@ class TaskListView(HorillaListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class TasksNavBar(HorillaNavView):
+class TasksNavBar(JoydigiNavView):
     """
     navbar of teh page
     """
@@ -263,7 +263,7 @@ class TasksNavBar(HorillaNavView):
 
 
 @method_decorator(login_required, name="dispatch")
-class TaskCreateForm(HorillaFormView):
+class TaskCreateForm(JoydigiFormView):
     """
     Form view for create and update tasks
     """
@@ -287,24 +287,24 @@ class TaskCreateForm(HorillaFormView):
         task_id = self.kwargs.get("pk")
         if not task_id and not Project.objects.exists():
             messages.error(request, _("Please create a project first."))
-            return HorillaRedirect(request)
+            return JoydigiRedirect(request)
 
         if project_id:
             project = Project.objects.filter(id=project_id).first()
             if not project:
                 messages.error(request, _("Project not found."))
-                return HorillaRedirect(request)
+                return JoydigiRedirect(request)
         elif stage_id:
             stage = ProjectStage.objects.filter(id=stage_id).first()
             if not stage:
                 messages.error(request, _("Stage not found."))
-                return HorillaRedirect(request)
+                return JoydigiRedirect(request)
             project = stage.project
         elif task_id:
             task = Task.objects.filter(id=task_id).first()
             if not task:
                 messages.error(request, _("Task not found."))
-                return HorillaRedirect(request)
+                return JoydigiRedirect(request)
             project = task.project
         elif not task_id:
             return super().get(request, *args, pk=pk, **kwargs)
@@ -404,7 +404,7 @@ class TaskCreateForm(HorillaFormView):
             form.save()
             messages.success(self.request, _(message))
             if stage_id or self.request.GET.get("project_task"):
-                return HorillaRedirect(self.request)
+                return JoydigiRedirect(self.request)
             return self.HttpResponse("<script>$('#applyFilter').click();</script>")
         return super().form_valid(form)
 
@@ -428,7 +428,7 @@ class DynamicTaskCreateFormView(TaskCreateForm):
 
 
 @method_decorator(login_required, name="dispatch")
-class TaskDetailView(HorillaDetailedView):
+class TaskDetailView(JoydigiDetailedView):
     """
     detail view of the task page
     """
@@ -460,7 +460,7 @@ class TaskDetailView(HorillaDetailedView):
 
 
 @method_decorator(login_required, name="dispatch")
-class TaskCardView(HorillaCardView):
+class TaskCardView(JoydigiCardView):
     """
     card view of the page
     """

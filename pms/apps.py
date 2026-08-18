@@ -20,7 +20,7 @@ class PmsConfig(AppConfig):
     def ready(self):
         from django.urls import include, path
 
-        from horilla.urls import urlpatterns
+        from joydigi.urls import urlpatterns
 
         settings.APPS.append("pms")
         urlpatterns.append(

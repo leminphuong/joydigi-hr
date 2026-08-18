@@ -32,18 +32,18 @@ from employee.cbv.employee_profile import EmployeeProfileView
 from employee.cbv.employees import EmployeeCard, EmployeeNav, EmployeesList
 from employee.filters import EmployeeFilter
 from employee.models import Employee
-from horilla.filters import HorillaFilterSet
-from horilla_views.cbv_methods import (
+from joydigi.filters import JoydigiFilterSet
+from joydigi_views.cbv_methods import (
     hx_request_required,
     login_required,
     render_template,
 )
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
-    HorillaTabView,
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
+    JoydigiTabView,
     TemplateView,
 )
 
@@ -59,7 +59,7 @@ class AttendancesView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class AttendancesListView(HorillaListView):
+class AttendancesListView(JoydigiListView):
     """
     list view
     """
@@ -150,7 +150,7 @@ class AttendancesListView(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("attendance.view_attendance"), name="dispatch")
-class AttendancesTabView(HorillaTabView):
+class AttendancesTabView(JoydigiTabView):
     """
     tabview of candidate page
     """
@@ -208,7 +208,7 @@ class AttendancesTabView(HorillaTabView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("attendance.view_attendance"), name="dispatch")
-class AttendancesNavView(HorillaNavView):
+class AttendancesNavView(JoydigiNavView):
     """
     nav bar
     """
@@ -452,7 +452,7 @@ class ValidatedAttendancesList(AttendancesListView):
 
 def _badge_count_from_attendance_list_view(request, view_cls):
     """
-    Use the same queryset rules as each tab's HorillaListView (filters, subordinates).
+    Use the same queryset rules as each tab's JoydigiListView (filters, subordinates).
     """
     view = view_cls()
     view.request = request
@@ -475,7 +475,7 @@ def attendance_tabs_badge_counts(request):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("attendance.view_attendance"), name="dispatch")
-class GenericAttendancesDetailView(HorillaDetailedView):
+class GenericAttendancesDetailView(JoydigiDetailedView):
     """
     Generic Detail view of page
     """
@@ -540,7 +540,7 @@ class ValidatedDetailView(GenericAttendancesDetailView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("attendance.add_attendance"), name="dispatch")
-class AttendancesFormView(HorillaFormView):
+class AttendancesFormView(JoydigiFormView):
     """
     form view
     """
@@ -573,7 +573,7 @@ class AttendancesFormView(HorillaFormView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("attendance.change_attendance"), name="dispatch")
-class AttendanceUpdateFormView(HorillaFormView):
+class AttendanceUpdateFormView(JoydigiFormView):
     """
     form for update
     """
@@ -630,7 +630,7 @@ class AttendanceDetailActivityList(AttendanceActivityListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class PenaltyAccountListView(HorillaListView):
+class PenaltyAccountListView(JoydigiListView):
     """
     list view for penalty tab
     """

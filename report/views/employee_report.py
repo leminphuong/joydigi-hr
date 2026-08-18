@@ -9,7 +9,7 @@ from base.methods import has_export_access
 from base.models import Company
 from employee.filters import EmployeeFilter
 from employee.models import Employee
-from horilla.decorators import login_required, permission_required
+from joydigi.decorators import login_required, permission_required
 from report.dynamic_filter_utils import (
     RELATIVE_DATE_OPERATORS,
     parse_multi_value,

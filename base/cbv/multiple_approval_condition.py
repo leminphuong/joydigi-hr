@@ -17,12 +17,12 @@ from base.forms import MultipleApproveConditionForm
 from base.models import MultipleApprovalCondition, MultipleApprovalManagers
 from base.widgets import CustomModelChoiceWidget
 from employee.models import Employee
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 
@@ -44,7 +44,7 @@ class MultipleApprovalConditionView(TemplateView):
 @method_decorator(
     permission_required(perm="base.view_multipleapprovalcondition"), name="dispatch"
 )
-class MultipleApprovalConditionList(HorillaListView):
+class MultipleApprovalConditionList(JoydigiListView):
     """
     List view of the resticted days page
     """
@@ -92,7 +92,7 @@ class MultipleApprovalConditionList(HorillaListView):
 @method_decorator(
     permission_required(perm="base.view_multipleapprovalcondition"), name="dispatch"
 )
-class MultipleApprovalConditionNav(HorillaNavView):
+class MultipleApprovalConditionNav(JoydigiNavView):
     """
     Nav bar
     """
@@ -126,7 +126,7 @@ class MultipleApprovalConditionNav(HorillaNavView):
 @method_decorator(
     permission_required(perm="base.view_multipleapprovalcondition"), name="dispatch"
 )
-class MultipleApprovalConditionDetailView(HorillaDetailedView):
+class MultipleApprovalConditionDetailView(JoydigiDetailedView):
     """
     detail view of page
     """
@@ -152,7 +152,7 @@ class MultipleApprovalConditionDetailView(HorillaDetailedView):
 
 
 @method_decorator(login_required, name="dispatch")
-class MultipleApprovalConditionFormView(HorillaFormView):
+class MultipleApprovalConditionFormView(JoydigiFormView):
     """
     Create and edit form
     """

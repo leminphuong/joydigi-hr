@@ -9,7 +9,7 @@ import logging
 
 from django.shortcuts import render
 
-from horilla.http.response import HorillaRedirect
+from joydigi.http.response import JoydigiRedirect
 
 logger = logging.getLogger(__name__)
 from datetime import date, datetime, timedelta
@@ -41,8 +41,8 @@ from base.context_processors import (
     timerunner_enabled,
 )
 from base.models import AttendanceAllowedIP, Company, EmployeeShiftDay
-from horilla.decorators import hx_request_required, login_required
-from horilla.horilla_middlewares import _thread_locals
+from joydigi.decorators import hx_request_required, login_required
+from joydigi.joydigi_middlewares import _thread_locals
 
 
 def late_come_create(attendance):
@@ -256,7 +256,7 @@ def clock_in(request):
                     request,
                     _("Check-In Restricted: Your current network is not authorized "),
                 )
-                return HorillaRedirect(request)
+                return JoydigiRedirect(request)
 
         employee, work_info = employee_exists(request)
         datetime_now = timezone.localtime()
@@ -281,7 +281,7 @@ def clock_in(request):
             if start_time_sec > end_time_sec:
                 # night shift
                 # ------------------
-                # Night shift in Horilla consider a 24 hours from noon to next day noon,
+                # Night shift in Joydigi consider a 24 hours from noon to next day noon,
                 # the shift day taken today if the attendance clocked in after 12 O clock.
 
                 if mid_day_sec > now_sec:
@@ -318,7 +318,7 @@ def clock_in(request):
                 "Check-In Unavailable: Your employee profile or work information is incomplete."
             ),
         )
-        return HorillaRedirect(request)
+        return JoydigiRedirect(request)
     else:
         messages.error(
             request,
@@ -326,7 +326,7 @@ def clock_in(request):
                 "The attendance check-in/check-out feature has not been enabled for your company."
             ),
         )
-        return HorillaRedirect(request)
+        return JoydigiRedirect(request)
 
 
 def clock_out_attendance_and_activity(employee, date_today, now, out_datetime=None):
@@ -513,7 +513,7 @@ def clock_out(request):
                     request,
                     _("Check-Out Restricted: Your current network is not authorized"),
                 )
-                return HorillaRedirect(request)
+                return JoydigiRedirect(request)
 
         datetime_now = timezone.localtime()
         if request.__dict__.get("datetime"):
@@ -586,4 +586,4 @@ def clock_out(request):
                 "The attendance check-in/check-out feature has not been enabled for your company."
             ),
         )
-        return HorillaRedirect(request)
+        return JoydigiRedirect(request)

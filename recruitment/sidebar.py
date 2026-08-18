@@ -1,7 +1,7 @@
 """
 recruitment/sidebar.py
 
-To set Horilla sidebar for onboarding
+To set Joydigi sidebar for onboarding
 """
 
 from django.apps import apps
@@ -9,7 +9,7 @@ from django.contrib.auth.context_processors import PermWrapper
 from django.urls import reverse, reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
-from horilla.menu import settings_menu
+from joydigi.menu import settings_menu
 from recruitment.models import InterviewSchedule
 from recruitment.templatetags.recruitmentfilters import (
     is_recruitmentmangers,

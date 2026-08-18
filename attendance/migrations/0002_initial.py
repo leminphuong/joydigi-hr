@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
         ("attendance", "0001_initial"),
         ("base", "0001_initial"),
         ("employee", "0001_initial"),
-        ("horilla_audit", "0001_initial"),
+        ("joydigi_audit", "0001_initial"),
         ("leave", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
@@ -509,7 +509,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="historicalattendance",
             name="history_tags",
-            field=models.ManyToManyField(to="horilla_audit.audittag"),
+            field=models.ManyToManyField(to="joydigi_audit.audittag"),
         ),
         migrations.AddField(
             model_name="historicalattendance",

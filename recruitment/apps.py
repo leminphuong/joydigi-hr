@@ -24,7 +24,7 @@ class RecruitmentConfig(AppConfig):
     def ready(self):
         from django.urls import include, path
 
-        from horilla.urls import urlpatterns
+        from joydigi.urls import urlpatterns
         from recruitment import signals
 
         settings.APPS.append("recruitment")

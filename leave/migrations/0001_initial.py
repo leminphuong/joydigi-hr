@@ -2,7 +2,7 @@
 
 import django.db.models.deletion
 import django.utils.timezone
-import horilla.models
+import joydigi.models
 import simple_history.models
 from django.conf import settings
 from django.db import migrations, models
@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
         ("attendance", "0001_initial"),
         ("base", "0001_initial"),
         ("employee", "0001_initial"),
-        ("horilla_audit", "0001_initial"),
+        ("joydigi_audit", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -89,7 +89,7 @@ class Migration(migrations.Migration):
                     models.FileField(
                         blank=True,
                         null=True,
-                        upload_to=horilla.models.upload_path,
+                        upload_to=joydigi.models.upload_path,
                         verbose_name="Attachment",
                     ),
                 ),
@@ -170,7 +170,7 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("file", models.FileField(upload_to=horilla.models.upload_path)),
+                ("file", models.FileField(upload_to=joydigi.models.upload_path)),
             ],
         ),
         migrations.CreateModel(
@@ -493,7 +493,7 @@ class Migration(migrations.Migration):
                     models.FileField(
                         blank=True,
                         null=True,
-                        upload_to=horilla.models.upload_path,
+                        upload_to=joydigi.models.upload_path,
                         verbose_name="Attachment",
                     ),
                 ),
@@ -902,7 +902,7 @@ class Migration(migrations.Migration):
                     models.ImageField(
                         blank=True,
                         null=True,
-                        upload_to=horilla.models.upload_path,
+                        upload_to=joydigi.models.upload_path,
                         verbose_name="Icon",
                     ),
                 ),
@@ -1308,7 +1308,7 @@ class Migration(migrations.Migration):
                         verbose_name="Employee",
                     ),
                 ),
-                ("history_tags", models.ManyToManyField(to="horilla_audit.audittag")),
+                ("history_tags", models.ManyToManyField(to="joydigi_audit.audittag")),
                 (
                     "history_user",
                     models.ForeignKey(
@@ -1448,7 +1448,7 @@ class Migration(migrations.Migration):
                         verbose_name="Employee",
                     ),
                 ),
-                ("history_tags", models.ManyToManyField(to="horilla_audit.audittag")),
+                ("history_tags", models.ManyToManyField(to="joydigi_audit.audittag")),
                 (
                     "history_user",
                     models.ForeignKey(
@@ -1586,7 +1586,7 @@ class Migration(migrations.Migration):
                         to="leave.compensatoryleaverequest",
                     ),
                 ),
-                ("history_tags", models.ManyToManyField(to="horilla_audit.audittag")),
+                ("history_tags", models.ManyToManyField(to="joydigi_audit.audittag")),
                 (
                     "history_user",
                     models.ForeignKey(
@@ -1729,7 +1729,7 @@ class Migration(migrations.Migration):
                         to="leave.availableleave",
                     ),
                 ),
-                ("history_tags", models.ManyToManyField(to="horilla_audit.audittag")),
+                ("history_tags", models.ManyToManyField(to="joydigi_audit.audittag")),
                 (
                     "history_user",
                     models.ForeignKey(

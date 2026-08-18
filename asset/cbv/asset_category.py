@@ -16,18 +16,18 @@ from asset.filters import AssetFilter
 from asset.forms import AssetCategoryForm, AssetForm, AssetReportForm
 from asset.models import Asset, AssetCategory, AssetDocuments, AssetReport
 from base.methods import has_export_access
-from horilla_views.cbv_methods import (
+from joydigi_views.cbv_methods import (
     hx_request_required,
     login_required,
     permission_required,
 )
-from horilla_views.generic.cbv.views import HorillaFormView, HorillaNavView
-from horilla_views.views import HorillaDeleteConfirmationView
+from joydigi_views.generic.cbv.views import JoydigiFormView, JoydigiNavView
+from joydigi_views.views import JoydigiDeleteConfirmationView
 
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("asset.view_assetcategory"), name="dispatch")
-class AssetCategoryFormView(HorillaFormView):
+class AssetCategoryFormView(JoydigiFormView):
     """
     form view for create asset category
     """
@@ -59,7 +59,7 @@ class AssetCategoryFormView(HorillaFormView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("asset.add_asset"), name="dispatch")
-class AssetFormView(HorillaFormView):
+class AssetFormView(JoydigiFormView):
     """
     form view for create asset
     """
@@ -96,7 +96,7 @@ class AssetFormView(HorillaFormView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("asset.view_assetcategory"), name="dispatch")
-class AssetCategoryDuplicateFormView(HorillaFormView):
+class AssetCategoryDuplicateFormView(JoydigiFormView):
     """
     form view for create duplicate asset category
     """
@@ -134,7 +134,7 @@ class AssetCategoryDuplicateFormView(HorillaFormView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("asset.view_asset"), name="dispatch")
-class AssetDuplicateFormView(HorillaFormView):
+class AssetDuplicateFormView(JoydigiFormView):
     """
     form view for create duplicate for asset
     """
@@ -175,7 +175,7 @@ class AssetDuplicateFormView(HorillaFormView):
 
 
 @method_decorator(login_required, name="dispatch")
-class AssetReportFormView(HorillaFormView):
+class AssetReportFormView(JoydigiFormView):
     """
     form view for create button
     """
@@ -211,7 +211,7 @@ class AssetReportFormView(HorillaFormView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("asset.view_asset"), name="dispatch")
-class AssetCategoryNav(HorillaNavView):
+class AssetCategoryNav(JoydigiNavView):
     """
     nav bar for asset category
     """
@@ -264,10 +264,10 @@ class AssetCategoryNav(HorillaNavView):
 
 
 @method_decorator(hx_request_required, name="dispatch")
-class AssetDeleteConfirmationView(HorillaDeleteConfirmationView):
+class AssetDeleteConfirmationView(JoydigiDeleteConfirmationView):
     generic_delete_url_name = "generic-delete-asset-category"
 
     def post(self, *args, **kwargs):
         super().post(*args, **kwargs)
         # asset-category-view uses `.filterButton` (theme nav may also have `#applyFilter`)
-        return HorillaFormView.HttpResponse(targets_to_reload=[".filterButton"])
+        return JoydigiFormView.HttpResponse(targets_to_reload=[".filterButton"])

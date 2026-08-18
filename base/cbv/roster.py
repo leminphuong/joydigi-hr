@@ -26,8 +26,8 @@ from base.filters import RosterFilter
 from base.forms import RosterCellUpdateForm
 from base.models import CompanyLeaves, EmployeeShift, Holidays, Roster, RosterPublishLog
 from employee.models import Employee
-from horilla_views.cbv_methods import login_required, paginator_qry
-from horilla_views.generic.cbv.views import HorillaCardView, HorillaNavView
+from joydigi_views.cbv_methods import login_required, paginator_qry
+from joydigi_views.generic.cbv.views import JoydigiCardView, JoydigiNavView
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -62,7 +62,7 @@ class RosterHomeView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class RosterNavView(HorillaNavView):
+class RosterNavView(JoydigiNavView):
     nav_title = _("Roster Planner")
     template_name = "generic/inline_nav.html"
     search_url = reverse_lazy("roster-grid")
@@ -114,7 +114,7 @@ class RosterNavView(HorillaNavView):
 
 
 @method_decorator(login_required, name="dispatch")
-class RosterGridView(HorillaCardView):
+class RosterGridView(JoydigiCardView):
     model = Roster
     filter_class = RosterFilter
     template_name = "base/roster/roster_grid.html"
@@ -662,7 +662,7 @@ class RosterTemplateDownloadView(View):
                     c.fill = off_fill
                     c.font = off_font
                     if off_reason != "Weekly Off Day":
-                        c.comment = Comment(f"Holiday: {off_reason}", "Horilla")
+                        c.comment = Comment(f"Holiday: {off_reason}", "Joydigi")
                 elif d.weekday() >= 5:
                     c.fill = weekend_fill
 

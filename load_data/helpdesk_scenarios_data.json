@@ -1,46 +1,620 @@
 [
-  {"model":"helpdesk.departmentmanager","pk":1001,"fields":{"manager":1,"department":1,"company_id":1}},
-  {"model":"helpdesk.departmentmanager","pk":1002,"fields":{"manager":13,"department":2,"company_id":1}},
-  {"model":"helpdesk.departmentmanager","pk":1003,"fields":{"manager":22,"department":3,"company_id":1}},
-  {"model":"helpdesk.tickettype","pk":1001,"fields":{"title":"IT Service Desk","type":"service_request","prefix":"ITS","company_id":1}},
-  {"model":"helpdesk.tickettype","pk":1002,"fields":{"title":"Benefits and Payroll","type":"service_request","prefix":"BEN","company_id":1}},
-  {"model":"helpdesk.tickettype","pk":1003,"fields":{"title":"Workplace Operations","type":"service_request","prefix":"OPS","company_id":1}},
-  {"model":"helpdesk.tickettype","pk":1004,"fields":{"title":"Employee Relations","type":"complaint","prefix":"ERL","company_id":1}},
-  {"model":"helpdesk.ticket","pk":1001,"fields":{"title":"VPN access for client visit","employee_id":12,"ticket_type":1001,"description":"Request secure VPN access before the scheduled client visit.","priority":"high","created_date":"2026-07-21","resolved_date":null,"assigning_type":"department","raised_on":"1","deadline":"2026-08-05","status":"in_progress","assigned_to":[1,68],"tags":[4,5]}},
-  {"model":"helpdesk.ticket","pk":1002,"fields":{"title":"Payroll tax document correction","employee_id":13,"ticket_type":1002,"description":"Tax document needs a corrected address before month-end filing.","priority":"high","created_date":"2026-07-22","resolved_date":null,"assigning_type":"department","raised_on":"3","deadline":"2026-08-03","status":"on_hold","assigned_to":[22],"tags":[3,21]}},
-  {"model":"helpdesk.ticket","pk":1003,"fields":{"title":"Replace damaged laptop charger","employee_id":68,"ticket_type":1001,"description":"Laptop charger is damaged and requires replacement.","priority":"medium","created_date":"2026-07-23","resolved_date":null,"assigning_type":"department","raised_on":"1","deadline":"2026-08-08","status":"new","assigned_to":[1],"tags":[17]}},
-  {"model":"helpdesk.ticket","pk":1004,"fields":{"title":"Update dependent benefit enrollment","employee_id":12,"ticket_type":1002,"description":"Add a dependent to the current benefits enrollment record.","priority":"medium","created_date":"2026-07-15","resolved_date":"2026-07-28","assigning_type":"department","raised_on":"3","deadline":"2026-07-29","status":"resolved","assigned_to":[22],"tags":[3,6]}},
-  {"model":"helpdesk.ticket","pk":1005,"fields":{"title":"Meeting room display unavailable","employee_id":13,"ticket_type":1003,"description":"The meeting room display does not connect to presentation devices.","priority":"low","created_date":"2026-07-24","resolved_date":null,"assigning_type":"individual","raised_on":"1","deadline":"2026-08-10","status":"in_progress","assigned_to":[1],"tags":[4]}},
-  {"model":"helpdesk.ticket","pk":1006,"fields":{"title":"Request ergonomic workstation review","employee_id":22,"ticket_type":1003,"description":"Request an ergonomic assessment for a recurring workstation issue.","priority":"low","created_date":"2026-07-25","resolved_date":null,"assigning_type":"department","raised_on":"1","deadline":"2026-08-15","status":"new","assigned_to":[68],"tags":[5]}},
-  {"model":"helpdesk.ticket","pk":1007,"fields":{"title":"Customer data export permission","employee_id":12,"ticket_type":1001,"description":"Request access to the approved customer data export role.","priority":"high","created_date":"2026-07-18","resolved_date":"2026-07-22","assigning_type":"job_position","raised_on":"2","deadline":"2026-07-23","status":"resolved","assigned_to":[1,68],"tags":[4,20]}},
-  {"model":"helpdesk.ticket","pk":1008,"fields":{"title":"Report inappropriate conduct","employee_id":13,"ticket_type":1004,"description":"Confidential employee-relations report requiring HR review.","priority":"high","created_date":"2026-07-26","resolved_date":null,"assigning_type":"individual","raised_on":"22","deadline":null,"status":"in_progress","assigned_to":[22],"tags":[5]}},
-  {"model":"helpdesk.ticket","pk":1009,"fields":{"title":"Improve parking allocation process","employee_id":68,"ticket_type":1003,"description":"Suggestion to publish transparent parking allocation criteria.","priority":"low","created_date":"2026-07-10","resolved_date":null,"assigning_type":"department","raised_on":"1","deadline":"2026-07-20","status":"canceled","assigned_to":[],"tags":[25]}},
-  {"model":"helpdesk.ticket","pk":1010,"fields":{"title":"Restore archived project report","employee_id":12,"ticket_type":1001,"description":"Restore a previously archived report required for the quarterly review.","priority":"medium","created_date":"2026-07-27","resolved_date":null,"assigning_type":"department","raised_on":"1","deadline":"2026-08-06","status":"on_hold","assigned_to":[68],"tags":[18,20]}},
-  {"model":"helpdesk.ticket","pk":1011,"fields":{"title":"Clarify leave balance calculation","employee_id":13,"ticket_type":1002,"description":"Clarify how carry-forward leave is reflected in the leave balance.","priority":"medium","created_date":"2026-07-28","resolved_date":null,"assigning_type":"department","raised_on":"3","deadline":"2026-08-07","status":"new","assigned_to":[22],"tags":[6]}},
-  {"model":"helpdesk.ticket","pk":1012,"fields":{"title":"Request visitor access procedure","employee_id":22,"ticket_type":1003,"description":"Request the current visitor access and escort procedure.","priority":"low","created_date":"2026-07-29","resolved_date":null,"assigning_type":"department","raised_on":"1","deadline":"2026-08-12","status":"new","assigned_to":[1],"tags":[21]}},
-  {"model":"helpdesk.claimrequest","pk":1001,"fields":{"ticket_id":1001,"employee_id":68,"is_approved":true,"is_rejected":false}},
-  {"model":"helpdesk.claimrequest","pk":1002,"fields":{"ticket_id":1003,"employee_id":1,"is_approved":false,"is_rejected":false}},
-  {"model":"helpdesk.claimrequest","pk":1003,"fields":{"ticket_id":1008,"employee_id":22,"is_approved":true,"is_rejected":false}},
-  {"model":"helpdesk.claimrequest","pk":1004,"fields":{"ticket_id":1010,"employee_id":13,"is_approved":false,"is_rejected":true}},
-  {"model":"helpdesk.comment","pk":1001,"fields":{"comment":"VPN access request verified; security review is in progress.","ticket":1001,"employee_id":1,"date":"2026-07-22T09:30:00Z"}},
-  {"model":"helpdesk.comment","pk":1002,"fields":{"comment":"The client visit is scheduled for next week, so access is still required before the deadline.","ticket":1001,"employee_id":12,"date":"2026-07-23T10:15:00Z"}},
-  {"model":"helpdesk.comment","pk":1003,"fields":{"comment":"Waiting for the employee to confirm the corrected residential address.","ticket":1002,"employee_id":22,"date":"2026-07-23T14:00:00Z"}},
-  {"model":"helpdesk.comment","pk":1004,"fields":{"comment":"Replacement charger has been ordered and will be delivered to the office.","ticket":1003,"employee_id":1,"date":"2026-07-24T11:00:00Z"}},
-  {"model":"helpdesk.comment","pk":1005,"fields":{"comment":"Benefit enrollment was updated and the employee has been notified.","ticket":1004,"employee_id":22,"date":"2026-07-28T15:30:00Z"}},
-  {"model":"helpdesk.comment","pk":1006,"fields":{"comment":"Please share the model number shown on the meeting-room display.","ticket":1005,"employee_id":1,"date":"2026-07-25T09:45:00Z"}},
-  {"model":"helpdesk.comment","pk":1007,"fields":{"comment":"The report has been shared with HR only while the review remains confidential.","ticket":1008,"employee_id":22,"date":"2026-07-27T12:20:00Z"}},
-  {"model":"helpdesk.comment","pk":1008,"fields":{"comment":"The archived report location has been identified; restoration is awaiting storage approval.","ticket":1010,"employee_id":68,"date":"2026-07-29T16:00:00Z"}},
-  {"model":"helpdesk.attachment","pk":1001,"fields":{"file":"helpdesk/tickets/vpn-access-approval.pdf","description":"Approved VPN access request","format":"file","ticket":1001,"comment":null}},
-  {"model":"helpdesk.attachment","pk":1002,"fields":{"file":"helpdesk/tickets/tax-document-address-proof.pdf","description":"Address correction proof","format":"file","ticket":1002,"comment":null}},
-  {"model":"helpdesk.attachment","pk":1003,"fields":{"file":"helpdesk/tickets/laptop-charger-photo.jpg","description":"Photo of damaged charger","format":"image","ticket":1003,"comment":1004}},
-  {"model":"helpdesk.attachment","pk":1004,"fields":{"file":"helpdesk/tickets/report-restoration-request.pdf","description":"Archived report restoration request","format":"file","ticket":1010,"comment":1008}},
-  {"model":"helpdesk.faqcategory","pk":1001,"fields":{"title":"IT Support","description":"Guidance for access, devices, and technical support.","company_id":1}},
-  {"model":"helpdesk.faqcategory","pk":1002,"fields":{"title":"Benefits and Payroll","description":"Guidance for benefits, payslips, and payroll support.","company_id":1}},
-  {"model":"helpdesk.faqcategory","pk":1003,"fields":{"title":"Workplace Services","description":"Guidance for workplace operations and facilities.","company_id":1}},
-  {"model":"helpdesk.faq","pk":1001,"fields":{"question":"How do I request VPN access?","answer":"Create an IT Service Desk ticket with the business reason, required date, and manager approval.","category":1001,"company_id":1,"tags":[4]}},
-  {"model":"helpdesk.faq","pk":1002,"fields":{"question":"How do I report a lost device?","answer":"Create a high-priority IT Service Desk ticket immediately and include the device asset details.","category":1001,"company_id":1,"tags":[17,4]}},
-  {"model":"helpdesk.faq","pk":1003,"fields":{"question":"How do I request a payslip correction?","answer":"Create a Benefits and Payroll ticket and attach the relevant payslip and correction details.","category":1002,"company_id":1,"tags":[3]}},
-  {"model":"helpdesk.faq","pk":1004,"fields":{"question":"How is carry-forward leave shown?","answer":"Your balance shows available leave and carry-forward leave separately; contact HR for a reconciliation.","category":1002,"company_id":1,"tags":[6]}},
-  {"model":"helpdesk.faq","pk":1005,"fields":{"question":"How do I book a meeting room?","answer":"Use the approved calendar room resource and create a Workplace Operations ticket for equipment issues.","category":1003,"company_id":1,"tags":[21]}},
-  {"model":"helpdesk.faq","pk":1006,"fields":{"question":"How do I request an ergonomic assessment?","answer":"Create a Workplace Operations ticket describing the workstation issue and any prior adjustments.","category":1003,"company_id":1,"tags":[5]}}
+  {
+    "model": "helpdesk.departmentmanager",
+    "pk": 1001,
+    "fields": {
+      "manager": 1,
+      "department": 1,
+      "company_id": 1
+    }
+  },
+  {
+    "model": "helpdesk.departmentmanager",
+    "pk": 1002,
+    "fields": {
+      "manager": 13,
+      "department": 2,
+      "company_id": 1
+    }
+  },
+  {
+    "model": "helpdesk.departmentmanager",
+    "pk": 1003,
+    "fields": {
+      "manager": 22,
+      "department": 3,
+      "company_id": 1
+    }
+  },
+  {
+    "model": "helpdesk.tickettype",
+    "pk": 1001,
+    "fields": {
+      "title": "Bàn dịch vụ CNTT",
+      "type": "service_request",
+      "prefix": "ITS",
+      "company_id": 1
+    }
+  },
+  {
+    "model": "helpdesk.tickettype",
+    "pk": 1002,
+    "fields": {
+      "title": "Phúc lợi và tiền lương",
+      "type": "service_request",
+      "prefix": "BEN",
+      "company_id": 1
+    }
+  },
+  {
+    "model": "helpdesk.tickettype",
+    "pk": 1003,
+    "fields": {
+      "title": "Hoạt động tại nơi làm việc",
+      "type": "service_request",
+      "prefix": "OPS",
+      "company_id": 1
+    }
+  },
+  {
+    "model": "helpdesk.tickettype",
+    "pk": 1004,
+    "fields": {
+      "title": "Quan hệ nhân viên",
+      "type": "complaint",
+      "prefix": "ERL",
+      "company_id": 1
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 1001,
+    "fields": {
+      "title": "Truy cập VPN cho chuyến thăm của khách hàng",
+      "employee_id": 12,
+      "ticket_type": 1001,
+      "description": "Yêu cầu quyền truy cập VPN an toàn trước chuyến thăm của khách hàng theo lịch trình.",
+      "priority": "high",
+      "created_date": "2026-07-21",
+      "resolved_date": null,
+      "assigning_type": "department",
+      "raised_on": "1",
+      "deadline": "2026-08-05",
+      "status": "in_progress",
+      "assigned_to": [
+        1,
+        68
+      ],
+      "tags": [
+        4,
+        5
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 1002,
+    "fields": {
+      "title": "Chỉnh sửa chứng từ thuế tiền lương",
+      "employee_id": 13,
+      "ticket_type": 1002,
+      "description": "Chứng từ thuế cần có địa chỉ chính xác trước khi nộp hồ sơ vào cuối tháng.",
+      "priority": "high",
+      "created_date": "2026-07-22",
+      "resolved_date": null,
+      "assigning_type": "department",
+      "raised_on": "3",
+      "deadline": "2026-08-03",
+      "status": "on_hold",
+      "assigned_to": [
+        22
+      ],
+      "tags": [
+        3,
+        21
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 1003,
+    "fields": {
+      "title": "Thay sạc laptop bị hỏng",
+      "employee_id": 68,
+      "ticket_type": 1001,
+      "description": "Sạc laptop bị hỏng và cần thay thế.",
+      "priority": "medium",
+      "created_date": "2026-07-23",
+      "resolved_date": null,
+      "assigning_type": "department",
+      "raised_on": "1",
+      "deadline": "2026-08-08",
+      "status": "new",
+      "assigned_to": [
+        1
+      ],
+      "tags": [
+        17
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 1004,
+    "fields": {
+      "title": "Cập nhật đăng ký quyền lợi phụ thuộc",
+      "employee_id": 12,
+      "ticket_type": 1002,
+      "description": "Thêm người phụ thuộc vào hồ sơ đăng ký quyền lợi hiện tại.",
+      "priority": "medium",
+      "created_date": "2026-07-15",
+      "resolved_date": "2026-07-28",
+      "assigning_type": "department",
+      "raised_on": "3",
+      "deadline": "2026-07-29",
+      "status": "resolved",
+      "assigned_to": [
+        22
+      ],
+      "tags": [
+        3,
+        6
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 1005,
+    "fields": {
+      "title": "Không thể hiển thị phòng họp",
+      "employee_id": 13,
+      "ticket_type": 1003,
+      "description": "Màn hình phòng họp không kết nối được với các thiết bị trình chiếu.",
+      "priority": "low",
+      "created_date": "2026-07-24",
+      "resolved_date": null,
+      "assigning_type": "individual",
+      "raised_on": "1",
+      "deadline": "2026-08-10",
+      "status": "in_progress",
+      "assigned_to": [
+        1
+      ],
+      "tags": [
+        4
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 1006,
+    "fields": {
+      "title": "Yêu cầu đánh giá trạm làm việc tiện dụng",
+      "employee_id": 22,
+      "ticket_type": 1003,
+      "description": "Yêu cầu đánh giá công thái học cho một vấn đề thường xuyên xảy ra ở trạm làm việc.",
+      "priority": "low",
+      "created_date": "2026-07-25",
+      "resolved_date": null,
+      "assigning_type": "department",
+      "raised_on": "1",
+      "deadline": "2026-08-15",
+      "status": "new",
+      "assigned_to": [
+        68
+      ],
+      "tags": [
+        5
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 1007,
+    "fields": {
+      "title": "Quyền xuất dữ liệu khách hàng",
+      "employee_id": 12,
+      "ticket_type": 1001,
+      "description": "Yêu cầu quyền truy cập vào vai trò xuất dữ liệu khách hàng đã được phê duyệt.",
+      "priority": "high",
+      "created_date": "2026-07-18",
+      "resolved_date": "2026-07-22",
+      "assigning_type": "job_position",
+      "raised_on": "2",
+      "deadline": "2026-07-23",
+      "status": "resolved",
+      "assigned_to": [
+        1,
+        68
+      ],
+      "tags": [
+        4,
+        20
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 1008,
+    "fields": {
+      "title": "Báo cáo hành vi không phù hợp",
+      "employee_id": 13,
+      "ticket_type": 1004,
+      "description": "Báo cáo bí mật về quan hệ nhân viên yêu cầu xem xét nhân sự.",
+      "priority": "high",
+      "created_date": "2026-07-26",
+      "resolved_date": null,
+      "assigning_type": "individual",
+      "raised_on": "22",
+      "deadline": null,
+      "status": "in_progress",
+      "assigned_to": [
+        22
+      ],
+      "tags": [
+        5
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 1009,
+    "fields": {
+      "title": "Cải thiện quy trình phân bổ bãi đậu xe",
+      "employee_id": 68,
+      "ticket_type": 1003,
+      "description": "Đề nghị công bố tiêu chí phân bổ bãi đỗ xe minh bạch.",
+      "priority": "low",
+      "created_date": "2026-07-10",
+      "resolved_date": null,
+      "assigning_type": "department",
+      "raised_on": "1",
+      "deadline": "2026-07-20",
+      "status": "canceled",
+      "assigned_to": [],
+      "tags": [
+        25
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 1010,
+    "fields": {
+      "title": "Khôi phục báo cáo dự án đã lưu trữ",
+      "employee_id": 12,
+      "ticket_type": 1001,
+      "description": "Khôi phục báo cáo được lưu trữ trước đó cần thiết cho việc đánh giá hàng quý.",
+      "priority": "medium",
+      "created_date": "2026-07-27",
+      "resolved_date": null,
+      "assigning_type": "department",
+      "raised_on": "1",
+      "deadline": "2026-08-06",
+      "status": "on_hold",
+      "assigned_to": [
+        68
+      ],
+      "tags": [
+        18,
+        20
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 1011,
+    "fields": {
+      "title": "Làm rõ cách tính số dư nghỉ phép",
+      "employee_id": 13,
+      "ticket_type": 1002,
+      "description": "Làm rõ cách thức nghỉ phép chuyển tiếp được phản ánh trong số dư nghỉ phép.",
+      "priority": "medium",
+      "created_date": "2026-07-28",
+      "resolved_date": null,
+      "assigning_type": "department",
+      "raised_on": "3",
+      "deadline": "2026-08-07",
+      "status": "new",
+      "assigned_to": [
+        22
+      ],
+      "tags": [
+        6
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 1012,
+    "fields": {
+      "title": "Yêu cầu thủ tục truy cập của khách truy cập",
+      "employee_id": 22,
+      "ticket_type": 1003,
+      "description": "Yêu cầu quyền truy cập hiện tại của khách truy cập và thủ tục hộ tống.",
+      "priority": "low",
+      "created_date": "2026-07-29",
+      "resolved_date": null,
+      "assigning_type": "department",
+      "raised_on": "1",
+      "deadline": "2026-08-12",
+      "status": "new",
+      "assigned_to": [
+        1
+      ],
+      "tags": [
+        21
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.claimrequest",
+    "pk": 1001,
+    "fields": {
+      "ticket_id": 1001,
+      "employee_id": 68,
+      "is_approved": true,
+      "is_rejected": false
+    }
+  },
+  {
+    "model": "helpdesk.claimrequest",
+    "pk": 1002,
+    "fields": {
+      "ticket_id": 1003,
+      "employee_id": 1,
+      "is_approved": false,
+      "is_rejected": false
+    }
+  },
+  {
+    "model": "helpdesk.claimrequest",
+    "pk": 1003,
+    "fields": {
+      "ticket_id": 1008,
+      "employee_id": 22,
+      "is_approved": true,
+      "is_rejected": false
+    }
+  },
+  {
+    "model": "helpdesk.claimrequest",
+    "pk": 1004,
+    "fields": {
+      "ticket_id": 1010,
+      "employee_id": 13,
+      "is_approved": false,
+      "is_rejected": true
+    }
+  },
+  {
+    "model": "helpdesk.comment",
+    "pk": 1001,
+    "fields": {
+      "comment": "Yêu cầu truy cập VPN đã được xác minh; quá trình xem xét bảo mật đang được tiến hành.",
+      "ticket": 1001,
+      "employee_id": 1,
+      "date": "2026-07-22T09:30:00Z"
+    }
+  },
+  {
+    "model": "helpdesk.comment",
+    "pk": 1002,
+    "fields": {
+      "comment": "Chuyến thăm khách hàng được lên lịch vào tuần tới, vì vậy vẫn cần có quyền truy cập trước thời hạn.",
+      "ticket": 1001,
+      "employee_id": 12,
+      "date": "2026-07-23T10:15:00Z"
+    }
+  },
+  {
+    "model": "helpdesk.comment",
+    "pk": 1003,
+    "fields": {
+      "comment": "Đang chờ nhân viên xác nhận địa chỉ cư trú đã sửa.",
+      "ticket": 1002,
+      "employee_id": 22,
+      "date": "2026-07-23T14:00:00Z"
+    }
+  },
+  {
+    "model": "helpdesk.comment",
+    "pk": 1004,
+    "fields": {
+      "comment": "Bộ sạc thay thế đã được đặt hàng và sẽ được giao đến văn phòng.",
+      "ticket": 1003,
+      "employee_id": 1,
+      "date": "2026-07-24T11:00:00Z"
+    }
+  },
+  {
+    "model": "helpdesk.comment",
+    "pk": 1005,
+    "fields": {
+      "comment": "Việc đăng ký quyền lợi đã được cập nhật và nhân viên đã được thông báo.",
+      "ticket": 1004,
+      "employee_id": 22,
+      "date": "2026-07-28T15:30:00Z"
+    }
+  },
+  {
+    "model": "helpdesk.comment",
+    "pk": 1006,
+    "fields": {
+      "comment": "Vui lòng chia sẻ số model hiển thị trên màn hình phòng họp.",
+      "ticket": 1005,
+      "employee_id": 1,
+      "date": "2026-07-25T09:45:00Z"
+    }
+  },
+  {
+    "model": "helpdesk.comment",
+    "pk": 1007,
+    "fields": {
+      "comment": "Báo cáo chỉ được chia sẻ với bộ phận nhân sự trong khi việc đánh giá vẫn được giữ bí mật.",
+      "ticket": 1008,
+      "employee_id": 22,
+      "date": "2026-07-27T12:20:00Z"
+    }
+  },
+  {
+    "model": "helpdesk.comment",
+    "pk": 1008,
+    "fields": {
+      "comment": "Vị trí báo cáo lưu trữ đã được xác định; việc khôi phục đang chờ phê duyệt lưu trữ.",
+      "ticket": 1010,
+      "employee_id": 68,
+      "date": "2026-07-29T16:00:00Z"
+    }
+  },
+  {
+    "model": "helpdesk.attachment",
+    "pk": 1001,
+    "fields": {
+      "file": "helpdesk/tickets/vpn-access-approval.pdf",
+      "description": "Yêu cầu truy cập VPN đã được phê duyệt",
+      "format": "file",
+      "ticket": 1001,
+      "comment": null
+    }
+  },
+  {
+    "model": "helpdesk.attachment",
+    "pk": 1002,
+    "fields": {
+      "file": "helpdesk/tickets/tax-document-address-proof.pdf",
+      "description": "Bằng chứng chỉnh sửa địa chỉ",
+      "format": "file",
+      "ticket": 1002,
+      "comment": null
+    }
+  },
+  {
+    "model": "helpdesk.attachment",
+    "pk": 1003,
+    "fields": {
+      "file": "helpdesk/tickets/laptop-charger-photo.jpg",
+      "description": "Hình ảnh cục sạc bị hư",
+      "format": "image",
+      "ticket": 1003,
+      "comment": 1004
+    }
+  },
+  {
+    "model": "helpdesk.attachment",
+    "pk": 1004,
+    "fields": {
+      "file": "helpdesk/tickets/report-restoration-request.pdf",
+      "description": "Yêu cầu khôi phục báo cáo đã lưu trữ",
+      "format": "file",
+      "ticket": 1010,
+      "comment": 1008
+    }
+  },
+  {
+    "model": "helpdesk.faqcategory",
+    "pk": 1001,
+    "fields": {
+      "title": "Hỗ trợ CNTT",
+      "description": "Hướng dẫn truy cập, thiết bị và hỗ trợ kỹ thuật.",
+      "company_id": 1
+    }
+  },
+  {
+    "model": "helpdesk.faqcategory",
+    "pk": 1002,
+    "fields": {
+      "title": "Phúc lợi và tiền lương",
+      "description": "Hướng dẫn về các phúc lợi, phiếu lương và hỗ trợ tính lương.",
+      "company_id": 1
+    }
+  },
+  {
+    "model": "helpdesk.faqcategory",
+    "pk": 1003,
+    "fields": {
+      "title": "Dịch vụ tại nơi làm việc",
+      "description": "Hướng dẫn về hoạt động và cơ sở vật chất tại nơi làm việc.",
+      "company_id": 1
+    }
+  },
+  {
+    "model": "helpdesk.faq",
+    "pk": 1001,
+    "fields": {
+      "question": "Làm cách nào để yêu cầu quyền truy cập VPN?",
+      "answer": "Tạo một phiếu Bộ phận Dịch vụ CNTT với lý do kinh doanh, ngày bắt buộc và sự chấp thuận của người quản lý.",
+      "category": 1001,
+      "company_id": 1,
+      "tags": [
+        4
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.faq",
+    "pk": 1002,
+    "fields": {
+      "question": "Làm cách nào để báo cáo thiết bị bị mất?",
+      "answer": "Tạo ngay một vé Bàn dịch vụ CNTT có mức độ ưu tiên cao và bao gồm các chi tiết về tài sản thiết bị.",
+      "category": 1001,
+      "company_id": 1,
+      "tags": [
+        17,
+        4
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.faq",
+    "pk": 1003,
+    "fields": {
+      "question": "Làm cách nào để yêu cầu chỉnh sửa phiếu lương?",
+      "answer": "Tạo phiếu Phúc lợi và Bảng lương, đồng thời đính kèm phiếu lương và chi tiết chỉnh sửa có liên quan.",
+      "category": 1002,
+      "company_id": 1,
+      "tags": [
+        3
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.faq",
+    "pk": 1004,
+    "fields": {
+      "question": "Nghỉ phép chuyển tiếp được thể hiện như thế nào?",
+      "answer": "Số dư của bạn hiển thị riêng biệt các ngày nghỉ phép hiện có và ngày nghỉ phép chuyển tiếp; liên hệ với bộ phận nhân sự để hòa giải.",
+      "category": 1002,
+      "company_id": 1,
+      "tags": [
+        6
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.faq",
+    "pk": 1005,
+    "fields": {
+      "question": "Làm cách nào để đặt phòng họp?",
+      "answer": "Sử dụng tài nguyên phòng lịch đã được phê duyệt và tạo phiếu Vận hành nơi làm việc cho các vấn đề về thiết bị.",
+      "category": 1003,
+      "company_id": 1,
+      "tags": [
+        21
+      ]
+    }
+  },
+  {
+    "model": "helpdesk.faq",
+    "pk": 1006,
+    "fields": {
+      "question": "Làm cách nào để yêu cầu đánh giá công thái học?",
+      "answer": "Tạo phiếu Hoạt động tại nơi làm việc mô tả sự cố của máy trạm và mọi điều chỉnh trước đó.",
+      "category": 1003,
+      "company_id": 1,
+      "tags": [
+        5
+      ]
+    }
+  }
 ]

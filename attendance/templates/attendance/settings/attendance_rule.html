@@ -1,5 +1,5 @@
 {% extends 'settings.html' %}
-{% block settings %}{% load i18n %}{% load horillafilters %}{% load widget_tweaks %}{% load static %}
+{% block settings %}{% load i18n %}{% load joydigifilters %}{% load widget_tweaks %}{% load static %}
     <div class="mb-4">
         <h4 class="text-base font-semibold text-[#333]">{% trans "Attendance Rules" %}</h4>
         <p class="text-xs text-gray-500 mt-1">
@@ -131,7 +131,7 @@
                                         <span
                                             class="oh-info mr-2"
                                             title="{% trans 'By enabling this, you track the late comes and early outs of employees in their attendance.' %}"
-                                            data-doc-url="{{ DOC_BASE_URL }}/blogs/how-horilla-hrms-handles-late-come-and-early-out-tracking/"
+                                            data-doc-url="{{ DOC_BASE_URL }}/blogs/how-joydigi-hrms-handles-late-come-and-early-out-tracking/"
                                         >
                                         </span>
                                     </div>
@@ -181,7 +181,7 @@
                                     <span
                                         class="oh-info mr-2"
                                         title="{% trans 'Enable this feature to restrict attendance marking to specific IP addresses only.' %}"
-                                        data-doc-url="{{ DOC_BASE_URL }}/blogs/how-to-configure-ip-restrictions-check-inout-controls-in-horilla-hrms/"
+                                        data-doc-url="{{ DOC_BASE_URL }}/blogs/how-to-configure-ip-restrictions-check-inout-controls-in-joydigi-hrms/"
                                     >
                                     </span>
                                 </div>
@@ -240,7 +240,7 @@
                                         <span
                                             class="oh-info mr-2"
                                             title="{% trans 'Once you enable this option, a new submenu called Biometric Devices will be added under the Attendance menu.' %}"
-                                            data-doc-url="{{ DOC_BASE_URL }}/blogs/how-to-integrate-biometric-devices-in-horilla-hrms/"
+                                            data-doc-url="{{ DOC_BASE_URL }}/blogs/how-to-integrate-biometric-devices-in-joydigi-hrms/"
                                         >
                                         </span>
                                     </div>
@@ -346,7 +346,7 @@
                     <span
                         class="oh-info mr-2"
                         title="{% trans 'Configure the location and radius within which employees are allowed to mark their attendance.' %}"
-                        data-doc-url="{{ DOC_BASE_URL }}/blogs/how-to-set-up-geofencing-for-location-based-attendance-in-horilla-hrms/"
+                        data-doc-url="{{ DOC_BASE_URL }}/blogs/how-to-set-up-geofencing-for-location-based-attendance-in-joydigi-hrms/"
                     ></span>
                 </span>
             </h5>

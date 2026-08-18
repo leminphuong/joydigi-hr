@@ -7,8 +7,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Offboarding 2025",
-      "description": "Offboarding Pipeline for 2025",
+      "title": "Xuất cảnh 2025",
+      "description": "Lộ trình triển khai cho năm 2025",
       "status": "ongoing",
       "company_id": 1,
       "managers": [
@@ -24,7 +24,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Notice Period",
+      "title": "Thời gian thông báo",
       "type": "notice_period",
       "offboarding_id": 1,
       "sequence": 0,
@@ -39,7 +39,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Exit interview",
+      "title": "Thoát khỏi cuộc phỏng vấn",
       "type": "interview",
       "offboarding_id": 1,
       "sequence": 1,
@@ -54,7 +54,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Work Handover",
+      "title": "Bàn giao công việc",
       "type": "handover",
       "offboarding_id": 1,
       "sequence": 2,
@@ -84,7 +84,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Farewell",
+      "title": "Chia tay",
       "type": "other",
       "offboarding_id": 1,
       "sequence": 4,
@@ -99,7 +99,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Archived",
+      "title": "Đã lưu trữ",
       "type": "archived",
       "offboarding_id": 1,
       "sequence": 5,
@@ -323,8 +323,8 @@
       "modified_by": 13,
       "is_active": true,
       "employee_id": 12,
-      "title": "Resignation",
-      "description": "<p>After careful consideration, I have decided to pursue a new opportunity. I appreciate the support and opportunities provided during my time at Horilla and will assist with a smooth transition.</p>",
+      "title": "từ chức",
+      "description": "<p>Sau khi cân nhắc kỹ lưỡng, tôi quyết định theo đuổi một cơ hội mới. Tôi đánh giá cao sự hỗ trợ và cơ hội được cung cấp trong thời gian làm việc tại Joydigi và sẽ hỗ trợ quá trình chuyển đổi suôn sẻ.</p>",
       "planned_to_leave_on": "2025-07-15",
       "status": "requested",
       "offboarding_employee_id": 1
@@ -339,8 +339,8 @@
       "modified_by": 15,
       "is_active": true,
       "employee_id": 15,
-      "title": "Resignation Letter",
-      "description": "<p>After careful consideration, I have decided to pursue a new opportunity. I appreciate the support and opportunities provided during my time at Horilla and will assist with a smooth transition.</p>",
+      "title": "Thư từ chức",
+      "description": "<p>Sau khi cân nhắc kỹ lưỡng, tôi quyết định theo đuổi một cơ hội mới. Tôi đánh giá cao sự hỗ trợ và cơ hội được cung cấp trong thời gian làm việc tại Joydigi và sẽ hỗ trợ quá trình chuyển đổi suôn sẻ.</p>",
       "planned_to_leave_on": "2025-07-14",
       "status": "requested",
       "offboarding_employee_id": 2
@@ -355,8 +355,8 @@
       "modified_by": 22,
       "is_active": true,
       "employee_id": 22,
-      "title": "Resignation",
-      "description": "<p>After careful consideration, I have decided to pursue a new opportunity. I appreciate the support and opportunities provided during my time at Horilla and will assist with a smooth transition.</p>",
+      "title": "từ chức",
+      "description": "<p>Sau khi cân nhắc kỹ lưỡng, tôi quyết định theo đuổi một cơ hội mới. Tôi đánh giá cao sự hỗ trợ và cơ hội được cung cấp trong thời gian làm việc tại Joydigi và sẽ hỗ trợ quá trình chuyển đổi suôn sẻ.</p>",
       "planned_to_leave_on": "2025-07-20",
       "status": "approved",
       "offboarding_employee_id": 3
@@ -371,8 +371,8 @@
       "modified_by": 31,
       "is_active": true,
       "employee_id": 31,
-      "title": "Resignation Letter",
-      "description": "<p>After careful consideration, I have decided to pursue a new opportunity. I appreciate the support and opportunities provided during my time at Horilla and will assist with a smooth transition.</p>",
+      "title": "Thư từ chức",
+      "description": "<p>Sau khi cân nhắc kỹ lưỡng, tôi quyết định theo đuổi một cơ hội mới. Tôi đánh giá cao sự hỗ trợ và cơ hội được cung cấp trong thời gian làm việc tại Joydigi và sẽ hỗ trợ quá trình chuyển đổi suôn sẻ.</p>",
       "planned_to_leave_on": "2025-07-25",
       "status": "approved",
       "offboarding_employee_id": 4
@@ -387,8 +387,8 @@
       "modified_by": 35,
       "is_active": true,
       "employee_id": 35,
-      "title": "Resignation",
-      "description": "<p>After careful consideration, I have decided to pursue a new opportunity. I appreciate the support and opportunities provided during my time at Horilla and will assist with a smooth transition.</p>",
+      "title": "từ chức",
+      "description": "<p>Sau khi cân nhắc kỹ lưỡng, tôi quyết định theo đuổi một cơ hội mới. Tôi đánh giá cao sự hỗ trợ và cơ hội được cung cấp trong thời gian làm việc tại Joydigi và sẽ hỗ trợ quá trình chuyển đổi suôn sẻ.</p>",
       "planned_to_leave_on": "2025-07-18",
       "status": "approved",
       "offboarding_employee_id": 5
@@ -403,8 +403,8 @@
       "modified_by": 10,
       "is_active": true,
       "employee_id": 10,
-      "title": "Resignation Letter",
-      "description": "<p>After careful consideration, I have decided to pursue a new opportunity. I appreciate the support and opportunities provided during my time at Horilla and will assist with a smooth transition.</p>",
+      "title": "Thư từ chức",
+      "description": "<p>Sau khi cân nhắc kỹ lưỡng, tôi quyết định theo đuổi một cơ hội mới. Tôi đánh giá cao sự hỗ trợ và cơ hội được cung cấp trong thời gian làm việc tại Joydigi và sẽ hỗ trợ quá trình chuyển đổi suôn sẻ.</p>",
       "planned_to_leave_on": "2025-07-22",
       "status": "approved",
       "offboarding_employee_id": 6
@@ -419,8 +419,8 @@
       "modified_by": 27,
       "is_active": true,
       "employee_id": 27,
-      "title": "Resignation",
-      "description": "<p>After careful consideration, I have decided to pursue a new opportunity. I appreciate the support and opportunities provided during my time at Horilla and will assist with a smooth transition.</p>",
+      "title": "từ chức",
+      "description": "<p>Sau khi cân nhắc kỹ lưỡng, tôi quyết định theo đuổi một cơ hội mới. Tôi đánh giá cao sự hỗ trợ và cơ hội được cung cấp trong thời gian làm việc tại Joydigi và sẽ hỗ trợ quá trình chuyển đổi suôn sẻ.</p>",
       "planned_to_leave_on": "2025-07-10",
       "status": "approved",
       "offboarding_employee_id": 7
@@ -435,8 +435,8 @@
       "modified_by": 33,
       "is_active": true,
       "employee_id": 33,
-      "title": "Resignation Letter",
-      "description": "<p>After careful consideration, I have decided to pursue a new opportunity. I appreciate the support and opportunities provided during my time at Horilla and will assist with a smooth transition.</p>",
+      "title": "Thư từ chức",
+      "description": "<p>Sau khi cân nhắc kỹ lưỡng, tôi quyết định theo đuổi một cơ hội mới. Tôi đánh giá cao sự hỗ trợ và cơ hội được cung cấp trong thời gian làm việc tại Joydigi và sẽ hỗ trợ quá trình chuyển đổi suôn sẻ.</p>",
       "planned_to_leave_on": "2025-07-12",
       "status": "approved",
       "offboarding_employee_id": 8
@@ -451,8 +451,8 @@
       "modified_by": 36,
       "is_active": true,
       "employee_id": 36,
-      "title": "Resignation",
-      "description": "<p>After careful consideration, I have decided to pursue a new opportunity. I appreciate the support and opportunities provided during my time at Horilla and will assist with a smooth transition.</p>",
+      "title": "từ chức",
+      "description": "<p>Sau khi cân nhắc kỹ lưỡng, tôi quyết định theo đuổi một cơ hội mới. Tôi đánh giá cao sự hỗ trợ và cơ hội được cung cấp trong thời gian làm việc tại Joydigi và sẽ hỗ trợ quá trình chuyển đổi suôn sẻ.</p>",
       "planned_to_leave_on": "2025-07-05",
       "status": "approved",
       "offboarding_employee_id": 9
@@ -467,8 +467,8 @@
       "modified_by": 18,
       "is_active": true,
       "employee_id": 18,
-      "title": "Resignation Letter",
-      "description": "<p>After careful consideration, I have decided to pursue a new opportunity. I appreciate the support and opportunities provided during my time at Horilla and will assist with a smooth transition.</p>",
+      "title": "Thư từ chức",
+      "description": "<p>Sau khi cân nhắc kỹ lưỡng, tôi quyết định theo đuổi một cơ hội mới. Tôi đánh giá cao sự hỗ trợ và cơ hội được cung cấp trong thời gian làm việc tại Joydigi và sẽ hỗ trợ quá trình chuyển đổi suôn sẻ.</p>",
       "planned_to_leave_on": "2025-07-03",
       "status": "approved",
       "offboarding_employee_id": 10
@@ -483,8 +483,8 @@
       "modified_by": 8,
       "is_active": true,
       "employee_id": 8,
-      "title": "Resignation",
-      "description": "<p>After careful consideration, I have decided to pursue a new opportunity. I appreciate the support and opportunities provided during my time at Horilla and will assist with a smooth transition.</p>",
+      "title": "từ chức",
+      "description": "<p>Sau khi cân nhắc kỹ lưỡng, tôi quyết định theo đuổi một cơ hội mới. Tôi đánh giá cao sự hỗ trợ và cơ hội được cung cấp trong thời gian làm việc tại Joydigi và sẽ hỗ trợ quá trình chuyển đổi suôn sẻ.</p>",
       "planned_to_leave_on": "2025-07-31",
       "status": "requested",
       "offboarding_employee_id": 12
@@ -499,8 +499,8 @@
       "modified_by": 34,
       "is_active": true,
       "employee_id": 34,
-      "title": "Resignation Letter",
-      "description": "<p>After careful consideration, I have decided to pursue a new opportunity. I appreciate the support and opportunities provided during my time at Horilla and will assist with a smooth transition.</p>",
+      "title": "Thư từ chức",
+      "description": "<p>Sau khi cân nhắc kỹ lưỡng, tôi quyết định theo đuổi một cơ hội mới. Tôi đánh giá cao sự hỗ trợ và cơ hội được cung cấp trong thời gian làm việc tại Joydigi và sẽ hỗ trợ quá trình chuyển đổi suôn sẻ.</p>",
       "planned_to_leave_on": "2025-07-28",
       "status": "requested",
       "offboarding_employee_id": 13
@@ -515,8 +515,8 @@
       "modified_by": 19,
       "is_active": true,
       "employee_id": 19,
-      "title": "Resignation",
-      "description": "<p>After careful consideration, I have decided to pursue a new opportunity. I appreciate the support and opportunities provided during my time at Horilla and will assist with a smooth transition.</p>",
+      "title": "từ chức",
+      "description": "<p>Sau khi cân nhắc kỹ lưỡng, tôi quyết định theo đuổi một cơ hội mới. Tôi đánh giá cao sự hỗ trợ và cơ hội được cung cấp trong thời gian làm việc tại Joydigi và sẽ hỗ trợ quá trình chuyển đổi suôn sẻ.</p>",
       "planned_to_leave_on": "2025-07-30",
       "status": "rejected",
       "offboarding_employee_id": null
@@ -531,8 +531,8 @@
       "modified_by": 16,
       "is_active": true,
       "employee_id": 16,
-      "title": "Resignation Letter",
-      "description": "<p>After careful consideration, I have decided to pursue a new opportunity. I appreciate the support and opportunities provided during my time at Horilla and will assist with a smooth transition.</p>",
+      "title": "Thư từ chức",
+      "description": "<p>Sau khi cân nhắc kỹ lưỡng, tôi quyết định theo đuổi một cơ hội mới. Tôi đánh giá cao sự hỗ trợ và cơ hội được cung cấp trong thời gian làm việc tại Joydigi và sẽ hỗ trợ quá trình chuyển đổi suôn sẻ.</p>",
       "planned_to_leave_on": "2025-06-20",
       "status": "rejected",
       "offboarding_employee_id": null
@@ -547,8 +547,8 @@
       "modified_by": 14,
       "is_active": true,
       "employee_id": 14,
-      "title": "Resignation",
-      "description": "<p>After careful consideration, I have decided to pursue a new opportunity. I appreciate the support and opportunities provided during my time at Horilla and will assist with a smooth transition.</p>",
+      "title": "từ chức",
+      "description": "<p>Sau khi cân nhắc kỹ lưỡng, tôi quyết định theo đuổi một cơ hội mới. Tôi đánh giá cao sự hỗ trợ và cơ hội được cung cấp trong thời gian làm việc tại Joydigi và sẽ hỗ trợ quá trình chuyển đổi suôn sẻ.</p>",
       "planned_to_leave_on": "2025-08-05",
       "status": "requested",
       "offboarding_employee_id": null
@@ -562,7 +562,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Collect feedback",
+      "title": "Thu thập phản hồi",
       "stage_id": 14,
       "is_required": true,
       "managers": [
@@ -578,7 +578,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Knowledge transfer",
+      "title": "Chuyển giao kiến thức",
       "stage_id": 15,
       "is_required": true,
       "managers": [
@@ -595,7 +595,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Return assets",
+      "title": "Trả lại tài sản",
       "stage_id": 15,
       "is_required": true,
       "managers": [
@@ -611,7 +611,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Settle dues",
+      "title": "Thanh toán phí",
       "stage_id": 16,
       "is_required": true,
       "managers": [
@@ -627,7 +627,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Clearance form",
+      "title": "Mẫu thông quan",
       "stage_id": 16,
       "is_required": true,
       "managers": [
@@ -643,7 +643,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Exit checklist",
+      "title": "Thoát khỏi danh sách kiểm tra",
       "stage_id": 13,
       "is_required": true,
       "managers": [
@@ -659,7 +659,7 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Farewell note",
+      "title": "Lời chia tay",
       "stage_id": 17,
       "is_required": true,
       "managers": [
@@ -913,8 +913,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Better opportunity",
-      "description": "Accepted a role with stronger growth prospects.",
+      "title": "Cơ hội tốt hơn",
+      "description": "Chấp nhận một vai trò có triển vọng tăng trưởng mạnh mẽ hơn.",
       "offboarding_employee_id": 9,
       "attachments": []
     }
@@ -927,8 +927,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Relocation",
-      "description": "Moving to another city for personal reasons.",
+      "title": "tái định cư",
+      "description": "Chuyển đến thành phố khác vì lý do cá nhân.",
       "offboarding_employee_id": 10,
       "attachments": []
     }
@@ -941,8 +941,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Career change",
-      "description": "Switching to a different industry.",
+      "title": "Thay đổi nghề nghiệp",
+      "description": "Chuyển sang ngành khác.",
       "offboarding_employee_id": 11,
       "attachments": []
     }
@@ -955,8 +955,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Compensation",
-      "description": "Offer package was not competitive.",
+      "title": "Bồi thường",
+      "description": "Gói ưu đãi không có tính cạnh tranh.",
       "offboarding_employee_id": 5,
       "attachments": []
     }
@@ -969,8 +969,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Work-life balance",
-      "description": "Seeking a role with more flexible hours.",
+      "title": "Cân bằng giữa công việc và cuộc sống",
+      "description": "Đang tìm kiếm một công việc có thời gian linh hoạt hơn.",
       "offboarding_employee_id": 3,
       "attachments": []
     }
@@ -983,8 +983,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Better opportunity",
-      "description": "Joined a competitor for a senior role.",
+      "title": "Cơ hội tốt hơn",
+      "description": "Gia nhập một đối thủ cạnh tranh để đảm nhận vai trò cấp cao.",
       "offboarding_employee_id": 7,
       "attachments": []
     }
@@ -997,8 +997,8 @@
       "created_by": 1,
       "modified_by": 1,
       "is_active": true,
-      "title": "Relocation",
-      "description": "Family relocating overseas.",
+      "title": "tái định cư",
+      "description": "Gia đình định cư ở nước ngoài.",
       "offboarding_employee_id": 8,
       "attachments": []
     }

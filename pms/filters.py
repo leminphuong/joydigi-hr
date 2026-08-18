@@ -18,7 +18,7 @@ from django_filters import DateFilter, DateFromToRangeFilter
 
 from base.filters import FilterSet
 from base.methods import reload_queryset
-from horilla.filters import HorillaFilterSet
+from joydigi.filters import JoydigiFilterSet
 from pms.models import (
     AnonymousFeedback,
     BonusPointSetting,
@@ -107,7 +107,7 @@ class CustomFilterSet(django_filters.FilterSet):
                 field.lookup_expr = "icontains"
 
 
-class ActualObjectiveFilter(HorillaFilterSet):
+class ActualObjectiveFilter(JoydigiFilterSet):
     """
     ActualObjectiveFilter
     """
@@ -231,7 +231,7 @@ DUE_DATE_CHOICES = [
 ]
 
 
-class FeedbackFilter(HorillaFilterSet):
+class FeedbackFilter(JoydigiFilterSet):
     """
     Custom filter set for Feedback records.
 
@@ -443,7 +443,7 @@ class KeyResultFilter(CustomFilterSet):
         fields = "__all__"
 
 
-class ActualKeyResultFilter(HorillaFilterSet):
+class ActualKeyResultFilter(JoydigiFilterSet):
     """
     Filter through KeyResult model
     """
@@ -484,7 +484,7 @@ class ObjectiveReGroup:
     ]
 
 
-class EmployeeObjectiveFilter(HorillaFilterSet):
+class EmployeeObjectiveFilter(JoydigiFilterSet):
     """
     Filter through EmployeeObjective model
     """
@@ -639,7 +639,7 @@ class EmployeeObjectiveFilter(HorillaFilterSet):
         return empty.distinct()
 
 
-class MeetingsFilter(HorillaFilterSet):
+class MeetingsFilter(JoydigiFilterSet):
 
     search = django_filters.CharFilter(field_name="title", lookup_expr="icontains")
     date = django_filters.DateFilter(
@@ -717,7 +717,7 @@ class MeetingsFilter(HorillaFilterSet):
     #     return super().filter_queryset(queryset)
 
 
-class AnonymousFilter(HorillaFilterSet):
+class AnonymousFilter(JoydigiFilterSet):
     """
     Custom filter set for Anonymous records.
 
@@ -796,7 +796,7 @@ class QuestionTemplateFilter(FilterSet):
         ]
 
 
-class PeriodFilter(HorillaFilterSet):
+class PeriodFilter(JoydigiFilterSet):
 
     search = django_filters.CharFilter(
         field_name="period_name", lookup_expr="icontains"

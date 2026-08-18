@@ -13,7 +13,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils.translation import gettext as _
 
-from horilla.decorators import permission_required
+from joydigi.decorators import permission_required
 
 
 def _parse_period(request):

@@ -53,7 +53,7 @@ class IndividualLeaveTab(MainParentListView):
         own generic tab container, not "#leave-tab") needs the full template.
         """
         if self.request.META.get("HTTP_HX_TARGET") == self.view_id:
-            return ["generic/horilla_list_table.html"]
+            return ["generic/joydigi_list_table.html"]
         return [self.template_name]
 
     def __init__(self, **kwargs: Any) -> None:

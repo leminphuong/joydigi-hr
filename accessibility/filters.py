@@ -11,8 +11,8 @@ from django.template.loader import render_to_string
 from django.utils.translation import gettext as _
 
 from employee.models import Employee
-from horilla.filters import HorillaFilterSet
-from horilla.horilla_middlewares import _thread_locals
+from joydigi.filters import JoydigiFilterSet
+from joydigi.joydigi_middlewares import _thread_locals
 
 
 def _filter_form_structured(self):
@@ -28,7 +28,7 @@ def _filter_form_structured(self):
     return table_html
 
 
-class AccessibilityFilter(HorillaFilterSet):
+class AccessibilityFilter(JoydigiFilterSet):
     """
     Accessibility Filter with dynamic OR logic between fields
     """

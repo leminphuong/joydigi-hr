@@ -10,11 +10,11 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import (
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
 )
 from recruitment.filters import RejectReasonFilter
 from recruitment.forms import RejectReasonForm
@@ -25,7 +25,7 @@ from recruitment.models import RejectReason
 @method_decorator(
     permission_required(perm="recruitment.view_rejectreason"), name="dispatch"
 )
-class RejectReasonListView(HorillaListView):
+class RejectReasonListView(JoydigiListView):
     """
     List view of the rejected reason page
     """
@@ -85,7 +85,7 @@ class RejectReasonListView(HorillaListView):
 @method_decorator(
     permission_required(perm="recruitment.view_rejectreason"), name="dispatch"
 )
-class RejectReasonNav(HorillaNavView):
+class RejectReasonNav(JoydigiNavView):
     """
     Nav bar
     """
@@ -112,7 +112,7 @@ class RejectReasonNav(HorillaNavView):
 @method_decorator(
     permission_required(perm="recruitment.add_rejectreason"), name="dispatch"
 )
-class RejectReasonFormView(HorillaFormView):
+class RejectReasonFormView(JoydigiFormView):
     """
     Create and edit form
     """
@@ -148,7 +148,7 @@ class RejectReasonFormView(HorillaFormView):
 
 
 @method_decorator(login_required, name="dispatch")
-class DynamicRejectReasonFormView(HorillaFormView):
+class DynamicRejectReasonFormView(JoydigiFormView):
 
     model = RejectReason
     form_class = RejectReasonForm

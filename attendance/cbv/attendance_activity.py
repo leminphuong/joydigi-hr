@@ -12,11 +12,11 @@ from attendance.filters import AttendanceActivityFilter
 from attendance.forms import AttendanceActivityExportForm
 from attendance.models import AttendanceActivity
 from base.methods import filtersubordinates, has_export_access, is_reportingmanager
-from horilla_views.cbv_methods import hx_request_required, login_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import hx_request_required, login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 
@@ -31,7 +31,7 @@ class AttendanceActivityView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class AttendanceActivityListView(HorillaListView):
+class AttendanceActivityListView(JoydigiListView):
     """
     list view of the page
     """
@@ -94,7 +94,7 @@ class AttendanceActivityListView(HorillaListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class AttendanceActivityNavView(HorillaNavView):
+class AttendanceActivityNavView(JoydigiNavView):
     """
     nav bar
     """
@@ -178,7 +178,7 @@ class AttendanceActivityNavView(HorillaNavView):
 
 
 @method_decorator(login_required, name="dispatch")
-class AttendanceDetailView(HorillaDetailedView):
+class AttendanceDetailView(JoydigiDetailedView):
     """
     Detail view of page
     """

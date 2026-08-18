@@ -48,11 +48,11 @@ from employee.models import (
     Policy,
     PolicyMultipleFile,
 )
-from horilla import horilla_middlewares
-from horilla_audit.models import AccountBlockUnblock
-from horilla_auth.models import HorillaUser
-from horilla_widgets.widgets.horilla_multi_select_field import HorillaMultiSelectField
-from horilla_widgets.widgets.select_widgets import HorillaMultiSelectWidget
+from joydigi import joydigi_middlewares
+from joydigi_audit.models import AccountBlockUnblock
+from joydigi_auth.models import JoydigiUser
+from joydigi_widgets.widgets.joydigi_multi_select_field import JoydigiMultiSelectField
+from joydigi_widgets.widgets.select_widgets import JoydigiMultiSelectWidget
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class ModelForm(forms.ModelForm):
 
         reload_queryset(self.fields)
 
-        request = getattr(horilla_middlewares._thread_locals, "request", None)
+        request = getattr(joydigi_middlewares._thread_locals, "request", None)
 
         today = date.today()
         now = datetime.now()
@@ -176,7 +176,7 @@ class ModelForm(forms.ModelForm):
 
 class UserForm(ModelForm):
     """
-    Form for HorillaUser model
+    Form for JoydigiUser model
     """
 
     class Meta:
@@ -185,12 +185,12 @@ class UserForm(ModelForm):
         """
 
         fields = ("groups",)
-        model = HorillaUser
+        model = JoydigiUser
 
 
 class UserPermissionForm(ModelForm):
     """
-    Form for HorillaUser model
+    Form for JoydigiUser model
     """
 
     class Meta:
@@ -199,7 +199,7 @@ class UserPermissionForm(ModelForm):
         """
 
         fields = ("groups", "user_permissions")
-        model = HorillaUser
+        model = JoydigiUser
 
 
 class EmployeeForm(ModelForm):
@@ -793,9 +793,9 @@ class DisciplinaryActionForm(ModelForm):
             "start_date": forms.DateInput(attrs={"type": "date"}),
         }
 
-    employee_id = HorillaMultiSelectField(
+    employee_id = JoydigiMultiSelectField(
         queryset=Employee.objects.filter(employee_work_info__isnull=False),
-        widget=HorillaMultiSelectWidget(
+        widget=JoydigiMultiSelectWidget(
             filter_route_name="employee-widget-filter",
             filter_class=EmployeeFilter,
             filter_instance_context_name="f",
@@ -827,7 +827,7 @@ class DisciplinaryActionForm(ModelForm):
         cleaned_data = super().clean()
 
         # Remove 'employee_id' field error if it's handled manually
-        if isinstance(self.fields["employee_id"], HorillaMultiSelectField):
+        if isinstance(self.fields["employee_id"], JoydigiMultiSelectField):
             self.errors.pop("employee_id", None)
             employee_data = self.fields["employee_id"].queryset.filter(
                 id__in=self.data.getlist("employee_id")

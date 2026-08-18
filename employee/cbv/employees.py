@@ -26,17 +26,17 @@ from employee.forms import BulkUpdateFieldForm, EmployeeExportExcelForm
 from employee.models import Employee, EmployeeBankDetails, EmployeeWorkInformation
 from employee.templatetags.employee_filter import edit_accessibility
 from employee.views import _check_reporting_manager
-from horilla.horilla_middlewares import _thread_locals
-from horilla.signals import post_generic_delete, post_generic_import
-from horilla_auth.models import HorillaUser
-from horilla_views.cbv_methods import hx_request_required, login_required
-from horilla_views.forms import DynamicBulkUpdateForm
-from horilla_views.generic.cbv.views import (
-    HorillaCardView,
-    HorillaDetailedView,
-    HorillaListView,
-    HorillaNavView,
-    HorillaTabView,
+from joydigi.joydigi_middlewares import _thread_locals
+from joydigi.signals import post_generic_delete, post_generic_import
+from joydigi_auth.models import JoydigiUser
+from joydigi_views.cbv_methods import hx_request_required, login_required
+from joydigi_views.forms import DynamicBulkUpdateForm
+from joydigi_views.generic.cbv.views import (
+    JoydigiCardView,
+    JoydigiDetailedView,
+    JoydigiListView,
+    JoydigiNavView,
+    JoydigiTabView,
     TemplateView,
 )
 
@@ -109,7 +109,7 @@ from base import models as base_models
     ),
     name="dispatch",
 )
-class EmployeesList(HorillaListView):
+class EmployeesList(JoydigiListView):
     """
     List view of employees
     """
@@ -206,7 +206,7 @@ class EmployeesList(HorillaListView):
     }
 
     import_related_model_column_mapping = {
-        "employee_user_id": base_models.HorillaUser,
+        "employee_user_id": base_models.JoydigiUser,
         # "test": base_models.Department,
         "employee_work_info": EmployeeWorkInformation,
         "employee_bank_details": EmployeeBankDetails,
@@ -382,7 +382,7 @@ Employee.get_detailed_work_url = get_detailed_work_url
 
 
 @method_decorator(login_required, name="dispatch")
-class TabEmployeeWorkList(HorillaListView):
+class TabEmployeeWorkList(JoydigiListView):
     """
     Self Employee Work List
     """
@@ -430,7 +430,7 @@ class TabEmployeeWorkList(HorillaListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class EmployeeWorkDetails(HorillaDetailedView):
+class EmployeeWorkDetails(JoydigiDetailedView):
     """
     Employee Detail View
     """
@@ -468,7 +468,7 @@ class EmployeeWorkDetails(HorillaDetailedView):
 
 
 @method_decorator(login_required, name="dispatch")
-class WorkTab(HorillaTabView):
+class WorkTab(JoydigiTabView):
     """
     Work Tab
     """
@@ -506,7 +506,7 @@ class WorkTab(HorillaTabView):
     ),
     name="dispatch",
 )
-class EmployeeNav(HorillaNavView):
+class EmployeeNav(JoydigiNavView):
     """
     For nav bar
     """
@@ -647,7 +647,7 @@ class EmployeeNav(HorillaNavView):
     ]
 
 
-@receiver(post_generic_import, sender=HorillaUser)
+@receiver(post_generic_import, sender=JoydigiUser)
 def user_generic_import_or_update(sender, **kwargs):
     """
     Handle bulk user imports
@@ -671,7 +671,7 @@ def user_generic_import_or_update(sender, **kwargs):
         if users_to_update:
             # Bulk update only the users that were changed
             with transaction.atomic():
-                HorillaUser.objects.bulk_update(users_to_update, ["password"])
+                JoydigiUser.objects.bulk_update(users_to_update, ["password"])
                 logger.info(
                     f"{len(users_to_update)} user passwords were successfully updated."
                 )
@@ -717,7 +717,7 @@ class ExportView(TemplateView):
     ),
     name="dispatch",
 )
-class EmployeeCard(HorillaCardView):
+class EmployeeCard(JoydigiCardView):
     """
     For card view
     """

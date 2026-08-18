@@ -10,7 +10,7 @@ if apps.is_installed("recruitment"):
 
     from base.methods import has_export_access
     from base.models import Company
-    from horilla.decorators import login_required, permission_required
+    from joydigi.decorators import login_required, permission_required
     from onboarding.filters import OnboardingStageFilter
     from onboarding.models import OnboardingStage
     from recruitment.filters import CandidateFilter, RecruitmentFilter

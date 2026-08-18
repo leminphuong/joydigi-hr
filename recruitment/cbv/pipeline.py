@@ -11,14 +11,14 @@ from django.utils.decorators import method_decorator
 from django.utils.http import urlencode
 from django.utils.translation import gettext_lazy as _
 
-from horilla.decorators import hx_request_required
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.kanban import HorillaKanbanView
-from horilla_views.generic.cbv.views import (
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
-    HorillaTabView,
+from joydigi.decorators import hx_request_required
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.kanban import JoydigiKanbanView
+from joydigi_views.generic.cbv.views import (
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
+    JoydigiTabView,
     TemplateView,
     get_short_uuid,
 )
@@ -46,7 +46,7 @@ class PipelineView(TemplateView):
 @method_decorator(
     manager_can_enter(perm="recruitment.view_recruitment"), name="dispatch"
 )
-class RecruitmentTabView(HorillaTabView):
+class RecruitmentTabView(JoydigiTabView):
     """
     RecruitmentTabView
     """
@@ -279,7 +279,7 @@ class GetStages(TemplateView):
 @method_decorator(
     manager_can_enter(perm="recruitment.view_recruitment"), name="dispatch"
 )
-class CandidateList(HorillaListView):
+class CandidateList(JoydigiListView):
     """
     CandidateList
     """
@@ -482,7 +482,7 @@ class CandidateList(HorillaListView):
 @method_decorator(
     manager_can_enter(perm="recruitment.view_recruitment"), name="dispatch"
 )
-class CandidateCard(HorillaKanbanView):
+class CandidateCard(JoydigiKanbanView):
     model = models.Candidate
     filter_class = filters.CandidateFilter
     group_filter_class = filters.StageFilter
@@ -664,9 +664,9 @@ class CandidateCard(HorillaKanbanView):
 @method_decorator(
     manager_can_enter(perm="recruitment.view_recruitment"), name="dispatch"
 )
-class PipelineNav(HorillaNavView):
+class PipelineNav(JoydigiNavView):
     """
-    HorillaNavView
+    JoydigiNavView
     """
 
     search_url = reverse_lazy("cbv-pipeline-tab")
@@ -726,7 +726,7 @@ class PipelineNav(HorillaNavView):
 @method_decorator(
     manager_can_enter(perm="recruitment.view_recruitment"), name="dispatch"
 )
-class ChangeStage(HorillaFormView):
+class ChangeStage(JoydigiFormView):
     """
     Change Candidate stage
     """

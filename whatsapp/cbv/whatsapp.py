@@ -6,14 +6,14 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import gettext_lazy as _trans
 
-from horilla.decorators import check_integration_enabled
-from horilla.decorators import login_required as func_login_required
-from horilla.decorators import permission_required
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import (
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi.decorators import check_integration_enabled
+from joydigi.decorators import login_required as func_login_required
+from joydigi.decorators import permission_required
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
 )
 from whatsapp.filters import CredentialsViewFilter
 from whatsapp.forms import WhatsappForm
@@ -26,7 +26,7 @@ from whatsapp.utils import send_text_message
     permission_required("whatsapp.view_whatsappcredientials"), name="dispatch"
 )
 @method_decorator(check_integration_enabled(app_name="whatsapp"), name="dispatch")
-class CredentialListView(HorillaListView):
+class CredentialListView(JoydigiListView):
     """
     List view for Whatsapp credential settings view
     """
@@ -101,7 +101,7 @@ class CredentialListView(HorillaListView):
     permission_required("whatsapp.view_whatsappcredientials"), name="dispatch"
 )
 @method_decorator(check_integration_enabled(app_name="whatsapp"), name="dispatch")
-class CredentialNav(HorillaNavView):
+class CredentialNav(JoydigiNavView):
     """
     Nav view for Whatsapp credential settings view
     """
@@ -126,7 +126,7 @@ class CredentialNav(HorillaNavView):
     permission_required("whatsapp.add_whatsappcredientials"), name="dispatch"
 )
 @method_decorator(check_integration_enabled(app_name="whatsapp"), name="dispatch")
-class CredentialForm(HorillaFormView):
+class CredentialForm(JoydigiFormView):
     """
     Form view for Whatsapp credential settings view
     """

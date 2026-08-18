@@ -26,13 +26,13 @@ from base.methods import (
     is_reportingmanager,
 )
 from employee.models import Employee
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
-    HorillaTabView,
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
+    JoydigiTabView,
     TemplateView,
 )
 from notifications.signals import notify
@@ -48,7 +48,7 @@ class AttendancesRequestView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class AttendancesRequestTabView(HorillaTabView):
+class AttendancesRequestTabView(JoydigiTabView):
     """
     tabview of attendance request page
     """
@@ -87,7 +87,7 @@ Attendance.request_approved_by = request_approved_by
 
 
 @method_decorator(login_required, name="dispatch")
-class AttendancesRequestListView(HorillaListView):
+class AttendancesRequestListView(JoydigiListView):
     """
     list view
     """
@@ -284,7 +284,7 @@ class AttendanceListTab(AttendancesRequestListView):
 
 
 def _request_tab_badge_count(request, view_cls):
-    """Same queryset rules as the tab's HorillaListView (filters, subordinates)."""
+    """Same queryset rules as the tab's JoydigiListView (filters, subordinates)."""
     view = view_cls()
     view.request = request
     view.args = ()
@@ -304,7 +304,7 @@ def attendance_request_tabs_badge_counts(request):
 
 
 @method_decorator(login_required, name="dispatch")
-class AttendanceRequestNav(HorillaNavView):
+class AttendanceRequestNav(JoydigiNavView):
     """
     nav bar
     """
@@ -382,7 +382,7 @@ class AttendanceRequestNav(HorillaNavView):
 
 
 @method_decorator(login_required, name="dispatch")
-class AttendanceListTabDetailView(HorillaDetailedView):
+class AttendanceListTabDetailView(JoydigiDetailedView):
     """
     Detail view of page
     """
@@ -437,7 +437,7 @@ class AttendanceListTabDetailView(HorillaDetailedView):
 
 
 @method_decorator(login_required, name="dispatch")
-class NewAttendanceRequestFormView(HorillaFormView):
+class NewAttendanceRequestFormView(JoydigiFormView):
     """
     form view for create  attendance request
     """
@@ -483,7 +483,7 @@ class NewAttendanceRequestFormView(HorillaFormView):
 
 
 @method_decorator(login_required, name="dispatch")
-class BulkAttendanceRequestFormView(HorillaFormView):
+class BulkAttendanceRequestFormView(JoydigiFormView):
     """
     form view for create bulk  attendance request
     """
@@ -533,7 +533,7 @@ class BulkAttendanceRequestFormView(HorillaFormView):
 
 
 @method_decorator(login_required, name="dispatch")
-class UpdateAttendanceRequestFormView(HorillaFormView):
+class UpdateAttendanceRequestFormView(JoydigiFormView):
     """
     form view for update attendance request
     """

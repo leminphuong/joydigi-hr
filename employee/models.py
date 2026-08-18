@@ -24,7 +24,7 @@ from django.utils.translation import gettext_lazy as _
 from PIL import Image
 
 from accessibility.accessibility import ACCESSBILITY_FEATURE
-from base.horilla_company_manager import HorillaCompanyManager
+from base.joydigi_company_manager import JoydigiCompanyManager
 from base.models import (
     Company,
     Department,
@@ -36,14 +36,14 @@ from base.models import (
     validate_time_format,
 )
 from employee.methods.duration_methods import format_time, strtime_seconds
-from horilla import horilla_middlewares
-from horilla.horilla_middlewares import _thread_locals
-from horilla.methods import get_horilla_model_class
-from horilla.models import HorillaModel, has_xss, upload_path
-from horilla_audit.methods import get_diff
-from horilla_audit.models import HorillaAuditInfo, HorillaAuditLog
-from horilla_auth.models import HorillaUser
-from horilla_views.cbv_methods import render_template
+from joydigi import joydigi_middlewares
+from joydigi.joydigi_middlewares import _thread_locals
+from joydigi.methods import get_joydigi_model_class
+from joydigi.models import JoydigiModel, has_xss, upload_path
+from joydigi_audit.methods import get_diff
+from joydigi_audit.models import JoydigiAuditInfo, JoydigiAuditLog
+from joydigi_auth.models import JoydigiUser
+from joydigi_views.cbv_methods import render_template
 
 # create your model
 
@@ -78,7 +78,7 @@ class Employee(models.Model):
     )
     badge_id = models.CharField(max_length=50, null=True, blank=True)
     employee_user_id = models.OneToOneField(
-        HorillaUser,
+        JoydigiUser,
         on_delete=models.CASCADE,
         blank=True,
         null=True,
@@ -136,7 +136,7 @@ class Employee(models.Model):
     is_directly_converted = models.BooleanField(
         default=False, null=True, blank=True, editable=False
     )
-    objects = HorillaCompanyManager(
+    objects = JoydigiCompanyManager(
         related_company_field="employee_work_info__company_id"
     )
 
@@ -426,16 +426,16 @@ class Employee(models.Model):
         a dictionary is returned with a list of related models of that employee.
         """
         if apps.is_installed("onboarding"):
-            OnboardingStage = get_horilla_model_class("onboarding", "onboardingstage")
-            OnboardingTask = get_horilla_model_class("onboarding", "onboardingtask")
+            OnboardingStage = get_joydigi_model_class("onboarding", "onboardingstage")
+            OnboardingTask = get_joydigi_model_class("onboarding", "onboardingtask")
             onboarding_stage_query = OnboardingStage.objects.filter(employee_id=self.pk)
             onboarding_task_query = OnboardingTask.objects.filter(employee_id=self.pk)
         else:
             onboarding_stage_query = None
             onboarding_task_query = None
         if apps.is_installed("recruitment"):
-            Recruitment = get_horilla_model_class("recruitment", "recruitment")
-            Stage = get_horilla_model_class("recruitment", "stage")
+            Recruitment = get_joydigi_model_class("recruitment", "recruitment")
+            Stage = get_joydigi_model_class("recruitment", "stage")
             recruitment_stage_query = Stage.objects.filter(stage_managers=self.pk)
             recruitment_manager_query = Recruitment.objects.filter(
                 recruitment_managers=self.pk
@@ -530,9 +530,9 @@ class Employee(models.Model):
         Renders a clickable icon that opens this employee's activity-history
         feed -- the same feed shown on the profile page's History tab -- in
         the shared #historySidebar, matching the History column every
-        HorillaModel-based list already gets automatically (see
-        HorillaListView's history_tracking handling). Employee doesn't
-        subclass HorillaModel, so it's added explicitly here instead.
+        JoydigiModel-based list already gets automatically (see
+        JoydigiListView's history_tracking handling). Employee doesn't
+        subclass JoydigiModel, so it's added explicitly here instead.
         """
         return render_template(
             path="cbv/employees/history_col.html",
@@ -603,8 +603,8 @@ class Employee(models.Model):
         This method is used to check if the user is in the list of online users.
         """
         if apps.is_installed("attendance"):
-            Attendance = get_horilla_model_class("attendance", "attendance")
-            request = getattr(horilla_middlewares._thread_locals, "request", None)
+            Attendance = get_joydigi_model_class("attendance", "attendance")
+            request = getattr(joydigi_middlewares._thread_locals, "request", None)
 
             if request is not None:
                 if (
@@ -743,7 +743,7 @@ class Employee(models.Model):
         self.full_clean()
         super().save(*args, **kwargs)
 
-        request = getattr(horilla_middlewares._thread_locals, "request", None)
+        request = getattr(joydigi_middlewares._thread_locals, "request", None)
         if request and not self.is_active and self.get_archive_condition() is not False:
             self.is_active = True
             super().save(*args, **kwargs)
@@ -754,14 +754,14 @@ class Employee(models.Model):
             username = self.email
             password = str(self.phone)
 
-            user = HorillaUser.objects.create_user(
+            user = JoydigiUser.objects.create_user(
                 username=username,
                 email=username,
                 password=password,
                 is_new_employee=True,
             )
             if not user:
-                user = HorillaUser.objects.create_user(
+                user = JoydigiUser.objects.create_user(
                     username=username, email=username, password=password
                 )
             self.employee_user_id = user
@@ -778,7 +778,7 @@ class Employee(models.Model):
         return self
 
 
-class EmployeeTag(HorillaModel):
+class EmployeeTag(JoydigiModel):
     """
     EmployeeTag Model
     """
@@ -918,13 +918,13 @@ class EmployeeWorkInformation(models.Model):
     )
     additional_info = models.JSONField(null=True, blank=True)
     experience = models.FloatField(null=True, blank=True, default=0)
-    history = HorillaAuditLog(
+    history = JoydigiAuditLog(
         related_name="history_set",
         bases=[
-            HorillaAuditInfo,
+            JoydigiAuditInfo,
         ],
     )
-    objects = HorillaCompanyManager()
+    objects = JoydigiCompanyManager()
 
     def __str__(self) -> str:
         return f"{self.employee_id} - {self.job_position_id}"
@@ -1011,7 +1011,7 @@ class EmployeeWorkInformation(models.Model):
         return self
 
 
-class EmployeeBankDetails(HorillaModel):
+class EmployeeBankDetails(JoydigiModel):
     """
     EmployeeBankDetails model
     """
@@ -1041,7 +1041,7 @@ class EmployeeBankDetails(HorillaModel):
         max_length=50, null=True, blank=True, verbose_name="Bank Code #2"
     )
     additional_info = models.JSONField(null=True, blank=True)
-    objects = HorillaCompanyManager(
+    objects = JoydigiCompanyManager(
         related_company_field="employee_id__employee_work_info__company_id"
     )
 
@@ -1067,7 +1067,7 @@ class EmployeeBankDetails(HorillaModel):
                 )
 
 
-class NoteFiles(HorillaModel):
+class NoteFiles(JoydigiModel):
     files = models.FileField(upload_to=upload_path, blank=True, null=True)
     objects = models.Manager()
 
@@ -1075,7 +1075,7 @@ class NoteFiles(HorillaModel):
         return self.files.name.split("/")[-1]
 
 
-class EmployeeNote(HorillaModel):
+class EmployeeNote(JoydigiModel):
     """
     EmployeeNote model
     """
@@ -1088,7 +1088,7 @@ class EmployeeNote(HorillaModel):
     description = models.TextField(verbose_name=_("Description"), null=True)  # 905
     note_files = models.ManyToManyField(NoteFiles, blank=True)
     updated_by = models.ForeignKey(Employee, on_delete=models.CASCADE)
-    objects = HorillaCompanyManager(
+    objects = JoydigiCompanyManager(
         related_company_field="employee_id__employee_work_info__company_id"
     )
 
@@ -1096,7 +1096,7 @@ class EmployeeNote(HorillaModel):
         return f"{self.description}"
 
 
-class PolicyMultipleFile(HorillaModel):
+class PolicyMultipleFile(JoydigiModel):
     """
     PoliciesMultipleFile model
     """
@@ -1104,7 +1104,7 @@ class PolicyMultipleFile(HorillaModel):
     attachment = models.FileField(upload_to=upload_path)
 
 
-class Policy(HorillaModel):
+class Policy(JoydigiModel):
     """
     Policies model
     """
@@ -1116,7 +1116,7 @@ class Policy(HorillaModel):
     attachments = models.ManyToManyField(PolicyMultipleFile, blank=True)
     company_id = models.ManyToManyField(Company, blank=True, verbose_name=_("Company"))
 
-    objects = HorillaCompanyManager("company_id")
+    objects = JoydigiCompanyManager("company_id")
 
     class Meta:
         verbose_name = _("Policy")
@@ -1127,7 +1127,7 @@ class Policy(HorillaModel):
         self.attachments.all().delete()
 
 
-class BonusPoint(HorillaModel):
+class BonusPoint(JoydigiModel):
     """
     Model representing bonus points for employees with associated conditions.
     """
@@ -1154,13 +1154,13 @@ class BonusPoint(HorillaModel):
     )
     redeeming_points = models.IntegerField(blank=True, null=True)
     reason = models.TextField(blank=True, null=True, max_length=255)
-    history = HorillaAuditLog(
+    history = JoydigiAuditLog(
         related_name="history_set",
         bases=[
-            HorillaAuditInfo,
+            JoydigiAuditInfo,
         ],
     )
-    objects = HorillaCompanyManager(
+    objects = JoydigiCompanyManager(
         related_company_field="employee_id__employee_work_info__company_id"
     )
 
@@ -1188,7 +1188,7 @@ class BonusPoint(HorillaModel):
             BonusPoint.objects.create(employee_id=instance)
 
 
-class Actiontype(HorillaModel):
+class Actiontype(JoydigiModel):
     """
     Action type model
     """
@@ -1253,7 +1253,7 @@ class Actiontype(HorillaModel):
         return self.id
 
 
-class DisciplinaryAction(HorillaModel):
+class DisciplinaryAction(JoydigiModel):
     """
     Disciplinary model
     """
@@ -1272,7 +1272,7 @@ class DisciplinaryAction(HorillaModel):
     )
     start_date = models.DateField(null=True)
     attachment = models.FileField(upload_to=upload_path, null=True, blank=True)
-    objects = HorillaCompanyManager("employee_id__employee_work_info__company_id")
+    objects = JoydigiCompanyManager("employee_id__employee_work_info__company_id")
 
     def __str__(self) -> str:
         return f"{self.action}"
@@ -1372,17 +1372,17 @@ class DisciplinaryAction(HorillaModel):
         return url
 
 
-class EmployeeGeneralSetting(HorillaModel):
+class EmployeeGeneralSetting(JoydigiModel):
     """
     EmployeeGeneralSetting
     """
 
     badge_id_prefix = models.CharField(max_length=5, default="PEP")
     company_id = models.ForeignKey(Company, null=True, on_delete=models.CASCADE)
-    objects = HorillaCompanyManager("company_id")
+    objects = JoydigiCompanyManager("company_id")
 
 
-class ProfileEditFeature(HorillaModel):
+class ProfileEditFeature(JoydigiModel):
     """
     ProfileEditFeature
     """

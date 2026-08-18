@@ -1827,7 +1827,7 @@
                     const raw = localStorage.getItem(STORAGE_KEY);
                     if (!raw) return null;
                     const parsed = JSON.parse(raw);
-                    // Validate: must be array of objects with id property (not old Horilla string format)
+                    // Validate: must be array of objects with id property (not old Joydigi string format)
                     if (!Array.isArray(parsed) || (parsed.length > 0 && typeof parsed[0] !== 'object')) {
                         localStorage.removeItem(STORAGE_KEY);
                         return null;
@@ -2139,7 +2139,7 @@
                         <div class="md-ann-item__meta">${a.date}${a.expire_date ? '<span class="md-ann-item__expire">{% trans "Expires" %} ' + a.expire_date + '</span>' : ''}</div>
                     </div>`).join('');
 
-                        // Clicking opens the announcement in the standard Horilla detail modal
+                        // Clicking opens the announcement in the standard Joydigi detail modal
                         const annIds = data.announcements.map(a => a.id);
                         el.querySelectorAll('.md-ann-item[data-ann-id]').forEach(item => {
                             item.addEventListener('click', () => {

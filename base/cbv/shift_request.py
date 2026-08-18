@@ -30,18 +30,18 @@ from base.methods import (
 from base.models import EmployeeShift, ShiftRequest
 from base.views import include_employee_instance
 from employee.models import Employee
-from horilla.http.response import HorillaRedirect
-from horilla_views.cbv_methods import (
+from joydigi.http.response import JoydigiRedirect
+from joydigi_views.cbv_methods import (
     hx_request_required,
     login_required,
     permission_required,
 )
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
-    HorillaTabView,
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
+    JoydigiTabView,
     TemplateView,
 )
 from notifications.signals import notify
@@ -57,7 +57,7 @@ class ShiftRequestView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class ShiftList(HorillaListView):
+class ShiftList(JoydigiListView):
     """
     List view
     """
@@ -253,7 +253,7 @@ class AllocatedShift(ShiftList):
 
 
 @method_decorator(login_required, name="dispatch")
-class ShitRequestNav(HorillaNavView):
+class ShitRequestNav(JoydigiNavView):
     """
     Nav bar
     """
@@ -342,7 +342,7 @@ class ShitRequestNav(HorillaNavView):
 
 
 @method_decorator(login_required, name="dispatch")
-class ShiftRequestTab(HorillaTabView):
+class ShiftRequestTab(JoydigiTabView):
     """
     Tab View
     """
@@ -383,7 +383,7 @@ class ExportView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class ShiftRequestDetailview(HorillaDetailedView):
+class ShiftRequestDetailview(JoydigiDetailedView):
     """
     Detail View
     """
@@ -443,7 +443,7 @@ class AllocatedShiftDetailView(ShiftRequestDetailview):
     ]
 
 
-class ShiftTypeFormView(HorillaFormView):
+class ShiftTypeFormView(JoydigiFormView):
     """
     form view
     """
@@ -458,7 +458,7 @@ class ShiftTypeFormView(HorillaFormView):
             form.save()
             message = _("Shift Created")
             messages.success(self.request, message)
-            return HorillaRedirect(self.request)
+            return JoydigiRedirect(self.request)
 
         return super().form_valid(form)
 
@@ -490,7 +490,7 @@ class ShiftTypeCreateFormView(ShiftTypeFormView):
 
 
 @method_decorator(login_required, name="dispatch")
-class ShiftRequestFormView(HorillaFormView):
+class ShiftRequestFormView(JoydigiFormView):
     """
     Form View
     """
@@ -565,7 +565,7 @@ class ShiftRequestFormView(HorillaFormView):
 
 
 @method_decorator(login_required, name="dispatch")
-class ShiftRequestFormDuplicate(HorillaFormView):
+class ShiftRequestFormDuplicate(JoydigiFormView):
     """
     Duplicate form view
     """
@@ -617,13 +617,13 @@ class ShiftRequestFormDuplicate(HorillaFormView):
             form.save()
             message = _("Shift request added Successfully")
             messages.success(self.request, message)
-            return HorillaRedirect(self.request)
+            return JoydigiRedirect(self.request)
 
         return super().form_valid(form)
 
 
 @method_decorator(login_required, name="dispatch")
-class ShiftAllocationFormView(HorillaFormView):
+class ShiftAllocationFormView(JoydigiFormView):
     """
     Form View
     """
@@ -701,6 +701,6 @@ class ShiftAllocationFormView(HorillaFormView):
                         redirect=reverse("shift-request-view") + f"?id={instance.id}",
                     )
             messages.success(self.request, message)
-            return HorillaRedirect(self.request)
+            return JoydigiRedirect(self.request)
 
         return super().form_valid(form)

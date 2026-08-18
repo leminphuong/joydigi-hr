@@ -1096,7 +1096,7 @@
             const emptyHtml = (msg) => `<div class="am-empty"><img src="/static/images/ui/no_records.svg" alt="">${msg}</div>`;
 
             const todayISO = new Date().toISOString().split('T')[0];
-            // Horilla list views cache filter params per-session/path and ignore new GET
+            // Joydigi list views cache filter params per-session/path and ignore new GET
             // params unless `filter_applied=true` is set — that flag forces the cache to
             // refresh from request.GET. Without it, our chart-click filters are ignored.
             function navigate(url, params) {

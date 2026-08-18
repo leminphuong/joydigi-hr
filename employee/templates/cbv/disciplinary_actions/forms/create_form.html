@@ -6,7 +6,7 @@
     // "actionTypeChange is not defined" -- the suspension period fields never
     // appeared and the select2 dropdown was left stuck open. Defining them
     // with the form fragment itself makes the form self-contained. They must
-    // be defined BEFORE the include below: horilla_form.html's own inline
+    // be defined BEFORE the include below: joydigi_form.html's own inline
     // script fires a change event on the action select while the fragment is
     // still being processed, which reaches the inline onchange immediately.
     function actionTypeChange(selectElement) {
@@ -98,7 +98,7 @@
 </script>
 
 <div id="formContainer">
-    {% include "generic/horilla_form.html" %}
+    {% include "generic/joydigi_form.html" %}
 </div>
 
 <script>

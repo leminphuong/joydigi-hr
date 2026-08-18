@@ -12,8 +12,8 @@ from django.http import HttpResponse
 from django.shortcuts import redirect, render
 
 from employee.models import Employee
-from horilla.config import logger
-from horilla.methods import handle_no_permission
+from joydigi.config import logger
+from joydigi.methods import handle_no_permission
 from recruitment.models import Recruitment, Stage
 
 

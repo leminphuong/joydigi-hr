@@ -4,7 +4,7 @@ from django.shortcuts import render
 from pyexpat.errors import messages
 
 from employee.models import EmployeeWorkInformation
-from horilla.methods import handle_no_permission
+from joydigi.methods import handle_no_permission
 from pms.models import AnonymousFeedback, EmployeeObjective, Objective
 
 decorator_with_arguments = (

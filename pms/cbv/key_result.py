@@ -15,15 +15,15 @@ from django.utils.translation import gettext_lazy as _
 from django.views import View
 
 from base.methods import closest_numbers
-from horilla.decorators import manager_can_enter
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.history import HorillaHistoryView
-from horilla_views.generic.cbv.views import (
-    HorillaCardView,
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi.decorators import manager_can_enter
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.history import JoydigiHistoryView
+from joydigi_views.generic.cbv.views import (
+    JoydigiCardView,
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 from pms.filters import ActualKeyResultFilter
@@ -43,7 +43,7 @@ class KeyResultViewPage(TemplateView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter(perm="pms.view_keyresult"), name="dispatch")
-class KeyResultNavView(HorillaNavView):
+class KeyResultNavView(JoydigiNavView):
     """
     navbar of the page
     """
@@ -87,7 +87,7 @@ class KeyResultNavView(HorillaNavView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter(perm="pms.view_keyresult"), name="dispatch")
-class KeyResultsListView(HorillaListView):
+class KeyResultsListView(JoydigiListView):
 
     model = KeyResult
     filter_class = ActualKeyResultFilter
@@ -138,7 +138,7 @@ class KeyResultsListView(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter(perm="pms.view_keyresult"), name="dispatch")
-class KeyResultCardView(HorillaCardView):
+class KeyResultCardView(JoydigiCardView):
     """
     card view of the page
     """
@@ -204,7 +204,7 @@ class KeyResultCardView(HorillaCardView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter(perm="pms.view_keyresult"), name="dispatch")
-class KeyResultsDetailedView(HorillaDetailedView):
+class KeyResultsDetailedView(JoydigiDetailedView):
     """
     Detail View
     """
@@ -235,7 +235,7 @@ class KeyResultsDetailedView(HorillaDetailedView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter(perm="pms.view_keyresult"), name="dispatch")
-class KeyResultFormView(HorillaFormView):
+class KeyResultFormView(JoydigiFormView):
     """
     form view for create and update key results
     """
@@ -317,7 +317,7 @@ class DeleteKeyResults(View):
 
 
 @method_decorator(login_required, name="dispatch")
-class EKRHistory(HorillaHistoryView):
+class EKRHistory(JoydigiHistoryView):
     """
     EKR History
     """

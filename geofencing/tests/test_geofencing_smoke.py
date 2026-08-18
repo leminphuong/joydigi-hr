@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from django.test import TestCase
 
 from geofencing.models import GeoFencing
-from horilla.testkit import make_company
+from joydigi.testkit import make_company
 
 
 class GeoFencingSmokeTests(TestCase):

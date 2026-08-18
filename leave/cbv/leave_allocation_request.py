@@ -15,13 +15,13 @@ from django.utils.translation import gettext_lazy as _
 from base.methods import choosesubordinates, filtersubordinates, is_reportingmanager
 from employee.cbv.employee_profile import EmployeeProfileView
 from employee.models import Employee
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
-    HorillaTabView,
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
+    JoydigiTabView,
     TemplateView,
 )
 from leave.cbv.leave_tab import IndividualLeaveTab
@@ -41,7 +41,7 @@ class LeaveAllocationRequestView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class LeaveAllocationRequestList(HorillaListView):
+class LeaveAllocationRequestList(JoydigiListView):
     """
     List view of the page
     """
@@ -119,7 +119,7 @@ class LeaveAllocationRequestList(HorillaListView):
 
 
 def _leave_allocation_tab_badge_count(request, view_cls):
-    """Same queryset rules as the tab's HorillaListView (filters, subordinates)."""
+    """Same queryset rules as the tab's JoydigiListView (filters, subordinates)."""
     view = view_cls()
     view.request = request
     view.args = ()
@@ -129,7 +129,7 @@ def _leave_allocation_tab_badge_count(request, view_cls):
 
 
 @method_decorator(login_required, name="dispatch")
-class LeaveAllocationRequestTab(HorillaTabView):
+class LeaveAllocationRequestTab(JoydigiTabView):
     """
     Tab View
     """
@@ -227,7 +227,7 @@ class LeaveAllocationRequests(LeaveAllocationRequestList):
 
 
 @method_decorator(login_required, name="dispatch")
-class LeaveAllocationRequestNav(HorillaNavView):
+class LeaveAllocationRequestNav(JoydigiNavView):
     """
     Nav bar
     """
@@ -282,7 +282,7 @@ class LeaveAllocationRequestNav(HorillaNavView):
 
 
 @method_decorator(login_required, name="dispatch")
-class LeaveAllocationRequestDetailView(HorillaDetailedView):
+class LeaveAllocationRequestDetailView(JoydigiDetailedView):
     """
     detail view of page
     """
@@ -326,7 +326,7 @@ class LeaveAllocationsRequestsTabDetailView(LeaveAllocationRequestDetailView):
 
 
 @method_decorator(login_required, name="dispatch")
-class LeaveAllocationRequestFormView(HorillaFormView):
+class LeaveAllocationRequestFormView(JoydigiFormView):
     """
     Form View
     """
@@ -403,7 +403,7 @@ class LeaveAllocationRequestFormView(HorillaFormView):
 
 
 @method_decorator(login_required, name="dispatch")
-class LeaveAllocationBulkFormView(HorillaFormView):
+class LeaveAllocationBulkFormView(JoydigiFormView):
     """
     Form view to bulk allocate (and optionally approve) leave for multiple
     employees at once.

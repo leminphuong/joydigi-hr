@@ -10,10 +10,10 @@ import django_filters
 
 from base.filters import FilterSet
 from biometric.models import BiometricDevices
-from horilla.filters import HorillaFilterSet
+from joydigi.filters import JoydigiFilterSet
 
 
-class BiometricDeviceFilter(HorillaFilterSet):
+class BiometricDeviceFilter(JoydigiFilterSet):
     """
     Filter class for querying biometric devices.
 

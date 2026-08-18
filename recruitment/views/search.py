@@ -11,15 +11,15 @@ from django.core.paginator import Paginator
 from django.shortcuts import render
 
 from base.methods import get_key_instances, sortby
-from horilla.decorators import (
+from joydigi.decorators import (
     hx_request_required,
     is_recruitment_manager,
     login_required,
     permission_required,
 )
-from horilla.group_by import group_by_queryset
-from horilla.group_by import group_by_queryset as general_group_by
-from horilla_auth.models import HorillaUser
+from joydigi.group_by import group_by_queryset
+from joydigi.group_by import group_by_queryset as general_group_by
+from joydigi_auth.models import JoydigiUser
 from recruitment.filters import (
     CandidateFilter,
     RecruitmentFilter,
@@ -133,9 +133,9 @@ def candidate_search(request):
     candidates = paginator_qry(candidates, request.GET.get("page"))
 
     mails = list(Candidate.objects.values_list("email", flat=True))
-    # Query the HorillaUser model to check if any email is present
+    # Query the JoydigiUser model to check if any email is present
     existing_emails = list(
-        HorillaUser.objects.filter(username__in=mails).values_list("email", flat=True)
+        JoydigiUser.objects.filter(username__in=mails).values_list("email", flat=True)
     )
 
     return render(

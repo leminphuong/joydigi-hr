@@ -9,7 +9,7 @@ from django.test import TestCase
 
 from base.methods import has_export_access
 from base.models import DefaultExportPermission, Holidays
-from horilla.testkit import make_company, make_user
+from joydigi.testkit import make_company, make_user
 
 
 class HasExportAccessTests(TestCase):

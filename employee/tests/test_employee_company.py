@@ -3,7 +3,7 @@
 from django.test import TestCase
 
 from employee.models import Employee, EmployeeWorkInformation
-from horilla.testkit import CompanyFilterTestMixin, make_company, make_employee
+from joydigi.testkit import CompanyFilterTestMixin, make_company, make_employee
 
 
 class EmployeeCreateTests(TestCase):
@@ -11,7 +11,7 @@ class EmployeeCreateTests(TestCase):
         company = make_company("Emp Co")
         emp = make_employee(
             company=company,
-            email="newhire@test.horilla",
+            email="newhire@test.joydigi",
             first_name="New",
             last_name="Hire",
             phone="9111111111",
@@ -20,7 +20,7 @@ class EmployeeCreateTests(TestCase):
         self.assertTrue(hasattr(emp, "employee_work_info"))
         self.assertEqual(emp.employee_work_info.company_id_id, company.pk)
         self.assertIsNotNone(emp.employee_user_id_id)
-        self.assertEqual(emp.employee_user_id.email, "newhire@test.horilla")
+        self.assertEqual(emp.employee_user_id.email, "newhire@test.joydigi")
 
 
 class EmployeeCompanyIsolationTests(CompanyFilterTestMixin, TestCase):

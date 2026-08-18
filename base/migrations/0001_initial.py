@@ -4,7 +4,7 @@ import base.models
 import django.core.validators
 import django.db.models.deletion
 import django.utils.timezone
-import horilla.models
+import joydigi.models
 import simple_history.models
 from django.conf import settings
 from django.db import migrations, models
@@ -92,7 +92,7 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("file", models.FileField(upload_to=horilla.models.upload_path)),
+                ("file", models.FileField(upload_to=joydigi.models.upload_path)),
             ],
         ),
         migrations.CreateModel(
@@ -130,7 +130,7 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("file", models.FileField(upload_to=horilla.models.upload_path)),
+                ("file", models.FileField(upload_to=joydigi.models.upload_path)),
             ],
         ),
         migrations.CreateModel(
@@ -179,7 +179,7 @@ class Migration(migrations.Migration):
                 ("zip", models.CharField(max_length=20)),
                 (
                     "icon",
-                    models.FileField(null=True, upload_to=horilla.models.upload_path),
+                    models.FileField(null=True, upload_to=joydigi.models.upload_path),
                 ),
                 ("date_format", models.CharField(blank=True, max_length=30, null=True)),
                 ("time_format", models.CharField(blank=True, max_length=20, null=True)),
@@ -606,7 +606,7 @@ class Migration(migrations.Migration):
                     "auto_punch_out_time",
                     models.TimeField(
                         blank=True,
-                        help_text="Time at which the horilla will automatically check out the employee attendance if they forget.",
+                        help_text="Time at which the joydigi will automatically check out the employee attendance if they forget.",
                         null=True,
                         verbose_name="Automatic Check Out Time",
                     ),
@@ -1136,7 +1136,7 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name="HorillaMailTemplate",
+            name="JoydigiMailTemplate",
             fields=[
                 (
                     "id",
@@ -1192,7 +1192,7 @@ class Migration(migrations.Migration):
             options={
                 "abstract": False,
             },
-            bases=(models.Model, horilla.models.NoPermissionModel),
+            bases=(models.Model, joydigi.models.NoPermissionModel),
         ),
         migrations.CreateModel(
             name="JobPosition",

@@ -10,18 +10,18 @@ from django.utils.translation import gettext_lazy as _
 
 from base.filters import WorkTypeFilter
 from base.models import WorkType
-from horilla.decorators import permission_required
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi.decorators import permission_required
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiListView,
+    JoydigiNavView,
 )
 
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("base.view_worktype"), name="dispatch")
-class WorkTypeList(HorillaListView):
+class WorkTypeList(JoydigiListView):
     """
     list view of work types in settings
     """
@@ -78,7 +78,7 @@ class WorkTypeList(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("base.view_worktype"), name="dispatch")
-class WorkTypeDetailView(HorillaDetailedView):
+class WorkTypeDetailView(JoydigiDetailedView):
     """
     detail view for work type, also registered as the related-object-link
     target for WorkType via detail_view_url_name
@@ -102,7 +102,7 @@ class WorkTypeDetailView(HorillaDetailedView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("base.view_worktype"), name="dispatch")
-class WorkTypeNav(HorillaNavView):
+class WorkTypeNav(JoydigiNavView):
     """
     navbar of worktype
     """

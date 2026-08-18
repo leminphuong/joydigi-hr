@@ -8,7 +8,7 @@ from django.test import RequestFactory, TestCase
 from accessibility.methods import check_is_accessible
 from accessibility.middlewares import AccessibilityMiddleware
 from accessibility.models import DefaultAccessibility
-from horilla.testkit import make_company, make_employee, make_user
+from joydigi.testkit import make_company, make_employee, make_user
 
 
 class CheckIsAccessibleTests(TestCase):
@@ -17,12 +17,12 @@ class CheckIsAccessibleTests(TestCase):
 
     def test_no_feature_config_returns_true(self):
         company = make_company("Access Co")
-        emp = make_employee(company=company, email="acc@test.horilla")
+        emp = make_employee(company=company, email="acc@test.joydigi")
         self.assertTrue(check_is_accessible("missing_feature", "ck", emp))
 
     def test_exclude_all_returns_false(self):
         company = make_company("Access Exclude")
-        emp = make_employee(company=company, email="ex@test.horilla")
+        emp = make_employee(company=company, email="ex@test.joydigi")
         DefaultAccessibility.objects.create(
             feature="employee_view",
             filter={},
@@ -58,7 +58,7 @@ class AccessibilityMiddlewareTests(TestCase):
         user = make_user("acc_mw", password="pass")
         make_employee(
             company=company,
-            email="acc_mw@test.horilla",
+            email="acc_mw@test.joydigi",
             user=user,
         )
 

@@ -3,7 +3,7 @@
 import django.core.validators
 import django.db.models.deletion
 import django.utils.timezone
-import horilla.models
+import joydigi.models
 import recruitment.models
 import simple_history.models
 from django.conf import settings
@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ("base", "0001_initial"),
         ("employee", "0001_initial"),
-        ("horilla_audit", "0001_initial"),
+        ("joydigi_audit", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -49,7 +49,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "profile",
-                    models.ImageField(null=True, upload_to=horilla.models.upload_path),
+                    models.ImageField(null=True, upload_to=joydigi.models.upload_path),
                 ),
                 ("portfolio", models.URLField(blank=True)),
                 (
@@ -71,7 +71,7 @@ class Migration(migrations.Migration):
                 (
                     "resume",
                     models.FileField(
-                        upload_to=horilla.models.upload_path,
+                        upload_to=joydigi.models.upload_path,
                         validators=[recruitment.models.validate_pdf],
                     ),
                 ),
@@ -339,7 +339,7 @@ class Migration(migrations.Migration):
                 ("title", models.CharField(max_length=250)),
                 (
                     "document",
-                    models.FileField(null=True, upload_to=horilla.models.upload_path),
+                    models.FileField(null=True, upload_to=joydigi.models.upload_path),
                 ),
                 (
                     "status",
@@ -977,7 +977,7 @@ class Migration(migrations.Migration):
                 (
                     "attachment",
                     models.FileField(
-                        blank=True, null=True, upload_to=horilla.models.upload_path
+                        blank=True, null=True, upload_to=joydigi.models.upload_path
                     ),
                 ),
                 (
@@ -1154,7 +1154,7 @@ class Migration(migrations.Migration):
                         verbose_name="Created By",
                     ),
                 ),
-                ("history_tags", models.ManyToManyField(to="horilla_audit.audittag")),
+                ("history_tags", models.ManyToManyField(to="joydigi_audit.audittag")),
                 (
                     "history_user",
                     models.ForeignKey(
@@ -1283,7 +1283,7 @@ class Migration(migrations.Migration):
                 (
                     "file",
                     models.FileField(
-                        upload_to=horilla.models.upload_path,
+                        upload_to=joydigi.models.upload_path,
                         validators=[recruitment.models.validate_pdf],
                     ),
                 ),
@@ -1785,7 +1785,7 @@ class Migration(migrations.Migration):
                         to="recruitment.candidate",
                     ),
                 ),
-                ("history_tags", models.ManyToManyField(to="horilla_audit.audittag")),
+                ("history_tags", models.ManyToManyField(to="joydigi_audit.audittag")),
                 (
                     "history_user",
                     models.ForeignKey(
@@ -1900,7 +1900,7 @@ class Migration(migrations.Migration):
                 (
                     "files",
                     models.FileField(
-                        blank=True, null=True, upload_to=horilla.models.upload_path
+                        blank=True, null=True, upload_to=joydigi.models.upload_path
                     ),
                 ),
                 (

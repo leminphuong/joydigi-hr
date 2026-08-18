@@ -20,13 +20,13 @@ from django.shortcuts import redirect, render
 from django.utils.translation import gettext_lazy as _
 
 from base.methods import closest_numbers
-from horilla.decorators import (
+from joydigi.decorators import (
     hx_request_required,
     is_recruitment_manager,
     login_required,
     permission_required,
 )
-from horilla.http import HorillaRedirect
+from joydigi.http import JoydigiRedirect
 from recruitment.filters import SurveyFilter
 from recruitment.forms import (
     AddQuestionForm,
@@ -64,7 +64,7 @@ def survey_form(request):
             if not recruitment_id
             else _("No Recruitment found matching the query.")
         )
-        return HorillaRedirect(request, message=message)
+        return JoydigiRedirect(request, message=message)
 
     form = SurveyForm(recruitment=recruitment).form
     return render(request, "survey/form.html", {"form": form})
@@ -84,7 +84,7 @@ def survey_preview(request, pk=None):
             if not title
             else _("No Survey Template found matching the query.")
         )
-        return HorillaRedirect(request, message=message)
+        return JoydigiRedirect(request, message=message)
 
     form = SurveyPreviewForm(template=template).form
     preview_template = "survey/survey_preview.html"
@@ -130,7 +130,7 @@ def candidate_survey(request):
     """
     MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB in bytes
     if not request.session.get("candidate"):
-        return HorillaRedirect(
+        return JoydigiRedirect(
             request, message=_("No candidate found matching the query.")
         )
     candidate_json = request.session["candidate"]
@@ -317,7 +317,7 @@ def update_question_template(request, survey_id):
             instance.recruitment_ids.set(form.recruitment)
             # instance.job_position_ids.set(form.job_positions)
             messages.success(request, _("New survey question updated."))
-            return HorillaRedirect(request)
+            return JoydigiRedirect(request)
     return render(request, "survey/template_update_form.html", {"form": form})
 
 
@@ -338,7 +338,7 @@ def create_question_template(request):
             instance.template_id.set(form.cleaned_data["template_id"])
             # instance.job_position_ids.set(form.job_positions)
             messages.success(request, _("New survey question created."))
-            return HorillaRedirect(request)
+            return JoydigiRedirect(request)
     return render(request, "survey/template_form.html", {"form": form})
 
 
@@ -492,7 +492,7 @@ def create_template(request):
         or request.user.has_perm("recruitment.change_surveytemplate")
     ):
         messages.info(request, _("You dont have permission."))
-        return HorillaRedirect(request)
+        return JoydigiRedirect(request)
 
     title = request.GET.get("title")
     instance = None
@@ -504,7 +504,7 @@ def create_template(request):
         if form.is_valid():
             form.save()
             messages.success(request, _("Template saved"))
-            return HorillaRedirect(request)
+            return JoydigiRedirect(request)
     return render(request, "survey/main_form.html", {"form": form})
 
 
@@ -523,7 +523,7 @@ def delete_template(request):
 
     if request.META.get("HTTP_HX_REQUEST") == "true":
         return HttpResponse("<script>$('#filterSubmit').click();</script>")
-    return HorillaRedirect(request)
+    return JoydigiRedirect(request)
 
 
 @login_required
@@ -552,5 +552,5 @@ def question_add(request):
                     "$('#filterSubmit').click();"
                     "</script>"
                 )
-            return HorillaRedirect(request)
+            return JoydigiRedirect(request)
     return render(request, "survey/add_form.html", {"form": form})

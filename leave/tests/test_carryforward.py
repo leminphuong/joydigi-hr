@@ -5,11 +5,11 @@ from django.test import TestCase
 
 class AvailableLeaveCarryforwardTests(TestCase):
     def setUp(self):
-        from horilla.testkit import make_company, make_employee
+        from joydigi.testkit import make_company, make_employee
         from leave.models import AvailableLeave, LeaveType
 
         company = make_company("Leave Carry Co")
-        self.employee = make_employee(company=company, email="carry@test.horilla")
+        self.employee = make_employee(company=company, email="carry@test.joydigi")
         self.LeaveType = LeaveType
         self.AvailableLeave = AvailableLeave
 

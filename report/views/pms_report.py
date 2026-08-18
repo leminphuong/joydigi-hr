@@ -10,7 +10,7 @@ if apps.is_installed("pms"):
 
     from base.methods import has_export_access
     from base.models import Company
-    from horilla.decorators import login_required, permission_required
+    from joydigi.decorators import login_required, permission_required
     from pms.filters import EmployeeObjectiveFilter, FeedbackFilter
     from pms.models import EmployeeKeyResult, EmployeeObjective, Feedback, Objective
     from pms.views import objective_filter_pagination

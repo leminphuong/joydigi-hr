@@ -20,7 +20,7 @@ document.addEventListener("reloadLeaveRequestList", function () {
     refreshLeaveRequestListContainer();
 });
 
-document.addEventListener("horillaMessage", function (evt) {
+document.addEventListener("joydigiMessage", function (evt) {
     var detail = (evt && evt.detail) ? evt.detail : {};
     var text = detail.text || "";
     if (!text) return;

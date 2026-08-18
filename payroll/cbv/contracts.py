@@ -9,15 +9,15 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
 from base.methods import has_export_access
-from horilla_views.cbv_methods import (
+from joydigi_views.cbv_methods import (
     hx_request_required,
     login_required,
     permission_required,
 )
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 from payroll.filters import ContractFilter
@@ -37,7 +37,7 @@ class ContractsView(TemplateView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="payroll.view_contract"), name="dispatch")
-class ContractsList(HorillaListView):
+class ContractsList(JoydigiListView):
     """
     List view
     """
@@ -147,7 +147,7 @@ class ContractsList(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="payroll.view_contract"), name="dispatch")
-class ContractsNav(HorillaNavView):
+class ContractsNav(JoydigiNavView):
     """
     Nav bar
     """
@@ -238,7 +238,7 @@ class ContractsExportView(TemplateView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="payroll.view_contract"), name="dispatch")
-class ContractsDetailView(HorillaDetailedView):
+class ContractsDetailView(JoydigiDetailedView):
     """
     Detail View
     """

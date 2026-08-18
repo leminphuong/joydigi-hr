@@ -11,9 +11,9 @@ from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
-from horilla.http.response import HorillaRedirect
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import HorillaDetailedView, HorillaFormView
+from joydigi.http.response import JoydigiRedirect
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import JoydigiDetailedView, JoydigiFormView
 from recruitment.forms import QuestionForm, TemplateForm
 from recruitment.models import RecruitmentSurvey, SurveyTemplate
 
@@ -22,7 +22,7 @@ from recruitment.models import RecruitmentSurvey, SurveyTemplate
 @method_decorator(
     permission_required("recruitment.add_recruitmentsurvey"), name="dispatch"
 )
-class QuestionFormView(HorillaFormView):
+class QuestionFormView(JoydigiFormView):
     """
     form view for create button
     """
@@ -57,7 +57,7 @@ class QuestionFormView(HorillaFormView):
 @method_decorator(
     permission_required("recruitment.add_recruitmentsurvey"), name="dispatch"
 )
-class QuestionDuplicateFormView(HorillaFormView):
+class QuestionDuplicateFormView(JoydigiFormView):
     """
     form view for create duplicate for asset
     """
@@ -99,7 +99,7 @@ class QuestionDuplicateFormView(HorillaFormView):
 @method_decorator(
     permission_required("recruitment.add_surveytemplate"), name="dispatch"
 )
-class SurveyTemplateFormView(HorillaFormView):
+class SurveyTemplateFormView(JoydigiFormView):
     """
     form view for create and edit survey templates
     """
@@ -138,7 +138,7 @@ class SurveyTemplateFormView(HorillaFormView):
 @method_decorator(
     permission_required("recruitment.add_surveytemplate"), name="dispatch"
 )
-class RecruitmentSurveyDetailView(HorillaDetailedView):
+class RecruitmentSurveyDetailView(JoydigiDetailedView):
     """
     detail view of the page
     """

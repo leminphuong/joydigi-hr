@@ -7,13 +7,13 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
 from base.methods import filter_own_records
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
-    HorillaTabView,
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
+    JoydigiTabView,
     TemplateView,
 )
 from payroll.filters import ReimbursementFilter
@@ -31,7 +31,7 @@ class ReimbursementsView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class ReimbursementsAndEncashmentsTabView(HorillaTabView):
+class ReimbursementsAndEncashmentsTabView(JoydigiTabView):
     """
     Tab View
     """
@@ -96,7 +96,7 @@ class ReimbursementsAndEncashmentsTabView(HorillaTabView):
 
 
 @method_decorator(login_required, name="dispatch")
-class ReimbursementsAndEncashmentsListView(HorillaListView):
+class ReimbursementsAndEncashmentsListView(JoydigiListView):
     """
     list view
     """
@@ -283,7 +283,7 @@ class BonusEncashmentsListView(ReimbursementsAndEncashmentsListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class ReimbursementsNav(HorillaNavView):
+class ReimbursementsNav(JoydigiNavView):
     """
     Nav bar
     """
@@ -306,7 +306,7 @@ class ReimbursementsNav(HorillaNavView):
 
 
 @method_decorator(login_required, name="dispatch")
-class ReimbursementsDetailView(HorillaDetailedView):
+class ReimbursementsDetailView(JoydigiDetailedView):
     """
     detail view of reimbursements
     """
@@ -355,7 +355,7 @@ class BonusEncashmentsDetailedView(ReimbursementsDetailView):
 
 
 @method_decorator(login_required, name="dispatch")
-class ReimbursementsFormView(HorillaFormView):
+class ReimbursementsFormView(JoydigiFormView):
     """
     Create and edit form for reimbursements
     """

@@ -18,14 +18,14 @@ def notify_expiring_assets():
     Finds all Expiring Assets and send a notification on the notify_before date.
     """
     from asset.models import Asset
-    from horilla_auth.models import HorillaUser
+    from joydigi_auth.models import JoydigiUser
 
     today = date.today()
     assets = Asset.objects.all()
 
     # Cache bot & superuser once
-    bot = HorillaUser.objects.filter(username="Horilla Bot").only("id").first()
-    superuser = HorillaUser.objects.filter(is_superuser=True).only("id").first()
+    bot = JoydigiUser.objects.filter(username="Joydigi Bot").only("id").first()
+    superuser = JoydigiUser.objects.filter(is_superuser=True).only("id").first()
 
     # Query only assets that are expiring today
     assets = Asset.objects.filter(
@@ -73,12 +73,12 @@ def notify_expiring_documents():
     """
     Finds all Expiring Documents and send a notification on the notify_before date.
     """
-    from horilla_auth.models import HorillaUser
-    from horilla_documents.models import Document
+    from joydigi_auth.models import JoydigiUser
+    from joydigi_documents.models import Document
 
     today = date.today()
     documents = Document.objects.all()
-    bot = HorillaUser.objects.filter(username="Horilla Bot").first()
+    bot = JoydigiUser.objects.filter(username="Joydigi Bot").first()
     for document in documents:
         if document.expiry_date:
             expiry_date = document.expiry_date

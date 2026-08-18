@@ -39,10 +39,10 @@ from base.methods import reload_queryset
 from base.widgets import CustomTextInputWidget
 from employee.filters import EmployeeFilter
 from employee.models import Employee
-from horilla import horilla_middlewares
-from horilla.horilla_middlewares import _thread_locals
-from horilla_widgets.widgets.horilla_multi_select_field import HorillaMultiSelectField
-from horilla_widgets.widgets.select_widgets import HorillaMultiSelectWidget
+from joydigi import joydigi_middlewares
+from joydigi.joydigi_middlewares import _thread_locals
+from joydigi_widgets.widgets.joydigi_multi_select_field import JoydigiMultiSelectField
+from joydigi_widgets.widgets.select_widgets import JoydigiMultiSelectWidget
 from recruitment import widgets
 from recruitment.models import (
     Candidate,
@@ -78,7 +78,7 @@ class ModelForm(forms.ModelForm):
 
         reload_queryset(self.fields)
 
-        request = getattr(horilla_middlewares._thread_locals, "request", None)
+        request = getattr(joydigi_middlewares._thread_locals, "request", None)
 
         today = date.today()
         now = datetime.now()
@@ -303,7 +303,7 @@ class RecruitmentCreationForm(BaseModelForm):
         Render the form fields as HTML table rows with Bootstrap styling.
         """
         context = {"form": self}
-        table_html = render_to_string("horilla_form.html", context)
+        table_html = render_to_string("joydigi_form.html", context)
         return table_html
 
     def __init__(self, *args, **kwargs):
@@ -312,9 +312,9 @@ class RecruitmentCreationForm(BaseModelForm):
         self.fields["open_positions"].required = True
         if not self.instance.pk:
             self.fields["vacancy"].initial = 1
-            self.fields["recruitment_managers"] = HorillaMultiSelectField(
+            self.fields["recruitment_managers"] = JoydigiMultiSelectField(
                 queryset=Employee.objects.filter(is_active=True),
-                widget=HorillaMultiSelectWidget(
+                widget=JoydigiMultiSelectWidget(
                     filter_route_name="employee-widget-filter",
                     filter_class=EmployeeFilter,
                     filter_instance_context_name="f",
@@ -340,7 +340,7 @@ class RecruitmentCreationForm(BaseModelForm):
     #     option = super().create_option(*args,**kwargs)
 
     def clean(self):
-        if isinstance(self.fields["recruitment_managers"], HorillaMultiSelectField):
+        if isinstance(self.fields["recruitment_managers"], JoydigiMultiSelectField):
             ids = self.data.getlist("recruitment_managers")
             if ids:
                 self.errors.pop("recruitment_managers", None)
@@ -379,9 +379,9 @@ class StageCreationForm(BaseModelForm):
         super().__init__(*args, **kwargs)
         reload_queryset(self.fields)
         if not self.instance.pk:
-            self.fields["stage_managers"] = HorillaMultiSelectField(
+            self.fields["stage_managers"] = JoydigiMultiSelectField(
                 queryset=Employee.objects.filter(is_active=True),
-                widget=HorillaMultiSelectWidget(
+                widget=JoydigiMultiSelectWidget(
                     filter_route_name="employee-widget-filter",
                     filter_class=EmployeeFilter,
                     filter_instance_context_name="f",
@@ -392,7 +392,7 @@ class StageCreationForm(BaseModelForm):
             )
 
     def clean(self):
-        if isinstance(self.fields["stage_managers"], HorillaMultiSelectField):
+        if isinstance(self.fields["stage_managers"], JoydigiMultiSelectField):
             ids = self.data.getlist("stage_managers")
             if ids:
                 self.errors.pop("stage_managers", None)
@@ -1012,7 +1012,7 @@ exclude_fields = [
     "modified_by",
     "is_active",
     "last_updated",
-    "horilla_history",
+    "joydigi_history",
 ]
 
 
@@ -1448,7 +1448,7 @@ class CandidateDocumentForm(ModelForm):
         Render the form fields as HTML table rows with Bootstrap styling.
         """
         context = {"form": self}
-        table_html = render_to_string("horilla_form.html", context)
+        table_html = render_to_string("joydigi_form.html", context)
         return table_html
 
 

@@ -9,7 +9,7 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
 from base.cbv.shift_request import ShitRequestNav
-from horilla_views.cbv_methods import login_required
+from joydigi_views.cbv_methods import login_required
 
 
 @method_decorator(login_required, name="dispatch")

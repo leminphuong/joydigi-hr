@@ -14,13 +14,13 @@ from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
 
 from employee.models import Employee
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import (
-    HorillaCardView,
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiCardView,
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 from leave.filters import LeaveTypeFilter
@@ -46,7 +46,7 @@ class LeaveTypeView(TemplateView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="leave.view_leavetype"), name="dispatch")
-class LeaveTypeListView(HorillaListView):
+class LeaveTypeListView(JoydigiListView):
     """
     list view
     """
@@ -117,7 +117,7 @@ class LeaveTypeListView(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="leave.view_leavetype"), name="dispatch")
-class LeaveTypeNavView(HorillaNavView):
+class LeaveTypeNavView(JoydigiNavView):
     """
     navbar
     """
@@ -163,7 +163,7 @@ class LeaveTypeNavView(HorillaNavView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="leave.view_leavetype"), name="dispatch")
-class LeaveTypeDetailView(HorillaDetailedView):
+class LeaveTypeDetailView(JoydigiDetailedView):
     """
     detail view
     """
@@ -238,7 +238,7 @@ class LeaveTypeDetailView(HorillaDetailedView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="leave.view_leavetype"), name="dispatch")
-class LeaveTypeCardView(HorillaCardView):
+class LeaveTypeCardView(JoydigiCardView):
     """
     card view
     """
@@ -331,7 +331,7 @@ class LeaveTypeCardView(HorillaCardView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="leave.view_leavetype"), name="dispatch")
-class LeaveTypeAssignForm(HorillaFormView):
+class LeaveTypeAssignForm(JoydigiFormView):
     """
     form view
     """

@@ -18,12 +18,12 @@ from helpdesk.filter import TicketTypeFilter
 from helpdesk.forms import TicketForm, TicketTypeForm
 from helpdesk.models import Attachment, Ticket, TicketType
 from helpdesk.threading import TicketSendThread
-from horilla.http.response import HorillaRedirect
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import (
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi.http.response import JoydigiRedirect
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
 )
 from notifications.signals import notify
 
@@ -42,7 +42,7 @@ BLOCKED_EXTENSIONS = {
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="helpdesk.view_tickettype"), name="dispatch")
-class TicketsListView(HorillaListView):
+class TicketsListView(JoydigiListView):
     """
     list view for tickets in settings
     """
@@ -108,7 +108,7 @@ class TicketsListView(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="helpdesk.view_tickettype"), name="dispatch")
-class TicketsNavView(HorillaNavView):
+class TicketsNavView(JoydigiNavView):
     """
     nav bar of the department view
     """
@@ -133,7 +133,7 @@ class TicketsNavView(HorillaNavView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="helpdesk.add_tickettype"), name="dispatch")
-class TicketTypeCreateForm(HorillaFormView):
+class TicketTypeCreateForm(JoydigiFormView):
     """
     form view for creating and update tickets in settings
     """
@@ -187,7 +187,7 @@ class TicketTypeCreateForm(HorillaFormView):
 
 
 @method_decorator(login_required, name="dispatch")
-class TicketsCreateFormView(HorillaFormView):
+class TicketsCreateFormView(JoydigiFormView):
     """
     form view for create and update tickets
     """
@@ -225,7 +225,7 @@ class TicketsCreateFormView(HorillaFormView):
                 has_perm = request.user.has_perm("helpdesk.change_ticket")
                 if not (is_owner or has_perm):
                     messages.error(request, _("You don't have permission."))
-                    return HorillaRedirect(request)
+                    return JoydigiRedirect(request)
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form: TicketForm) -> HttpResponse:
@@ -301,6 +301,6 @@ class TicketsCreateFormView(HorillaFormView):
                 ticket = form.save()
                 messages.success(self.request, _("The Ticket updated successfully."))
 
-            return HorillaRedirect(self.request)
+            return JoydigiRedirect(self.request)
 
         return super().form_valid(form)

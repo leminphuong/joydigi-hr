@@ -8,7 +8,7 @@ from django.apps import apps
 from django.urls import path
 from django.views.generic import RedirectView
 
-from horilla_views.cbv_methods import check_feature_enabled
+from joydigi_views.cbv_methods import check_feature_enabled
 from offboarding import dashboard as ob_dashboard
 from offboarding import views
 from offboarding.cbv import exit_process, resignation, resignation_tab

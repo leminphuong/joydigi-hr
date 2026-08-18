@@ -14,11 +14,11 @@ from django.utils.translation import gettext_lazy as _
 from base.forms import EmployeeTagForm
 from employee.filters import EmployeeTagFilter
 from employee.models import EmployeeTag
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import (
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
 )
 
 
@@ -26,7 +26,7 @@ from horilla_views.generic.cbv.views import (
 @method_decorator(
     permission_required(perm="employee.view_employeetag"), name="dispatch"
 )
-class EmployeeTagListView(HorillaListView):
+class EmployeeTagListView(JoydigiListView):
     """
     list view for employee tag in settings
     """
@@ -85,7 +85,7 @@ class EmployeeTagListView(HorillaListView):
 @method_decorator(
     permission_required(perm="employee.view_employeetag"), name="dispatch"
 )
-class EmployeetagNavView(HorillaNavView):
+class EmployeetagNavView(JoydigiNavView):
     """
     nav bar of the department view
     """
@@ -111,7 +111,7 @@ class EmployeetagNavView(HorillaNavView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="employee.add_employeetag"), name="dispatch")
-class EmployeeTagCreateForm(HorillaFormView):
+class EmployeeTagCreateForm(JoydigiFormView):
     """
     form view for creating and update employee tags in settings
     """

@@ -18,7 +18,7 @@ import django
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "horilla.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "joydigi.settings")
 django.setup()
 
 from django.db.models import Count
@@ -88,7 +88,7 @@ def main():
     while len(company_emps) < TARGET_EMPLOYEE_GROUPS:
         n = len(company_emps) + 1
         badge = f"PAG{n:03d}"
-        email = f"pagination.demo{n}@horilla.local"
+        email = f"pagination.demo{n}@joydigi.local"
         if Employee.objects.filter(email=email).exists():
             emp = Employee.objects.get(email=email)
         else:

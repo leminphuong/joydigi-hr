@@ -4,11 +4,11 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import (
-    HorillaCardView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiCardView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 from payroll.filters import DeductionFilter
@@ -24,7 +24,7 @@ class DeductionView(TemplateView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="payroll.view_deduction"), name="dispatch")
-class DeductionNav(HorillaNavView):
+class DeductionNav(JoydigiNavView):
     """
     Nav bar
     """
@@ -68,7 +68,7 @@ class DeductionNav(HorillaNavView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="payroll.view_deduction"), name="dispatch")
-class DeductionListView(HorillaListView):
+class DeductionListView(JoydigiListView):
     """
     list view for deduction tab
     """
@@ -178,7 +178,7 @@ class DeductionListView(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="payroll.view_deduction"), name="dispatch")
-class DeductionCardView(HorillaCardView):
+class DeductionCardView(JoydigiCardView):
     """
     card view
     """

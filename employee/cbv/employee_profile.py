@@ -19,16 +19,16 @@ from employee import views
 from employee.cbv.document_request import DocumentIndividualTabList
 from employee.filters import EmployeeFilter
 from employee.models import Employee
-from horilla import settings
-from horilla.http.response import HorillaRedirect
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import HorillaDetailedView, HorillaProfileView
+from joydigi import settings
+from joydigi.http.response import JoydigiRedirect
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import JoydigiDetailedView, JoydigiProfileView
 
 Employee.cbv_employee_profile_edi_url = reverse_lazy("edit-profile")
 
 
 @method_decorator(login_required, name="dispatch")
-class EmployeeProfileView(HorillaProfileView):
+class EmployeeProfileView(JoydigiProfileView):
     """
     EmployeeProfileView
     """
@@ -50,7 +50,7 @@ class EmployeeProfileView(HorillaProfileView):
 
         obj_id = kwargs.get("pk")
         if not Employee.objects.entire().filter(id=obj_id).exists():
-            return HorillaRedirect(
+            return JoydigiRedirect(
                 request, message=_("No employee found matching the query.")
             )
 
@@ -129,7 +129,7 @@ class UserProfileView(EmployeeProfileView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="employee.view_employee"), name="dispatch")
-class EmployeeRelatedDetailView(HorillaDetailedView):
+class EmployeeRelatedDetailView(JoydigiDetailedView):
     """
     Concise employee summary opened via related-object navigation (e.g. from
     a leave request/allocation detail view), instead of the full profile page.
@@ -219,13 +219,13 @@ class GroupAssignView(View):
         return can_edit_employee_permissions(request, employee)
 
     def get(self, request, *args, **kwargs):
-        from horilla.methods import handle_no_permission
+        from joydigi.methods import handle_no_permission
 
         employee_id = request.GET.get("employee")
         try:
             employee = Employee.objects.get(id=employee_id)
         except Employee.DoesNotExist:
-            return HorillaRedirect(
+            return JoydigiRedirect(
                 request, message=_("No Employee found matching the query.")
             )
         if not self._allowed(request, employee):
@@ -244,7 +244,7 @@ class GroupAssignView(View):
         )
 
     def post(self, request, *args, **kwargs):
-        from horilla.methods import handle_no_permission
+        from joydigi.methods import handle_no_permission
 
         form = AddToUserGroupForm(request.POST)
         employee_id = request.POST.get("employee")
@@ -254,7 +254,7 @@ class GroupAssignView(View):
         if form.is_valid():
             form.save()
             messages.success(request, _("Employee assigned to group"))
-            return HorillaRedirect(request)
+            return JoydigiRedirect(request)
         return render(
             request,
             "cbv/auth/user_assign_to_group.html",

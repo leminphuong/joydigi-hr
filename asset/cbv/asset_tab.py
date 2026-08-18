@@ -12,8 +12,8 @@ from asset.cbv.request_and_allocation import AllocationList, AssetRequestList
 from asset.models import AssetAssignment, AssetRequest
 from employee.cbv.employee_profile import EmployeeProfileView
 from employee.models import Employee
-from horilla_views.cbv_methods import owner_can_enter
-from horilla_views.generic.cbv.views import HorillaTabView
+from joydigi_views.cbv_methods import owner_can_enter
+from joydigi_views.generic.cbv.views import JoydigiTabView
 
 
 @method_decorator(
@@ -89,7 +89,7 @@ class AssetRequestTab(AssetRequestList):
     ),
     name="dispatch",
 )
-class AssetTabView(HorillaTabView):
+class AssetTabView(JoydigiTabView):
     """
     generic tab view for asset tab
     """

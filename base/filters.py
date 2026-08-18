@@ -35,10 +35,10 @@ from base.models import (
     WorkType,
     WorkTypeRequest,
 )
-from horilla.filters import FilterSet, HorillaFilterSet, filter_by_name
+from joydigi.filters import FilterSet, JoydigiFilterSet, filter_by_name
 
 
-class ShiftRequestFilter(HorillaFilterSet):
+class ShiftRequestFilter(JoydigiFilterSet):
     """
     Custom filter for Shift Requests.
     """
@@ -106,7 +106,7 @@ class ShiftRequestFilter(HorillaFilterSet):
         return queryset
 
 
-class WorkTypeRequestFilter(HorillaFilterSet):
+class WorkTypeRequestFilter(JoydigiFilterSet):
     """
     Custom filter for Work Type Requests.
     """
@@ -172,7 +172,7 @@ class WorkTypeRequestFilter(HorillaFilterSet):
         return queryset
 
 
-class RotatingShiftAssignFilters(HorillaFilterSet):
+class RotatingShiftAssignFilters(JoydigiFilterSet):
     """
     Custom filter for Rotating Shift Assign.
     """
@@ -216,7 +216,7 @@ class RotatingShiftAssignFilters(HorillaFilterSet):
         ]
 
 
-class RotatingWorkTypeAssignFilter(HorillaFilterSet):
+class RotatingWorkTypeAssignFilter(JoydigiFilterSet):
     """
     Custom filter for Rotating Work Type Assign.
     """
@@ -324,7 +324,7 @@ class RotatingShiftRequestReGroup:
     ]
 
 
-class MultipleApprovalConditionFilter(HorillaFilterSet):
+class MultipleApprovalConditionFilter(JoydigiFilterSet):
 
     search = django_filters.CharFilter(method="search_method")
 
@@ -364,7 +364,7 @@ class EmployeeShiftScheduleFilter(FilterSet):
         fields = []
 
 
-class RotatingShiftFilter(HorillaFilterSet):
+class RotatingShiftFilter(JoydigiFilterSet):
 
     # search = django_filters.CharFilter(
     #     field_name="name", lookup_expr="icontains"
@@ -387,7 +387,7 @@ class RotatingShiftFilter(HorillaFilterSet):
         ).distinct()
 
 
-class DepartmentViewFilter(HorillaFilterSet):
+class DepartmentViewFilter(JoydigiFilterSet):
     search = django_filters.CharFilter(method="filter_by_all_fields")
 
     class Meta:
@@ -403,7 +403,7 @@ class DepartmentViewFilter(HorillaFilterSet):
         ).distinct()
 
 
-class WorkTypeFilter(HorillaFilterSet):
+class WorkTypeFilter(JoydigiFilterSet):
 
     search = django_filters.CharFilter(field_name="work_type", lookup_expr="icontains")
 
@@ -414,7 +414,7 @@ class WorkTypeFilter(HorillaFilterSet):
         ]
 
 
-class RotatingWorkTypeFilter(HorillaFilterSet):
+class RotatingWorkTypeFilter(JoydigiFilterSet):
 
     search = django_filters.CharFilter(method="search_method")
 
@@ -447,7 +447,7 @@ class EmployeeTypeFilter(FilterSet):
         ]
 
 
-class JobRoleFilter(HorillaFilterSet):
+class JobRoleFilter(JoydigiFilterSet):
     search = django_filters.CharFilter(method="filter_by_all_fields")
 
     class Meta:
@@ -486,7 +486,7 @@ class CompanyFilter(FilterSet):
         fields = ["company", "hq", "address", "country", "state", "city", "zip"]
 
 
-class MailServerFilter(HorillaFilterSet):
+class MailServerFilter(JoydigiFilterSet):
 
     search = django_filters.CharFilter(method="search_method")
 
@@ -502,7 +502,7 @@ class MailServerFilter(HorillaFilterSet):
         return ((queryset.filter(username__icontains=value))).distinct()
 
 
-class HolidayFilter(HorillaFilterSet):
+class HolidayFilter(JoydigiFilterSet):
     """
     Filter class for Holidays model.
 
@@ -543,7 +543,7 @@ class HolidayFilter(HorillaFilterSet):
         )
 
 
-class CompanyLeaveFilter(HorillaFilterSet):
+class CompanyLeaveFilter(JoydigiFilterSet):
     """
     Filter class for CompanyLeaves model.
 
@@ -609,7 +609,7 @@ class PenaltyFilter(FilterSet):
         fields = "__all__"
 
 
-class MailLogFilter(HorillaFilterSet):
+class MailLogFilter(JoydigiFilterSet):
 
     search = django_filters.CharFilter(field_name="subject", lookup_expr="icontains")
 
@@ -618,7 +618,7 @@ class MailLogFilter(HorillaFilterSet):
         fields = "__all__"
 
 
-class AnnouncementFilter(HorillaFilterSet):
+class AnnouncementFilter(JoydigiFilterSet):
 
     search = django_filters.CharFilter(field_name="title", lookup_expr="icontains")
 
@@ -627,7 +627,7 @@ class AnnouncementFilter(HorillaFilterSet):
         fields = "__all__"
 
 
-class AnnouncementViewFilter(HorillaFilterSet):
+class AnnouncementViewFilter(JoydigiFilterSet):
 
     search = django_filters.CharFilter(
         field_name="announcement", lookup_expr="icontains"

@@ -6,7 +6,7 @@ import pandas as pd
 from django.conf import settings
 from django.http import HttpResponse
 
-from horilla.methods import remove_dynamic_url
+from joydigi.methods import remove_dynamic_url
 
 
 def handle_attendance_errors(error_list):

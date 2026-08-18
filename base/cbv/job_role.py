@@ -14,18 +14,18 @@ from django.utils.translation import gettext_lazy as _
 from base.filters import JobRoleFilter
 from base.forms import JobRoleForm
 from base.models import JobPosition, JobRole
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
 )
 
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="base.view_jobrole"), name="dispatch")
-class JobRoleListView(HorillaListView):
+class JobRoleListView(JoydigiListView):
     """
     List view of the page
     """
@@ -57,7 +57,7 @@ class JobRoleListView(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="base.view_jobrole"), name="dispatch")
-class JobRoleNav(HorillaNavView):
+class JobRoleNav(JoydigiNavView):
     """
     Nav bar
     """
@@ -81,7 +81,7 @@ class JobRoleNav(HorillaNavView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="base.view_jobrole"), name="dispatch")
-class JobRoleDetailView(HorillaDetailedView):
+class JobRoleDetailView(JoydigiDetailedView):
     """
     detail view for job role, also registered as the related-object-link
     target for JobRole via detail_view_url_name
@@ -106,7 +106,7 @@ class JobRoleDetailView(HorillaDetailedView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="base.add_jobrole"), name="dispatch")
-class JobRoleFormView(HorillaFormView):
+class JobRoleFormView(JoydigiFormView):
     """
     Create and edit form
     """

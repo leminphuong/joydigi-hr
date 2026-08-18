@@ -6,7 +6,7 @@ Settings menu registrations for the base app.
 Sections registered:
   - General       : general settings, permissions, tags, mail
   - Base          : department, job position, job role, company
-  - Appearance : color theme (only when horilla_theme is installed)
+  - Appearance : color theme (only when joydigi_theme is installed)
   - Integrations  : gdrive, linkedin, ldap, google meet, whatsapp
 """
 
@@ -14,7 +14,7 @@ from django.apps import apps
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
-from horilla.menu import settings_menu
+from joydigi.menu import settings_menu
 
 # ---------------------------------------------------------------------------
 # Accessibility functions
@@ -27,9 +27,9 @@ def system_preferences_accessibility(request, submenu, user_perms, *args, **kwar
         for p in [
             "base.change_announcementexpire",
             "base.view_dynamicpagination",
-            "horilla_audit.view_accountblockunblock",
+            "joydigi_audit.view_accountblockunblock",
             "employee.change_employeegeneralsetting",
-            "horilla_audit.view_historytrackingfields",
+            "joydigi_audit.view_historytrackingfields",
             "payroll.view_payrollsettings",
             "base.view_company",
             "base.view_companylanguagesetting",
@@ -68,21 +68,21 @@ def history_tags_accessibility(request, submenu, user_perms, *args, **kwargs):
         for p in [
             "base.view_tags",
             "employee.view_employeetag",
-            "horilla_audit.view_audittag",
+            "joydigi_audit.view_audittag",
         ]
     )
 
 
 def audit_tracking_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return request.user.has_perm("horilla_audit.view_auditmodelconfig")
+    return request.user.has_perm("joydigi_audit.view_auditmodelconfig")
 
 
 def audit_history_accessibility(request, submenu, user_perms, *args, **kwargs):
     return any(
         request.user.has_perm(p)
         for p in [
-            "horilla_audit.view_audittag",
-            "horilla_audit.view_auditmodelconfig",
+            "joydigi_audit.view_audittag",
+            "joydigi_audit.view_auditmodelconfig",
         ]
     )
 
@@ -94,12 +94,12 @@ def mail_server_accessibility(request, submenu, user_perms, *args, **kwargs):
 
 
 def mail_template_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return request.user.has_perm("base.view_horillamailtemplate")
+    return request.user.has_perm("base.view_joydigimailtemplate")
 
 
 def mail_automation_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return apps.is_installed("horilla_automations") and request.user.has_perm(
-        "horilla_automations.view_mailautomation"
+    return apps.is_installed("joydigi_automations") and request.user.has_perm(
+        "joydigi_automations.view_mailautomation"
     )
 
 
@@ -136,11 +136,11 @@ def company_leaves_settings_accessibility(
 
 
 def color_theme_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return request.user.has_perm("horilla_theme.view_horillacolortheme")
+    return request.user.has_perm("joydigi_theme.view_joydigicolortheme")
 
 
 def gdrive_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return request.user.has_perm("horilla_backup.view_googledrivebackup")
+    return request.user.has_perm("joydigi_backup.view_googledrivebackup")
 
 
 def linkedin_accessibility(request, submenu, user_perms, *args, **kwargs):
@@ -148,15 +148,15 @@ def linkedin_accessibility(request, submenu, user_perms, *args, **kwargs):
 
 
 def ldap_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return apps.is_installed("horilla_ldap") and any(
+    return apps.is_installed("joydigi_ldap") and any(
         request.user.has_perm(p)
-        for p in ["horilla_ldap.add_ldapsettings", "horilla_ldap.update_ldapsettings"]
+        for p in ["joydigi_ldap.add_ldapsettings", "joydigi_ldap.update_ldapsettings"]
     )
 
 
 def google_meet_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return apps.is_installed("horilla_meet") and request.user.has_perm(
-        "horilla_meet.view_googlecloudcredential"
+    return apps.is_installed("joydigi_meet") and request.user.has_perm(
+        "joydigi_meet.view_googlecloudcredential"
     )
 
 
@@ -543,7 +543,7 @@ class MailSettings:
 
 
 # ---------------------------------------------------------------------------
-# 5. Appearance section (only when horilla_theme is installed)
+# 5. Appearance section (only when joydigi_theme is installed)
 # ---------------------------------------------------------------------------
 
 
@@ -551,11 +551,11 @@ class MailSettings:
 class ThemeManagerSettings:
     title = _("Appearance")
     order = 10
-    condition = lambda self, request: apps.is_installed("horilla_theme")
+    condition = lambda self, request: apps.is_installed("joydigi_theme")
     items = [
         {
             "label": _("Color Theme"),
-            "url": reverse_lazy("horilla_theme:color_theme_view"),
+            "url": reverse_lazy("joydigi_theme:color_theme_view"),
             "accessibility": color_theme_accessibility,
             "search_entries": [
                 {

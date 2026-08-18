@@ -10,10 +10,10 @@ from django.http import HttpResponse
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
-from horilla.http import HorillaRedirect
-from horilla.methods import handle_no_permission
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import HorillaFormView
+from joydigi.http import JoydigiRedirect
+from joydigi.methods import handle_no_permission
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import JoydigiFormView
 
 # from project.decorator import project_delete_permission
 from project.forms import ProjectStageForm
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 @method_decorator(login_required, name="dispatch")
 # @method_decorator(project_delete_permission, name="dispatch")
-class ProjectStageCreateForm(HorillaFormView):
+class ProjectStageCreateForm(JoydigiFormView):
     """
     form view fro create and edit stages
     """
@@ -54,7 +54,7 @@ class ProjectStageCreateForm(HorillaFormView):
                     return handle_no_permission(request)
             except Exception as e:
                 logger.error(e)
-                return HorillaRedirect(request, message=_("Something went wrong!"))
+                return JoydigiRedirect(request, message=_("Something went wrong!"))
         else:
             return super().get(request, *args, pk=pk, **kwargs)
 
@@ -94,7 +94,7 @@ class StageDynamicCreateForm(ProjectStageCreateForm):
     """
 
     is_dynamic_create_view = True
-    template_name = HorillaFormView.template_name
+    template_name = JoydigiFormView.template_name
 
     def get_initial(self):
         initial = super().get_initial()

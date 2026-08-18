@@ -131,7 +131,7 @@ function clearSelection(storeKey) {
 }
 
 /**
- * Clear list-row selections when switching Horilla tabs. Lists may use a
+ * Clear list-row selections when switching Joydigi tabs. Lists may use a
  * custom store (#selectedTickets, etc.) instead of #selectedInstances — the
  * generic tab onclick used to only clear selectedInstances, so selections
  * from one tab (e.g. My Tickets) leaked into another (Suggested Tickets).
@@ -324,11 +324,11 @@ function syncBulkSelectAllCheckbox(viewId) {
 // The preference is still persisted server-side via the existing hx-get
 // (unchanged), but the visual change now applies instantly client-side, and
 // the reload that follows is skipped (see window.__skipNextToggleReload,
-// checked in horilla_list_table.html / group_by_table.html's
+// checked in joydigi_list_table.html / group_by_table.html's
 // hx-on::after-request). Column *reordering* (drag-and-drop) still reloads
 // normally, since re-ordering actual table cells isn't a simple show/hide.
 function toggleColumnVisibility(checkboxEl, fieldName, visible) {
-    // Scope to this list only. HorillaTabView keeps visited tabs in the DOM,
+    // Scope to this list only. JoydigiTabView keeps visited tabs in the DOM,
     // so a global th[id$=...] lookup can match History (or any column) from
     // another tab and wrongly skip the reload this list needs.
     // Group-by tables also use .hlv-container; fall back to [data-list-path]

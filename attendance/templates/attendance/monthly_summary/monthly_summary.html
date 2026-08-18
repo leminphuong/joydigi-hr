@@ -6,7 +6,7 @@
   body.dark .ms-page-header h3 { color: #dfdfdf !important; }
   /* Filter dropdown panel — same "Work Info" accordion section used by the
      real Attendance list's filter (attendances_filter_page.html): reuses
-     Horilla's own .oh-accordion/.oh-accordion-header/.oh-accordion-body
+     Joydigi's own .oh-accordion/.oh-accordion-header/.oh-accordion-body
      classes so the existing global click-toggle handler and chevron CSS
      (footerScripts.js, v1_styles.css) apply with no extra JS/CSS of our own. */
   .ms-filter-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; }
@@ -165,7 +165,7 @@
       </div>
 
       <!-- Active-filter chips — display toggled purely inline (no d-flex class:
-           Horilla's .d-flex is display:flex !important, which would beat this
+           Joydigi's .d-flex is display:flex !important, which would beat this
            inline display:none and keep the row visible even with no filters set). -->
       <div id="ms-filter-tags" class="flex-wrap align-items-center gap-2 mb-2" style="display:none;">
         <span class="oh-titlebar__tag oh-titlebar__tag--custom">{% trans 'Filters' %}:</span>

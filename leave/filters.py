@@ -19,8 +19,8 @@ from django.utils.translation import gettext_lazy as _
 from django_filters import DateFilter, FilterSet, NumberFilter, filters
 
 from employee.models import Employee
-from horilla.filters import FilterSet, HorillaFilterSet, filter_by_name
-from horilla_views.templatetags.generic_template_filters import getattribute
+from joydigi.filters import FilterSet, JoydigiFilterSet, filter_by_name
+from joydigi_views.templatetags.generic_template_filters import getattribute
 
 from .models import (
     AvailableLeave,
@@ -124,7 +124,7 @@ class AssignedLeaveFilter(FilterSet):
             self.form.fields[field].widget.attrs["id"] = f"{uuid.uuid4()}"
 
 
-class LeaveRequestFilter(HorillaFilterSet):
+class LeaveRequestFilter(JoydigiFilterSet):
     """
     Filter class for LeaveRequest model.
     This filter allows searching LeaveRequest objects
@@ -325,7 +325,7 @@ class UserLeaveRequestFilter(FilterSet):
 
     def __init__(self, data=None, queryset=None, *, request=None, prefix=None):
         super().__init__(data=data, queryset=queryset, request=request, prefix=prefix)
-        from horilla.horilla_middlewares import _thread_locals
+        from joydigi.joydigi_middlewares import _thread_locals
 
         request = getattr(_thread_locals, "request", None)
         leave_requests = request.user.employee_get.leaverequest_set.all()

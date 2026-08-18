@@ -15,13 +15,13 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
 from base.models import CompanyLeaves, Holidays
-from horilla.http.response import HorillaRedirect
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi.http.response import JoydigiRedirect
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 from leave.filters import UserLeaveRequestFilter
@@ -57,7 +57,7 @@ class MyLeaveRequestView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class MainParentListView(HorillaListView):
+class MainParentListView(JoydigiListView):
     """
     main parent class for list view
     """
@@ -180,7 +180,7 @@ class MyLeaveRequestListView(MainParentListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class MyLeaveRequestNavView(HorillaNavView):
+class MyLeaveRequestNavView(JoydigiNavView):
     """
     nav bar
     """
@@ -230,7 +230,7 @@ class MyLeaveRequestNavView(HorillaNavView):
 
 
 @method_decorator(login_required, name="dispatch")
-class MyLeaveRequestDetailView(HorillaDetailedView):
+class MyLeaveRequestDetailView(JoydigiDetailedView):
     """
     detail view of page
     """
@@ -257,7 +257,7 @@ class MyLeaveRequestDetailView(HorillaDetailedView):
 
 
 @method_decorator(login_required, name="dispatch")
-class MyLeaveRequestForm(HorillaFormView):
+class MyLeaveRequestForm(JoydigiFormView):
     """
     form view
     """
@@ -315,7 +315,7 @@ class MyLeaveRequestForm(HorillaFormView):
         def _done():
             if self.request.META.get("HTTP_HX_REQUEST"):
                 return self.HttpResponse(targets_to_reload=["#userRequestReload"])
-            return HorillaRedirect(self.request)
+            return JoydigiRedirect(self.request)
 
         emp = self.request.user.employee_get
         emp_id = emp.id
@@ -465,7 +465,7 @@ class MyLeaveRequestForm(HorillaFormView):
 
 
 @method_decorator(login_required, name="dispatch")
-class MyLeaveRequestSingleForm(HorillaFormView):
+class MyLeaveRequestSingleForm(JoydigiFormView):
     """
     single leave request form
     """
@@ -612,13 +612,13 @@ class MyLeaveRequestSingleForm(HorillaFormView):
                             redirect=reverse("request-view")
                             + f"?id={leave_request.id}",
                         )
-                        return HorillaRedirect(self.request)
+                        return JoydigiRedirect(self.request)
                     if len(
                         LeaveRequest.objects.filter(employee_id=employee)
                     ) == 1 or self.request.META.get("HTTP_REFERER").endswith(
                         "employee-profile/"
                     ):
-                        return HorillaRedirect(self.request)
+                        return JoydigiRedirect(self.request)
                 else:
                     form.add_error(
                         None,

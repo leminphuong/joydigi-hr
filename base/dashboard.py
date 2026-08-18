@@ -50,7 +50,7 @@ def _resolve_checklist_company(request):
       2. The first company in the DB (fresh install with no session yet)
       3. None  (no company exists — the "Company" step is the first to do)
     """
-    from horilla.horilla_middlewares import get_selected_company
+    from joydigi.joydigi_middlewares import get_selected_company
 
     company_id = get_selected_company()
     if company_id and company_id != "all":
@@ -69,7 +69,7 @@ def _resolve_checklist_company(request):
 def _exists_for_company(ModelClass, company_id):
     """
     Return True if at least one record of ModelClass is visible for the given
-    company.  Mirrors HorillaCompanyManager: a record is visible when it is
+    company.  Mirrors JoydigiCompanyManager: a record is visible when it is
     explicitly assigned to this company OR has no company assignment at all
     (meaning it is shared across all companies — common for lookup tables like
     WorkType, EmployeeType, EmployeeShift whose M2M company_id may be empty).
@@ -212,7 +212,7 @@ def _get_setup_checklist_context(request):
             "key": "mail_server",
             "title": _("Mail Server"),
             "description": _(
-                "Configure an outgoing mail server so Horilla can send emails."
+                "Configure an outgoing mail server so Joydigi can send emails."
             ),
             "url": _safe_url("mail-server-conf"),
             "done": _has_mail_server(),

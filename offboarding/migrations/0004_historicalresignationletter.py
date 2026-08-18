@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('employee', '0005_alter_employee_phone_and_more'),
-        ('horilla_audit', '0002_auditmodelconfig'),
+        ('joydigi_audit', '0002_auditmodelconfig'),
         ('offboarding', '0003_offboardingtask_is_required'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
@@ -36,7 +36,7 @@ class Migration(migrations.Migration):
                 ('created_by', models.ForeignKey(blank=True, db_constraint=False, editable=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to=settings.AUTH_USER_MODEL, verbose_name='Created By')),
                 ('employee_id', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to='employee.employee', verbose_name='Employee')),
                 ('history_relation', models.ForeignKey(db_constraint=False, on_delete=django.db.models.deletion.DO_NOTHING, related_name='history_set', to='offboarding.resignationletter')),
-                ('history_tags', models.ManyToManyField(to='horilla_audit.audittag')),
+                ('history_tags', models.ManyToManyField(to='joydigi_audit.audittag')),
                 ('history_user', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
                 ('modified_by', models.ForeignKey(blank=True, db_constraint=False, editable=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to=settings.AUTH_USER_MODEL, verbose_name='Modified By')),
                 ('offboarding_employee_id', models.ForeignKey(blank=True, db_constraint=False, editable=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to='offboarding.offboardingemployee')),

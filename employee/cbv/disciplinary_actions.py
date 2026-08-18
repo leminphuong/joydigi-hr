@@ -17,12 +17,12 @@ from base.methods import filtersubordinates
 from employee.filters import DisciplinaryActionFilter
 from employee.forms import ActiontypeForm, DisciplinaryActionForm
 from employee.models import Actiontype, DisciplinaryAction
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 from notifications.signals import notify
@@ -38,7 +38,7 @@ class DisciplinaryActionsView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class DisciplinaryActionsList(HorillaListView):
+class DisciplinaryActionsList(JoydigiListView):
     """
     List view of disciplinary actions
     """
@@ -98,7 +98,7 @@ class DisciplinaryActionsList(HorillaListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class DisciplinaryActionsNav(HorillaNavView):
+class DisciplinaryActionsNav(JoydigiNavView):
     """
     For nav bar
     """
@@ -123,7 +123,7 @@ class DisciplinaryActionsNav(HorillaNavView):
     template_name = "generic/inline_nav.html"
 
 
-class DynamicActionTypeFormView(HorillaFormView):
+class DynamicActionTypeFormView(JoydigiFormView):
 
     model = Actiontype
     form_class = ActiontypeForm
@@ -144,7 +144,7 @@ class DynamicActionTypeFormView(HorillaFormView):
 @method_decorator(
     permission_required("employee.add_disciplinaryaction"), name="dispatch"
 )
-class DisciplinaryActionsFormView(HorillaFormView):
+class DisciplinaryActionsFormView(JoydigiFormView):
     """
     Form View
     """
@@ -206,7 +206,7 @@ class DisciplinaryActionsFormView(HorillaFormView):
 @method_decorator(
     permission_required("employee.add_disciplinaryaction"), name="dispatch"
 )
-class DisciplinaryActionsFormDuplicate(HorillaFormView):
+class DisciplinaryActionsFormDuplicate(JoydigiFormView):
     """
     Duplicate form view
     """
@@ -250,7 +250,7 @@ class DisciplinaryActionsFormDuplicate(HorillaFormView):
 
 
 @method_decorator(login_required, name="dispatch")
-class DisciplinaryActionsDetailView(HorillaDetailedView):
+class DisciplinaryActionsDetailView(JoydigiDetailedView):
     """
     detail view of page
     """

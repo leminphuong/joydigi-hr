@@ -30,7 +30,7 @@ function validateDocsIds(event) {
 function highlightRow(checkbox) {
     // This file is also loaded on the legacy document request pages
     // (employee/templates/documents/requests.html,
-    // horilla_theme/templates/documents/requests.html), whose rows are
+    // joydigi_theme/templates/documents/requests.html), whose rows are
     // ".oh-user_permission-list_item" wrappers rather than plain <tr>s -
     // handle that shape first. On the standard list table used by the
     // Document Requests tab under /employee/requests/, fall back to the

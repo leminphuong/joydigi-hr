@@ -11,12 +11,12 @@ from django.urls import resolve, reverse, reverse_lazy
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 from notifications.signals import notify
@@ -42,7 +42,7 @@ class InterviewViewPage(TemplateView):
 @method_decorator(
     recruitment_manager_can_enter(perm="recruitment.view_recruitment"), name="dispatch"
 )
-class InterviewNavView(HorillaNavView):
+class InterviewNavView(JoydigiNavView):
     """
     nav bar of the page
     """
@@ -72,7 +72,7 @@ class InterviewNavView(HorillaNavView):
 @method_decorator(
     recruitment_manager_can_enter(perm="recruitment.view_recruitment"), name="dispatch"
 )
-class InterviewLIstView(HorillaListView):
+class InterviewLIstView(JoydigiListView):
     """
     list view of the page
     """
@@ -139,7 +139,7 @@ class InterviewLIstView(HorillaListView):
 @method_decorator(
     recruitment_manager_can_enter(perm="recruitment.view_recruitment"), name="dispatch"
 )
-class InterviewDetailView(HorillaDetailedView):
+class InterviewDetailView(JoydigiDetailedView):
     """
     detailed view
     """
@@ -166,7 +166,7 @@ class InterviewDetailView(HorillaDetailedView):
 @method_decorator(
     manager_can_enter(perm="recruitment.add_interviewschedule"), name="dispatch"
 )
-class InterviewForm(HorillaFormView):
+class InterviewForm(JoydigiFormView):
     """
     form view
     """

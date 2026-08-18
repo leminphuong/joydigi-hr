@@ -2,7 +2,7 @@
 
 import django.db.models.deletion
 import django.utils.timezone
-import horilla.models
+import joydigi.models
 import project.models
 from django.conf import settings
 from django.db import migrations, models
@@ -70,7 +70,7 @@ class Migration(migrations.Migration):
                     models.FileField(
                         blank=True,
                         null=True,
-                        upload_to=horilla.models.upload_path,
+                        upload_to=joydigi.models.upload_path,
                         verbose_name="Project File",
                     ),
                 ),
@@ -253,7 +253,7 @@ class Migration(migrations.Migration):
                     models.FileField(
                         blank=True,
                         null=True,
-                        upload_to=horilla.models.upload_path,
+                        upload_to=joydigi.models.upload_path,
                         verbose_name="Task File",
                     ),
                 ),

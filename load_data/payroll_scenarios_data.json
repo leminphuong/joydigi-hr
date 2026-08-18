@@ -64,7 +64,7 @@
     "model": "payroll.allowance",
     "pk": 1001,
     "fields": {
-      "title": "Relocation Salary Advance",
+      "title": "Tạm ứng lương tái định cư",
       "one_time_date": "2025-05-01",
       "include_active_employees": false,
       "is_taxable": false,
@@ -74,7 +74,9 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_loan": true,
-      "specific_employees": [7],
+      "specific_employees": [
+        7
+      ],
       "exclude_employees": [],
       "other_conditions": []
     }
@@ -83,7 +85,7 @@
     "model": "payroll.allowance",
     "pk": 1002,
     "fields": {
-      "title": "Professional Certification Loan",
+      "title": "Cho vay chứng chỉ chuyên môn",
       "one_time_date": "2025-02-01",
       "include_active_employees": false,
       "is_taxable": false,
@@ -93,7 +95,9 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_loan": true,
-      "specific_employees": [12],
+      "specific_employees": [
+        12
+      ],
       "exclude_employees": [],
       "other_conditions": []
     }
@@ -102,7 +106,7 @@
     "model": "payroll.allowance",
     "pk": 1003,
     "fields": {
-      "title": "Travel Salary Advance",
+      "title": "Tạm ứng lương du lịch",
       "one_time_date": "2025-06-01",
       "include_active_employees": false,
       "is_taxable": false,
@@ -112,7 +116,9 @@
       "company_id": 2,
       "only_show_under_employee": true,
       "is_loan": true,
-      "specific_employees": [25],
+      "specific_employees": [
+        25
+      ],
       "exclude_employees": [],
       "other_conditions": []
     }
@@ -121,7 +127,7 @@
     "model": "payroll.allowance",
     "pk": 1004,
     "fields": {
-      "title": "Sales Performance Incentive",
+      "title": "Khuyến khích hiệu suất bán hàng",
       "one_time_date": null,
       "include_active_employees": false,
       "is_taxable": true,
@@ -140,14 +146,17 @@
       "is_loan": false,
       "specific_employees": [],
       "exclude_employees": [],
-      "other_conditions": [1001, 1002]
+      "other_conditions": [
+        1001,
+        1002
+      ]
     }
   },
   {
     "model": "payroll.allowance",
     "pk": 1005,
     "fields": {
-      "title": "Casual Leave Encashment",
+      "title": "Tiền mặt nghỉ phép thông thường",
       "one_time_date": "2025-07-10",
       "include_active_employees": false,
       "is_taxable": true,
@@ -157,7 +166,9 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_loan": false,
-      "specific_employees": [13],
+      "specific_employees": [
+        13
+      ],
       "exclude_employees": [],
       "other_conditions": []
     }
@@ -166,7 +177,7 @@
     "model": "payroll.allowance",
     "pk": 1006,
     "fields": {
-      "title": "Quarterly Bonus Encashment",
+      "title": "Tiền thưởng hàng quý",
       "one_time_date": "2025-07-12",
       "include_active_employees": false,
       "is_taxable": true,
@@ -176,7 +187,9 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_loan": false,
-      "specific_employees": [13],
+      "specific_employees": [
+        13
+      ],
       "exclude_employees": [],
       "other_conditions": []
     }
@@ -185,7 +198,7 @@
     "model": "payroll.deduction",
     "pk": 1000,
     "fields": {
-      "title": "Employee Health Insurance",
+      "title": "Bảo hiểm sức khỏe nhân viên",
       "one_time_date": null,
       "include_active_employees": true,
       "is_tax": false,
@@ -205,7 +218,7 @@
     "model": "payroll.deduction",
     "pk": 1001,
     "fields": {
-      "title": "Medical Loan - installment 1 of 12",
+      "title": "Khoản vay y tế - đợt 1 trên 12",
       "one_time_date": "2025-01-01",
       "include_active_employees": false,
       "is_tax": false,
@@ -216,14 +229,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [18]
+      "specific_employees": [
+        18
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1002,
     "fields": {
-      "title": "Medical Loan - installment 2 of 12",
+      "title": "Khoản vay y tế - đợt 2 trên 12",
       "one_time_date": "2025-02-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -231,14 +246,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [18]
+      "specific_employees": [
+        18
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1003,
     "fields": {
-      "title": "Medical Loan - installment 3 of 12",
+      "title": "Khoản vay y tế - đợt 3 trên 12",
       "one_time_date": "2025-03-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -246,14 +263,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [18]
+      "specific_employees": [
+        18
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1004,
     "fields": {
-      "title": "Medical Loan - installment 4 of 12",
+      "title": "Khoản vay y tế - đợt 4 trên 12",
       "one_time_date": "2025-04-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -261,14 +280,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [18]
+      "specific_employees": [
+        18
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1005,
     "fields": {
-      "title": "Medical Loan - installment 5 of 12",
+      "title": "Khoản vay y tế - đợt 5 trên 12",
       "one_time_date": "2025-05-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -276,14 +297,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [18]
+      "specific_employees": [
+        18
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1006,
     "fields": {
-      "title": "Medical Loan - installment 6 of 12",
+      "title": "Khoản vay y tế - đợt 6 trên 12",
       "one_time_date": "2025-06-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -291,14 +314,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [18]
+      "specific_employees": [
+        18
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1007,
     "fields": {
-      "title": "Medical Loan - installment 7 of 12",
+      "title": "Khoản vay y tế - đợt 7 trên 12",
       "one_time_date": "2025-07-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -306,14 +331,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [18]
+      "specific_employees": [
+        18
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1008,
     "fields": {
-      "title": "Medical Loan - installment 8 of 12",
+      "title": "Khoản vay y tế - đợt 8 trên 12",
       "one_time_date": "2025-08-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -321,14 +348,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [18]
+      "specific_employees": [
+        18
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1009,
     "fields": {
-      "title": "Medical Loan - installment 9 of 12",
+      "title": "Khoản vay y tế - đợt 9 trên 12",
       "one_time_date": "2025-09-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -336,14 +365,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [18]
+      "specific_employees": [
+        18
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1010,
     "fields": {
-      "title": "Medical Loan - installment 10 of 12",
+      "title": "Khoản vay y tế - trả góp 10 trên 12",
       "one_time_date": "2025-10-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -351,14 +382,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [18]
+      "specific_employees": [
+        18
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1011,
     "fields": {
-      "title": "Medical Loan - installment 11 of 12",
+      "title": "Khoản vay y tế - đợt 11 trên 12",
       "one_time_date": "2025-11-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -366,14 +399,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [18]
+      "specific_employees": [
+        18
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1012,
     "fields": {
-      "title": "Medical Loan - installment 12 of 12",
+      "title": "Khoản vay y tế - đợt 12 của 12",
       "one_time_date": "2025-12-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -381,14 +416,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [18]
+      "specific_employees": [
+        18
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1013,
     "fields": {
-      "title": "Relocation Salary Advance - installment 1 of 3",
+      "title": "Tạm ứng lương tái định cư - đợt 1 trong 3",
       "one_time_date": "2025-05-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -396,14 +433,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [7]
+      "specific_employees": [
+        7
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1014,
     "fields": {
-      "title": "Relocation Salary Advance - installment 2 of 3",
+      "title": "Tạm ứng lương tái định cư - đợt 2 của 3",
       "one_time_date": "2025-06-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -411,14 +450,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [7]
+      "specific_employees": [
+        7
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1015,
     "fields": {
-      "title": "Relocation Salary Advance - installment 3 of 3",
+      "title": "Tạm ứng lương tái định cư - đợt 3 của 3",
       "one_time_date": "2025-07-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -426,14 +467,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [7]
+      "specific_employees": [
+        7
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1016,
     "fields": {
-      "title": "Equipment Damage Fine - installment 1 of 2",
+      "title": "Tiền phạt hư hỏng thiết bị - đợt 1 trong 2",
       "one_time_date": "2025-06-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -441,14 +484,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [22]
+      "specific_employees": [
+        22
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1017,
     "fields": {
-      "title": "Equipment Damage Fine - installment 2 of 2",
+      "title": "Tiền phạt hư hỏng thiết bị - đợt 2 của 2",
       "one_time_date": "2025-07-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -456,14 +501,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [22]
+      "specific_employees": [
+        22
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1018,
     "fields": {
-      "title": "Professional Certification Loan - installment 1 of 6",
+      "title": "Khoản vay Chứng chỉ Chuyên môn - đợt 1 trên 6",
       "one_time_date": "2025-02-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -471,14 +518,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [12]
+      "specific_employees": [
+        12
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1019,
     "fields": {
-      "title": "Professional Certification Loan - installment 2 of 6",
+      "title": "Khoản vay Chứng chỉ Chuyên môn - đợt 2 trên 6",
       "one_time_date": "2025-03-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -486,14 +535,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [12]
+      "specific_employees": [
+        12
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1020,
     "fields": {
-      "title": "Professional Certification Loan - installment 3 of 6",
+      "title": "Khoản vay Chứng chỉ Chuyên môn - đợt 3 trên 6",
       "one_time_date": "2025-04-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -501,14 +552,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [12]
+      "specific_employees": [
+        12
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1021,
     "fields": {
-      "title": "Professional Certification Loan - installment 4 of 6",
+      "title": "Khoản vay Chứng chỉ Chuyên môn - đợt 4 trên 6",
       "one_time_date": "2025-05-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -516,14 +569,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [12]
+      "specific_employees": [
+        12
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1022,
     "fields": {
-      "title": "Professional Certification Loan - installment 5 of 6",
+      "title": "Khoản vay Chứng chỉ Chuyên môn - đợt 5 trên 6",
       "one_time_date": "2025-06-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -531,14 +586,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [12]
+      "specific_employees": [
+        12
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1023,
     "fields": {
-      "title": "Professional Certification Loan - installment 6 of 6",
+      "title": "Khoản vay Chứng chỉ Chuyên môn - đợt 6 trên 6",
       "one_time_date": "2025-07-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -546,14 +603,16 @@
       "company_id": 1,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [12]
+      "specific_employees": [
+        12
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1024,
     "fields": {
-      "title": "Travel Salary Advance - installment 1 of 2",
+      "title": "Tạm ứng lương du lịch - đợt 1 trong 2",
       "one_time_date": "2025-06-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -561,14 +620,16 @@
       "company_id": 2,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [25]
+      "specific_employees": [
+        25
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1025,
     "fields": {
-      "title": "Travel Salary Advance - installment 2 of 2",
+      "title": "Tạm ứng lương du lịch - đợt 2 của 2",
       "one_time_date": "2025-07-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -576,14 +637,16 @@
       "company_id": 2,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [25]
+      "specific_employees": [
+        25
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1026,
     "fields": {
-      "title": "Safety Compliance Fine - installment 1 of 3",
+      "title": "Phạt tuân thủ an toàn - đợt 1 trên 3",
       "one_time_date": "2025-05-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -591,14 +654,16 @@
       "company_id": 3,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [29]
+      "specific_employees": [
+        29
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1027,
     "fields": {
-      "title": "Safety Compliance Fine - installment 2 of 3",
+      "title": "Phạt tuân thủ an toàn - đợt 2 trên 3",
       "one_time_date": "2025-06-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -606,14 +671,16 @@
       "company_id": 3,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [29]
+      "specific_employees": [
+        29
+      ]
     }
   },
   {
     "model": "payroll.deduction",
     "pk": 1028,
     "fields": {
-      "title": "Safety Compliance Fine - installment 3 of 3",
+      "title": "Phạt tuân thủ an toàn - phần 3 của 3",
       "one_time_date": "2025-07-01",
       "include_active_employees": false,
       "is_fixed": true,
@@ -621,14 +688,16 @@
       "company_id": 3,
       "only_show_under_employee": true,
       "is_installment": true,
-      "specific_employees": [29]
+      "specific_employees": [
+        29
+      ]
     }
   },
   {
     "model": "payroll.reimbursement",
     "pk": 1001,
     "fields": {
-      "title": "Casual Leave Encashment Request",
+      "title": "Yêu cầu đổi tiền mặt nghỉ phép thông thường",
       "type": "leave_encashment",
       "employee_id": 12,
       "allowance_on": "2025-07-10",
@@ -640,7 +709,7 @@
       "amount": 750.0,
       "status": "requested",
       "approved_by": null,
-      "description": "Encash half of an unused casual-leave day.",
+      "description": "Tích lũy một nửa ngày nghỉ phép bình thường chưa sử dụng.",
       "allowance_id": null,
       "other_attachments": []
     }
@@ -649,7 +718,7 @@
     "model": "payroll.reimbursement",
     "pk": 1002,
     "fields": {
-      "title": "Approved Casual Leave Encashment",
+      "title": "Tiền mặt nghỉ phép thông thường đã được phê duyệt",
       "type": "leave_encashment",
       "employee_id": 13,
       "allowance_on": "2025-07-10",
@@ -661,7 +730,7 @@
       "amount": 1500.0,
       "status": "approved",
       "approved_by": 1,
-      "description": "One unused casual-leave day approved for encashment.",
+      "description": "Một ngày nghỉ phép bình thường chưa sử dụng được phê duyệt để chuyển thành tiền mặt.",
       "allowance_id": 1005,
       "other_attachments": []
     }
@@ -670,7 +739,7 @@
     "model": "payroll.reimbursement",
     "pk": 1003,
     "fields": {
-      "title": "Rejected Leave Encashment",
+      "title": "Tiền mặt nghỉ phép bị từ chối",
       "type": "leave_encashment",
       "employee_id": 22,
       "allowance_on": "2025-07-11",
@@ -682,7 +751,7 @@
       "amount": 1500.0,
       "status": "rejected",
       "approved_by": 1,
-      "description": "Rejected because the requested days were reserved for upcoming leave.",
+      "description": "Bị từ chối vì số ngày yêu cầu đã được dành cho kỳ nghỉ phép sắp tới.",
       "allowance_id": null,
       "other_attachments": []
     }
@@ -691,7 +760,7 @@
     "model": "payroll.reimbursement",
     "pk": 1004,
     "fields": {
-      "title": "Quarterly Bonus Encashment Request",
+      "title": "Yêu cầu đổi tiền thưởng hàng quý",
       "type": "bonus_encashment",
       "employee_id": 12,
       "allowance_on": "2025-07-12",
@@ -703,7 +772,7 @@
       "amount": 500.0,
       "status": "requested",
       "approved_by": null,
-      "description": "Redeem performance bonus points in the current payroll cycle.",
+      "description": "Đổi điểm thưởng hiệu suất trong chu kỳ trả lương hiện tại.",
       "allowance_id": null,
       "other_attachments": []
     }
@@ -712,7 +781,7 @@
     "model": "payroll.reimbursement",
     "pk": 1005,
     "fields": {
-      "title": "Approved Bonus Encashment",
+      "title": "Tiền thưởng được phê duyệt",
       "type": "bonus_encashment",
       "employee_id": 13,
       "allowance_on": "2025-07-12",
@@ -724,7 +793,7 @@
       "amount": 625.0,
       "status": "approved",
       "approved_by": 1,
-      "description": "Performance bonus redemption approved for payroll.",
+      "description": "Việc đổi tiền thưởng hiệu suất đã được phê duyệt cho bảng lương.",
       "allowance_id": 1006,
       "other_attachments": []
     }
@@ -733,7 +802,7 @@
     "model": "payroll.reimbursement",
     "pk": 1006,
     "fields": {
-      "title": "Bonus Encashment Above Balance",
+      "title": "Tiền thưởng vượt quá số dư",
       "type": "bonus_encashment",
       "employee_id": 68,
       "allowance_on": "2025-07-13",
@@ -745,7 +814,7 @@
       "amount": 1250.0,
       "status": "rejected",
       "approved_by": 1,
-      "description": "Rejected because the request exceeded the redeemable balance.",
+      "description": "Bị từ chối vì yêu cầu vượt quá số dư có thể hoàn lại.",
       "allowance_id": null,
       "other_attachments": []
     }
@@ -754,7 +823,7 @@
     "model": "payroll.workrecord",
     "pk": 1001,
     "fields": {
-      "record_name": "February payroll - full day",
+      "record_name": "Bảng lương tháng 2 - cả ngày",
       "work_record_type": "FDP",
       "employee_id": 1,
       "date": "2025-02-03",
@@ -762,8 +831,8 @@
       "min_hour": "08:00",
       "at_work_second": 29700,
       "min_hour_second": 28800,
-      "note": "Validated attendance record for the February payroll period.",
-      "message": "Validated",
+      "note": "Hồ sơ chấm công đã được xác thực cho kỳ trả lương tháng Hai.",
+      "message": "Đã xác thực",
       "is_attendance_record": true,
       "is_leave_record": false,
       "day_percentage": 1.0,
@@ -774,7 +843,7 @@
     "model": "payroll.workrecord",
     "pk": 1002,
     "fields": {
-      "record_name": "February payroll - half day",
+      "record_name": "Lương tháng 2 - nửa ngày",
       "work_record_type": "HDP",
       "employee_id": 2,
       "date": "2025-02-04",
@@ -782,8 +851,8 @@
       "min_hour": "08:00",
       "at_work_second": 14400,
       "min_hour_second": 28800,
-      "note": "Validated half-day attendance; unpaid portion is available to payroll rules.",
-      "message": "Incomplete minimum hour",
+      "note": "Xác nhận tham dự nửa ngày; phần chưa thanh toán có sẵn cho các quy tắc trả lương.",
+      "message": "Số giờ tối thiểu chưa đầy đủ",
       "is_attendance_record": true,
       "is_leave_record": false,
       "day_percentage": 0.5,
@@ -794,7 +863,7 @@
     "model": "payroll.workrecord",
     "pk": 1003,
     "fields": {
-      "record_name": "February payroll - approved leave",
+      "record_name": "Bảng lương tháng 2 - nghỉ phép được chấp thuận",
       "work_record_type": "ABS",
       "employee_id": 3,
       "date": "2025-02-05",
@@ -802,8 +871,8 @@
       "min_hour": "08:00",
       "at_work_second": 0,
       "min_hour_second": 28800,
-      "note": "Approved full-day leave record for the February payroll period.",
-      "message": "Absent",
+      "note": "Đã phê duyệt hồ sơ nghỉ phép cả ngày cho kỳ trả lương tháng Hai.",
+      "message": "Vắng mặt",
       "is_attendance_record": false,
       "is_leave_record": true,
       "day_percentage": 0.0,
@@ -814,7 +883,7 @@
     "model": "payroll.workrecord",
     "pk": 1004,
     "fields": {
-      "record_name": "February payroll - company holiday",
+      "record_name": "Bảng lương tháng 2 - nghỉ lễ của công ty",
       "work_record_type": "HD",
       "employee_id": 4,
       "date": "2025-02-06",
@@ -822,8 +891,8 @@
       "min_hour": "00:00",
       "at_work_second": 0,
       "min_hour_second": 0,
-      "note": "Company holiday retained as a paid calendar day for payroll reporting.",
-      "message": "Holiday/Company Leave",
+      "note": "Ngày nghỉ lễ của công ty được giữ lại làm ngày dương lịch được trả lương để báo cáo bảng lương.",
+      "message": "Kỳ nghỉ/nghỉ phép ở công ty",
       "is_attendance_record": false,
       "is_leave_record": false,
       "day_percentage": 1.0,
@@ -834,7 +903,7 @@
     "model": "payroll.workrecord",
     "pk": 1005,
     "fields": {
-      "record_name": "February payroll - attendance conflict",
+      "record_name": "Bảng lương tháng 2 - xung đột về việc đi học",
       "work_record_type": "CONF",
       "employee_id": 5,
       "date": "2025-02-07",
@@ -842,8 +911,8 @@
       "min_hour": "08:00",
       "at_work_second": 13500,
       "min_hour_second": 28800,
-      "note": "Attendance exception awaiting manager validation before payroll finalization.",
-      "message": "Validate the attendance",
+      "note": "Ngoại lệ chấm công đang chờ người quản lý xác nhận trước khi quyết toán bảng lương.",
+      "message": "Xác nhận sự tham dự",
       "is_attendance_record": true,
       "is_leave_record": false,
       "day_percentage": 0.5,
@@ -854,7 +923,7 @@
     "model": "payroll.workrecord",
     "pk": 1006,
     "fields": {
-      "record_name": "February payroll - draft correction",
+      "record_name": "Bảng lương tháng 2 - điều chỉnh dự thảo",
       "work_record_type": "DFT",
       "employee_id": 6,
       "date": "2025-02-10",
@@ -862,8 +931,8 @@
       "min_hour": "08:00",
       "at_work_second": 0,
       "min_hour_second": 28800,
-      "note": "Draft work record reserved for a pending timesheet correction.",
-      "message": "Draft",
+      "note": "Bản ghi công việc dự thảo dành riêng cho việc chỉnh sửa bảng chấm công đang chờ xử lý.",
+      "message": "bản nháp",
       "is_attendance_record": false,
       "is_leave_record": false,
       "day_percentage": 0.0,
@@ -890,7 +959,7 @@
     "fields": {
       "request_id": 1001,
       "employee_id": 12,
-      "comment": "Please include this encashment in the current payroll cycle.",
+      "comment": "Vui lòng đưa khoản tiền mặt này vào chu kỳ trả lương hiện tại.",
       "created_at": "2025-07-10T09:30:00Z",
       "files": [
         1001
@@ -903,7 +972,7 @@
     "fields": {
       "request_id": 1001,
       "employee_id": 1,
-      "comment": "The leave balance is being verified.",
+      "comment": "Số dư nghỉ phép đang được xác minh.",
       "created_at": "2025-07-10T10:15:00Z",
       "files": [
         1002
@@ -916,7 +985,7 @@
     "fields": {
       "request_id": 1002,
       "employee_id": 1,
-      "comment": "Approved and queued for the next payslip.",
+      "comment": "Đã được phê duyệt và xếp hàng đợi cho phiếu lương tiếp theo.",
       "created_at": "2025-07-10T11:00:00Z",
       "files": []
     }
@@ -927,7 +996,7 @@
     "fields": {
       "request_id": 1004,
       "employee_id": 12,
-      "comment": "These points were earned from the completed sales objective.",
+      "comment": "Những điểm này kiếm được từ mục tiêu bán hàng đã hoàn thành.",
       "created_at": "2025-07-12T09:45:00Z",
       "files": []
     }
@@ -938,7 +1007,7 @@
     "fields": {
       "request_id": 1006,
       "employee_id": 1,
-      "comment": "Please submit a lower amount within the available point balance.",
+      "comment": "Vui lòng gửi số tiền thấp hơn trong số dư điểm hiện có.",
       "created_at": "2025-07-13T14:20:00Z",
       "files": []
     }

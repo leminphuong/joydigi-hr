@@ -13,7 +13,7 @@ from accessibility.accessibility import ACCESSBILITY_FEATURE
 from accessibility.filters import AccessibilityFilter
 from accessibility.models import DefaultAccessibility
 from employee.models import Employee
-from horilla.decorators import hx_request_required, login_required, permission_required
+from joydigi.decorators import hx_request_required, login_required, permission_required
 
 
 @login_required

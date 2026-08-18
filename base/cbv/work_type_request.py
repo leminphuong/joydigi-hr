@@ -24,16 +24,16 @@ from base.methods import (
 from base.models import WorkType, WorkTypeRequest
 from base.views import include_employee_instance
 from employee.models import Employee
-from horilla_views.cbv_methods import (
+from joydigi_views.cbv_methods import (
     hx_request_required,
     login_required,
     permission_required,
 )
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 from notifications.signals import notify
@@ -49,7 +49,7 @@ class WorkRequestView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class WorkRequestListView(HorillaListView):
+class WorkRequestListView(JoydigiListView):
     """
     list view of the work request page
     """
@@ -165,7 +165,7 @@ class WorkRequestListView(HorillaListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class WorkRequestNavView(HorillaNavView):
+class WorkRequestNavView(JoydigiNavView):
     """
     nav view of the page
     """
@@ -260,7 +260,7 @@ class WorkRequestNavView(HorillaNavView):
 
 
 @method_decorator(login_required, name="dispatch")
-class WorkTypeDetailView(HorillaDetailedView):
+class WorkTypeDetailView(JoydigiDetailedView):
     """
     Detail view of page
     """
@@ -326,7 +326,7 @@ class WorkExportCandidate(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class DynamicWorkTypeCreateForm(HorillaFormView):
+class DynamicWorkTypeCreateForm(JoydigiFormView):
     """
     form view for creating dynamic work types
     """
@@ -384,7 +384,7 @@ class WorkTypesCreateForm(DynamicWorkTypeCreateForm):
 
 
 @method_decorator(login_required, name="dispatch")
-class WorkTypeFormView(HorillaFormView):
+class WorkTypeFormView(JoydigiFormView):
     """
     form view for creating work types in app
     """
@@ -467,7 +467,7 @@ class WorkTypeFormView(HorillaFormView):
 
 
 @method_decorator(login_required, name="dispatch")
-class WorkTypeDuplicateForm(HorillaFormView):
+class WorkTypeDuplicateForm(JoydigiFormView):
     """
     duplicate form
     """

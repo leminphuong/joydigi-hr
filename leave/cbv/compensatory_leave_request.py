@@ -12,13 +12,13 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
 from base.methods import filtersubordinates, is_reportingmanager
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
-    HorillaTabView,
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
+    JoydigiTabView,
     TemplateView,
 )
 from leave.decorators import is_compensatory_leave_enabled
@@ -42,7 +42,7 @@ class CompensatoryLeaveView(TemplateView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(is_compensatory_leave_enabled(), name="dispatch")
-class CompensatoryListView(HorillaListView):
+class CompensatoryListView(JoydigiListView):
     """
     generic list view of page
     """
@@ -130,7 +130,7 @@ class CompensatoryListView(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(is_compensatory_leave_enabled(), name="dispatch")
-class CompensatoryNavView(HorillaNavView):
+class CompensatoryNavView(JoydigiNavView):
     """
     nav bar
     """
@@ -154,7 +154,7 @@ class CompensatoryNavView(HorillaNavView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(is_compensatory_leave_enabled(), name="dispatch")
-class CompensatoryLeaveTabView(HorillaTabView):
+class CompensatoryLeaveTabView(JoydigiTabView):
     """
     tabview of the page
     """
@@ -241,7 +241,7 @@ class CompensatoryLeaveTab(CompensatoryListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(is_compensatory_leave_enabled(), name="dispatch")
-class CompensatoryGenericDetailView(HorillaDetailedView):
+class CompensatoryGenericDetailView(JoydigiDetailedView):
     """
     Generic Detail view of page
     """
@@ -287,7 +287,7 @@ class CompensatoryTabDetailView(CompensatoryGenericDetailView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(is_compensatory_leave_enabled(), name="dispatch")
-class CompensatoryForm(HorillaFormView):
+class CompensatoryForm(JoydigiFormView):
     """
     for view
     """
@@ -320,7 +320,7 @@ class CompensatoryForm(HorillaFormView):
         return super().form_valid(form)
 
 
-# class CompensatoryRejectForm(HorillaFormView):
+# class CompensatoryRejectForm(JoydigiFormView):
 #     """
 #     for view
 #     """

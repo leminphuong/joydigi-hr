@@ -1,0 +1,1 @@
+# joydigi_auth tests

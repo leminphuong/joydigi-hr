@@ -2,7 +2,7 @@
 
 import base.models
 import django.db.models.deletion
-import horilla.models
+import joydigi.models
 import payroll.models.models
 import simple_history.models
 from django.conf import settings
@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
         ("asset", "0001_initial"),
         ("base", "0001_initial"),
         ("employee", "0001_initial"),
-        ("horilla_audit", "0001_initial"),
+        ("joydigi_audit", "0001_initial"),
         ("leave", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
@@ -114,7 +114,7 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("file", models.FileField(upload_to=horilla.models.upload_path)),
+                ("file", models.FileField(upload_to=joydigi.models.upload_path)),
             ],
         ),
         migrations.CreateModel(
@@ -129,7 +129,7 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("attachment", models.FileField(upload_to=horilla.models.upload_path)),
+                ("attachment", models.FileField(upload_to=joydigi.models.upload_path)),
             ],
         ),
         migrations.CreateModel(
@@ -1022,7 +1022,7 @@ class Migration(migrations.Migration):
                 (
                     "contract_document",
                     models.FileField(
-                        blank=True, null=True, upload_to=horilla.models.upload_path
+                        blank=True, null=True, upload_to=joydigi.models.upload_path
                     ),
                 ),
                 (
@@ -1348,7 +1348,7 @@ class Migration(migrations.Migration):
                         to="payroll.contract",
                     ),
                 ),
-                ("history_tags", models.ManyToManyField(to="horilla_audit.audittag")),
+                ("history_tags", models.ManyToManyField(to="joydigi_audit.audittag")),
                 (
                     "history_user",
                     models.ForeignKey(
@@ -1835,7 +1835,7 @@ class Migration(migrations.Migration):
                         verbose_name="Employee",
                     ),
                 ),
-                ("history_tags", models.ManyToManyField(to="horilla_audit.audittag")),
+                ("history_tags", models.ManyToManyField(to="joydigi_audit.audittag")),
                 (
                     "history_user",
                     models.ForeignKey(
@@ -1982,7 +1982,7 @@ class Migration(migrations.Migration):
                 ("allowance_on", models.DateField()),
                 (
                     "attachment",
-                    models.FileField(null=True, upload_to=horilla.models.upload_path),
+                    models.FileField(null=True, upload_to=joydigi.models.upload_path),
                 ),
                 (
                     "ad_to_encash",

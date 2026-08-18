@@ -7,7 +7,7 @@ from django.urls import reverse, reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
 from base.context_processors import resignation_request_enabled
-from horilla.menu import settings_menu
+from joydigi.menu import settings_menu
 from offboarding.templatetags.offboarding_filter import (
     any_manager,
     is_offboarding_employee,

@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand
 from django.db.models import Q
 
 from employee.models import Employee
-from horilla_auth.models import HorillaUser
+from joydigi_auth.models import JoydigiUser
 
 
 class Command(BaseCommand):
@@ -49,18 +49,18 @@ class Command(BaseCommand):
                     },
                 )
 
-                # Retrieve the associated HorillaUser if it exists
+                # Retrieve the associated JoydigiUser if it exists
                 try:
-                    user = HorillaUser.objects.get(
+                    user = JoydigiUser.objects.get(
                         Q(username=email) | Q(username=user_id) | Q(email=email)
                     )
                     user.username = user_id
                     user.set_password(
                         ldap_password
                     )  # Hash and set the password securely
-                    user.save()  # Save the changes to the HorillaUser instance
+                    user.save()  # Save the changes to the JoydigiUser instance
                     action = "Updated"
-                except HorillaUser.DoesNotExist:
+                except JoydigiUser.DoesNotExist:
                     # If the user does not exist, handle it accordingly (e.g., log a message or create a new user)
                     self.stdout.write(
                         self.style.WARNING(f"User for employee {name} does not exist.")

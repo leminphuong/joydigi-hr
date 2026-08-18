@@ -14,17 +14,17 @@ from django.utils.translation import gettext_lazy as _
 
 from base.decorators import manager_can_enter
 from base.methods import eval_validate, filtersubordinates, has_export_access
-from horilla_views.cbv_methods import (
+from joydigi_views.cbv_methods import (
     get_short_uuid,
     hx_request_required,
     login_required,
 )
-from horilla_views.forms import DynamicBulkUpdateForm
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.forms import DynamicBulkUpdateForm
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 from leave.filters import AssignedLeaveFilter
@@ -44,7 +44,7 @@ class AssignedLeaveViewPage(TemplateView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("leave.view_availableleave"), name="dispatch")
-class AssignedleaveList(HorillaListView):
+class AssignedleaveList(JoydigiListView):
     """
     list view of the page
     """
@@ -163,7 +163,7 @@ class AssignedleaveList(HorillaListView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("leave.view_availableleave"), name="dispatch")
-class AssignedLeaveNavView(HorillaNavView):
+class AssignedLeaveNavView(JoydigiNavView):
     """
     navbar of the page
     """
@@ -271,7 +271,7 @@ class AssignedLeaveExport(TemplateView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("leave.view_availableleave"), name="dispatch")
-class AssignedLeaveDetailView(HorillaDetailedView):
+class AssignedLeaveDetailView(JoydigiDetailedView):
     """
     detail view
     """
@@ -296,7 +296,7 @@ class AssignedLeaveDetailView(HorillaDetailedView):
 
 
 # not done
-class AssignedLeaveFormView(HorillaFormView):
+class AssignedLeaveFormView(JoydigiFormView):
     """
     form view
     """

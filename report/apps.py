@@ -9,7 +9,7 @@ class ReportConfig(AppConfig):
         ready = super().ready()
         from django.urls import include, path
 
-        from horilla.urls import urlpatterns
+        from joydigi.urls import urlpatterns
 
         urlpatterns.append(
             path("report/", include("report.urls")),

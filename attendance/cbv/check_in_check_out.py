@@ -5,12 +5,12 @@ from django.utils.translation import gettext_lazy as _
 
 from attendance.filters import AttendanceGeneralSettingFilter
 from attendance.models import AttendanceGeneralSetting
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import HorillaListView, HorillaNavView
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import JoydigiListView, JoydigiNavView
 
 
 @method_decorator(login_required, name="dispatch")
-class CheckInCheckOutListView(HorillaListView):
+class CheckInCheckOutListView(JoydigiListView):
     """
     List view of the page
     """
@@ -32,7 +32,7 @@ class CheckInCheckOutListView(HorillaListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class CheckInCheckOutNavBar(HorillaNavView):
+class CheckInCheckOutNavBar(JoydigiNavView):
     """
     Nav bar
     """

@@ -12,11 +12,11 @@ from django.utils.translation import gettext_lazy as _
 
 from employee.models import Employee
 from employee.views import return_none
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaListView,
-    HorillaTabView,
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiListView,
+    JoydigiTabView,
 )
 from payroll.cbv.allowances import AllowanceListView
 from payroll.cbv.deduction import DeductionListView
@@ -36,7 +36,7 @@ operator_mapping = {
 
 
 @method_decorator(login_required, name="dispatch")
-class AllowanceDeductionTabView(HorillaTabView):
+class AllowanceDeductionTabView(JoydigiTabView):
     """
     generic tab view for allowance and deduction
     """
@@ -157,7 +157,7 @@ class AllowanceTabList(AllowanceListView):
         the employee's active contract and specific conditions
         """
 
-        queryset = HorillaListView.get_queryset(self)
+        queryset = JoydigiListView.get_queryset(self)
         pk = self.kwargs.get("pk")
         employee = Employee.objects.get(id=pk)
         active_contracts = (
@@ -274,7 +274,7 @@ class DeductionTab(DeductionListView):
         the employee's active contract and specific conditions
         """
 
-        queryset = HorillaListView.get_queryset(self)
+        queryset = JoydigiListView.get_queryset(self)
         pk = self.kwargs.get("pk")
         employee = Employee.objects.get(id=pk)
         active_contracts = (
@@ -327,7 +327,7 @@ class DeductionTab(DeductionListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class DeductionDetailView(HorillaDetailedView):
+class DeductionDetailView(JoydigiDetailedView):
     """
     Detail View
     """
@@ -354,7 +354,7 @@ class DeductionDetailView(HorillaDetailedView):
 
 
 @method_decorator(login_required, name="dispatch")
-class AllowanceDetailView(HorillaDetailedView):
+class AllowanceDetailView(JoydigiDetailedView):
     """
     detail view for allowance tab
     """

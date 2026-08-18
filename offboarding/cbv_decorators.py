@@ -1,8 +1,8 @@
 """CBV decorators for offboarding permission checks."""
 
-from horilla.decorators import decorator_with_arguments
-from horilla.horilla_middlewares import _thread_locals
-from horilla.methods import handle_no_permission
+from joydigi.decorators import decorator_with_arguments
+from joydigi.joydigi_middlewares import _thread_locals
+from joydigi.methods import handle_no_permission
 from offboarding.models import (
     Offboarding,
     OffboardingEmployee,

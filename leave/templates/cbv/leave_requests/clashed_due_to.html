@@ -1,4 +1,4 @@
-{% load i18n horillafilters %}
+{% load i18n joydigifilters %}
 {% get_company as theme_obj %}
 {% if instance in clashed_due_to_department and instance in clashed_due_to_job_position %}
     <div align="center" style="background-color: {{ theme_obj.primary_600|default:'rgba(229, 79, 56, 0.13)' }}; border: 1.5px solid {{ theme_obj.primary_600|default:'rgb(229, 79, 56)' }}; border-radius: 12px; padding: 7px; font-weight: bold; font-size: 12px; width: 99%;">{% trans "Same Department & Job Position" %}</div>

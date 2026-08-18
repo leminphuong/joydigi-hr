@@ -23,23 +23,23 @@ from base.methods import (
 )
 from employee.filters import DocumentPipelineFilter, DocumentRequestFilter
 from employee.models import Employee
-from horilla.decorators import manager_can_enter
-from horilla.http.response import HorillaRedirect
-from horilla_documents.forms import DocumentForm
-from horilla_documents.forms import DocumentRejectCbvForm as RejectForm
-from horilla_documents.forms import DocumentRequestForm, DocumentUpdateForm
-from horilla_documents.models import Document, DocumentRequest
-from horilla_views import models as horilla_views_models
-from horilla_views.cbv_methods import (
+from joydigi.decorators import manager_can_enter
+from joydigi.http.response import JoydigiRedirect
+from joydigi_documents.forms import DocumentForm
+from joydigi_documents.forms import DocumentRejectCbvForm as RejectForm
+from joydigi_documents.forms import DocumentRequestForm, DocumentUpdateForm
+from joydigi_documents.models import Document, DocumentRequest
+from joydigi_views import models as joydigi_views_models
+from joydigi_views.cbv_methods import (
     hx_request_required,
     login_required,
     saved_filter_path_query,
 )
-from horilla_views.generic.cbv.pipeline import Pipeline
-from horilla_views.generic.cbv.views import (
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.generic.cbv.pipeline import Pipeline
+from joydigi_views.generic.cbv.views import (
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
 )
 from notifications.signals import notify
 
@@ -91,9 +91,9 @@ def htmx_refresh_document_request_container(request) -> Optional[HttpResponse]:
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(
-    manager_can_enter("horilla_documents.add_documentrequest"), name="dispatch"
+    manager_can_enter("joydigi_documents.add_documentrequest"), name="dispatch"
 )
-class DocumentRequestCreateForm(HorillaFormView):
+class DocumentRequestCreateForm(JoydigiFormView):
     """
     form view for create and update document request
     """
@@ -105,7 +105,7 @@ class DocumentRequestCreateForm(HorillaFormView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         self.form = choosesubordinates(
-            self.request, self.form, "horilla_documents.add_documentrequest"
+            self.request, self.form, "joydigi_documents.add_documentrequest"
         )
         if self.form.instance.pk:
             self.form_class.verbose_name = _("Update Document Request")
@@ -146,13 +146,13 @@ class DocumentRequestCreateForm(HorillaFormView):
             refreshed = htmx_refresh_document_request_container(self.request)
             if refreshed is not None:
                 return refreshed
-            return HorillaRedirect(self.request)
+            return JoydigiRedirect(self.request)
 
         return super().form_valid(form)
 
 
 @method_decorator(login_required, name="dispatch")
-class DocumentCreateForm(HorillaFormView):
+class DocumentCreateForm(JoydigiFormView):
     """
     form view for upload document
     """
@@ -179,19 +179,19 @@ class DocumentCreateForm(HorillaFormView):
                 refreshed = htmx_refresh_document_request_container(self.request)
                 if refreshed is not None:
                     return refreshed
-                return HorillaRedirect(self.request)
+                return JoydigiRedirect(self.request)
 
         form.save()
         messages.success(self.request, _("Document Uploaded Successfully"))
         refreshed = htmx_refresh_document_request_container(self.request)
         if refreshed is not None:
             return refreshed
-        return HorillaRedirect(self.request)
+        return JoydigiRedirect(self.request)
 
 
 @method_decorator(login_required, name="dispatch")
-@method_decorator(manager_can_enter("horilla_documents.add_document"), name="dispatch")
-class DocumentRejectCbvForm(HorillaFormView):
+@method_decorator(manager_can_enter("joydigi_documents.add_document"), name="dispatch")
+class DocumentRejectCbvForm(JoydigiFormView):
     """
     form view for rejecting document on document request and employee individual view
     """
@@ -217,13 +217,13 @@ class DocumentRejectCbvForm(HorillaFormView):
             refreshed = htmx_refresh_document_request_container(self.request)
             if refreshed is not None:
                 return refreshed
-            return HorillaRedirect(self.request)
+            return JoydigiRedirect(self.request)
 
         return super().form_valid(form)
 
 
 @method_decorator(login_required, name="dispatch")
-class DocumentUploadForm(HorillaFormView):
+class DocumentUploadForm(JoydigiFormView):
     """
     form view for upload documents on document request and employee individual view
     """
@@ -257,7 +257,7 @@ class DocumentUploadForm(HorillaFormView):
                 refreshed = htmx_refresh_document_request_container(self.request)
                 if refreshed is not None:
                     return refreshed
-                return HorillaRedirect(self.request)
+                return JoydigiRedirect(self.request)
 
         if form.is_valid():
             if form.instance.pk:
@@ -284,13 +284,13 @@ class DocumentUploadForm(HorillaFormView):
             refreshed = htmx_refresh_document_request_container(self.request)
             if refreshed is not None:
                 return refreshed
-            return HorillaRedirect(self.request)
+            return JoydigiRedirect(self.request)
 
         return super().form_valid(form)
 
 
 @method_decorator(login_required, name="dispatch")
-class DocumentRequestNav(HorillaNavView):
+class DocumentRequestNav(JoydigiNavView):
     """
     For nav bar
     """
@@ -309,7 +309,7 @@ class DocumentRequestNav(HorillaNavView):
             "employee.change_employee"
         ) or is_reportingmanager(self.request):
             if self.request.user.has_perm(
-                "horilla_documents.change_documentrequest"
+                "joydigi_documents.change_documentrequest"
             ) or is_reportingmanager(self.request):
                 self.actions = [
                     {
@@ -398,11 +398,11 @@ class DocumentRequestPipelineView(Pipeline):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Pipeline (unlike HorillaListView) never builds filter_dict itself,
+        # Pipeline (unlike JoydigiListView) never builds filter_dict itself,
         # so generic/filter_tags.html - included by cbv/documents/pipeline.html
         # to give the nav's search/filter dropdown a working "remove filter"
         # tag - would otherwise always render empty. Mirrors the same
-        # get_key_instances()-based construction HorillaListView uses.
+        # get_key_instances()-based construction JoydigiListView uses.
         data_dict = parse_qs(self.request.GET.urlencode())
         data_dict = {
             key: list(dict.fromkeys(values)) for key, values in data_dict.items()
@@ -413,7 +413,7 @@ class DocumentRequestPipelineView(Pipeline):
         context["filter_dict"] = data_dict
 
         # Pipeline never wired up the saved-filter chip row (quick_actions.html)
-        # that every HorillaListView/HorillaCardView gets for free, so there
+        # that every JoydigiListView/JoydigiCardView gets for free, so there
         # was nothing to click "Save" on and no chips to show here. Mirror
         # their stored_filters construction, but WITHOUT the referrer-based OR
         # match those use: every chip re-submits its own historically-saved
@@ -422,7 +422,7 @@ class DocumentRequestPipelineView(Pipeline):
         # selected. path/nav_url are stable regardless of which filter (if
         # any) is currently applied, so match on those alone.
         context["saved_filters"] = self.request.GET
-        context["stored_filters"] = horilla_views_models.SavedFilter.objects.filter(
+        context["stored_filters"] = joydigi_views_models.SavedFilter.objects.filter(
             saved_filter_path_query(self.request), created_by=self.request.user
         ).distinct()
 
@@ -465,7 +465,7 @@ class DocumentRequestPipelineView(Pipeline):
 
 
 @method_decorator(login_required, name="dispatch")
-class DocumentListView(HorillaListView):
+class DocumentListView(JoydigiListView):
     """
     List view for document request
     """
@@ -499,10 +499,10 @@ class DocumentListView(HorillaListView):
         # Same reasoning as show_filter_tags above: the quick-filter chip row
         # (quick_actions.html's "Filter (N)" dropdown) is a page-level control
         # that already lives once, outside every group, on
-        # DocumentRequestPipelineView. HorillaListView always populates
+        # DocumentRequestPipelineView. JoydigiListView always populates
         # stored_filters regardless of show_filter_tags, so left alone every
         # expanded group would render its own identical copy of that dropdown.
-        context["stored_filters"] = horilla_views_models.SavedFilter.objects.none()
+        context["stored_filters"] = joydigi_views_models.SavedFilter.objects.none()
         return context
 
     row_attrs = """
@@ -543,11 +543,11 @@ class DocumentIndividualTabList(DocumentListView):
     # a modal shell that only exists inside the handful of legacy templates
     # that used to embed it inline (tabs/document_tab.html, documents/
     # requests.html, etc). Now that this tab renders through the generic
-    # HorillaListView table template instead of one of those templates, that
+    # JoydigiListView table template instead of one of those templates, that
     # shell is absent from the DOM and a row click raised htmx:targetError
     # instead of opening a preview. Route through #genericModal /
     # #genericModalBody instead - the page-chrome modal that's always present
-    # - matching how every other HorillaProfileView sub-tab in this framework
+    # - matching how every other JoydigiProfileView sub-tab in this framework
     # opens its row-click preview (see RotatingShiftAssignIndividualView and
     # RotatingWorkIndividualTab in base/cbv/work_shift_tab.py).
     row_attrs = """
@@ -568,7 +568,7 @@ class DocumentIndividualTabList(DocumentListView):
         # DocumentListView.get_queryset() (the immediate parent) filters by
         # a document_request_id GET param, which doesn't apply to this tab
         # (it's scoped by the employee_id path param instead), so go
-        # straight to HorillaListView.get_queryset() with our own base
+        # straight to JoydigiListView.get_queryset() with our own base
         # queryset. That base implementation is what sets self._saved_filters
         # and applies filter_class/session/pagination handling -
         # get_context_data() reads self._saved_filters unconditionally, so
@@ -577,4 +577,4 @@ class DocumentIndividualTabList(DocumentListView):
         if queryset is None:
             pk = self.kwargs.get("pk")
             queryset = self.model.objects.filter(employee_id=pk)
-        return HorillaListView.get_queryset(self, queryset, filtered, *args, **kwargs)
+        return JoydigiListView.get_queryset(self, queryset, filtered, *args, **kwargs)

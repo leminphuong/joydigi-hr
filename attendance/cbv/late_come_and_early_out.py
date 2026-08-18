@@ -15,11 +15,11 @@ from base.decorators import manager_can_enter
 from base.filters import PenaltyFilter
 from base.methods import filtersubordinates, has_export_access, is_reportingmanager
 from base.models import PenaltyAccounts
-from horilla_views.cbv_methods import hx_request_required, login_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import hx_request_required, login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 
@@ -42,7 +42,7 @@ class LateComeAndEarlyOut(TemplateView):
     manager_can_enter(perm="attendance.view_attendancelatecomeearlyout"),
     name="dispatch",
 )
-class LateComeAndEarlyOutList(HorillaListView):
+class LateComeAndEarlyOutList(JoydigiListView):
     """
     List view
     """
@@ -125,7 +125,7 @@ class LateComeAndEarlyOutList(HorillaListView):
     manager_can_enter(perm="attendance.view_attendancelatecomeearlyout"),
     name="dispatch",
 )
-class LateComeAndEarlyOutListNav(HorillaNavView):
+class LateComeAndEarlyOutListNav(JoydigiNavView):
     """
     Nav bar
     """
@@ -224,7 +224,7 @@ class LateEarlyExportView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class LateComeEarlyOutDetailView(HorillaDetailedView):
+class LateComeEarlyOutDetailView(JoydigiDetailedView):
     """
     Detail View
     """

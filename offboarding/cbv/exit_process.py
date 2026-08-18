@@ -18,21 +18,21 @@ from django.views import View
 
 from base.context_processors import intial_notice_period
 from base.methods import eval_validate
-from horilla.methods import get_horilla_model_class
-from horilla_views.cbv_methods import (
+from joydigi.methods import get_joydigi_model_class
+from joydigi_views.cbv_methods import (
     hx_request_required,
     login_required,
     permission_required,
 )
-from horilla_views.generic.cbv.kanban import HorillaKanbanView
-from horilla_views.generic.cbv.pipeline import Pipeline
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
-    HorillaSectionView,
-    HorillaTabView,
+from joydigi_views.generic.cbv.kanban import JoydigiKanbanView
+from joydigi_views.generic.cbv.pipeline import Pipeline
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
+    JoydigiSectionView,
+    JoydigiTabView,
 )
 from notifications.signals import notify
 from offboarding.cbv_decorators import (
@@ -107,7 +107,7 @@ def offboarding_pipeline_modal_success_response(request) -> HttpResponse:
 @method_decorator(
     offboarding_manager_can_enter("offboarding.add_offboardingstage"), name="dispatch"
 )
-class OffboardingStageFormView(HorillaFormView):
+class OffboardingStageFormView(JoydigiFormView):
     """
     form view for create button
     """
@@ -143,7 +143,7 @@ class OffboardingStageFormView(HorillaFormView):
 @method_decorator(
     any_manager_can_enter("offboarding.add_offboardingemployee"), name="dispatch"
 )
-class OffboardingStageAddEmployeeForm(HorillaFormView):
+class OffboardingStageAddEmployeeForm(JoydigiFormView):
     """
     form view for create button
     """
@@ -194,7 +194,7 @@ class OffboardingStageAddEmployeeForm(HorillaFormView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required("offboarding.add_offboarding"), name="dispatch")
-class OffboardingCreateFormView(HorillaFormView):
+class OffboardingCreateFormView(JoydigiFormView):
     """
     form view for create and edit offboarding
     """
@@ -229,7 +229,7 @@ class OffboardingCreateFormView(HorillaFormView):
     offboarding_or_stage_manager_can_enter("offboarding.add_offboardingtask"),
     name="dispatch",
 )
-class OffboardingTaskFormView(HorillaFormView):
+class OffboardingTaskFormView(JoydigiFormView):
     """
     form view for create and edit offboarding tasks
     """
@@ -274,7 +274,7 @@ class OffboardingTaskFormView(HorillaFormView):
 
 
 @method_decorator(login_required, name="dispatch")
-class ExitProcessDetailView(HorillaDetailedView):
+class ExitProcessDetailView(JoydigiDetailedView):
     """
     detail view
     """
@@ -308,7 +308,7 @@ class ExitProcessDetailView(HorillaDetailedView):
     ),
     name="dispatch",
 )
-class OffboardingPipelineView(HorillaSectionView):
+class OffboardingPipelineView(JoydigiSectionView):
     """
     Offboarding Pipeline View
     """
@@ -326,7 +326,7 @@ class OffboardingPipelineView(HorillaSectionView):
     ),
     name="dispatch",
 )
-class OffboardingPipelineNav(HorillaNavView):
+class OffboardingPipelineNav(JoydigiNavView):
     """
     Offboarding Pipeline Navigation View
     """
@@ -384,7 +384,7 @@ class OffboardingPipelineNav(HorillaNavView):
     ),
     name="dispatch",
 )
-class PipeLineTabView(HorillaTabView):
+class PipeLineTabView(JoydigiTabView):
     """
     Pipeline Tab View
     """
@@ -547,7 +547,7 @@ class OffboardingPipelineStage(Pipeline):
 
 
 @method_decorator(login_required, name="dispatch")
-class OffboardingKanbanView(HorillaKanbanView):
+class OffboardingKanbanView(JoydigiKanbanView):
     """
     Offboarding Kanban View
     """
@@ -731,7 +731,7 @@ class OffboardingKanbanRequiredTaskCheck(View):
 
 
 @method_decorator(login_required, name="dispatch")
-class OffboardingEmployeeList(HorillaListView):
+class OffboardingEmployeeList(JoydigiListView):
     """
     Offboarding Employee List View
     """
@@ -930,7 +930,7 @@ class OffboardingEmployeeList(HorillaListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class DashboardTaskListview(HorillaListView):
+class DashboardTaskListview(JoydigiListView):
     """
     For dashboard task status table
     """
@@ -965,7 +965,7 @@ if apps.is_installed("asset"):
     @method_decorator(
         any_manager_can_enter("offboarding.view_offboarding"), name="dispatch"
     )
-    class DashboardNotReturndAsssets(HorillaListView):
+    class DashboardNotReturndAsssets(JoydigiListView):
         """
         For dashboard task status table
         """
@@ -975,7 +975,7 @@ if apps.is_installed("asset"):
         show_toggle_form = False
 
         def __init__(self, *args, **kwargs):
-            AssetAssignment = get_horilla_model_class(
+            AssetAssignment = get_joydigi_model_class(
                 app_label="asset", model="assetassignment"
             )
             self.model = AssetAssignment  # 809
@@ -1021,7 +1021,7 @@ if apps.is_installed("pms"):
     @method_decorator(
         any_manager_can_enter("offboarding.view_offboarding"), name="dispatch"
     )
-    class DashboardFeedbackView(HorillaListView):
+    class DashboardFeedbackView(JoydigiListView):
         """
         For dashboard task status table
         """
@@ -1037,7 +1037,7 @@ if apps.is_installed("pms"):
         ]
 
         def __init__(self, *args, **kwargs):
-            self.Feedback = get_horilla_model_class(app_label="pms", model="feedback")
+            self.Feedback = get_joydigi_model_class(app_label="pms", model="feedback")
             self.model = self.Feedback  # 809
             super().__init__(*args, **kwargs)
 

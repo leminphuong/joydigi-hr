@@ -8,7 +8,7 @@ from django.utils.translation import gettext_lazy as _
 
 from base.context_processors import enable_late_come_early_out_tracking
 from base.templatetags.basefilters import is_reportingmanager
-from horilla.menu import settings_menu
+from joydigi.menu import settings_menu
 
 MENU = _("Attendance")
 IMG_SRC = "images/ui/attendances.svg"

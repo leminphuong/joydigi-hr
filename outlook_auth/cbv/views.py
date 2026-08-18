@@ -9,8 +9,8 @@ from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv import views
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv import views
 from outlook_auth import filters, forms, models
 
 
@@ -18,7 +18,7 @@ from outlook_auth import filters, forms, models
 @method_decorator(
     permission_required(perm="outlook_auth.view_azureapi"), name="dispatch"
 )
-class ServerNav(views.HorillaNavView):
+class ServerNav(views.JoydigiNavView):
     """
     ServerList
     """
@@ -45,7 +45,7 @@ class ServerNav(views.HorillaNavView):
 @method_decorator(
     permission_required(perm="outlook_auth.view_azureapi"), name="dispatch"
 )
-class ServerList(views.HorillaListView):
+class ServerList(views.JoydigiListView):
     """
     ServerList
     """
@@ -75,7 +75,7 @@ class ServerList(views.HorillaListView):
 @method_decorator(
     permission_required(perm="outlook_auth.add_azureapi"), name="dispatch"
 )
-class ServerForm(views.HorillaFormView):
+class ServerForm(views.JoydigiFormView):
     """
     ServerForm
     """

@@ -9,7 +9,7 @@ from django.core.cache import cache
 from accessibility.accessibility import ACCESSBILITY_FEATURE
 from accessibility.filters import AccessibilityFilter
 from accessibility.models import DefaultAccessibility
-from horilla.horilla_middlewares import _thread_locals
+from joydigi.joydigi_middlewares import _thread_locals
 
 logger = logging.getLogger(__name__)
 

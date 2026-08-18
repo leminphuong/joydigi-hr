@@ -18,7 +18,7 @@ from attendance.models import Attendance, AttendanceValidationCondition
 from attendance.views.views import strtime_seconds
 from base.models import EmployeeShiftSchedule
 from employee.models import Employee
-from horilla.horilla_middlewares import _thread_locals
+from joydigi.joydigi_middlewares import _thread_locals
 
 register = template.Library()
 

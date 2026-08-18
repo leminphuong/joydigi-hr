@@ -49,10 +49,10 @@ def ess_dashboard(request):
     if not employee:
         from django.contrib import messages
 
-        from horilla.http.response import HorillaRedirect
+        from joydigi.http.response import JoydigiRedirect
 
         messages.error(request, _("Your account is not linked to an employee record."))
-        return HorillaRedirect(request)
+        return JoydigiRedirect(request)
     return render(
         request,
         "base/ess_dashboard.html",

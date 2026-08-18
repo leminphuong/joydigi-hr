@@ -2,7 +2,7 @@
 
 from django.test import TestCase
 
-from horilla.testkit import make_company
+from joydigi.testkit import make_company
 from offboarding.models import Offboarding, OffboardingGeneralSetting
 
 

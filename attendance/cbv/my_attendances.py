@@ -10,11 +10,11 @@ from django.utils.translation import gettext_lazy as _
 
 from attendance.filters import AttendanceFilters
 from attendance.models import Attendance
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 
@@ -28,7 +28,7 @@ class MyAttendances(TemplateView):
     template_name = "cbv/my_attendances/my_attendances.html"
 
 
-class MyAttendancesListView(HorillaListView):
+class MyAttendancesListView(JoydigiListView):
 
     model = Attendance
     filter_class = AttendanceFilters
@@ -154,7 +154,7 @@ class MyAttendanceList(MyAttendancesListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class MyAttendancestNav(HorillaNavView):
+class MyAttendancestNav(JoydigiNavView):
     """
     Nav bar
     """
@@ -176,7 +176,7 @@ class MyAttendancestNav(HorillaNavView):
 
 
 @method_decorator(login_required, name="dispatch")
-class MyAttendancesDetailView(HorillaDetailedView):
+class MyAttendancesDetailView(JoydigiDetailedView):
     """
     Detail View
     """

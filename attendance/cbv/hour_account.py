@@ -21,12 +21,12 @@ from base.methods import (
     has_export_access,
     is_reportingmanager,
 )
-from horilla_views.cbv_methods import hx_request_required, login_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import hx_request_required, login_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 
@@ -41,7 +41,7 @@ class HourAccount(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class HourAccountList(HorillaListView):
+class HourAccountList(JoydigiListView):
     """
     List view
     """
@@ -116,7 +116,7 @@ class HourAccountList(HorillaListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class HourAccountNav(HorillaNavView):
+class HourAccountNav(JoydigiNavView):
     """
     Nav bar
     """
@@ -214,7 +214,7 @@ class HourExportView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class HourAccountDetailView(HorillaDetailedView):
+class HourAccountDetailView(JoydigiDetailedView):
     """
     Detail View
     """
@@ -243,7 +243,7 @@ class HourAccountDetailView(HorillaDetailedView):
 @method_decorator(
     manager_can_enter("attendance.add_attendanceovertime"), name="dispatch"
 )
-class HourAccountFormView(HorillaFormView):
+class HourAccountFormView(JoydigiFormView):
     """
     Form View
     """

@@ -9,8 +9,8 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
 from base.cbv.mail_log_tab import MailLogTabList
-from horilla_views.cbv_methods import login_required
-from horilla_views.generic.cbv.views import HorillaListView
+from joydigi_views.cbv_methods import login_required
+from joydigi_views.generic.cbv.views import JoydigiListView
 from recruitment.cbv_decorators import all_manager_can_enter
 from recruitment.models import Candidate
 
@@ -44,7 +44,7 @@ class CandidateMailLogTabList(MailLogTabList):
         pk = self.kwargs.get("pk")
         candidate_obj = Candidate.objects.get(id=pk)
         return (
-            HorillaListView.get_queryset(self)
+            JoydigiListView.get_queryset(self)
             .filter(to__icontains=candidate_obj.email)
             .order_by("-created_at")
         )

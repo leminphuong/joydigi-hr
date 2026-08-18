@@ -6,7 +6,7 @@ This module is used to map url path with view methods.
 
 from django.urls import path
 
-from base.templatetags.horillafilters import app_installed
+from base.templatetags.joydigifilters import app_installed
 from base.views import object_delete, object_duplicate
 from employee import dashboard as emp_dashboard
 from employee import (
@@ -30,7 +30,7 @@ from employee.cbv import (
 )
 from employee.forms import DisciplinaryActionForm
 from employee.models import DisciplinaryAction, Employee, EmployeeTag
-from horilla_documents.models import DocumentRequest
+from joydigi_documents.models import DocumentRequest
 
 urlpatterns = [
     path(

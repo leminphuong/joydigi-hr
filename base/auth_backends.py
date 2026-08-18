@@ -11,7 +11,7 @@ ContextVar before any view or template runs).
 Resolution rules (flag on, non-superusers — superusers bypass backends):
 - specific company selected  -> permissions from groups assigned for that company
 - "all" / "All my companies" -> union of the user's per-company assignments
-  (data layer still limits rows to those companies via HorillaCompanyManager)
+  (data layer still limits rows to those companies via JoydigiCompanyManager)
 - no company context (API/JWT without session, shells, schedulers)
                              -> user's work-info company; if none, the union
                                 of all their per-company assignments
@@ -25,7 +25,7 @@ from django.conf import settings
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import Permission
 
-from horilla.horilla_middlewares import _thread_locals, get_selected_company
+from joydigi.joydigi_middlewares import _thread_locals, get_selected_company
 
 
 class CompanyScopedBackend(ModelBackend):

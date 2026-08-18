@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from biometric.models import BiometricDevices, validate_schedule_time_format
-from horilla.testkit import make_company
+from joydigi.testkit import make_company
 
 
 class ScheduleTimeFormatTests(TestCase):

@@ -14,12 +14,12 @@ from django.utils.translation import gettext_lazy as _
 from base.filters import CompanyLeaveFilter
 from base.forms import CompanyLeaveForm
 from base.models import CompanyLeaves
-from horilla_views.cbv_methods import login_required, permission_required
-from horilla_views.generic.cbv.views import (
-    HorillaDetailedView,
-    HorillaFormView,
-    HorillaListView,
-    HorillaNavView,
+from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi_views.generic.cbv.views import (
+    JoydigiDetailedView,
+    JoydigiFormView,
+    JoydigiListView,
+    JoydigiNavView,
     TemplateView,
 )
 
@@ -41,7 +41,7 @@ class CompanyLeavesView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-class CompanyleaveListView(HorillaListView):
+class CompanyleaveListView(JoydigiListView):
     """
     list view
     """
@@ -84,7 +84,7 @@ class CompanyleaveListView(HorillaListView):
 
 
 @method_decorator(login_required, name="dispatch")
-class CompanyLeaveNavView(HorillaNavView):
+class CompanyLeaveNavView(JoydigiNavView):
     """
     nav bar
     """
@@ -109,7 +109,7 @@ class CompanyLeaveNavView(HorillaNavView):
 
 
 @method_decorator(login_required, name="dispatch")
-class CompanyLeaveDetailView(HorillaDetailedView):
+class CompanyLeaveDetailView(JoydigiDetailedView):
     """
     detail view of the page
     """
@@ -126,7 +126,7 @@ class CompanyLeaveDetailView(HorillaDetailedView):
 
 
 @method_decorator(login_required, name="dispatch")
-class CompanyleaveFormView(HorillaFormView):
+class CompanyleaveFormView(JoydigiFormView):
     """
     form view for create button
     """

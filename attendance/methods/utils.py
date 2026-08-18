@@ -596,7 +596,7 @@ def parse_time(time_str):
         return time_str
 
     if isinstance(time_str, str):
-        for format_str in settings.HORILLA_TIME_FORMATS.values():
+        for format_str in settings.JOYDIGI_TIME_FORMATS.values():
             try:
                 return datetime.strptime(time_str, format_str).time()
             except ValueError:
@@ -632,7 +632,7 @@ def get_date(date):
     if isinstance(date, datetime):
         return date
     elif isinstance(date, str):
-        for format_name, format_str in settings.HORILLA_DATE_FORMATS.items():
+        for format_name, format_str in settings.JOYDIGI_DATE_FORMATS.items():
             try:
                 return datetime.strptime(date, format_str)
             except ValueError:

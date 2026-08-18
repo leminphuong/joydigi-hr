@@ -1,0 +1,176 @@
+{% load i18n %}
+{% load static i18n horillafilters notifications_tags %}
+{% load basefilters %}
+{% show_section as show_section %}
+{% get_company as theme_obj %}
+
+<style>
+    /* Dark mode: the header action-icon chips use .bg-primary-100, which the
+       global dark theme paints #1a1a1a — darker than the #242424 header, so the
+       buttons read as recessed holes and their icons lose contrast. Give them a
+       subtly raised neutral surface instead, keep the glyph bright, and restore
+       the accent hover (the global !important resting rule otherwise kills it). */
+    body.dark .oh-main-header .bg-primary-100 {
+        background-color: rgba(255, 255, 255, 0.12) !important;
+    }
+    body.dark .oh-main-header .bg-primary-100 i {
+        color: #ffffff;
+    }
+    body.dark .oh-main-header .bg-primary-100:hover {
+        background-color: {{ theme_obj.primary_600|default:'#e54f38' }} !important;
+    }
+    body.dark .oh-main-header .bg-primary-100:hover i {
+        color: #ffffff;
+    }
+</style>
+
+<div id="mainHeader" class="oh-main-header flex justify-between items-center bg-white py-3 px-5 border-b border-b-dark-50 fixed z-40">
+    <div id="breadcrumbs-container">
+        {% if breadcrumbs %}
+            {% include "base/navbar_components/breadcrumbs_view.html" %}
+        {% endif %}
+    </div>
+
+    <div class="flex items-center gap-8">
+        <!-- Action Icons -->
+        <div class="flex items-center gap-2">
+            {% if "attendance"|app_installed %}
+                <div id="attendance-activity-container">
+                    {% include "attendance/components/in_out_component.html" %}
+                </div>
+            {% endif %}
+            <button
+                id="themeToggleButton"
+                class="md:block p-2 group text-primary-600 w-12 h-12 bg-primary-100 hover:bg-primary-600 rounded-full transition duration-300 flex items-center justify-center"
+            >
+                <a href="#" aria-label="{% trans 'Toggle theme' %}" onclick="return false">
+                    {% if request.session.theme == "dark" %}
+                        <i class="fa-solid fa-lightbulb transition duration-300 group-hover:text-white"></i>
+                    {% else %}
+                        <i class="fa-solid fa-moon transition duration-300 group-hover:text-white"></i>
+                    {% endif %}
+                </a>
+            </button>
+            {% if show_section %}
+                <button class="md:block p-2 group text-primary-600 w-12 h-12 bg-primary-100 hover:bg-primary-600 rounded-full transition duration-300 flex items-center justify-center">
+                    <a href="{% url 'settings' %}">
+                        <i class="fas fa-cog transition duration-300 group-hover:text-white"></i>
+                    </a>
+                </button>
+            {% endif %}
+            {% if tour_launcher_enabled %}
+            <div class="relative dropdown-wrapper">
+                <button
+                    id="tourLauncherBtn"
+                    type="button"
+                    title="{% trans 'Take a tour' %}"
+                    onclick="if(window.horillaTour){window.horillaTour.toggle();}"
+                    class="hidden md:block p-2 group text-primary-600 w-12 h-12 bg-primary-100 hover:bg-primary-600 rounded-full transition duration-300 relative"
+                >
+                    <i class="fas fa-circle-question transition duration-300 group-hover:text-white"></i>
+                    {% if tour_has_pending %}
+                    <span class="absolute bg-[#16a34a] w-3 h-3 rounded-full border-2 border-white [right:-2px] [top:-2px]"></span>
+                    {% endif %}
+                </button>
+            </div>
+            {% endif %}
+            <div class="relative dropdown-wrapper">
+                <button
+                    class="hidden md:block p-2 group text-primary-600 w-12 h-12 bg-primary-100 hover:bg-primary-600 rounded-full transition duration-300 relative"
+                    hx-get="{% url 'notifications' %}"
+                    hx-target="#notificationContainer"
+                    hx-trigger="load"
+                >
+                    <i class="fas fa-bell transition duration-300 group-hover:text-white"></i>
+                    {% notifications_unread as unread_count %}
+                    <span
+                        id="notifyBadgeCircle"
+                        class="absolute w-7 h-7 rounded-full text-xs text-[white] font-semibold flex items-center justify-center border-2 border-white p-1 [right:-10px] [top:-7px]{% if not unread_count %} hidden{% endif %}"
+                        style="background-color: {{ theme_obj.primary_600|default:'#d7391d' }}"
+                    >
+                        {% live_notify_badge %}
+                    </span>
+                </button>
+                <script>
+                    // Hide the notification badge circle whenever the unread count is 0.
+                    // The count element (.live_notify_badge) is rewritten in place by the
+                    // notifications live-update JS, so we observe it and toggle the circle
+                    // reactively — no page reload needed when the count changes.
+                    (function () {
+                        function syncNotifyBadge() {
+                            var circle = document.getElementById("notifyBadgeCircle");
+                            if (!circle) return;
+                            var badge = circle.querySelector(".live_notify_badge");
+                            var count = badge ? parseInt((badge.textContent || "").trim(), 10) : 0;
+                            circle.classList.toggle("hidden", !count);
+                        }
+                        function initNotifyBadgeSync() {
+                            var circle = document.getElementById("notifyBadgeCircle");
+                            if (!circle) return;
+                            syncNotifyBadge();
+                            var badge = circle.querySelector(".live_notify_badge");
+                            if (badge) {
+                                new MutationObserver(syncNotifyBadge).observe(badge, {
+                                    childList: true,
+                                    characterData: true,
+                                    subtree: true,
+                                });
+                            }
+                        }
+                        if (document.readyState === "loading") {
+                            document.addEventListener("DOMContentLoaded", initNotifyBadgeSync);
+                        } else {
+                            initNotifyBadgeSync();
+                        }
+                    })();
+                </script>
+                {% include "notification/notification.html" %}
+            </div>
+
+            {% if show_language_switcher %}
+                <div class="relative dropdown-wrapper">
+                    <button class="hidden md:block p-2 group text-primary-600 w-12 h-12 bg-primary-100 hover:bg-primary-600 rounded-full transition duration-300">
+                        <i class="fas fa-globe transition duration-300 group-hover:text-white"></i>
+                    </button>
+                    {% include "base/navbar_components/language_settings.html" %}
+                </div>
+            {% endif %}
+
+            {% if show_company_switcher %}
+                <div class="relative dropdown-wrapper">
+                    <button class="hidden md:block p-2 group text-primary-600 w-12 h-12 bg-primary-100 hover:bg-primary-600 rounded-full transition duration-300">
+                        <i class="fa-solid fa-building transition duration-300 group-hover:text-white"></i>
+                    </button>
+                    {% include "base/navbar_components/company_selection.html" %}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="relative dropdown-wrapper">
+            {% include "base/navbar_components/profile_section.html" %}
+        </div>
+    </div>
+</div>
+
+<!-- All Notification -->
+<div class="sidebarModal overflow-hidden overflow-y-auto" id="sidebarModal3">
+    <!-- <button class="closebtn closeSidemenu absolute top-3 right-3" data-sidebar="sidebarModal3"><i
+      class="fa-solid fa-xmark"></i></button> -->
+
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold flex items-center gap-2">
+            <button
+                class="closebtn closeSidemenu cursor-pointer text-xs group text-primary-600 w-6 h-6 bg-primary-100 hover:bg-primary-600 hover:text-white rounded-full transition duration-300 flex items-center justify-center"
+                data-sidebar="sidebarModal3"
+            >
+                <i class="fa-solid fa-angle-right"></i>
+            </button>
+            {% trans "All Notifications" %}
+        </h3>
+        <button class="text-primary-600 text-xs flex justify-center font-semibold hover:text-[#ac3b2a] transition duration-300">
+            {% trans "Clear All" %}
+        </button>
+    </div>
+    <div class="" id="sidebarModalBody"></div>
+    <!--sidecont-->
+</div>

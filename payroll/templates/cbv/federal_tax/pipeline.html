@@ -1,0 +1,77 @@
+{% load i18n recruitmentfilters horillafilters %}
+{% load generic_template_filters %}
+{% get_company as theme_obj %}
+<div id="{{view_id}}" class="accordion-wrapper space-y-2">
+  <button
+      class="reload-record"
+      hidden
+      hx-get="{{search_url}}?{{request.GET.urlencode}}"
+      hx-target="#{{view_id}}"
+      hx-swap="outerHTML"
+  ></button>
+
+  {% include "generic/quick_actions.html" %}
+
+  {% for group in groups %}
+  <div id="{{selected_instances_key_name}}{{ group.id }}" data-ids="[]"></div>
+  <div class="accordion-item border border-primary-300 rounded-md overflow-hidden">
+    <div class="accordion-btn w-full flex justify-between items-center px-4 py-2 text-sm transition-all bg-primary-100 text-primary-600 hover:bg-primary-200" style="cursor:pointer;" onclick="var icon = this.querySelector('.movable-toggle-icon'); if (icon) { var name = icon.getAttribute('name'); icon.setAttribute('name', name === 'chevron-down-outline' ? 'chevron-up-outline' : 'chevron-down-outline'); } $(this).parent().find('.oh-tabs__movable-body').toggleClass('d-none');">
+      <span class="oh-tabs__movable-title">{{group}}</span>
+
+      <div class="flex items-center gap-4">
+        <ion-icon name="{% if forloop.first %}chevron-up-outline{% else %}chevron-down-outline{% endif %}" class="movable-toggle-icon icon text-lg"></ion-icon>
+
+        <div onclick="event.stopPropagation()" class="oh-dropdown" x-data="{open: false}">
+          <div style="cursor: pointer;" onclick="event.stopPropagation()" class="oh-dropdown" x-data="{open: false}">
+            <button
+              class="oh-btn oh-stop-prop oh-btn--transparent oh-accordion-meta__btn"
+              @click="open = !open"
+              @click.outside="open = false"
+              title="{% trans 'Actions' %}"
+              class="text-primary-600"
+            >
+              <ion-icon
+                name="ellipsis-vertical"
+                role="img"
+                class="md hydrated"
+                aria-label="{% trans 'ellipsis vertical' %}"
+              ></ion-icon>
+            </button>
+            <div
+              class="oh-dropdown__menu oh-dropdown__menu--right mwidth"
+              x-show="open"
+              style="display: none; min-width:135px !important;"
+            >
+              <ul class="oh-dropdown__items">
+                {% for action in actions %}
+                {% if action.accessibility|accessibility:group %}
+                <li class="oh-dropdown__item">
+                  <a {{action.attrs|format:group|safe}}>{{action.action}}</a>
+                </li>
+                {% endif %}
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+    class="oh-tabs__movable-body position-relative bg-white px-4 text-sm text-gray-700 {% if not forloop.first %}d-none{% endif %}"
+    hx-get="{{url}}?{% for parameter in parameters %}{{parameter|format:group}}&{% endfor %}{{request.GET.urlencode}}"
+    hx-trigger="load" id="taxbracketList{{group.id}}"
+
+    >
+  </div>
+  </div>
+  {% endfor %}
+</div>
+<script>
+    var tabId = $("#{{view_id}}").closest(".oh-tabs__content").attr("id");
+    var badge = $(`#badge-${tabId}`);
+    var count = "{{groups_total_count}}";
+    var label = badge.attr("data-badge-label") || "";
+    var title = count + " " + label;
+    badge.html(count);
+    badge.attr("title", title);
+</script>

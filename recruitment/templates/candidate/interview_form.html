@@ -1,0 +1,14 @@
+{% load i18n widget_tweaks %}
+<div id="id_employee_id_parent_div">
+    <div class="flex oh-label" for="id_employee_id">
+        <label class="{% if form.employee_id.field.required %}required-star{% endif %}"
+            for="id_employee_id">{% trans form.employee_id.label %}</label>
+        {% if form.employee_id.help_text %}
+            <span class="oh-info mr-2" title="{{ form.employee_id.help_text }}"></span>
+        {% endif %}
+    </div>
+    <div id="dynamic_field_employee_id">
+        {{ form.employee_id|add_class:'form-control' }}
+        {{ form.employee_id.errors }}
+    </div>
+</div>

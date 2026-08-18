@@ -1,0 +1,412 @@
+{% extends "index.html" %}
+{% load i18n %}
+{% load static recruitmentfilters %}
+
+{% block content %}
+
+<meta name="csrf-token" content="{{ csrf_token }}">
+
+<style>
+    .hired--dot {
+        background-color: yellowgreen;
+    }
+
+    .nothired--dot {
+        background-color: grey;
+    }
+
+    .canceled--dot {
+        background-color: red;
+    }
+
+    .hired-True {
+        border-left: 3.4px solid yellowgreen !important;
+        border-radius: 4px 0 0 4px;
+
+    }
+
+    .hired-False {
+        border-left: 3.4px solid grey !important;
+        border-radius: 4px 0 0 4px;
+
+    }
+
+    .canceled-True {
+
+        border-left: 3.4px solid red !important;
+        border-radius: 4px 0 0 4px;
+
+    }
+
+    .employee {
+        background-color: yellowgreen;
+    }
+
+    body.recruitment-candidate-detail #candidateListNavBar {
+        display: none !important;
+    }
+</style>
+
+
+<div id="candidateMainContainer">
+    <div id="candidateListNavBar">
+    <div hx-get="{% url 'nav-candidate' %}?{{request.GET.urlencode}}" hx-trigger="load"></div>
+    </div>
+
+    {% include "generic/components.html" %}
+
+    <div class="oh-checkpoint-badge mb-2" id="selectedInstances" data-ids="[]" data-clicked="" style="display: none"></div>
+
+    <div class="oh-wrapper" id="listContainer">
+        <div class="animated-background">
+        </div>
+    </div>
+</div>
+
+<div class="oh-activity-sidebar" id="activitySidebar" style="z-index:1000">
+    <div class="oh-activity-sidebar__body" id="noteContainer">
+        <div class="oh-activity-sidebar__header">
+            <a event.stopPropagation style="cursor: pointer;"
+                onclick="$('.oh-activity-sidebar--show').removeClass('oh-activity-sidebar--show');">
+                <ion-icon name="chevron-forward-outline"
+                    class="oh-activity-sidebar__header-icon me-2 oh-activity-sidebar__close"
+                    data-target="#activitySidebar">
+                </ion-icon>
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        function isCandidateDetailPath() {
+            var path = window.location.pathname.replace(/\/$/, "");
+            return /\/recruitment\/candidate-view\/\d+$/.test(path);
+        }
+        function isCandidateProfilePath() {
+            var path = window.location.pathname.replace(/\/$/, "");
+            return path.indexOf("/recruitment/profile/recruitment/candidate-view/") !== -1;
+        }
+        // The Edit action also swaps into #listContainer (hx-push-url takes
+        // the address bar to this path), same as the detail/profile views --
+        // without matching it here the list's nav bar/filter tags stay
+        // visible above the edit form since they live in a sibling
+        // (#candidateListNavBar), which the Edit swap never touches.
+        function isCandidateEditPath() {
+            var path = window.location.pathname.replace(/\/$/, "");
+            return /\/recruitment\/candidate-update\/\d+$/.test(path);
+        }
+        function getHtmxSwapTarget(e) {
+            if (!e || !e.detail) {
+                return null;
+            }
+            return e.detail.target || e.detail.elt || null;
+        }
+        function clearCandidateFilterTagRows() {
+            var main = document.getElementById("candidateMainContainer");
+            if (!main) {
+                return;
+            }
+            main.querySelectorAll("#filterTagContainerSectionNav").forEach(function (el) {
+                el.innerHTML = "";
+            });
+        }
+        function syncCandidateListNavBar() {
+            var nav = document.getElementById("candidateListNavBar");
+            var list = document.getElementById("listContainer");
+            if (!nav || !list) {
+                return;
+            }
+            var hasProfile = !!list.querySelector(".reload-profile-view");
+            var hide =
+                hasProfile ||
+                isCandidateDetailPath() ||
+                isCandidateProfilePath() ||
+                isCandidateEditPath();
+            if (hide) {
+                document.body.classList.add("recruitment-candidate-detail");
+                nav.style.display = "none";
+                clearCandidateFilterTagRows();
+            } else {
+                document.body.classList.remove("recruitment-candidate-detail");
+                nav.style.display = "";
+            }
+        }
+        function onListContainerHtmxEvent(e) {
+            var t = getHtmxSwapTarget(e);
+            if (t && t.id === "listContainer") {
+                syncCandidateListNavBar();
+                setTimeout(syncCandidateListNavBar, 0);
+                setTimeout(syncCandidateListNavBar, 50);
+            }
+        }
+        document.addEventListener("DOMContentLoaded", syncCandidateListNavBar);
+        document.body.addEventListener("htmx:afterSwap", onListContainerHtmxEvent);
+        document.body.addEventListener("htmx:afterSettle", onListContainerHtmxEvent);
+        document.body.addEventListener("htmx:afterRequest", function (e) {
+            if (!e.detail || !e.detail.successful) {
+                return;
+            }
+            var url = (e.detail.xhr && e.detail.xhr.responseURL) || "";
+            var t = getHtmxSwapTarget(e);
+            if (url.indexOf("/recruitment/profile/recruitment/candidate-view/") !== -1) {
+                setTimeout(syncCandidateListNavBar, 0);
+                setTimeout(syncCandidateListNavBar, 50);
+                return;
+            }
+            if (t && t.id === "listContainer") {
+                setTimeout(syncCandidateListNavBar, 0);
+                setTimeout(syncCandidateListNavBar, 50);
+            }
+        });
+        window.addEventListener("popstate", function () {
+            setTimeout(syncCandidateListNavBar, 0);
+        });
+    })();
+
+    document.body.addEventListener("htmx:historyRestore", function () {
+        window.location.reload();
+    });
+
+    if (window._candidateContainerReloadHandler) {
+        document.body.removeEventListener(
+            "candidateContainerReload",
+            window._candidateContainerReloadHandler
+        );
+    }
+    window._candidateContainerReloadHandler = function () {
+        var $filter = $("#applyFilter");
+        if ($filter.length) {
+            $filter.click();
+        }
+        var $msg = $("#reloadMessagesButton");
+        if ($msg.length) {
+            $msg.click();
+        }
+    };
+    document.body.addEventListener(
+        "candidateContainerReload",
+        window._candidateContainerReloadHandler
+    );
+
+    function archiveCandidate(url, msg) {
+        Swal.fire({
+            text: msg,
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonColor: "#d33",
+            cancelButtonColor: "#6c757d",
+            confirmButtonText: i18nMessages.confirm,
+            cancelButtonText: i18nMessages.cancel,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    type: "POST",
+                    url: url,
+                    data: {
+                        csrfmiddlewaretoken: getCookie("csrftoken"),
+                    },
+                    success: function () {
+                        $("#applyFilter").click();
+                        $("#reloadMessagesButton").click();
+                    },
+                });
+            }
+        });
+    }
+
+    function getCSRFToken() {
+        return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    }
+
+    function deleteCandidate(url) {
+        Swal.fire({
+            text: i18nMessages.confirmBulkDelete,
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonColor: "#d33",
+            cancelButtonColor: "#6c757d",
+            confirmButtonText: i18nMessages.confirm,
+            cancelButtonText: i18nMessages.cancel,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    type: "POST",
+                    url: url,
+                    data: {
+                        csrfmiddlewaretoken: getCSRFToken(),
+                    },
+                    success: function () {
+                        $("#applyFilter").click();
+                        $("#reloadMessagesButton").click();
+                    },
+                });
+            }
+        });
+    }
+
+
+    function toEmployee(url) {
+        Swal.fire({
+            text: "{% trans 'Are you sure you want to convert this candidate into an employee?' %}",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonColor: "#008000",
+            cancelButtonColor: "#6c757d",
+            confirmButtonText: i18nMessages.confirm,
+            cancelButtonText: i18nMessages.cancel,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    type: "GET",
+                    url: url,
+                    success: function () {
+                        $("#applyFilter").click();
+                        $("#reloadMessagesButton").click();
+                    },
+                });
+            }
+        });
+    }
+
+    $(document).on('click', '#archiveCandidates', function (e) {
+        e.preventDefault();
+        ids = [];
+        ids.push($("#selectedInstances").attr("data-ids"));
+        ids = JSON.parse($("#selectedInstances").attr("data-ids"));
+        if (ids.length === 0) {
+            Swal.fire({
+                text: i18nMessages.noRowsSelected,
+                icon: "warning",
+                confirmButtonText: i18nMessages.close,
+            });
+        } else {
+            Swal.fire({
+                text: i18nMessages.confirmBulkArchive,
+                icon: "info",
+                showCancelButton: true,
+                confirmButtonColor: "#d33",
+                cancelButtonColor: "#6c757d",
+                confirmButtonText: i18nMessages.confirm,
+                cancelButtonText: i18nMessages.cancel,
+            }).then(function (result) {
+                if (result.isConfirmed) {
+                    e.preventDefault();
+                    $.ajax({
+                        type: "POST",
+                        url: "/recruitment/candidate-bulk-archive/?is_active=False",
+                        data: {
+                            csrfmiddlewaretoken: getCookie("csrftoken"),
+                            ids: JSON.stringify(ids),
+                        },
+                        success: function (response, textStatus, jqXHR) {
+                            if (jqXHR.status === 200) {
+                                $("#applyFilter").click();
+                                $("#reloadMessagesButton").click();
+                            } else {
+                                // console.log("Unexpected HTTP status:", jqXHR.status);
+                            }
+                        },
+                    });
+                }
+            });
+        }
+    });
+
+    $(document).on('click', '#unArchiveCandidates', function (e) {
+        e.preventDefault();
+        ids = [];
+        ids.push($("#selectedInstances").attr("data-ids"));
+        ids = JSON.parse($("#selectedInstances").attr("data-ids"));
+        if (ids.length === 0) {
+            Swal.fire({
+                text: i18nMessages.noRowsSelected,
+                icon: "warning",
+                confirmButtonText: i18nMessages.close,
+            });
+        } else {
+            Swal.fire({
+                text: i18nMessages.confirmBulkUnArchive,
+                icon: "info",
+                showCancelButton: true,
+                confirmButtonColor: "#008000",
+                cancelButtonColor: "#6c757d",
+                confirmButtonText: i18nMessages.confirm,
+                cancelButtonText: i18nMessages.cancel,
+            }).then(function (result) {
+                if (result.isConfirmed) {
+                    e.preventDefault();
+                    $.ajax({
+                        type: "POST",
+                        url: "/recruitment/candidate-bulk-archive/?is_active=True",
+                        data: {
+                            csrfmiddlewaretoken: getCookie("csrftoken"),
+                            ids: JSON.stringify(ids),
+                        },
+                        success: function (response, textStatus, jqXHR) {
+                            if (jqXHR.status === 200) {
+                                $("#applyFilter").click();
+                                $("#reloadMessagesButton").click();
+                            } else {
+                                // console.log("Unexpected HTTP status:", jqXHR.status);
+                            }
+                        },
+                    });
+                }
+            });
+        }
+    });
+
+    $(document).on('click', '#deleteCandidates', function (e) {
+        e.preventDefault();
+        ids = [];
+        ids.push($("#selectedInstances").attr("data-ids"));
+        ids = JSON.parse($("#selectedInstances").attr("data-ids"));
+        if (ids.length === 0) {
+            Swal.fire({
+                text: i18nMessages.noRowsSelected,
+                icon: "warning",
+                confirmButtonText: i18nMessages.close,
+            });
+        } else {
+            Swal.fire({
+                text: i18nMessages.confirmBulkDelete,
+                icon: "error",
+                showCancelButton: true,
+                confirmButtonColor: "#d33",
+                cancelButtonColor: "#6c757d",
+                confirmButtonText: i18nMessages.confirm,
+                cancelButtonText: i18nMessages.cancel,
+            }).then(function (result) {
+                if (result.isConfirmed) {
+                    e.preventDefault();
+                    ids = [];
+
+                    ids.push($("#selectedInstances").attr("data-ids"));
+                    ids = JSON.parse($("#selectedInstances").attr("data-ids"));
+
+                    $.ajax({
+                        type: "POST",
+                        url: "/recruitment/candidate-bulk-delete/",
+                        data: {
+                            csrfmiddlewaretoken: getCookie("csrftoken"),
+                            ids: JSON.stringify(ids),
+                        },
+                        success: function (response, textStatus, jqXHR) {
+                            if (jqXHR.status === 200) {
+                                $("#applyFilter").click();
+                                $("#reloadMessagesButton").click();
+                            } else {
+                                // console.log("Unexpected HTTP status:", jqXHR.status);
+                            }
+                        },
+                    });
+                }
+            });
+        }
+    });
+
+</script>
+<script src="{% static '/candidate/bulk.js' %}"></script>
+
+{% endblock content %}

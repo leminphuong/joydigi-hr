@@ -1,0 +1,21 @@
+{% load static i18n audit_filters activity_history %}
+<div class="oh-activity-sidebar__header" style="position:sticky; top:0; background:#fff; z-index:10">
+    <a
+        style="cursor: pointer"
+        onclick="$('.oh-activity-sidebar--show').removeClass('oh-activity-sidebar--show');"
+    >
+        <ion-icon
+            name="chevron-forward-outline"
+            class="oh-activity-sidebar__header-icon me-2 oh-activity-sidebar__close md hydrated"
+            data-target="#activitySidebar"
+            role="img"
+            aria-label="{% trans 'chevron forward outline' %}"
+        ></ion-icon>
+    </a>
+    <h1 class="oh-main__titlebar-title fw-bold ml-3 mb-3 mt-3">
+        {{ model_name|verbose_name }} {% trans "History" %}
+    </h1>
+</div>
+<div style="height:60vh; overflow-y:auto" id="infiniteContainer">
+    {% activity_history_feed log_entries=histories compact=1 show_header=0 show_search=1 feed_id="auditHistoryFeed" %}
+</div>

@@ -1,0 +1,43 @@
+{% load i18n basefilters static i18n %}
+{% is_manager_of request.user instance as can_manage %}
+{% with dates=instance.month_days can_view=perms.attendance.view_attendance is_owner=request.user.employee_get|equals:instance.employee_id %}
+    {% if can_view or can_manage %}
+        <a
+            class="w-24 px-4 py-2 bg-success text-white rounded-md text-xs flex items-center justify-center gap-2 hover:bg-success-dark transition duration-300"
+            onclick="validateHours('{% url 'attendance-view' %}?employee_id={{instance.employee_id.id}}&month={{ dates.1.month}}')"
+            title="{% trans 'Validate Hours' %}"
+        >
+            <ion-icon name="checkmark-done-outline" role="img" class="text-white" aria-label="{% trans 'Validate Hours' %}"></ion-icon>
+            {% trans 'Validate' %}
+        </a>
+    {% elif is_owner %}
+        <a
+            class="w-24 px-4 py-2 bg-success text-white rounded-md text-xs flex items-center justify-center gap-2 hover:bg-success-dark transition duration-300"
+            href="{% url 'view-my-attendance' %}?month={{ dates.1.month}}"
+            title="{% trans 'Validate Hours' %}"
+        >
+            <ion-icon name="checkmark-done-outline" role="img" class="text-white" aria-label="{% trans 'Validate Hours' %}"></ion-icon>
+            {% trans 'Validate' %}
+        </a>
+    {% endif %}
+
+    {% if can_view or can_manage %}
+        <a
+            class="w-24 px-4 py-2 bg-success text-white rounded-md text-xs flex items-center justify-center gap-2 hover:bg-success-dark transition duration-300"
+            onclick="validateOTHours('{% url 'attendance-view' %}?employee_id={{instance.employee_id.id}}&month={{ dates.1.month}}')"
+            title="{% trans 'Validate OT Hours' %}"
+        >
+            <ion-icon name="time-outline" role="img" class="text-white" aria-label="{% trans 'Validate OT Hours' %}"></ion-icon>
+            {% trans 'Approve' %}
+        </a>
+    {% elif is_owner %}
+        <a
+            class="w-24 px-4 py-2 bg-success text-white rounded-md text-xs flex items-center justify-center gap-2 hover:bg-success-dark transition duration-300"
+            href="{% url 'view-my-attendance' %}?month={{ dates.1.month}}"
+            title="{% trans 'Validate OT Hours' %}"
+        >
+            <ion-icon name="time-outline" role="img" class="text-white" aria-label="{% trans 'Validate OT Hours' %}"></ion-icon>
+            {% trans 'Approve' %}
+        </a>
+    {% endif %}
+{% endwith %}

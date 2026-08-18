@@ -1,0 +1,507 @@
+{% extends 'index.html' %}
+{% block content %}
+    {% load static i18n basefilters %}
+    {% settings_menu as settings_menu %}
+
+    <div class="grid grid-cols-12 gap-4 items-center mb-3 pe-2">
+        <!-- Left Column: 3/12 -->
+        <div class="col-span-12 lg:col-span-3">
+            <h3 class="text-lg font-semibold mb-0">{% trans "Settings" %}</h3>
+        </div>
+        <!-- Right Column: 9/12 -->
+        <div class="col-span-12 lg:col-span-9">
+            {% if request.session.selected_company and request.session.selected_company != "all" and request.session.selected_company_instance %}
+                <div class="bg-primary-100 border border-primary-500 rounded-md px-4 py-3">
+                    <p class="mb-0 text-primary-600" style="font-size: 13.5px; line-height: 1.4">
+                        <strong class="text-primary-600">{% trans "Company-specific settings" %}</strong>
+                        &nbsp;—
+                        {% blocktrans with company_name=request.session.selected_company_instance.company %}
+                            You are currently setting these settings for the {{ company_name }} company specifically.
+                        {% endblocktrans %}
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-12 gap-4 h-full pe-2">
+        <!-- Left Column: 3/12 -->
+        <div
+            class="col-span-12 lg:col-span-3 border-r border-dark-50 pe-4"
+            hx-boost="true"
+            hx-target="#settingsContainer"
+            hx-select="#settingsContainer"
+            hx-select-oob="#breadcrumbs-container"
+            hx-swap="outerHTML show:none"
+            hx-push-url="true"
+            hx-headers='{"HX-Sidebar-Nav": "true"}'
+        >
+            <div class="bg-white rounded-md shadow-card p-3 h-full">
+
+                {# ── Settings search — lives in the sidebar so filtering feels natural ── #}
+                <div class="mb-3 relative" id="settings-search-wrapper">
+                    <span class="absolute inset-y-0 left-2.5 flex items-center pointer-events-none text-gray-400" style="z-index:1;">
+                        <ion-icon name="search-outline" style="font-size:13px;"></ion-icon>
+                    </span>
+                    <input
+                        type="text"
+                        id="settings-content-search"
+                        placeholder="{% trans 'Search settings…' %}"
+                        autocomplete="off"
+                        class="w-full rounded border border-gray-200 bg-gray-50 pl-7 pr-7 py-1.5 text-[12.5px] text-gray-600 placeholder-gray-400 focus:outline-none focus:border-primary-400 focus:bg-white focus:ring-1 focus:ring-primary-100 transition-all"
+                    />
+                    <button
+                        id="settings-search-clear"
+                        class="absolute inset-y-0 right-2 flex items-center text-gray-300 hover:text-gray-500 transition-colors hidden"
+                        type="button"
+                        tabindex="-1"
+                    >
+                        <ion-icon name="close-circle" style="font-size:13px;"></ion-icon>
+                    </button>
+
+                    {# Suggestions dropdown — wider than sidebar, anchored left #}
+                    <div
+                        id="settings-search-dropdown"
+                        class="hidden absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden"
+                        style="z-index:9999; width:340px; max-height:400px; overflow-y:auto;"
+                    >
+                        <div id="settings-search-results"></div>
+                        <div id="settings-search-dropdown-empty" class="hidden px-4 py-6 text-center">
+                            <ion-icon name="search-outline" style="font-size:24px;" class="text-gray-300 mb-1 block mx-auto"></ion-icon>
+                            <p class="text-[12px] text-gray-400">{% trans "No settings found" %}</p>
+                        </div>
+                    </div>
+                </div>
+                <p id="settings-search-empty" class="hidden text-[11.5px] text-gray-400 text-center py-4">{% trans "No settings found" %}</p>
+
+                <div class="accordion-wrapper space-y-2">
+                    {% for section in settings_menu %}
+                        <div class="accordion-item border border-primary-300 rounded-md overflow-hidden">
+                            <button
+                                class="accordion-btn-stng font-medium w-full flex justify-between items-center px-3 py-1 bg-primary-200 text-primary-600 text-[13px] transition-all"
+                                data-id="{{ section.title|slugify }}"
+                            >
+                                {{ section.title }}
+                                <ion-icon
+                                    name="chevron-down-outline"
+                                    class="icon oh-tabs__movable-fold-icon text-lg"
+                                    role="img"
+                                    aria-hidden="true"
+                                ></ion-icon>
+                            </button>
+                            <div class="accordion-panel max-h-0 overflow-hidden transition-all duration-300 bg-white px-4 text-sm text-gray-700">
+                                <div class="py-3">
+                                    <ul>
+                                        {% for item in section.items %}
+                                            <li class="py-1" id="{{ item.label|slugify }}">
+                                                <a
+                                                    href="{{ item.url }}"
+                                                    class="hover:text-primary-600 transition duration-300 text-[13px]"
+                                                >{{ item.label }}</a>
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: 9/12 -->
+        <div class="col-span-12 lg:col-span-9" id="settingsContainer">
+            <div class="bg-white rounded-md shadow-card p-3">
+                <div class="h-[calc(100vh_-_190px)] overflow-hidden overflow-y-auto overflow-x-auto">
+                    {% block settings %} {% endblock settings %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes settingsAnchorFlash {
+            0%   { background-color: var(--color-primary-100, #fde8e4); box-shadow: 0 0 0 3px var(--color-primary-200, #fde8e4); }
+            100% { background-color: transparent; box-shadow: 0 0 0 3px transparent; }
+        }
+        .settings-anchor-highlight {
+            animation: settingsAnchorFlash 1.8s ease-out;
+            border-radius: 6px;
+        }
+    </style>
+    <script>
+        function setSettingsFoldIcon($icon, isOpen) {
+        	if (!$icon || !$icon.length) return;
+        	$icon.attr(
+        		"name",
+        		isOpen ? "chevron-up-outline" : "chevron-down-outline"
+        	);
+        }
+
+        function scrollToSearchedSetting() {
+        	if (!window.location.hash) return;
+        	var id = decodeURIComponent(window.location.hash.slice(1));
+        	var el = document.getElementById(id);
+        	if (!el) return;
+        	el.scrollIntoView({ behavior: "smooth", block: "center" });
+        	el.classList.add("settings-anchor-highlight");
+        	setTimeout(function () {
+        		el.classList.remove("settings-anchor-highlight");
+        	}, 1800);
+        }
+        $(function () {
+        	$(".accordion-btn-stng").on("click", function (e) {
+        		e.preventDefault();
+        		const $button = $(this);
+        		const $panel = $button.next(".accordion-panel");
+        		const panelId = $button.data("id");
+
+        		if ($panel.hasClass("max-h-0")) {
+        			$(".accordion-panel")
+        				.addClass("max-h-0")
+        				.removeClass("max-h-[9999px]");
+        			setSettingsFoldIcon($(".accordion-btn-stng .icon"), false);
+
+        			$panel.removeClass("max-h-0").addClass("max-h-[9999px]");
+        			setSettingsFoldIcon($button.find(".icon"), true);
+
+        			localStorage.setItem("openAccordion", panelId);
+        		} else {
+        			$panel.addClass("max-h-0").removeClass("max-h-[9999px]");
+        			setSettingsFoldIcon($button.find(".icon"), false);
+        			localStorage.removeItem("openAccordion");
+        		}
+        	});
+
+        	// Restore the open accordion section only. Do NOT auto-click
+        	// lastSettingsItem — localStorage is shared across tabs, so clicking
+        	// it would navigate this tab away from its own URL (e.g. Employee
+        	// Permission reloading as User Group because another tab saved that).
+        	const openPanel = localStorage.getItem("openAccordion");
+        	if (openPanel) {
+        		const $button = $(`.accordion-btn-stng[data-id="${openPanel}"]`);
+        		const $panel = $button.next(".accordion-panel");
+        		if ($panel.length) {
+        			$panel.removeClass("max-h-0").addClass("max-h-[9999px]");
+        			setSettingsFoldIcon($button.find(".icon"), true);
+        		}
+        	}
+        });
+
+        function reloadSettingsContainer() {
+        	if (typeof htmx === "undefined") return;
+        	htmx.ajax("GET", window.location.pathname + window.location.search, {
+        		target: "#settingsContainer",
+        		select: "#settingsContainer",
+        		swap: "outerHTML show:none",
+        		headers: { "HX-Sidebar-Nav": "true" },
+        	});
+        	var msgBtn = document.getElementById("reloadMessagesButton");
+        	if (msgBtn) msgBtn.click();
+        }
+
+        function normalizePath(path) {
+        	if (!path) return "";
+        	if (typeof path !== "string") return "";
+        	return path.replace(/\/+$/, "") || "/";
+        }
+
+        function enhanceSettingsForms() {
+        	if (typeof htmx === "undefined") return;
+        	var settingsContainer = document.getElementById("settingsContainer");
+        	if (!settingsContainer) return;
+        	settingsContainer.querySelectorAll("form").forEach(function (form) {
+        		if (form.getAttribute("data-settings-native") === "true") return;
+        		var method = (form.getAttribute("method") || "GET").toUpperCase();
+        		if (method !== "POST") return;
+        		if (form.hasAttribute("hx-get") || form.hasAttribute("hx-put") || form.hasAttribute("hx-patch") || form.hasAttribute("hx-delete")) return;
+        		if (!form.hasAttribute("hx-post")) {
+        			form.setAttribute("hx-post", form.getAttribute("action") || window.location.href);
+        		}
+        		if (!form.hasAttribute("hx-target")) form.setAttribute("hx-target", "#settingsContainer");
+        		if (!form.hasAttribute("hx-select")) form.setAttribute("hx-select", "#settingsContainer");
+        		if (!form.hasAttribute("hx-swap")) form.setAttribute("hx-swap", "outerHTML show:none");
+        		if (!form.hasAttribute("hx-headers")) {
+        			form.setAttribute("hx-headers", '{"HX-Sidebar-Nav": "true"}');
+        		}
+        	});
+        }
+
+        function activateSettingsMenu(selectedHref) {
+        	const currentPath = normalizePath(location.pathname);
+        	const links = $(".accordion-panel a[href]");
+        	links.removeClass("text-primary-600 font-semibold");
+        	const desiredPath = normalizePath(selectedHref) || currentPath;
+        	let active = links.filter(function () {
+        		const href = $(this).attr("href") || "";
+        		const hrefPath = normalizePath(href.split("?")[0]);
+        		return hrefPath === desiredPath;
+        	}).first();
+        	if (!active.length) {
+        		active = links.filter(function () {
+        			const href = $(this).attr("href") || "";
+        			const hrefPath = normalizePath(href.split("?")[0]);
+        			return hrefPath === currentPath;
+        		}).first();
+        	}
+        	if (!active.length) {
+        		// Nothing matched (e.g. fresh session, no stored accordion state) —
+        		// default to the first item (System Preferences) instead of leaving
+        		// the whole sidebar collapsed and looking empty.
+        		active = links.first();
+        	}
+        	if (active.length) {
+        		active.addClass("text-primary-600 font-semibold");
+        		const panel = active.closest(".accordion-panel");
+        		if (panel.length) {
+        			panel.removeClass("max-h-0").addClass("max-h-[9999px]");
+        			setSettingsFoldIcon(panel.prev(".accordion-btn-stng").find(".icon"), true);
+        			// persist so the next page load reopens the same accordion
+        			const panelId = panel.prev(".accordion-btn-stng").data("id");
+        			if (panelId) localStorage.setItem("openAccordion", panelId);
+        		}
+        	}
+        }
+        $(document).ready(function () {
+        	activateSettingsMenu();
+        	enhanceSettingsForms();
+        	scrollToSearchedSetting();
+        });
+        document.body.addEventListener("click", function (ev) {
+        	const link = ev.target && ev.target.closest(".accordion-panel a[href]");
+        	if (!link) return;
+        	const li = link.closest("li[id]");
+        	if (li) localStorage.setItem("lastSettingsItem", li.id);
+        	activateSettingsMenu(link.getAttribute("href"));
+        });
+        document.body.addEventListener(
+        	"submit",
+        	function (ev) {
+        		var form = ev.target;
+        		var settingsContainer = document.getElementById("settingsContainer");
+        		if (!form || !settingsContainer || !settingsContainer.contains(form)) return;
+        		if (form.getAttribute("data-settings-native") === "true") return;
+        		if (typeof htmx === "undefined") return;
+        		if (form.hasAttribute("hx-post") || form.hasAttribute("hx-get") || form.hasAttribute("hx-put") || form.hasAttribute("hx-patch") || form.hasAttribute("hx-delete")) return;
+        		var method = (form.getAttribute("method") || "GET").toUpperCase();
+        		if (method !== "POST") return;
+        		ev.preventDefault();
+        		var action = form.getAttribute("action") || window.location.href;
+        		htmx.ajax(method, action, {
+        			source: form,
+        			target: "#settingsContainer",
+        			swap: "none",
+        		});
+        		setTimeout(reloadSettingsContainer, 150);
+        	},
+        	true
+        );
+        document.body.addEventListener("htmx:afterSwap", function (ev) {
+        	const target = ev.detail && ev.detail.target;
+        	const settingsContainer = document.getElementById("settingsContainer");
+        	if (!target || !settingsContainer || target !== settingsContainer) return;
+        	activateSettingsMenu();
+        	enhanceSettingsForms();
+        });
+        (function () {
+            {% settings_search_index as settingsIndex %}
+            const SETTINGS_INDEX = {{ settingsIndex|safe }};
+
+            const $input    = $("#settings-content-search");
+            const $clear    = $("#settings-search-clear");
+            const $empty    = $("#settings-search-empty");
+            const $dropdown = $("#settings-search-dropdown");
+            const $results  = $("#settings-search-results");
+            const $dropEmpty= $("#settings-search-dropdown-empty");
+
+            // ── Restore accordion to saved state ──────────────────────────────
+            function restoreAccordion() {
+                $(".accordion-item").show();
+                $(".accordion-panel li").show();
+                $empty.addClass("hidden");
+                $(".accordion-panel").addClass("max-h-0").removeClass("max-h-[9999px]");
+                setSettingsFoldIcon($(".accordion-btn-stng .icon"), false);
+                const saved = localStorage.getItem("openAccordion");
+                if (saved) {
+                    const $btn = $(`.accordion-btn-stng[data-id="${saved}"]`);
+                    $btn.next(".accordion-panel").removeClass("max-h-0").addClass("max-h-[9999px]");
+                    setSettingsFoldIcon($btn.find(".icon"), true);
+                }
+            }
+
+            // ── Filter accordion items inline ─────────────────────────────────
+            function filterAccordion(query) {
+                let anyVisible = false;
+                $(".accordion-item").each(function () {
+                    const $section    = $(this);
+                    const $items      = $section.find(".accordion-panel li");
+                    const sectionText = $section.find(".accordion-btn-stng").text().toLowerCase();
+                    const sectionHit  = sectionText.includes(query);
+                    let itemHit       = false;
+
+                    $items.each(function () {
+                        const matches = $(this).find("a").text().toLowerCase().includes(query) || sectionHit;
+                        $(this).toggle(matches);
+                        if (matches) itemHit = true;
+                    });
+
+                    if (itemHit) {
+                        $section.show();
+                        $section.find(".accordion-panel").removeClass("max-h-0").addClass("max-h-[9999px]");
+                        setSettingsFoldIcon($section.find(".accordion-btn-stng .icon"), true);
+                        anyVisible = true;
+                    } else {
+                        $section.hide();
+                    }
+                });
+                $empty.toggleClass("hidden", anyVisible);
+            }
+
+            // ── Highlight matched text ────────────────────────────────────────
+            function hl(text, q) {
+                if (!q) return $("<span>").text(text).html();
+                const esc = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                return text.replace(new RegExp("(" + esc + ")", "gi"),
+                    "<mark style='background:var(--color-primary-200,#fde8e4);color:var(--color-primary-700,#b91c1c);font-weight:600;border-radius:2px;padding:0 2px;font-style:normal;'>$1</mark>");
+            }
+
+            // ── Build dropdown results ────────────────────────────────────────
+            function renderDropdown(query) {
+                const q       = query.toLowerCase();
+                const matched = SETTINGS_INDEX.filter(function (item) {
+                    return item.text.toLowerCase().includes(q)
+                        || item.description.toLowerCase().includes(q)
+                        || item.section.toLowerCase().includes(q)
+                        || item.page.toLowerCase().includes(q);
+                });
+
+                $results.empty();
+                if (!matched.length) {
+                    $dropEmpty.removeClass("hidden");
+                    return;
+                }
+                $dropEmpty.addClass("hidden");
+
+                // Group by section
+                const groups = {}, order = [];
+                matched.forEach(function (item) {
+                    if (!groups[item.section]) { groups[item.section] = []; order.push(item.section); }
+                    groups[item.section].push(item);
+                });
+
+                order.forEach(function (section, si) {
+                    const $group = $("<div" + (si < order.length - 1 ? " class='border-b border-gray-100'" : "") + ">");
+
+                    $("<div class='px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-primary-600 bg-primary-50 border-b border-primary-100'>")
+                        .text(section)
+                        .appendTo($group);
+
+                    groups[section].forEach(function (item) {
+                        const $row = $("<button type='button' class='w-full text-left flex items-center gap-2.5 px-3 py-2 hover:bg-primary-50 transition-colors group'>")
+                            .on("click", function () { navigateTo(item.url); });
+
+                        $("<span class='flex-shrink-0 w-6 h-6 flex items-center justify-center rounded bg-primary-100 text-primary-500 group-hover:bg-primary-200'>")
+                            .html('<ion-icon name="options-outline" style="font-size:12px;"></ion-icon>')
+                            .appendTo($row);
+
+                        const $body = $("<span class='flex flex-col min-w-0 flex-1'>").appendTo($row);
+                        $("<span class='text-[12.5px] font-medium text-gray-800 leading-tight truncate'>")
+                            .html(hl(item.text, query))
+                            .appendTo($body);
+                        $("<span class='text-[11px] text-gray-400 mt-0.5'>")
+                            .html(hl(item.section, query) + " › " + hl(item.page, query))
+                            .appendTo($body);
+
+                        $("<span class='flex-shrink-0 text-primary-300 group-hover:text-primary-500'>")
+                            .html('<ion-icon name="arrow-forward-outline" style="font-size:12px;"></ion-icon>')
+                            .appendTo($row);
+
+                        $group.append($row);
+                    });
+
+                    $results.append($group);
+                });
+            }
+
+            // ── Navigate and clean up ─────────────────────────────────────────
+            function navigateTo(url) {
+                $dropdown.addClass("hidden");
+                $input.val("");
+                $clear.addClass("hidden");
+                restoreAccordion();
+                const hashIndex = url.indexOf("#");
+                const baseUrl   = hashIndex === -1 ? url : url.slice(0, hashIndex);
+                const norm      = baseUrl.replace(/\/+$/, "");
+                const $link = $(".accordion-panel a[href]").filter(function () {
+                    return ($(this).attr("href") || "").replace(/\/+$/, "") === norm;
+                }).first();
+                if ($link.length) {
+                    const panelId = $link.closest(".accordion-panel").prev(".accordion-btn-stng").data("id");
+                    if (panelId) localStorage.setItem("openAccordion", panelId);
+                    const li = $link.closest("li[id]")[0];
+                    if (li) localStorage.setItem("lastSettingsItem", li.id);
+                }
+                window.location.href = url;
+            }
+
+            // ── Main input handler ────────────────────────────────────────────
+            $input.on("input", function () {
+                const query = $(this).val().trim();
+                if (!query) {
+                    $clear.addClass("hidden");
+                    $dropdown.addClass("hidden");
+                    restoreAccordion();
+                    return;
+                }
+                $clear.removeClass("hidden");
+                filterAccordion(query.toLowerCase());
+                renderDropdown(query);
+                $dropdown.removeClass("hidden");
+            });
+
+            $clear.on("click", function () {
+                $input.val("").trigger("input").focus();
+            });
+
+            $(document).on("keydown", function (e) {
+                if (e.key === "Escape" && $input.val()) {
+                    $input.val("").trigger("input").focus();
+                }
+            });
+
+            // Close dropdown on outside click
+            $(document).on("click", function (e) {
+                if (!$(e.target).closest("#settings-search-wrapper").length) {
+                    $dropdown.addClass("hidden");
+                }
+            });
+        })();
+
+        document.body.addEventListener("htmx:afterSettle", function (ev) {
+        	var info = ev && ev.detail;
+        	if (!info || info._settingsCrumbsUpdated) return;
+        	var etc = info.etc;
+        	var target = info.target;
+        	var isSettingsSwap =
+        		target && target.id === "settingsContainer";
+        	var isSettingsNav =
+        		etc &&
+        		etc.headers &&
+        		etc.headers["HX-Sidebar-Nav"] === "true" &&
+        		info.pathInfo &&
+        		info.pathInfo.requestPath &&
+        		info.pathInfo.requestPath.indexOf("/settings") !== -1;
+        	if (!isSettingsSwap && !isSettingsNav) return;
+        	info._settingsCrumbsUpdated = true;
+        	var xhr = info.xhr;
+        	if (!xhr || !xhr.responseText) return;
+        	try {
+        		var parser = new DOMParser();
+        		var doc = parser.parseFromString(xhr.responseText, "text/html");
+        		var newCrumbs = doc.getElementById("breadcrumbs-container");
+        		var currentCrumbs = document.getElementById("breadcrumbs-container");
+        		if (newCrumbs && currentCrumbs) currentCrumbs.innerHTML = newCrumbs.innerHTML;
+        	} catch (_) {}
+        });
+    </script>
+{% endblock content %}

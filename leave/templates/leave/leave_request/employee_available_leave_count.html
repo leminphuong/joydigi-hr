@@ -1,0 +1,108 @@
+{% load i18n %} {% load static %} {% load horillafilters %}
+{% get_company as theme_obj %}
+<style>
+    .leave-count-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+        width: fit-content;
+        max-width: 100%;
+        border-radius: 18px;
+        padding: 6px 12px;
+    }
+    .leave-count-badge img {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+</style>
+<div
+    id="{{hx_target}}"
+    class="d-flex flex-wrap align-items-center gap-2 available-leave-count"
+    style="{% if not available_leave and not leave_type_id %}display:none;{% endif %}"
+>
+    {% if not leave_type_id %}
+        <div id="messageDiv" style="display: none"></div>
+    {% elif not available_leave %}
+        <div
+            id="messageDiv"
+            class="leave-count-badge text-xs font-bold"
+            style="
+                background-color: {{ theme_obj.primary_600|default:'rgba(229, 79, 56, 0.17)' }};
+                border: 2px solid {{ theme_obj.primary_600|default:'hsl(8, 77%, 56%)' }};
+            "
+        >
+            {% trans "Leave type is not assigned for the selected employee." %}
+        </div>
+    {% elif total_leave_days == 0.0 %}
+        <div
+            id="messageDiv"
+            class="leave-count-badge text-xs font-bold"
+            style="
+                background-color: {{ theme_obj.primary_600|default:'rgba(229, 79, 56, 0.17)' }};
+                border: 2px solid {{ theme_obj.primary_600|default:'hsl(8, 77%, 56%)' }};
+            "
+        >
+            {% trans "Available Leaves" %} : {{ total_leave_days }}
+        </div>
+    {% else %}
+        <div
+            id="messageDiv"
+            class="leave-count-badge text-xs font-bold"
+            style="background-color: #dff0d8; border: 2px solid #3c763d;"
+        >
+            {% trans "Available Leaves" %} : {{ total_leave_days }}
+            {% if forcasted_days and forcasted_days > 0 %}
+                <img
+                    src="{% static 'images/ui/info.png' %}"
+                    title="{% trans 'Forecasted available days added to this Available Days (Carryforward Max. + Forcasted Days)' %}"
+                />
+            {% endif %}
+        </div>
+    {% endif %}
+    {% if pending_requests %}
+        <div
+            id="pendingDiv"
+            class="leave-count-badge text-xs font-bold"
+            style="
+                background-color: {{ theme_obj.primary_600|default:'rgba(229, 79, 56, 0.17)' }};
+                border: 2px solid {{ theme_obj.primary_600|default:'hsl(8, 77%, 56%)' }};
+            "
+        >
+            {% trans "Pending Leaves Requests" %} : {{ pending_requests }}
+        </div>
+    {% endif %}
+    {% if zero_requested_days %}
+        <div
+            id="zeroLeaveDaysWarning"
+            class="leave-count-badge text-xs font-bold"
+            style="
+                width: 100%;
+                background-color: rgba(229, 79, 56, 0.17);
+                border: 2px solid hsl(8, 77%, 56%);
+            "
+        >
+            {% trans "The selected dates result in 0 leave days for this leave type. This request cannot be submitted." %}
+        </div>
+    {% endif %}
+    {% if holiday_names %}
+        <div
+            id="holidayOverlapWarning"
+            class="leave-count-badge text-xs font-bold"
+            style="width: 100%; background-color: #fef3c7; border: 2px solid #92400e; color: #92400e;"
+        >
+            {% blocktrans count counter=holiday_names|length with names=holiday_names|join:", " %}
+                The selected dates include a company holiday: {{ names }}.
+            {% plural %}
+                The selected dates include company holidays: {{ names }}.
+            {% endblocktrans %}
+        </div>
+    {% endif %}
+    <input
+        type="hidden"
+        id="requestedDaysZeroFlag"
+        value="{{ zero_requested_days|yesno:'true,false' }}"
+    />
+</div>

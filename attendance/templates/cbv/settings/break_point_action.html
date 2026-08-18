@@ -1,0 +1,16 @@
+{% load i18n %}
+{% load static %}
+<div class="flex justify-center gap-1">
+    {% if perms.attendance.change_attendancevalidationcondition %}
+        <a
+            title="{% trans 'Edit' %}"
+            class="oh-btn oh-btn--light-bkg oh-btn--sq-sm"
+            hx-get="{% url 'break-point-update-form' instance.id %}?instance_ids={{ instance.ordered_ids }}"
+            hx-target="#genericModalBody"
+            data-toggle="oh-modal-toggle"
+            data-target="#genericModal"
+        >
+            <ion-icon name="create-outline" role="img" class="md hydrated"></ion-icon>
+        </a>
+    {% endif %}
+</div>

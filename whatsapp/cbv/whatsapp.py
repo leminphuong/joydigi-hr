@@ -1,0 +1,191 @@
+from django.contrib import messages
+from django.http import HttpResponse
+from django.shortcuts import render
+from django.urls import reverse
+from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext_lazy as _trans
+
+from horilla.decorators import check_integration_enabled
+from horilla.decorators import login_required as func_login_required
+from horilla.decorators import permission_required
+from horilla_views.cbv_methods import login_required
+from horilla_views.generic.cbv.views import (
+    HorillaFormView,
+    HorillaListView,
+    HorillaNavView,
+)
+from whatsapp.filters import CredentialsViewFilter
+from whatsapp.forms import WhatsappForm
+from whatsapp.models import WhatsappCredientials
+from whatsapp.utils import send_text_message
+
+
+@method_decorator(login_required, name="dispatch")
+@method_decorator(
+    permission_required("whatsapp.view_whatsappcredientials"), name="dispatch"
+)
+@method_decorator(check_integration_enabled(app_name="whatsapp"), name="dispatch")
+class CredentialListView(HorillaListView):
+    """
+    List view for Whatsapp credential settings view
+    """
+
+    model = WhatsappCredientials
+    filter_class = CredentialsViewFilter
+    show_filter_tags = False
+
+    columns = [
+        (_("Phone Number"), "meta_phone_number"),
+        (_("Phone Number ID"), "meta_phone_number_id"),
+        (_("Bussiness ID"), "meta_business_id"),
+        (_("Webhook Token"), "get_webhook_token"),
+        (_("Token"), "token_render"),
+    ]
+    # sortby_mapping = [("Bussiness ID", "meta_business_id")]
+    row_attrs = """ id = "credential{get_instance}" """
+    option_method = "get_publish_button"
+    header_attrs = {
+        "action": """ style="width:180px !important" """,
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.search_url = reverse("whatsapp-credential-list")
+        self.view_id = "CredentialList"
+        delete_confirm = _("Are you sure you want to delete this credential?")
+        self.actions = [
+            {
+                "action": _("Edit"),
+                "icon": "create-outline",
+                "attrs": """
+                    class="oh-btn oh-btn--light-bkg oh-btn--sq-sm"
+                    data-toggle="oh-modal-toggle"
+                    data-target = "#genericModal"
+                    hx-target = "#genericModalBody"
+                    hx-get = "{get_update_url}"
+                """,
+            },
+            {
+                "action": _("Send Test Message"),
+                "icon": "link-outline",
+                "attrs": """
+                    class="oh-btn oh-btn--light-bkg oh-btn--sq-sm"
+                    data-toggle="oh-modal-toggle"
+                    data-target = "#genericModal"
+                    hx-target = "#genericModalBody"
+                    hx-get = "{get_test_message_url}"
+                """,
+            },
+            {
+                "action": _("Delete"),
+                "icon": "trash-outline",
+                "attrs": f"""
+                    class="oh-btn oh-btn--danger oh-btn--sq-sm"
+                    hx-confirm = "{delete_confirm}"
+                    hx-post = "{{get_delete_url}}"
+                    hx-target = "#credential{{get_instance}}"
+                    hx-swap = "outerHTML"
+                """,
+            },
+        ]
+
+        self.row_attrs = """
+            id="credential{get_instance}"
+            {get_primary}
+        """
+
+
+@method_decorator(login_required, name="dispatch")
+@method_decorator(
+    permission_required("whatsapp.view_whatsappcredientials"), name="dispatch"
+)
+@method_decorator(check_integration_enabled(app_name="whatsapp"), name="dispatch")
+class CredentialNav(HorillaNavView):
+    """
+    Nav view for Whatsapp credential settings view
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.search_url = reverse("whatsapp-credential-list")
+        self.create_attrs = f"""
+            data-toggle="oh-modal-toggle"
+            data-target = "#genericModal"
+            hx-target = "#genericModalBody"
+            hx-get = "{reverse('whatsapp-credential-create')}"
+        """
+
+    nav_title = _("WhatsApp Credentials")
+    search_swap_target = "#listContainer"
+    filter_instance = CredentialsViewFilter()
+
+
+@method_decorator(login_required, name="dispatch")
+@method_decorator(
+    permission_required("whatsapp.add_whatsappcredientials"), name="dispatch"
+)
+@method_decorator(check_integration_enabled(app_name="whatsapp"), name="dispatch")
+class CredentialForm(HorillaFormView):
+    """
+    Form view for Whatsapp credential settings view
+    """
+
+    model = WhatsappCredientials
+    form_class = WhatsappForm
+    new_display_title = _("Create whatsapp")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.form.instance.pk:
+            self.form_class.verbose_name = _("Update Credentials")
+        return context
+
+    def form_valid(self, form: WhatsappForm) -> HttpResponse:
+        if form.is_valid():
+            if self.form.instance.pk:
+                messages.success(self.request, _("Crediential updated successfully"))
+            else:
+                messages.success(self.request, _("Crediential created successfully"))
+            form.save()
+            return self.HttpResponse()
+        return super().form_valid(form)
+
+
+@func_login_required
+@permission_required("whatsapp.delete_whatsappcredientials")
+@check_integration_enabled(app_name="whatsapp")
+def delete_credentials(request):
+    """
+    delete for Whatsapp credential settings view
+    """
+
+    id = request.GET["id"]
+    crediential = WhatsappCredientials.objects.filter(id=id).first()
+    count = WhatsappCredientials.objects.count()
+    crediential.delete()
+    messages.success(request, _("Crediential deleted."))
+    if count == 1:
+        return HttpResponse("<script>$('.reload-record').click();</script>")
+    return HttpResponse("<script>$('#reloadMessagesButton').click();</script>")
+
+
+@func_login_required
+@permission_required("whatsapp.view_whatsappcredientials")
+@check_integration_enabled(app_name="whatsapp")
+def send_test_message(request):
+    """
+    Test message from Whatsapp credential settings view
+    """
+
+    message = "This is a test message"
+    if request.method == "POST":
+        number = request.POST.get("number")
+        response = send_text_message(number, _(message))
+        if response:
+            messages.success(request, _("Message sent successfully"))
+        else:
+            messages.error(request, _("message not send"))
+        return HttpResponse("<script>window.location.reload()</script>")
+
+    return render(request, "whatsapp/send_test_message_form.html")

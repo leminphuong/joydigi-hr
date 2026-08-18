@@ -1,0 +1,80 @@
+{% load basefilters static i18n %}
+<style>
+    tr span.txt {
+        display: none;
+    }
+</style>
+{% is_manager_of request.user instance as can_manage %}
+<div class="flex items-center justify-center gap-1">
+    <a
+        title="{% trans 'Edit' %}"
+        class="oh-btn oh-btn--light-bkg oh-btn--sq-sm"
+        data-toggle="oh-modal-toggle"
+        data-target="#genericModal"
+        hx-get="{% url 'update-attendance-request' instance.id %}"
+        hx-target="#genericModalBody"
+    >
+        <ion-icon name="create-outline" role="img" class="md hydrated"></ion-icon>
+    </a>
+    <a
+        data-toggle="oh-modal-toggle"
+        data-target="#validateAttendanceRequest"
+        hx-get="{% url 'validate-attendance-request' instance.id %}"
+        hx-trigger="click"
+        hx-target="#validateAttendanceRequestModalBody"
+        class="oh-btn oh-btn--light-bkg oh-btn--sq-sm"
+        title="{% trans 'View' %}"
+    ><ion-icon name="eye-outline" role="img"></ion-icon>
+    </a>
+    {% if request.user|is_reportingmanager or perms.attendance.change_attendance %}
+        <a
+            href="#"
+            class="oh-btn oh-btn--success oh-btn--sq-sm"
+            title="{% trans 'Approve' %}"
+            onclick="event.preventDefault(); event.stopPropagation(); (function(pk){
+                    Swal.fire({
+                        title: '{% trans 'Are you sure?' %}',
+                        text: '{% trans 'Do you want to approve this attendance request?' %}',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#008000',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: '{% trans 'Confirm' %}',
+                        cancelButtonText: '{% trans 'Cancel' %}'
+                    }).then(function(result) {
+                        if (result.isConfirmed) {
+                            htmx.ajax('POST', '{% url 'approve-validate-attendance-request' instance.id %}', {target: '#validateAttendanceRequestModalBody', swap: 'innerHTML'});
+                        }
+                    });
+                })({{ instance.id }}); return false"
+        >
+            <ion-icon name="checkmark-outline"></ion-icon>
+        </a>
+    {% endif %}
+
+    {% if request.user|is_reportingmanager or perms.attendance.change_attendance %}
+        <a
+            href="#"
+            class="oh-btn oh-btn--danger oh-btn--sq-sm"
+            title="{% trans 'Reject' %}"
+            onclick="event.preventDefault(); event.stopPropagation(); (function(pk){
+                    Swal.fire({
+                        title: '{% trans 'Are you sure?' %}',
+                        text: '{% trans 'Do you want to reject this attendance request?' %}',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: '{% trans 'Confirm' %}',
+                        cancelButtonText: '{% trans 'Cancel' %}'
+                    }).then(function(result) {
+                        if (result.isConfirmed) {
+                            htmx.ajax('POST', '{% url 'cancel-validate-attendance-request' instance.id %}', {target: '#validateAttendanceRequestModalBody', swap: 'innerHTML'});
+                        }
+                    });
+                })({{ instance.id }}); return false"
+        >
+            <ion-icon name="close-circle-outline"></ion-icon>
+        </a>
+    {% endif %}
+</div>

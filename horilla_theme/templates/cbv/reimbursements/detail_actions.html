@@ -1,0 +1,49 @@
+{% load static i18n %}
+
+<div class="flex items-center gap-2">
+    {% if perms.payroll.change_reimbursement or request.user == instance.employee_id.employee_user_id %}
+        <!-- Start of Edit Button -->
+        {% if instance.status == 'requested' %}
+            <button
+                hx-get="{% url 'reimbursement-update' instance.id %}"
+                hx-target="#objectCreateModalTarget"
+                data-toggle="oh-modal-toggle"
+                data-target="#objectCreateModal"
+                class="h-9 px-4 inline-flex items-center justify-center gap-2 rounded-lg border border-primary-300 bg-white text-xs font-medium text-primary-600 hover:bg-primary-600 hover:text-white hover:border-primary-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-100"
+            >
+                <ion-icon name="create-outline" class="text-sm"></ion-icon>
+                {% trans 'Edit' %}
+            </button>
+        {% else %}
+            <button
+                disabled
+                class="h-9 px-4 inline-flex items-center justify-center gap-2 rounded-lg border border-primary-300 bg-primary-300 text-xs font-medium text-primary-600 cursor-not-allowed transition-all duration-200"
+                title="{% trans 'Cannot edit: reimbursement is no longer in requested status' %}"
+            >
+                <ion-icon name="create-outline" class="text-sm opacity-60"></ion-icon>
+                {% trans 'Edit' %}
+            </button>
+        {% endif %}
+        <!-- End of Edit Button -->
+    {% endif %}
+
+    {% if perms.payroll.delete_reimbursement %}
+        <!-- Start of Delete Button -->
+        <button
+            type="button"
+            hx-get="{% url 'delete-reimbursement' %}?ids={{instance.id}}"
+            hx-confirm="{% trans 'Do you want to delete this record?' %}"
+            hx-swap="none"
+            class="h-9 px-4 inline-flex items-center justify-center gap-2 rounded-lg bg-danger text-xs font-medium text-white hover:bg-danger-dark transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-danger-light"
+        >
+            <img
+                src="{% static 'horilla_theme/assets/img/icons/trash.svg' %}"
+                alt="{% trans 'Delete' %}"
+                width="14"
+                class="filter brightness-0 invert opacity-90"
+            >
+            {% trans 'Delete' %}
+        </button>
+        <!-- End of Delete Button -->
+    {% endif %}
+</div>

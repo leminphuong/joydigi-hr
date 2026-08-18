@@ -1,0 +1,4 @@
+{% load i18n %}
+<div id="historyTrackingSection" class="contents" hx-on-htmx-after-settle="setTimeout(reloadMessage, 70);">
+    {% include "base/audit_tag/history_tracking_fields_content.html" %}
+</div>

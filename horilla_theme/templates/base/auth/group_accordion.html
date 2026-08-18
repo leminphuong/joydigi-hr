@@ -1,0 +1,368 @@
+{% load i18n %}
+{% load basefilters i18n static i18n %}
+<style>
+    input:focus {
+        outline: 0.5px solid #7592aa5c !important;
+    }
+    input::not(:focus) {
+        outline: none;
+    }
+    .oh-table__editable-input {
+        font-size: 1rem !important;
+    }
+    #permissionForm .oh-input,
+    #permissionForm input[name="name"] {
+        width: 100%;
+        border: 1px solid #d0d5dd;
+        border-radius: 0.375rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    /* Legacy .panel { display:none } breaks expand/collapse */
+    #permissionContainer .accordion-panel-gp.panel {
+        display: block !important;
+    }
+    #permissionContainer .accordion-panel-gp.panel.max-h-0 {
+        max-height: 0 !important;
+    }
+    #permissionContainer .accordion-panel-gp.panel.is-ug-open {
+        max-height: 5000px !important;
+    }
+</style>
+<div id="messages" class="oh-alert-container"></div>
+
+<div class="col-span-12 lg:col-span-10">
+    <div class="mb-4 rounded-md border border-primary-200 bg-white px-4 py-3">
+        <h2 class="text-base font-semibold text-dark-400 mb-1">{% trans "Roles" %}</h2>
+        <p class="text-xs text-dark-200 leading-relaxed max-w-3xl">
+            {% trans "A role is a named set of employees who share the same access. Create a role, add members, then turn permissions on or off." %}
+        </p>
+        <ol class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-dark-300 list-decimal list-inside">
+            <li>{% trans "Create a role" %}</li>
+            <li>{% trans "Add employees (Members)" %}</li>
+            <li>{% trans "Set what they can do (Permissions)" %}</li>
+        </ol>
+    </div>
+
+    <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+        <div class="relative">
+            <input
+                hx-get="{% url 'user-group-search' %}"
+                hx-target="#permissionContainer"
+                hx-trigger="keyup changed delay:.2s"
+                type="text"
+                id="permissionSearch"
+                placeholder="{% trans 'Search roles...' %}"
+                name="search"
+                class="text-color-600 ps-8 p-1.5 pb-2 placeholder:text-xs w-full min-w-[220px] border border-dark-50 rounded-md focus-visible:outline-0 placeholder:text-dark-100 text-sm [transition:.3s] focus:border-primary-600"
+                aria-label="{% trans 'Search Input' %}"
+            >
+            <i class="fas fa-search absolute left-3 top-[1px] bottom-0 m-auto flex items-center opacity-50 text-xs"></i>
+        </div>
+        {% if request.user.is_superuser %}
+            <button
+                class="px-4 py-2 bg-brand-600 text-white rounded-md text-xs flex flex-wrap items-center gap-2 hover:bg-brand-800 transition duration-300"
+                data-toggle="oh-modal-toggle"
+                data-target="#Permissions"
+                hx-get="{% url 'user-group-create' %}"
+                hx-target="#permissionForm"
+            >
+                <img
+                    src="/static/horilla_theme/assets/img/create.svg"
+                    alt=""
+                    width="13"
+                    class="filter brightness-0 invert"
+                >
+                {% trans "Create role" %}
+            </button>
+        {% endif %}
+    </div>
+    <div
+        id="permissionContainer"
+        class="accordion-wrapper space-y-2"
+    >
+        {% include "base/auth/group_lines.html" %}
+    </div>
+</div>
+
+<div
+    class="oh-modal"
+    id="Permissions"
+    role="dialog"
+    aria-labelledby="Permissions"
+    aria-hidden="true"
+>
+    <div class="oh-modal__dialog" style="max-width: 880px">
+        <div class="oh-modal__dialog-header">
+            <h2 class="oh-modal__dialog-title" id="createGroupModalLabel">
+                {% trans "Create role" %}
+            </h2>
+            <button
+                class="oh-modal__close"
+                onclick="$(this)
+                        .closest('.oh-modal--show')
+                        .removeClass('oh-modal--show');
+                    event.preventDefault()"
+                aria-label="{% trans 'Close' %}"
+            >
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+        <div class="oh-modal__dialog-body">
+            <form
+                hx-post='{% url "user-group-create" %}'
+                class="oh-profile-section perm-form"
+                id="permissionForm"
+            >
+                <div class="text-xs text-dark-200 p-3">{% trans "Loading…" %}</div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div
+    class="oh-modal"
+    id="groupAssign"
+    role="dialog"
+    aria-labelledby="groupAssign"
+    aria-hidden="true"
+>
+    <div class="oh-modal__dialog" style="max-width: 720px">
+        <div class="oh-modal__dialog-header">
+            <h2 class="oh-modal__dialog-title" id="groupAssignModalLabel">
+                {% trans "Role members" %}
+            </h2>
+            <button
+                class="oh-modal__close"
+                onclick="$(this)
+                        .closest('.oh-modal--show')
+                        .removeClass('oh-modal--show');
+                    event.preventDefault()"
+                aria-label="{% trans 'Close' %}"
+            >
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+        <div class="oh-modal__dialog-body" id="groupAssignBody"></div>
+    </div>
+</div>
+
+<script>
+    function switchUserGroupTab(btn) {
+        var groupId = btn.getAttribute("data-group");
+        var tab = btn.getAttribute("data-ug-tab");
+        var root = document.getElementById("groupPanel" + groupId);
+        if (!root) return;
+
+        root.querySelectorAll(".ug-tab-btn[data-group='" + groupId + "']").forEach(function (el) {
+            el.classList.remove("border-brand-600", "text-brand-600");
+            el.classList.add("border-transparent", "text-dark-200");
+        });
+        btn.classList.add("border-brand-600", "text-brand-600");
+        btn.classList.remove("border-transparent", "text-dark-200");
+
+        root.querySelectorAll(".ug-tab-panel[data-group='" + groupId + "']").forEach(function (panel) {
+            if (panel.getAttribute("data-ug-panel") === tab) {
+                panel.classList.remove("hidden");
+            } else {
+                panel.classList.add("hidden");
+            }
+        });
+    }
+
+    // Prefer the shared implementation from permission_table.html
+    function selectAllPermissions(source) {
+        var $source = $(source);
+        var isChecked = $source.is(":checked");
+        var $table = $source.closest("table");
+        var $rows = $table.find("tr.perm-feature-row").not(".hidden");
+        $rows.each(function () {
+            var $row = $(this);
+            $row.find("[name=permissions]").prop("checked", isChecked);
+            $row.find(".row-permission").prop("checked", isChecked);
+        });
+        $source.prop("checked", isChecked);
+        if (typeof refreshPermPicker === "function") {
+            refreshPermPicker($source.closest("[data-perm-picker]"));
+        }
+        var $any = $rows.find("[name=permissions]").first();
+        if ($any.length) {
+            $any.trigger("change");
+        }
+    }
+    window.selectAllPermissions = selectAllPermissions;
+
+    function updateGroupPermissions(elem) {
+        var groupId = elem.attr("data-group-id");
+        var name = elem.attr("data-group-name");
+        if (!groupId) {
+            // Create modal — no live save
+            return;
+        }
+        var permissions = [];
+        var panel = $(`#groupPanel${groupId}`);
+        panel.find("[type=checkbox][name=permissions]").each(function () {
+            if ($(this).is(":checked")) {
+                permissions.push($(this).val());
+            }
+        });
+        $.ajax({
+            type: "post",
+            url: '{% url "update-group-permission" %}',
+            traditional: true,
+            data: {
+                csrfmiddlewaretoken: getCookie("csrftoken"),
+                permissions: permissions,
+                id: groupId,
+                name: name,
+            },
+            success: function () {
+                reloadMessage();
+            },
+            error: function () {
+                $("#messages").html(
+                    $(`
+            <div class="oh-alert oh-alert--animated oh-alert--danger">
+              {% trans "Server error." %}
+            </div>
+          `),
+                );
+            },
+        });
+    }
+
+    function updateBadge(element = false) {
+        if (typeof refreshPermPicker === "function") {
+            $("[data-perm-picker]").each(function () {
+                refreshPermPicker($(this));
+            });
+            return;
+        }
+        $("tbody tr.perm-feature-row").each(function () {
+            var check = $(this).find("[name=permissions]:checked").length;
+            var total = $(this).find("[name=permissions]").length;
+            $(this).find(".row-permission").prop("checked", total > 0 && check === total);
+        });
+    }
+
+    window.closeUserGroupPanel = function ($panel) {
+        $panel
+            .addClass("max-h-0")
+            .removeClass("is-ug-open max-h-[9999px]")
+            .css("max-height", "");
+        var $icon = $panel.prev(".accordion-btn-gp").find(".icon");
+        if ($icon.length) {
+            $icon.attr("name", "chevron-down-outline");
+        }
+    };
+
+    window.openUserGroupPanel = function ($panel) {
+        $(".accordion-panel-gp").not($panel).each(function () {
+            window.closeUserGroupPanel($(this));
+        });
+        $panel
+            .removeClass("max-h-0")
+            .addClass("is-ug-open")
+            .css("max-height", "");
+        var $icon = $panel.prev(".accordion-btn-gp").find(".icon");
+        if ($icon.length) {
+            $icon.attr("name", "chevron-up-outline");
+        }
+
+        // Lazy-load members + permissions once (avoids huge first paint)
+        var $body = $panel.find(".ug-detail-body");
+        if ($body.length && !$body.data("loaded") && $body.data("url")) {
+            $body.data("loaded", true);
+            $body.html(
+                '<div class="text-xs text-dark-200 py-4 text-center">{% trans "Loading…" %}</div>'
+            );
+            if (typeof htmx !== "undefined") {
+                htmx
+                    .ajax("GET", $body.data("url"), {
+                        target: $body[0],
+                        swap: "innerHTML",
+                    })
+                    .then(function () {
+                        $panel.css("max-height", "");
+                    });
+            }
+        }
+    };
+
+    window.updateGroupPermissions = updateGroupPermissions;
+    window.updateUserGroupBadge = updateBadge;
+
+    // Bind once — HTMX settings reloads re-run this script and would stack handlers
+    if (!window.__userGroupAccordionBound) {
+        window.__userGroupAccordionBound = true;
+
+        $(document).on("change", "#permissionContainer [name=permissions]", function (e) {
+            e.preventDefault();
+            clearTimeout(window.__ugPermTimeout);
+            var $target = $(e.target);
+            window.__ugPermTimeout = setTimeout(function () {
+                if (typeof window.updateUserGroupBadge === "function") {
+                    window.updateUserGroupBadge();
+                }
+                if (typeof window.updateGroupPermissions === "function") {
+                    window.updateGroupPermissions($target);
+                }
+            }, 100);
+        });
+
+        $(document).on("click", ".accordion-btn-gp", function (e) {
+            if ($(e.target).closest("a, input, [data-toggle], [hx-get], [hx-post]").length) {
+                return;
+            }
+
+            var $btn = $(this);
+            var $panel = $btn.next(".accordion-panel-gp");
+            if (!$panel.length) return;
+
+            if ($panel.hasClass("is-ug-open")) {
+                window.closeUserGroupPanel($panel);
+            } else {
+                window.openUserGroupPanel($panel);
+            }
+        });
+
+        function filterGroupMembers($scope) {
+            var $search = $scope.find(".ug-member-search");
+            var $companyFilter = $scope.find(".ug-member-company-filter");
+            var $target = $($search.data("target") || $companyFilter.data("target"));
+            if (!$target.length) return;
+
+            var term = ($search.val() || "").toLowerCase().trim();
+            var company = ($companyFilter.val() || "").toLowerCase();
+            var visibleCount = 0;
+
+            $target.children(".ug-member-row").each(function () {
+                var $row = $(this);
+                var haystack = $row.data("search") || "";
+                var companies = $row.data("companies") || "";
+                var matchesTerm = !term || haystack.indexOf(term) !== -1;
+                var matchesCompany = !company || companies.indexOf(company + "|") !== -1;
+                var show = matchesTerm && matchesCompany;
+                $row.toggleClass("hidden", !show);
+                if (show) visibleCount++;
+            });
+
+            var emptySelector = $search.data("empty") || $companyFilter.data("empty");
+            if (emptySelector) {
+                $(emptySelector).toggleClass("hidden", visibleCount !== 0);
+            }
+        }
+
+        $(document).on("input", ".ug-member-search", function () {
+            filterGroupMembers($(this).closest(".ug-tab-panel"));
+        });
+        $(document).on("change", ".ug-member-company-filter", function () {
+            filterGroupMembers($(this).closest(".ug-tab-panel"));
+        });
+    }
+
+    $(document).ready(function () {
+        updateBadge();
+    });
+
+</script>

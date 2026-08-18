@@ -1,0 +1,129 @@
+{% load i18n %} {% load basefilters %}
+
+<!-- filter items showing here -->
+<div
+	class="oh-modal"
+	id="savedFilterModal"
+	role="dialog"
+	aria-labelledby="savedFilterModal"
+	aria-hidden="true"
+>
+	<div
+		class="oh-modal__dialog"
+		style="max-width: 550px"
+		id="SavedFilterFormTarget"
+	></div>
+</div>
+<button
+	hx-get='{% url "saved-filter" %}?path={{request.GET.nav_url|default:request.path}}&referrer={{request.META.HTTP_REFERER}}&{{saved_filters.urlencode}}'
+	hx-target="#SavedFilterFormTarget"
+	hidden
+	id="loadsavedfilterform"
+></button>
+<div style="display: none">{{filter_dict}}</div>
+
+<script type="text/template" class="filter-tags-template">
+	{% if filter_dict %}
+        <span class="oh-titlebar__tag oh-titlebar__tag--custom">
+        {% trans 'Filters' %}:
+        </span>
+
+        {% for field, values in filter_dict.items %}
+            {% if values and field != "path" %}
+                <span class="oh-titlebar__tag filter-field" data-field="{{ field }}">
+                    {% if field == "field" %}{% trans "Group by" %}{% else %}{{ field|filter_field }}{% endif %}: &nbsp
+                    {% for value in values %}
+                        <span class="filter-value" data-value="{{value|filter_field}}">
+                        {{value|filter_field}}
+                        </span>
+                    {% endfor %}
+                    <button class="oh-titlebar__tag-close"
+                        data-x-field="{{ field }}"
+                    >
+                        <ion-icon name="close-outline" class="close-icon"></ion-icon>
+                    </button>
+                </span>
+            {% endif %}
+        {% endfor %}
+
+        <button class="oh-titlebar__save"
+            id="saveFilterBtn"
+            title="{% trans 'Save filter' %}"
+        >
+            <ion-icon name="bookmark-outline"></ion-icon>
+            {% trans "Save" %}
+        </button>
+
+        <span class="oh-titlebar__tag oh-titlebar__tag--custom clear-all"
+            title="{% trans 'Clear All' %}">
+        <ion-icon class="close-icon" name="close-outline"></ion-icon>
+        </span>
+	{% endif %}
+</script>
+
+<script>
+	function fieldLabel(value, field) {
+		if (`{{keys_to_remove|safe}}`.includes(field)) {
+			return "";
+		}
+		const fiedlElem = $(`#applyFilter`).closest(`form`).find(`[name=${field}]`);
+		if (fiedlElem.is("select")) {
+			if (fiedlElem.is("select[multiple]")) {
+				const optionText = fiedlElem.find(`option[value="${value}"]`).text();
+				return optionText || value;
+			} else {
+				const selectedText = fiedlElem.find("option:selected").text();
+				const optionText = fiedlElem.find(`option[value="${value}"]`).text();
+				if (selectedText && fiedlElem.val() == value) {
+					return selectedText;
+				}
+				if (optionText) {
+					return optionText;
+				}
+			}
+		}
+		if (field == "field") {
+			return $(`option[value="${value}"]`).html();
+		}
+		return value;
+	}
+	$(document).ready(function () {
+		const nav = $("#filterTagContainerSectionNav");
+
+		// Fix HTMX ID Collision: always grab the last injected template in the DOM
+		// so we don't accidentally grab the empty template from the initial page load!
+		const template = $(".filter-tags-template").last().html();
+		nav.html(template);
+
+		// Events (clean separation)
+		nav.on("click", ".oh-titlebar__tag-close", function () {
+			clearFilterFromTag($(this));
+		});
+
+		nav.on("click", ".clear-all", function () {
+			clearAllFilter($(this));
+		});
+
+		$("#saveFilterBtn").on("click", function () {
+			$("#loadsavedfilterform").click();
+			$("#savedFilterModal").addClass("oh-modal--show");
+		});
+
+		$(".filter-field").each(function () {
+			var field = $(this).attr("data-field");
+			$(this)
+				.find(".filter-value")
+				.each(function () {
+					var value = $(this).attr("data-value");
+					var labelText = fieldLabel(value, field);
+					if (labelText) {
+						$(this).text(labelText);
+					}
+				});
+		});
+	});
+</script>
+<div
+	id="filterTagContainerSectionNav"
+	class="oh-titlebar-container__filters mb-2 mt-0 oh-wrapper"
+></div>

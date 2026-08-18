@@ -1,0 +1,124 @@
+{% load static i18n basefilters %}
+<div class="space-y-3">
+    <div class="flex gap-1 border-b border-[#ececec]">
+        <button
+            type="button"
+            class="ug-tab-btn px-3 py-2 text-xs font-medium border-b-2 border-brand-600 text-brand-600"
+            data-ug-tab="members"
+            data-group="{{ group.id }}"
+            onclick="switchUserGroupTab(this); event.stopPropagation()"
+        >
+            {% trans "Members" %}
+        </button>
+        <button
+            type="button"
+            class="ug-tab-btn px-3 py-2 text-xs font-medium border-b-2 border-transparent text-dark-200 hover:text-dark-400"
+            data-ug-tab="permissions"
+            data-group="{{ group.id }}"
+            onclick="switchUserGroupTab(this); event.stopPropagation()"
+        >
+            {% trans "Permissions" %}
+        </button>
+    </div>
+
+    <div class="ug-tab-panel" data-ug-panel="members" data-group="{{ group.id }}">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <p class="text-xs text-dark-200">
+                {% trans "People in this role get all of its permissions." %}
+            </p>
+            {% if request.user.is_superuser %}
+                <div class="flex flex-wrap items-center gap-2">
+                    <a
+                        class="cursor-pointer px-3 py-1.5 text-xs bg-brand-600 text-white rounded-md inline-flex items-center gap-1.5 hover:bg-brand-800 transition"
+                        hx-get="{% url 'user-group-assign' %}"
+                        hx-vals='{"group":"{{ group.id }}", "mode":"add"}'
+                        hx-target="#groupAssignBody"
+                        data-toggle="oh-modal-toggle"
+                        data-target="#groupAssign"
+                    >
+                        <i class="fa-solid fa-user-plus"></i>
+                        {% trans "Add" %}
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+
+        {% if member_count %}
+            <div class="flex flex-wrap items-center gap-2 mb-3">
+                <div class="relative flex-1 min-w-[180px]">
+                    <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-dark-200"></i>
+                    <input
+                        type="text"
+                        class="ug-member-search w-full pl-7 pr-2 py-1.5 text-xs border border-[#ececec] rounded-md focus:outline-none focus:ring-1 focus:ring-brand-600"
+                        placeholder="{% trans 'Search members by name, email or company...' %}"
+                        data-target="#groupMembers{{ group.id }}"
+                        data-empty="#groupMembersEmpty{{ group.id }}"
+                    >
+                </div>
+                {% if member_companies %}
+                    <select
+                        class="ug-member-company-filter text-xs border border-[#ececec] rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-brand-600"
+                        data-target="#groupMembers{{ group.id }}"
+                        data-empty="#groupMembersEmpty{{ group.id }}"
+                    >
+                        <option value="">{% trans "All companies" %}</option>
+                        {% for company in member_companies %}
+                            <option value="{{ company|lower }}">{{ company }}</option>
+                        {% endfor %}
+                    </select>
+                {% endif %}
+            </div>
+            <div class="grid sm:grid-cols-2 gap-2" id="groupMembers{{ group.id }}">
+                {% for member in members %}
+                    {% if member.user.employee_get %}
+                        {% include "base/auth/group_member_row.html" with user=member.user companies=member.companies %}
+                    {% endif %}
+                {% endfor %}
+            </div>
+            <p
+                class="hidden text-center text-xs text-dark-200 py-6"
+                id="groupMembersEmpty{{ group.id }}"
+            >
+                {% trans "No members match your search." %}
+            </p>
+        {% else %}
+            <div class="text-center py-8 border border-dashed border-[#ddd] rounded-md">
+                <p class="text-sm text-dark-300 mb-3">
+                    {% trans "No one is in this role yet." %}
+                </p>
+                {% if request.user.is_superuser %}
+                    <a
+                        class="cursor-pointer px-3 py-1.5 text-xs bg-brand-600 text-white rounded-md inline-flex items-center gap-1.5 hover:bg-brand-800 transition"
+                        hx-get="{% url 'user-group-assign' %}"
+                        hx-vals='{"group":"{{ group.id }}", "mode":"add"}'
+                        hx-target="#groupAssignBody"
+                        data-toggle="oh-modal-toggle"
+                        data-target="#groupAssign"
+                    >
+                        <i class="fa-solid fa-user-plus"></i>
+                        {% trans "Add" %}
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="ug-tab-panel hidden" data-ug-panel="permissions" data-group="{{ group.id }}">
+        <p class="text-xs text-dark-200 mb-3">
+            {% trans "Pick a module on the left, then turn Create / View / Edit / Delete on. Use View only or Full access for faster setup. Changes save automatically." %}
+        </p>
+        <script>
+            $(function () {
+                checkSelected(
+                    `{{ group.permissions.all|user_perms|safe }}`,
+                    "#panel{{ group.id }}",
+                    true,
+                );
+                if (typeof refreshPermPicker === "function") {
+                    refreshPermPicker($("#panel{{ group.id }}").find("[data-perm-picker]"));
+                }
+            });
+        </script>
+        {% include "base/auth/permission_table.html" %}
+    </div>
+</div>

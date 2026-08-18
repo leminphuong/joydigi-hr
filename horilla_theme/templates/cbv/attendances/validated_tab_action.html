@@ -1,0 +1,38 @@
+{% load i18n basefilters static %}
+
+<div class="oh-btn-group">
+    {% if perms.instance.change_attendance or perms.instance.delete_attendance or request.user|is_reportingmanager %}
+        <a
+            class="oh-btn oh-btn--light-bkg oh-btn--secondary w-24 px-4 py-2 rounded-md text-xs flex items-center justify-center gap-2 transition duration-300"
+            hx-get="{% url 'attendance-update' instance.id %}?dashboard={{dashboard}}"
+            hx-target="#genericModalBody"
+            hx-swap="innerHTML"
+            data-toggle="oh-modal-toggle"
+            data-target="#genericModal"
+        >
+            <ion-icon name="create-outline"></ion-icon>
+            {% trans "Edit" %}
+        </a>
+
+        <form
+            hx-post="{% url 'attendance-delete' instance.id  %}"
+            hx-swap="none"
+            onsubmit="return confirm(`{% trans 'Are you sure want to delete this attendance?' %}`)"
+            method="post"
+        >
+            {% csrf_token %}
+            <button
+                type="submit"
+                class="w-24 px-4 py-2 bg-danger text-white rounded-md text-xs flex items-center justify-center gap-2 hover:bg-danger-dark transition duration-300"
+            >
+                <img
+                    src="{% static 'horilla_theme/assets/img/icons/trash.svg' %}"
+                    alt="{% trans 'Delete' %}"
+                    width="16"
+                    class="mt-[-1px] filter brightness-0 invert"
+                >
+                {% trans 'Delete' %}
+            </button>
+        </form>
+    {% endif %}
+</div>

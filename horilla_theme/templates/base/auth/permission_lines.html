@@ -1,0 +1,270 @@
+{% load basefilters i18n static %}
+<div class="accordion-wrapper space-y-2">
+    {% for employee in employees %}
+        <div class="accordion-item border border-primary-300 rounded-md perm-accordion" id="userPanel{{employee.id}}">
+            <button
+                onclick="event.preventDefault()"
+                class="accordion-btn-gp w-full flex justify-between gap-5 md:gap-0 items-center flex-wrap px-4 py-2 bg-primary-100 text-primary-600 text-sm transition-all"
+            >
+                <div class="flex flex-wrap items-center gap-2">
+                    <span
+                        class="w-6 h-6 bg-primary-600 rounded-full text-white flex items-center justify-center text-xs"
+                    >
+                        <img src="{{ employee.get_avatar }}" class="w-6 h-6 rounded-full" loading="lazy">
+                    </span>
+                    <span class="font-semibold">{{ employee }}</span>
+                    <span class="text-xs mt-1 text-dark-300">
+                        {{ employee.employee_work_info.job_role_id.job_role }} |
+                        {{ employee.employee_work_info.job_position_id }} |
+                        {{ employee.employee_work_info.department_id }}
+                    </span>
+                </div>
+                <div class="flex items-center flex-wrap gap-2 md:gap-8">
+                    <ion-icon name="chevron-down-outline" class="icon text-lg"></ion-icon>
+                </div>
+            </button>
+
+            <div
+                class="panel view-employees accordion-panel-gp max-h-0 overflow-hidden transition-all duration-300 bg-white px-4 text-sm text-gray-700"
+                id="panel{{employee.id}}"
+                data-user-id="{{ employee.id }}"
+            >
+                <div class="py-3">
+                    <script>
+                        $(document).ready(function () {
+                            checkSelected(
+                                `{% if employee_perm_codenames %}{{ employee_perm_codenames|safe }}{% else %}{{ employee.employee_user_id|all_user_perms|safe }}{% endif %}`,
+                                '#panel{{employee.id}}',
+                                true
+                            );
+                            if (typeof refreshPermPicker === "function") {
+                                refreshPermPicker(
+                                    $("#panel{{employee.id}}").find("[data-perm-picker]")
+                                );
+                            }
+                        })
+                    </script>
+                    {% if employee %}
+                        {% include 'base/auth/permission_table.html' %}
+                        {% if not can_edit_permissions %}
+                            <script>
+                                $(function () {
+                                    $("#panel{{employee.id}}").find("input[type=checkbox]").prop("disabled", true);
+                                });
+                            </script>
+                        {% endif %}
+                    {% elif perms.auth.add_permission or perms.auth.change_permission or perms.auth.delete_permission %}
+                        {% include 'base/auth/permission_table.html' %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <div class="oh-wrapper h-full" align="center">
+            <div class="xl:col-span-4 md:col-span-6 col-span-12 bg-white p-6 rounded-md shadow-card h-[70%]">
+                <div class="flex flex-col items-center justify-center h-full">
+                    <img src="/static/horilla_theme/assets/img/no-records.svg" alt="" width="300" class="mb-4">
+                    <p class="text-[#666] mb-5">{% trans "No records available at the moment" %}</p>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+
+    {% if employees.has_previous or employees.has_next %}
+        <div class="flex justify-between items-center mt-4 w-full inset-0">
+            <p class="text-xs text-[#666]">
+                {% trans "Page" %}
+                {{ employees.number }}
+                {% trans "of" %}
+                {{ employees.paginator.num_pages }}
+            </p>
+            <div class="flex gap-3 text-[#666] items-center">
+                {% if employees.has_previous %}
+                    <button
+                        class="text-xs hover:text-primary-600 transition duration-300"
+                        hx-target="#permissionContainer"
+                        hx-get="{% url 'permission-search' %}?{{ pd }}&page={{ employees.previous_page_number }}"
+                    >
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </button>
+                {% endif %}
+                <div>
+                    <input
+                        type="number"
+                        name="page"
+                        class="w-[30px]"
+                        value="{{employees.number}}"
+                        hx-get="{% url 'permission-search' %}?{{pd}}"
+                        hx-target="#permissionContainer"
+                        min="1"
+                    > / {{ employees.paginator.num_pages }}
+                </div>
+                {% if employees.has_next %}
+                    <button
+                        class="text-xs hover:text-primary-600 transition duration-300"
+                        hx-target="#permissionContainer"
+                        hx-get="{% url 'permission-search' %}?{{ pd }}&page={{ employees.next_page_number }}"
+                    >
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+<script>
+    document.body.addEventListener("htmx:afterSwap", function () {
+      updateBadge();
+    });
+
+    function updatePermissions(panelElem) {
+      var userId = panelElem.data("user-id");
+      var permissions = [];
+
+      panelElem.find("[name=permissions]").each(function () {
+        permissions.push({
+          codename: $(this).val(),
+          checked: $(this).is(":checked")
+        });
+      });
+
+      $.ajax({
+        type: "post",
+        url: '{% url "update-user-permission" %}',
+        contentType: "application/json",
+        data: JSON.stringify({
+          permissions: permissions,
+          employee: userId,
+        }),
+        headers: {
+          "X-CSRFToken": getCookie("csrftoken"),
+        },
+        success: function () {
+          reloadMessage()
+        },
+        error: function () {
+          reloadMessage()
+        }
+      });
+    }
+
+    $(document).ready(function () {
+      updateBadge();
+    });
+
+    function updateBadge() {
+      if (typeof refreshPermPicker === "function") {
+        $("[data-perm-picker]").each(function () {
+          refreshPermPicker($(this));
+        });
+        return;
+      }
+
+      $(".accordion-wrapper").each(function () {
+        const wrapper = $(this);
+
+        wrapper.find(".panel").each(function () {
+          const panel = $(this);
+          const badge = panel.prev(".inner-accordion-toggle").find(".permission-badge");
+          const checkedCount = panel.find("[name=permissions]:checked").length;
+
+          badge.text(checkedCount);
+          badge.attr("title", checkedCount + " Permissions");
+        });
+
+        wrapper.find("tbody tr").each(function () {
+          const row = $(this);
+          const rowPermissionCheckbox = row.find(".row-permission");
+          const checkedCount = row.find("[name=permissions]:checked").length;
+
+          rowPermissionCheckbox.prop("checked", checkedCount === 4);
+        });
+
+        wrapper.find("table").each(function () {
+          const table = $(this);
+          const allCheckboxes = table.find("tbody [name=permissions]");
+          const checkedCheckboxes = table.find("tbody [name=permissions]:checked");
+          const selectAll = table.find(".row-permission__select-all");
+
+          selectAll.prop(
+            "checked",
+            allCheckboxes.length > 0 &&
+              allCheckboxes.length === checkedCheckboxes.length
+          );
+        });
+      });
+    }
+
+    // Keep badges in sync when toggles change (delegated for HTMX swaps)
+    $(document).off("change.empPermBadge", ".view-employees [name=permissions]");
+    $(document).on("change.empPermBadge", ".view-employees [name=permissions]", function () {
+      clearTimeout(window.__empPermBadgeTimeout);
+      const panel = $(this).closest(".panel.view-employees");
+      window.__empPermBadgeTimeout = setTimeout(function () {
+        updateBadge();
+        if (panel.length) {
+          updatePermissions(panel);
+        }
+      }, 100);
+    });
+</script>
+
+<!-- ACCORDION -->
+<script>
+    // Outer accordion logic (no change needed)
+    document.querySelectorAll('.accordion-btn-gp').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const panel = btn.nextElementSibling;
+            const icon = btn.querySelector('.icon');
+            const isOpen = panel.style.maxHeight && panel.style.maxHeight !== "0px";
+
+            document.querySelectorAll('.accordion-panel-gp').forEach(p => {
+                if (p !== panel) {
+                    p.style.maxHeight = null;
+                    const i = p.previousElementSibling.querySelector('.icon');
+                    if (i) i.setAttribute('name', 'chevron-down-outline');
+                    p.previousElementSibling.classList.remove("bg-primary-600", "text-white");
+                    p.previousElementSibling.classList.add("bg-primary-100", "text-primary-600");
+                }
+            });
+
+            if (!isOpen) {
+                panel.style.maxHeight = panel.scrollHeight + 'px';
+                icon.setAttribute('name', 'chevron-up-outline');
+                btn.classList.add("bg-primary-100", "text-primary-600");
+            } else {
+                panel.style.maxHeight = null;
+                icon.setAttribute('name', 'chevron-down-outline');
+                btn.classList.remove("bg-primary-600", "text-white");
+                btn.classList.add("bg-primary-100", "text-primary-600");
+            }
+        });
+    });
+
+    // Inner accordion logic (supports multiple)
+    document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll('.inner-accordion-toggle').forEach((toggle) => {
+            const content = toggle.nextElementSibling;
+
+            toggle.addEventListener("click", () => {
+                const isOpen = content.style.maxHeight && content.style.maxHeight !== "0px";
+
+                if (isOpen) {
+                    content.style.maxHeight = "0";
+                    content.style.opacity = "0";
+                } else {
+                    content.style.maxHeight = content.scrollHeight + "px";
+                    content.style.opacity = "1";
+                }
+
+                // Adjust parent height (if inside outer accordion)
+                const outerPanel = toggle.closest('.accordion-panel-gp');
+                if (outerPanel) {
+                    setTimeout(() => {
+                        outerPanel.style.maxHeight = outerPanel.scrollHeight + "px";
+                    }, 250);
+                }
+            });
+        });
+    });
+</script>

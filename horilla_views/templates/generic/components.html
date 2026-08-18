@@ -1,0 +1,207 @@
+{% load i18n %}
+
+<div
+    class="oh-modal"
+    id="allocationModal"
+    role="dialog"
+    aria-labelledby="allocationModal"
+>
+    <div class="oh-modal__dialog oh-modal__dialog-process max-w-[900px]">
+        <div class="oh-modal__dialog-header">
+            <span class="text-md font-semibold" id="addEmployeeModalLabel">{% trans "Allocation" %}</span>
+            <button
+                class="oh-modal__close"
+                aria-label="{% trans 'Close' %}"
+                onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')"
+            >
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+
+        <div class="oh-modal__dialog-body" id="allocationModalBody"></div>
+    </div>
+</div>
+
+<div
+    style="z-index: 1022"
+    class="oh-modal"
+    id="deleteConfirmation"
+    role="dialog"
+    aria-labelledby="deleteConfirmation"
+    aria-hidden="true"
+>
+    <div
+        class="oh-modal__dialog oh-modal__dialog--custom max-w-[900px]"
+        id="deleteConfirmationBody"
+    >
+    </div>
+</div>
+
+<div
+    class="oh-modal"
+    id="genericModal"
+    role="dialog"
+    aria-labelledby="genericModal"
+    aria-hidden="true"
+>
+    <div class="oh-modal__dialog" id="genericModalBody"></div>
+</div>
+<script>
+    // Returning from an employee profile that was opened via the name link
+    // in a detail-view modal: the profile's Back button stashes the modal's
+    // own URL under `reopenDetailModal` before navigating here, so the exact
+    // detail view the user left is restored instead of just the bare list.
+    // The key is consumed immediately, so a plain revisit never re-triggers it.
+    document.addEventListener("DOMContentLoaded", function () {
+        var reopenUrl = null;
+        try {
+            reopenUrl = sessionStorage.getItem("reopenDetailModal");
+            if (reopenUrl) {
+                sessionStorage.removeItem("reopenDetailModal");
+            }
+        } catch (e) {}
+        if (!reopenUrl || !window.htmx) {
+            return;
+        }
+        htmx.ajax("GET", reopenUrl, {
+            target: "#genericModalBody",
+            swap: "innerHTML",
+        });
+        var modal = document.getElementById("genericModal");
+        if (modal) {
+            modal.classList.add("oh-modal--show");
+        }
+    });
+</script>
+
+<div
+    style="z-index: 1022"
+    class="oh-modal"
+    id="relatedObjectModal"
+    role="dialog"
+    aria-labelledby="relatedObjectModal"
+    aria-hidden="true"
+>
+    <div class="oh-modal__dialog" id="relatedObjectModalBody"></div>
+</div>
+<script>
+    // Closing #relatedObjectModal must not also close whatever modal it was
+    // opened on top of. The shared close-button rebinding (htmxSelect2.js)
+    // does an unscoped "$('.oh-modal--show').removeClass(...)" after every
+    // htmx swap, which would close every open modal at once. Intercept the
+    // click in the capture phase, before that handler runs, and close only
+    // this modal.
+    document.addEventListener(
+        "click",
+        function (event) {
+            var closeBtn = event.target.closest(
+                "#relatedObjectModal .oh-modal__close, #relatedObjectModal .oh-modal__cancel"
+            );
+            if (closeBtn) {
+                event.stopImmediatePropagation();
+                document.getElementById("relatedObjectModal").classList.remove("oh-modal--show");
+            }
+        },
+        true
+    );
+</script>
+
+<style>
+    /* Related-object links (see the `linkify` template filter): default text
+       color, primary-color on hover, matching the app's own primary color
+       token rather than a hardcoded value. */
+    .oh-related-link:hover {
+        text-decoration: underline;
+    }
+</style>
+
+<div class="oh-activity-sidebar" id="genericSidebar" style="z-index: 1000">
+    <div class="oh-activity-sidebar__body" id="genericOffCanvas"></div>
+</div>
+
+<div class="oh-modal" id="allocationModal" role="dialog" aria-labelledby="allocationModal" aria-hidden="true">
+    <div class="oh-modal__dialog oh-modal__dialog--custom oh-modal__dialog-process">
+        <div class="oh-modal__dialog-header">
+            <span class="oh-modal__dialog-title" id="addEmployeeModalLabel">{% trans "Allocation" %}</span>
+            <button class="oh-modal__close" aria-label="{% trans 'Close' %}">
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+        <div class="oh-modal__dialog-body oh-modal__dialog-body-process" id="allocationModalBody"></div>
+    </div>
+</div>
+
+<div class="oh-modal" id="objectDetailW75Modal" role="dialog" aria-labelledby="allocationModal">
+    <div class="oh-modal__dialog oh-modal__dialog-process max-w-[900px]">
+        <div class="oh-modal__dialog-header">
+            <button
+                class="oh-modal__close"
+                aria-label="{% trans 'Close' %}"
+                onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')"
+            >
+                <ion-icon name="close-outline" role="img" class="md hydrated"></ion-icon>
+            </button>
+        </div>
+
+        <div class="oh-modal__dialog-body" id="objectDetailW75ModalTarget"></div>
+    </div>
+</div>
+
+<div class="oh-activity-sidebar pb-5" id="historySidebar" style="z-index: 1000;">
+    <div class="oh-activity-sidebar__body h-full" id="historyContainer"></div>
+</div>
+
+<script>
+    $(document).on("htmx:afterOnLoad", function (event) {
+    	$("[data-toggle='oh-modal-toggle']").click(function (e) {
+    		e.preventDefault();
+    		let clickedEl = $(e.target).closest(
+    			'[data-toggle = "oh-modal-toggle"]'
+    		);
+    		if (clickedEl != null) {
+    			const targetEl = clickedEl.data("target");
+    			$(targetEl).addClass("oh-modal--show");
+    		}
+    	});
+    });
+    {% comment %} function switchTab(e) {
+    	let parentContainerEl = e.target.closest(".oh-tabs");
+    	let tabElement = e.target.closest(".oh-tabs__tab");
+
+    	let targetSelector = e.target.dataset.target;
+    	let targetEl = parentContainerEl
+    		? parentContainerEl.querySelector(targetSelector)
+    		: null;
+
+    	// Highlight active tabs
+    	if (
+    		tabElement &&
+    		!tabElement.classList.contains("oh-tabs__tab--active")
+    	) {
+    		parentContainerEl
+    			.querySelectorAll(".oh-tabs__tab--active")
+    			.forEach(function (item) {
+    				item.classList.remove("oh-tabs__tab--active");
+    			});
+
+    		if (!tabElement.classList.contains("oh-tabs__new-tab")) {
+    			tabElement.classList.add("oh-tabs__tab--active");
+    		}
+    	}
+
+    	// Switch tabs
+    	if (
+    		targetEl &&
+    		!targetEl.classList.contains("oh-tabs__content--active")
+    	) {
+    		parentContainerEl
+    			.querySelectorAll(".oh-tabs__content--active")
+    			.forEach(function (item) {
+    				item.classList.remove("oh-tabs__content--active");
+    			});
+    		targetEl.classList.add("oh-tabs__content--active");
+    	}
+    } {% endcomment %}
+</script>
+{% block generic_components %}
+{% endblock generic_components %}

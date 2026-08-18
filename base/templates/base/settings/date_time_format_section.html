@@ -1,0 +1,66 @@
+{% load i18n %}
+{% if perms.base.change_company %}
+    <label>{% trans "Select Date Format:" %}</label>
+    <p class="text-xs text-gray-500 mt-1 pb-2">
+        {% trans "How dates are displayed across the system for the selected company." %}
+    </p>
+    <div class="flex gap-2 pb-5 pt-2 items-center">
+        <div class="flex-1">
+            <select id="dateFormat" name="dateFormat" class="oh-select oh-select-2">
+                <option value="">--------------</option>
+                <option value="DD-MM-YYYY">{% trans "Day, Month, Year (e.g., 30-12-2023)" %}</option>
+                <option value="DD.MM.YYYY">{% trans "Day, Month, Year (e.g., 30.12.2023)" %}</option>
+                <option value="DD/MM/YYYY">{% trans "Day, Month, Year (e.g., 30/12/2023)" %}</option>
+                <option value="MM/DD/YYYY">{% trans "Month, Day, Year (e.g., 12/30/2023)" %}</option>
+                <option value="YYYY-MM-DD">{% trans "Year, Month, Day (e.g., 2023-12-30)" %}</option>
+                <option value="YYYY/MM/DD">{% trans "Year, Month, Day (e.g., 2023/12/30)" %}</option>
+                <option value="MMMM D, YYYY">{% trans "Full Month Name, Day, Year (e.g., January 1, 2023)" %}</option>
+                <option value="DD MMMM, YYYY">{% trans "Day, Full Month Name, Year (e.g., 1 January, 2023)" %}</option>
+                <option value="MMM. D, YYYY">{% trans "Abbreviated Month Name, Day, Year (e.g., Jan. 1, 2023)" %}</option>
+                <option value="D MMM. YYYY">{% trans "Day, Abbreviated Month Name, Year (e.g., 1 Jan. 2023)" %}</option>
+                <option value="dddd, MMMM D, YYYY">{% trans "Full Day Name, Full Month Name, Day, Year (e.g., Monday, January 1, 2023)" %}</option>
+            </select>
+        </div>
+        <button onclick="saveDateFormat()" class="btn h-[35px] flex items-center">{% trans "Save" %}</button>
+    </div>
+{% endif %}
+<hr class="pt-5 border-[#ebebeb]">
+{% if perms.base.change_company %}
+    <label>{% trans "Select Time Format:" %}</label>
+    <p class="text-xs text-gray-500 mt-1 pb-2">
+        {% trans "How times are displayed across the system for the selected company." %}
+    </p>
+    <div class="flex gap-2 pb-5 pt-2 items-center">
+        <div class="flex-1">
+            <select id="timeFormat" name="timeFormat" class="oh-select oh-select-2">
+                <option value="">--------------</option>
+                <option value="hh:mm A">{% trans "12 Hr. (e.g., 06:00 AM or 06:00 PM)" %}</option>
+                <option value="HH:mm">{% trans "24 Hr. (e.g., 06:00 or 18:00)" %}</option>
+            </select>
+        </div>
+        <button onclick="saveTimeFormat()" class="btn h-[35px] flex items-center">{% trans "Save" %}</button>
+    </div>
+{% endif %}
+<script>
+    (function () {
+        var dateFormatValue = "{{current_company.date_format|default_if_none:'' }}";
+        var timeFormatValue = "{{current_company.time_format|default_if_none:'' }}";
+
+        function applySelection($el, value) {
+            $el.val(value);
+            if ($el.hasClass("select2-hidden-accessible")) {
+                $el.trigger("change");
+            } else {
+                $el.select2({ width: "100%" }).trigger("change");
+            }
+        }
+
+        function setInitialFormatValues() {
+            applySelection($("#dateFormat"), dateFormatValue);
+            applySelection($("#timeFormat"), timeFormatValue);
+        }
+
+        $(setInitialFormatValues);
+        $(window).on("load", setInitialFormatValues);
+    })();
+</script>

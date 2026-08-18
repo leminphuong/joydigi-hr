@@ -1,0 +1,36 @@
+{% load i18n %}
+{% load basefilters %}
+
+{% if leave_requests_with_interview %}
+    <div class="oh-profile oh-profile--md w-full justify-normal">
+        <div class="oh-profile__avatar mr-1" style="width:22px;height:22px;">
+            <img
+                src="{{instance.leave_type_id.get_avatar}}"
+                class="oh-profile__image"
+                alt="{% trans 'Leave Type Icon' %}"
+                width="22"
+            >
+        </div>
+        <span class="truncate flex-1 min-w-0 oh-text--dark" title="{{ instance.leave_type_id }}">{{ instance.leave_type_id }}</span>
+        <span class="tooltip">
+            <span class="material-symbols-outlined" style="flex-direction: row-reverse; color: #ff9146">
+                {% trans "warning" %}
+            </span>
+            <span class="tooltiptext fw-bold">
+                {% trans "You have an interview in this requested date range." %}
+            </span>
+        </span>
+    </div>
+{% else %}
+    <div class="oh-profile oh-profile--md w-full justify-normal">
+        <div class="oh-profile__avatar mr-1" style="width:22px;height:22px;">
+            <img
+                src="{{instance.leave_type_id.get_avatar}}"
+                class="oh-profile__image"
+                alt="{% trans 'Leave Type Icon' %}"
+                width="22"
+            >
+        </div>
+        <span class="truncate flex-1 min-w-0 oh-text--dark" title="{{ instance.leave_type_id }}">{{ instance.leave_type_id }}</span>
+    </div>
+{% endif %}

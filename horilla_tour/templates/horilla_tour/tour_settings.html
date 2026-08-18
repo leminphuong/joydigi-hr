@@ -1,0 +1,28 @@
+{% extends 'settings.html' %}
+{% load i18n static %}
+
+{% block settings %}
+    <div id="ohMessages"></div>
+
+    <div class="mb-4">
+        <h4 class="text-base font-semibold text-[#333]">{% trans "Product Tours" %}</h4>
+        <p class="text-xs text-gray-500 mt-1">
+            {% trans "Create guided walkthroughs that appear for the right users on the right pages. Drafts stay hidden until published." %}
+        </p>
+    </div>
+
+    <div class="border border-[#ebebeb] rounded-md mb-5">
+        <div hx-get="{% url 'tour-nav' %}" hx-trigger="load"></div>
+        <p class="text-xs text-gray-500 mt-1 ml-2">
+            {% trans "Manage tour drafts and published walkthroughs from this list." %}
+        </p>
+        <div
+            class="oh-wrapper"
+            hx-get="{% url 'tour-list' %}?{{ request.GET.urlencode }}"
+            hx-trigger="load"
+            id="listContainer"
+        >
+            <div class="animated-background"></div>
+        </div>
+    </div>
+{% endblock %}

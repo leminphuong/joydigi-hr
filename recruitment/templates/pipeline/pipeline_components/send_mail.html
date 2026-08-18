@@ -1,0 +1,278 @@
+{% load i18n %}
+<div id="ack-message-{{cand.id}}"></div>
+
+<div class="oh-modal__dialog-header">
+    <span class="oh-modal__dialog-title" id="sendMailModalLabel">
+        <h5>{% if cand %}
+                {% trans "Send Mail to" %} {{ cand.name }}
+            {% else %}
+                {% trans "Send Mail to Multiple Candidates" %}
+            {% endif %}
+        </h5>
+    </span>
+    <button class="oh-modal__close" aria-label="{% trans 'Close' %}"><ion-icon name="close-outline"></ion-icon></button>
+</div>
+
+<div class="oh-modal__dialog-body">
+    <form onsubmit="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')"
+        hx-post='{% url "send-acknowledgement" %}' hx-swap="none" class="oh-general__tab-target oh-profile-section"
+        id='ack-form-{{cand.id}}' hx-target="#ack-message-{{cand.id}}" hx-encoding="multipart/form-data">
+        {% if cand %}
+            <input type="hidden" value="{{ cand.id }}" name="id">
+        {% endif %}
+
+        <div class="modal-body">
+            {% if cand %}
+            <div class="oh-timeoff-modal__profile-content">
+                <div class="oh-profile mb-2">
+                    <div class="oh-profile__avatar">
+                        <img src="https://ui-avatars.com/api/?name={{cand.name}}&amp;background=random"
+                            class="oh-profile__image me-2">
+                    </div>
+                    <div class="oh-timeoff-modal__profile-info">
+                        <span class="oh-timeoff-modal__user fw-bold">{{cand.name}}</span>
+                        <span class="oh-timeoff-modal__user m-0" style="font-size: 15px; color: #4d4a4a">
+                            {{cand.job_position_id.job_position}} /
+                            {{cand.recruitment_id}}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group mt-2">
+                <label for="to">
+                    <h6>{% trans "To" %}</h6>
+                </label>
+                <input required type="text" value="{{cand.email}}" name='to' class="oh-input w-100" id="to"
+                    placeholder="{% trans 'Subject' %}">
+            </div>
+            {% endif %}
+            <div class="form-group mt-2">
+                <label for="candidates">
+                    <h6>{% trans "Also send to" %}</h6>
+                </label>
+                <select class="oh-select oh-select-2" {% if not cand %} required {% endif %} name="candidates"
+                    id="candidates" multiple>
+                    {% for cand in candidates %}
+                    <option value="{{cand.id}}">{{cand}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group mt-2">
+                <label for="subject">
+                    <h6>{% trans "Subject" %}</h6>
+                </label>
+                <input required type="text" placeholder="{% trans 'Congrats...' %}" name='subject' class="oh-input w-100" id="subject"
+                    placeholder="{% trans 'Subject' %}">
+            </div>
+            <div class="form-group mt-2">
+                <label for="template">
+                    <h6>{% trans "Template" %}</h6>
+                </label>
+                <select name="template" class="w-100 oh-select" id="template" onchange="templateChange(event);">
+                    <option value="">----</option>
+                    {% for template in templates %}
+                    <option value="{{template.id}}">{{template.title}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group mt-2">
+                <label for="body"><h6>{% trans "Message Body" %}</h6></label>
+                <div class="oh-input__group">
+                    <div class="oh-tabs__view-buttons mt-2 d-flex gap-1">
+                        <button type="button" class="oh-btn oh-btn--secondary oh-btn--small px-3 tab-btn" data-tab="write" id="writeTabBtn">
+                            <ion-icon name="create-outline" class="me-1"></ion-icon>
+                            {% trans "Write" %}
+                        </button>
+                        <button type="button" class="oh-btn oh-btn--secondary oh-btn--small px-3 tab-btn" data-tab="preview" id="previewTabBtn">
+                            <ion-icon name="eye-outline" class="me-1"></ion-icon>
+                            {% trans "Preview" %}
+                        </button>
+                    </div>
+                    <div id="write" class="oh-tabs__view active">
+                        <textarea id="writeField" class="oh-input oh-input--textarea" hidden name="body"
+                            data-summernote required placeholder="{% trans 'Type something here...' %}"></textarea>
+                    </div>
+                </div>
+            </div>
+            {% if cand %}
+            <div class="form-hint" style="margin-top: 10px; font-size: 14px; color: #888;">
+                {% trans "Hint: Type '{' to get sender or receiver data" %}
+            </div>
+            {% endif %}
+            <div class="form-group mt-2">
+                <label for="template_attachments">
+                    <h6>{% trans "Template as Attachment" %}</h6>
+                </label>
+                <select name="template_attachments" class="w-100 oh-select" id="template_attachments" multiple>
+                    {% for template in templates %}
+                    <option value="{{template.id}}">{{template.title}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group mt-2">
+                <label for="other_attachments">
+                    <h6>{% trans "Other Attachments" %}</h6>
+                </label>
+                <input type="file" name="other_attachments" id="other_attachments" multiple style="display: block;">
+            </div>
+            <div class="modal-footer d-flex flex-row-reverse mt-3">
+                <input type="submit" class="oh-btn oh-btn--secondary submit-send"
+                    data-message-id="ack-message-{{cand.id}}" name="submit" id="submit" onclick="sendMail()"
+                    value="{% trans 'Send Mail' %}">
+            </div>
+        </div>
+    </form>
+</div>
+
+
+
+
+<script>
+    $(document).ready(function () {
+        {% if stage_id %}
+            var idsArray = $("#candidateContainer{{stage_id}}")
+                .find(".candidate-checkbox[type=checkbox]:checked")
+                .map(function () {
+                    return this.id;
+                }).get();
+            $("#candidates").val(idsArray).change();
+        {% else %}
+            var selectedIds = JSON.parse($("#selectedInstances").attr("data-ids"));
+            $("#candidates[name=candidates]select[multiple]").val(selectedIds).change();
+        {% endif %}
+    });
+
+    document.querySelector('.submit-send').onclick = function (event) {
+        const element = event.target;
+        const candidates = $('#candidates').val();
+        const subject = $('#subject').val().trim();
+        const body = $('#writeField').val().trim();
+        const cand = "{{cand|default:'false'|safe}}";
+        let message = '';
+        let valid = true;
+
+        if (!candidates.length && cand === "false") {
+            message = "This field is required";
+            valid = false;
+        } else if (!subject) {
+            message = "The message subject is required";
+            valid = false;
+        } else if (!body) {
+            message = "The message body is required";
+            valid = false;
+        }
+
+        if (!valid) {
+            $('#messages').html(`
+            <div class="oh-alert oh-alert--animated oh-alert--danger" role="alert">
+                ${message}
+            </div>`);
+            return;
+        }
+
+        Swal.fire({
+            title: "Processing",
+            text: "Mail will be sent in the background",
+            icon: "info"
+        });
+    };
+
+
+    function templateChange(e) {
+        var id = $("#template").val();
+        if (id.length) {
+            $.ajax({
+                type: "get",
+                url: `/recruitment/get-template/${id}/`,
+                data: { "candidate_id": "{{cand.id}}" },
+                dataType: "Json",
+                success: function (response) {
+
+                // Update Summernote value correctly
+                if ($('#writeField').next('.note-editor').length) {
+                    $('#writeField').summernote('code', response.body);
+                } else {
+                    // Fallback if summernote not initialized yet
+                    $('#writeField').val(response.body);
+                }
+            }
+            });
+        }
+    }
+
+    function getCsrfToken() {
+        var t = $('input[name=csrfmiddlewaretoken]').val();
+        if (t) return t;
+        var m = document.cookie.match(/csrftoken=([^;]+)/);
+        return m ? m[1] : '';
+    }
+
+    function setWriteFieldHtml(html) {
+        if ($('#writeField').next('.note-editor').length) {
+            $('#writeField').summernote('code', html);
+        } else {
+            $('#writeField').val(html);
+        }
+    }
+
+    function loadTemplateIntoWriteField() {
+        var id = $("#template").val();
+        if (!id || !id.length) return;
+        $.ajax({
+            type: "get",
+            url: "/recruitment/get-template/" + id + "/",
+            data: { "candidate_id": "{{ cand.id|default:'' }}" },
+            dataType: "json",
+            success: function (response) {
+                setWriteFieldHtml(response.body || '');
+            }
+        });
+    }
+
+    function loadPreviewIntoWriteField() {
+        var body = '';
+        if ($('#writeField').next('.note-editor').length) {
+            body = $('#writeField').summernote('code') || '';
+        } else {
+            body = $('#writeField').val() || '';
+        }
+        if (!body.trim()) return;
+        var form = document.getElementById('ack-form-{{cand.id}}');
+        var fd = new FormData(form);
+        fd.set('body', body);
+        fetch("{% url 'get-mail-preview' %}{% if cand %}?candidate_id={{cand.id}}{% endif %}", {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrfToken() },
+            body: fd,
+            credentials: 'same-origin'
+        }).then(function (r) {
+            if (!r.ok) return r.text().then(function (t) { throw new Error(t || r.status); });
+            return r.text();
+        }).then(function (html) {
+            setWriteFieldHtml(html);
+        }).catch(function () { /* keep workflow; optional: toast */ });
+    }
+
+    document.getElementById('writeTabBtn').addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        document.querySelectorAll('.tab-btn').forEach(function (btn) { btn.classList.remove('active'); });
+        this.classList.add('active');
+        loadTemplateIntoWriteField();
+    });
+
+    document.getElementById('previewTabBtn').addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        document.querySelectorAll('.tab-btn').forEach(function (btn) { btn.classList.remove('active'); });
+        this.classList.add('active');
+        loadPreviewIntoWriteField();
+    });
+
+    {% if form.instance.title %}
+        setModalLabel("{{ form.instance.title|escapejs }}", "#viewTemplateModalLabel");
+    {% endif %}
+    {% if cand %}
+        initializeSummernote({{ cand.id }}, {{ searchWords| safe }});
+    {% endif %}
+</script>

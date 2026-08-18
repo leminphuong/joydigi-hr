@@ -1,0 +1,103 @@
+{% load static %}{% load i18n %}
+{% include "generic/components.html" %}
+<div id="ohMessages"></div>
+{% if messages %}
+    <div class="oh-wrapper">
+        {% for message in messages %}
+            <div class="oh-alert-container">
+                <div class="oh-alert oh-alert--animated {{message.tags}}">
+                    {{ message }}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<div class="oh-inner-sidebar-content border border-[#ebebeb] rounded-md">
+    <div hx-get="{% url 'grace-time-nav' %}" hx-trigger="load"></div>
+    <p class="text-xs text-gray-500 mt-1 ml-3">
+        {% trans "Set the buffer time allowed before check-in or after check-out is marked late or early." %}
+    </p>
+
+    <div
+        class="oh-checkpoint-badge mb-2"
+        id="selectedInstancesData"
+        data-ids="[]"
+        data-clicked=""
+        style="display: none"
+    >
+    </div>
+
+    <div
+        class="oh-wrapper"
+        hx-get="{% url 'grace-time-list'  %}?{{request.GET.urlencode}}"
+        hx-trigger="load"
+        id="grace-time-container"
+    >
+        <div class="animated-background"></div>
+    </div>
+</div>
+
+<script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                // Does this cookie string begin with the name we want?
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+        }
+    function updateAllowedClockInOrOut(checkbox) {
+        // Using jQuery to check if the checkbox is checked
+        var isChecked = $(checkbox).prop('checked');
+        var gracetimeId = $(checkbox).data('id');
+        var update = $(checkbox).data('update');
+
+         $.ajax({
+          type: "POST",
+          url: "{% url 'update-gracetime-clock-in-clock-out' %}",
+          data: { 'isChecked': isChecked, 'gracetimeId':gracetimeId,'update':update,'csrfmiddlewaretoken': getCookie('csrftoken') },
+          dataType: "json",
+          success: function (response) {
+            $("#ohMessages").append(`
+                <div class="oh-alert-container">
+                    <div class="oh-alert oh-alert--animated oh-alert--${response.type}">
+                    ${response.message}
+                    </div>
+                </div>`);
+                duration = 1500;
+          }
+        });
+    }
+    function updateGracetimeIsActivate(checkbox) {
+        // Using jQuery to check if the checkbox is checked
+        var isChecked = $(checkbox).prop('checked');
+        var gracetimeId = $(checkbox).data('id');
+        $.ajax({
+          type: "POST",
+          url: "{% url 'update-isactive-gracetime' %}",
+          headers: {
+            'HX-Request': 'true',
+            'X-CSRFToken': getCookie('csrftoken')
+          },
+          data: { 'isChecked': isChecked, 'gracetimeId':gracetimeId },
+          dataType: "json",
+          success: function (response) {
+            $("#ohMessages").append(`
+                <div class="oh-alert-container">
+                    <div class="oh-alert oh-alert--animated oh-alert--${response.type}">
+                    ${response.message}
+                    </div>
+                </div>`);
+                duration = 1500;
+          }
+        });
+    }
+</script>

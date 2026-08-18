@@ -1,0 +1,70 @@
+{% load i18n %}
+<style>
+    .oh-info {
+        top: 0px !important;
+    }
+</style>
+<div class="col-span-12">
+    <form
+        action="{% url 'payroll-settings' %}"
+        method="post"
+        hx-post="{% url 'payroll-settings' %}"
+        hx-swap="none"
+        data-settings-native="true"
+        hx-on-htmx-after-request="setTimeout(reloadMessage, 70);"
+    >
+        {% csrf_token %}
+
+        <div class="flex align-center gap-2 items-start">
+            <div class="w-full" id="setting-currency-symbol">
+                <label>{% trans "Currency Symbol" %}</label>
+                <p class="text-xs text-gray-500 mt-1">
+                    {% trans "Symbol shown for monetary values (e.g. $, €)." %}
+                </p>
+                <input
+                    type="text"
+                    name="currency_symbol"
+                    value="{{currency_form.instance.currency_symbol}}"
+                    maxlength="5"
+                    placeholder="{% trans 'Currency Symbol' %}"
+                    required=""
+                    id="id_currency_symbol"
+                >
+            </div>
+            <div class="w-full" id="setting-currency-position">
+                <label> {% trans "Position" %}</label>
+                <p class="text-xs text-gray-500 mt-1">
+                    {% trans "Whether the symbol appears before (prefix) or after (suffix)." %}
+                </p>
+                {{ currency_form.position }}
+            </div>
+            {% if request.session.selected_company == "all" or not request.session.selected_company %}
+                <div class="w-full">
+                    <label>{% trans "Company" %}</label>
+                    <p class="text-xs text-gray-500 mt-1">
+                        {% trans "Company these currency settings apply to." %}
+                    </p>
+                    <select name="company_id" id="id_company_id" class="oh-select oh-select-2 w-100">
+                        {% for company in companies %}
+                            <option
+                                value="{{ company.id }}"
+                                {% if company.id == selected_company_id %}
+                                    selected
+                                {% endif %}
+                            >
+                                {{ company.company }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            {% else %}
+                {% for company in companies %}
+                    <input type="hidden" name="company_id" value="{{ company.id }}">
+                {% endfor %}
+            {% endif %}
+            <button class="h-[36px] btn self-end" type="submit">
+                {% trans 'Save' %}
+            </button>
+        </div>
+    </form>
+</div>

@@ -1,0 +1,57 @@
+{% extends 'settings.html' %}
+{% load static i18n %}
+
+{% block settings %}
+    <div id="ohMessages"></div>
+
+    {% include "generic/components.html" %}
+
+    <div class="mb-4">
+        <div class="flex items-center space-x-2">
+            <h4 class="text-base font-semibold text-[#333]">{% trans "Mail Servers" %}</h4>
+            <span
+                class="oh-info mr-2"
+                title="{% trans 'Configure outgoing email servers used for system notifications and automated messages.' %}"
+                data-doc-url="{{ DOC_BASE_URL }}/blogs/how-to-set-up-mail-server-in-horilla-hrms/"
+            ></span>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">
+            {% trans "Configure outgoing email servers used for system notifications and automated messages." %}
+        </p>
+    </div>
+
+    {% if perms.base.view_dynamicemailconfiguration %}
+        <div class="border border-[#ebebeb] rounded-md mb-5">
+            <div hx-get="{% url 'mail-server-nav' %}" hx-trigger="load"></div>
+
+            <div
+                class="oh-checkpoint-badge mb-2"
+                id="selectedInstances"
+                data-ids="[]"
+                data-clicked=""
+                style="display: none"
+            >
+            </div>
+
+            <div
+                class="oh-wrapper"
+                hx-get="{% url 'mail-server-list' %}?{{ request.GET.urlencode }}"
+                hx-trigger="load"
+                id="listContainer"
+            >
+                <div class="animated-background"></div>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="oh-modal" id="mailServerModal" role="dialog" aria-labelledby="mailServerModal" aria-hidden="true">
+        <div class="oh-modal__dialog">
+            <div class="oh-modal__dialog-header">
+                <button class="oh-modal__close" aria-label="{% trans 'Close' %}">
+                    <ion-icon name="close-outline"></ion-icon>
+                </button>
+            </div>
+            <div class="oh-modal__dialog-body" id="mailServerModalBody"></div>
+        </div>
+    </div>
+{% endblock settings %}

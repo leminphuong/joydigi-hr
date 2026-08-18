@@ -1,0 +1,41 @@
+{% load basefilters i18n %}
+
+<div class="oh-btn-group">
+    {% if perms.base.change_companyleaves or perms.base.delete_companyleaves %}
+        {% if perms.base.change_companyleaves %}
+            <a
+                hx-get="{% url 'company-leave-update' instance.id %}"
+                hx-target="#genericModalBody"
+                data-toggle="oh-modal-toggle"
+                data-target="#genericModal"
+                class="oh-btn oh-btn--light-bkg oh-btn--secondary w-100"
+            >
+                <ion-icon name="create-outline"></ion-icon>
+                {% trans 'Edit' %}
+            </a>
+        {% endif %}
+
+        {% if perms.base.delete_companyleaves %}
+            <a
+                hx-post="{% url 'company-leave-delete' instance.id %}"
+                hx-target="#listContainer"
+                hx-confirm="{% trans 'Are you sure you want to delete ?' %}"
+                class="oh-btn oh-btn--secondary w-100"
+            >
+                <ion-icon
+                    name="trash-outline"
+                    role="img"
+                    class="md hydrated"
+                    aria-label="{% trans 'trash outline' %}"
+                ></ion-icon>
+                {% trans 'Delete' %}
+            </a>
+        {% endif %}
+    {% endif %}
+</div>
+
+{% if request.GET.query_string %}
+    <script>
+        window.location.reload();
+    </script>
+{% endif %}

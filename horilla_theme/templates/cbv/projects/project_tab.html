@@ -1,0 +1,69 @@
+{% load i18n static i18n %}
+<style>
+    /* Keep accordion flush so the view button sits inside the header —
+       scoped so profile .shadow-card cards are not affected */
+    #projectContainer .hlv-container.shadow-card {
+        padding-top: 0;
+        padding-left: 0;
+        padding-right: 0;
+    }
+</style>
+<div id="messages" class="oh-alert-container"></div>
+{% if projects %}
+    <div class="oh-inner-sidebar-content__header d-flex justify-content-between align-items-center p-4">
+        <h2 class="font-semibold text-sm">
+            {{ employee.get_full_name }}{% trans "'s Projects" %}
+        </h2>
+    </div>
+    <div id="projectContainer">
+        {% for project in projects %}
+            <div
+                hx-get="{% url 'tasks-list-individual-view' %}?employee_id={{ employee.id }}&project_id={{ project.id }}&field=project"
+                hx-trigger="load"
+                hx-target="#projectTaskList{{project.id}}"
+            >
+                <div class="absolute top-2 right-16 h-6 w-6 flex items-center justify-center z-50">
+                    <button
+                        onclick="event.stopPropagation()"
+                        class="oh-btn oh-btn--sq-sm bg-white border border-[#e6e6e6] h-6 w-6 p-0 flex items-center justify-center"
+                        title="{% trans 'View Project' %}"
+                        hx-target="#genericModalBody"
+                        data-target="#genericModal"
+                        data-toggle="oh-modal-toggle"
+                        hx-get="{% url 'project-detailed-view' project.id %}"
+                    >
+                        <ion-icon name="eye-outline" role="img"></ion-icon>
+                    </button>
+                </div>
+                <div
+                    id="projectTaskList{{project.id}}"
+                    hx-get="{% url 'tasks-list-individual-view' %}?employee_id={{ employee.id }}&project_id={{ project.id }}"
+                    hx-trigger="load"
+                ></div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div
+        style="height: 380px; display: flex; align-items: center; justify-content: center"
+        class=""
+    >
+        <div style="" class="">
+            <img
+                style="display: block; width: 100px; margin: 10px auto"
+                src="{% static 'images/ui/project/project.png' %}"
+                class=""
+                alt="{% trans 'Page not found. 404.' %}"
+            >
+            <h3 style="font-size: 20px" class="oh-404__subtitle">
+                {% trans "No projects assigned to this employee." %}
+            </h3>
+        </div>
+    </div>
+{% endif %}
+
+<script>
+    $(document).on("htmx:afterSettle", function () {
+        $(".stickyleft-second").removeClass("stickyleft-second");
+    });
+</script>

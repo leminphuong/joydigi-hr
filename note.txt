@@ -1,0 +1,40 @@
+
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Setup environment
+cp .env.dist .env
+# Edit .env with your configuration
+
+# Initialize database
+python manage.py migrate
+python manage.py compilemessages
+python manage.py collectstatic
+
+# Run development server
+python manage.py runserver
+
+Python 12 
+winget install -e --id Python.Python.3.12
+postgresql://postgres:admin123@localhost:5432/joydigi_hr
+
+
+venv\Scripts\activate
+python manage.py migrate
+python manage.py compilemessages
+python manage.py collectstatic
+python manage.py runserver
+
+
+Dựa án chấm công học :
+Makefile
+Docker 
+
+GCP Storage 
+Supportted Formats for DATABASE_URL nhiều Data
+

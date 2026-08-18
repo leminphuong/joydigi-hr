@@ -1,0 +1,35 @@
+{% extends "index.html" %}
+{% load i18n static %}
+
+{% block content %}
+
+	<div hx-get="{% url 'nav-restricted-days' %}" hx-trigger="load"></div>
+
+	{% include "generic/components.html" %}
+
+	<div
+		class="oh-checkpoint-badge mb-2"
+		id="selectedInstances"
+		data-ids="[]"
+		data-clicked=""
+		style="display: none"
+	></div>
+
+	<div
+		class="oh-wrapper"
+		hx-get="{% url 'restrict-filter'  %}?{{request.GET.urlencode}}"
+		hx-trigger="load"
+		id="restrictLeavesListContainer"
+	>
+		<div class="animated-background"></div>
+	</div>
+
+	<script src="{% static '/restrict_days/action.js' %}"></script>
+
+	<span
+		id="bulkDeleteSpan"
+		hx-post="{% url 'restrict-days-bulk-delete' %}?{{pd}}"
+		hx-target="#restrictday"
+	></span>
+
+{% endblock %}

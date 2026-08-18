@@ -1,0 +1,28 @@
+{% load static i18n activity_history %}
+<div id="generic-history-container">
+    <button
+        hidden
+        hx-get="{{ request.path }}"
+        class="reload-record"
+        hx-target="#generic-history-container"
+        hx-swap="outerHTML"
+    >
+    </button>
+    <div
+        class="oh-activity-sidebar__header mt-3"
+        style="position: sticky; top: 0; z-index: 100; background-color: #fff; padding-bottom: 8px"
+    >
+        <a
+            style="cursor: pointer"
+            onclick="$('.oh-activity-sidebar--show').removeClass('oh-activity-sidebar--show')"
+        ><ion-icon
+                name="chevron-forward-outline"
+                class="oh-activity-sidebar__header-icon me-2 oh-activity-sidebar__close md flip-rtl hydrated"
+                data-target="#activitySidebar"
+                role="img"
+            ></ion-icon></a>
+        <span class="oh-activity-sidebar__title fw-bold">{% trans "Activity history" %}</span>
+    </div>
+
+    {% activity_history_feed tracking=tracking log_entries=log_entries compact=1 show_header=0 show_search=1 feed_id="genericActivityHistory" has_perm_to_revert=has_perm_to_revert object=object model=model %}
+</div>

@@ -1,0 +1,343 @@
+{% load i18n %}{% load static %}{% load horillafilters %}
+{% get_company as theme_obj %}
+{% if templates %}
+    {% if templates.has_next or templates.has_previous %}
+        {% if templates.paginator.count %}
+            <div class="flex flex-nowrap items-center justify-end gap-2 mb-2">
+                <div class="hlv-pagination inline-flex items-center h-8 gap-0.5 bg-white border border-[#e6e6e6] rounded-md px-1 flex-shrink-0">
+                    <button
+                        type="button"
+                        class="w-7 h-7 flex items-center justify-center rounded text-xs leading-none transition duration-300 {% if templates.has_previous %}text-[#666] hover:bg-[#f5f5f5]{% else %}text-[#ccc] cursor-not-allowed{% endif %}"
+                        {% if templates.has_previous %}
+                        hx-target="#view-container"
+                        hx-get="{% url 'rec-filter-survey' %}?{{pd}}&template_page=1"
+                        {% endif %}
+                    >
+                        <i class="fa-solid fa-angles-left"></i>
+                    </button>
+                    <button
+                        type="button"
+                        class="w-7 h-7 flex items-center justify-center rounded text-xs leading-none transition duration-300 {% if templates.has_previous %}text-[#666] hover:bg-[#f5f5f5]{% else %}text-[#ccc] cursor-not-allowed{% endif %}"
+                        {% if templates.has_previous %}
+                        hx-target="#view-container"
+                        hx-get="{% url 'rec-filter-survey' %}?{{pd}}&template_page={{ templates.previous_page_number }}"
+                        {% endif %}
+                    >
+                        <i class="fa-solid fa-angle-left"></i>
+                    </button>
+                    <div class="flex items-center gap-1 px-1 h-7 text-xs text-[#666] leading-none">
+                        <input
+                            type="number"
+                            name="template_page"
+                            min="1"
+                            max="{{ templates.paginator.num_pages }}"
+                            value="{{templates.number}}"
+                            title="{% trans 'Enter a page number and press Enter' %}"
+                            class="w-9 h-6 m-0 py-0 px-1 text-center text-xs leading-6 border border-[#e6e6e6] rounded outline-none focus:border-primary-600 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            hx-get="{% url 'rec-filter-survey' %}?{{pd}}"
+                            hx-target="#view-container"
+                            hx-trigger="keyup[keyCode==13] changed, blur changed"
+                            onclick="this.select()"
+                        >
+                        <span class="inline-flex items-center h-6 leading-none whitespace-nowrap">/ {{ templates.paginator.num_pages }}</span>
+                    </div>
+                    <button
+                        type="button"
+                        class="w-7 h-7 flex items-center justify-center rounded text-xs leading-none transition duration-300 {% if templates.has_next %}text-[#666] hover:bg-[#f5f5f5]{% else %}text-[#ccc] cursor-not-allowed{% endif %}"
+                        {% if templates.has_next %}
+                        hx-target="#view-container"
+                        hx-get="{% url 'rec-filter-survey' %}?{{pd}}&template_page={{ templates.next_page_number }}"
+                        {% endif %}
+                    >
+                        <i class="fa-solid fa-angle-right"></i>
+                    </button>
+                    <button
+                        type="button"
+                        class="w-7 h-7 flex items-center justify-center rounded text-xs leading-none transition duration-300 {% if templates.has_next %}text-[#666] hover:bg-[#f5f5f5]{% else %}text-[#ccc] cursor-not-allowed{% endif %}"
+                        {% if templates.has_next %}
+                        hx-target="#view-container"
+                        hx-get="{% url 'rec-filter-survey' %}?{{pd}}&template_page={{ templates.paginator.num_pages }}"
+                        {% endif %}
+                    >
+                        <i class="fa-solid fa-angles-right"></i>
+                    </button>
+                </div>
+            </div>
+        {% endif %}
+    {% endif %}
+    <div class="p-2 mt-5 shadow-card bg-white">
+        {% for grouper in templates %}
+            <div class="oh-accordion mb-3">
+                <div class="oh-accordion-item">
+                    <div class="oh-accordion-header no-after d-flex justify-between align-center">
+                        <span class="oh-accordion-title text-sm d-flex items-center">
+                            {{ grouper.grouper }}
+                            <div class="flex items-center">
+                                <span
+                                    class="p-1 text-center w-[22px] h-[22px] text-xs flex justify-center items-center rounded-full bg-primary-600 text-primary-50 ms-2 mr-2"
+                                    id="recruitmentCandidateCount1"
+                                    title="{{grouper.list|length}} {% trans 'Questions' %}"
+                                    onclick="event.stopPropagation()"
+                                >
+                                    {{ grouper.list|length }}
+                                </span>
+                            </div>
+                        </span>
+                        <div class="flex items-center gap-3">
+                            <ion-icon name="chevron-down-outline" class="accordion-chevron text-lg transition-transform duration-300"></ion-icon>
+                        <div class="oh-accordion-meta__actions" onclick="event.stopPropagation()">
+                            <div class="oh-dropdown" x-data="{open: false}">
+                                {% if grouper.grouper %}
+                                    <button
+                                        class="oh-btn oh-stop-prop oh-btn--transparent oh-accordion-meta__btn"
+                                        @click="open = !open"
+                                        @click.outside="open = false"
+                                        title="{% trans 'Actions' %}"
+                                    >
+                                        <ion-icon
+                                            name="ellipsis-vertical"
+                                            role="img"
+                                            class="md hydrated"
+                                            aria-label="{% trans 'ellipsis vertical' %}"
+                                        ></ion-icon>
+                                    </button>
+                                    <div
+                                        class="oh-dropdown__menu oh-dropdown__menu--right"
+                                        x-show="open"
+                                        style="display: none"
+                                    >
+                                        <ul class="oh-dropdown__items">
+                                            <li class="oh-dropdown__item">
+                                                <a
+                                                    hx-get="{% url 'survey-template-preview' %}?title={{grouper.grouper}}"
+                                                    hx-target="#surveyTabsWrapper"
+                                                    hx-swap="outerHTML"
+                                                    class="oh-dropdown__link"
+                                                >
+                                                    {% trans "Preview" %}
+                                                </a>
+                                            </li>
+                                            {% if perms.recruitment.change_surveytemplate %}
+                                                <li class="oh-dropdown__item">
+                                                    <a
+                                                        hx-get="{% url 'survey-template-question-add' %}?title={{grouper.grouper}}"
+                                                        hx-target="#templateModalBody"
+                                                        data-toggle="oh-modal-toggle"
+                                                        data-target="#templateModal"
+                                                        class="oh-dropdown__link"
+                                                    >
+                                                        {% trans "Add Questions" %}
+                                                    </a>
+                                                </li>
+                                            {% endif %}
+                                            {% if perms.recruitment.change_surveytemplate %}
+                                                <li class="oh-dropdown__item">
+                                                    <a
+                                                        hx-get="{% url 'survey-template-create' %}?title={{grouper.grouper}}"
+                                                        hx-target="#genericModalBody"
+                                                        data-toggle="oh-modal-toggle"
+                                                        data-target="#genericModal"
+                                                        class="oh-dropdown__link"
+                                                    >
+                                                        {% trans "Edit" %}
+                                                    </a>
+                                                </li>
+                                            {% endif %}
+                                            {% if perms.recruitment.delete_surveytemplate %}
+                                                <li class="oh-dropdown__item">
+                                                    <a
+                                                        href="{% url 'survey-template-delete' %}?title={{grouper.grouper}}"
+                                                        onclick="return confirm('{% trans "Do you want to delete this template" %}')"
+                                                        class="oh-dropdown__link text-danger"
+                                                    >
+                                                        {% trans "Delete" %}
+                                                    </a>
+                                                </li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        </div>
+                    </div>
+                    <div class="oh-accordion-body d-none">
+                        {% if grouper.list %}
+                            {% if grouper.list.has_next or grouper.list.has_previous %}
+                                {% if grouper.list.paginator.count %}
+                                    <div class="flex flex-nowrap items-center justify-end gap-2 mb-2">
+                                        <div class="hlv-pagination inline-flex items-center h-8 gap-0.5 bg-white border border-[#e6e6e6] rounded-md px-1 flex-shrink-0">
+                                            <button
+                                                type="button"
+                                                class="w-7 h-7 flex items-center justify-center rounded text-xs leading-none transition duration-300 {% if grouper.list.has_previous %}text-[#666] hover:bg-[#f5f5f5]{% else %}text-[#ccc] cursor-not-allowed{% endif %}"
+                                                {% if grouper.list.has_previous %}
+                                                hx-target="#view-container"
+                                                hx-get="{% url 'rec-filter-survey' %}?{{pd}}&{{grouper.dynamic_name}}=1"
+                                                {% endif %}
+                                            >
+                                                <i class="fa-solid fa-angles-left"></i>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="w-7 h-7 flex items-center justify-center rounded text-xs leading-none transition duration-300 {% if grouper.list.has_previous %}text-[#666] hover:bg-[#f5f5f5]{% else %}text-[#ccc] cursor-not-allowed{% endif %}"
+                                                {% if grouper.list.has_previous %}
+                                                hx-target="#view-container"
+                                                hx-get="{% url 'rec-filter-survey' %}?{{pd}}&{{grouper.dynamic_name}}={{ grouper.list.previous_page_number }}"
+                                                {% endif %}
+                                            >
+                                                <i class="fa-solid fa-angle-left"></i>
+                                            </button>
+                                            <div class="flex items-center gap-1 px-1 h-7 text-xs text-[#666] leading-none">
+                                                <input
+                                                    type="number"
+                                                    name="{{grouper.dynamic_name}}"
+                                                    min="1"
+                                                    max="{{ grouper.list.paginator.num_pages }}"
+                                                    value="{{grouper.list.number}}"
+                                                    title="{% trans 'Enter a page number and press Enter' %}"
+                                                    class="w-9 h-6 m-0 py-0 px-1 text-center text-xs leading-6 border border-[#e6e6e6] rounded outline-none focus:border-primary-600 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                    hx-get="{% url 'rec-filter-survey' %}?{{pd}}"
+                                                    hx-target="#view-container"
+                                                    hx-trigger="keyup[keyCode==13] changed, blur changed"
+                                                    onclick="this.select()"
+                                                >
+                                                <span class="inline-flex items-center h-6 leading-none whitespace-nowrap">/ {{ grouper.list.paginator.num_pages }}</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                class="w-7 h-7 flex items-center justify-center rounded text-xs leading-none transition duration-300 {% if grouper.list.has_next %}text-[#666] hover:bg-[#f5f5f5]{% else %}text-[#ccc] cursor-not-allowed{% endif %}"
+                                                {% if grouper.list.has_next %}
+                                                hx-target="#view-container"
+                                                hx-get="{% url 'rec-filter-survey' %}?{{pd}}&{{grouper.dynamic_name}}={{ grouper.list.next_page_number }}"
+                                                {% endif %}
+                                            >
+                                                <i class="fa-solid fa-angle-right"></i>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="w-7 h-7 flex items-center justify-center rounded text-xs leading-none transition duration-300 {% if grouper.list.has_next %}text-[#666] hover:bg-[#f5f5f5]{% else %}text-[#ccc] cursor-not-allowed{% endif %}"
+                                                {% if grouper.list.has_next %}
+                                                hx-target="#view-container"
+                                                hx-get="{% url 'rec-filter-survey' %}?{{pd}}&{{grouper.dynamic_name}}={{ grouper.list.paginator.num_pages }}"
+                                                {% endif %}
+                                            >
+                                                <i class="fa-solid fa-angles-right"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endif %}
+                            <table class="w-full border border-[#ececec]">
+                                <thead class="sticky top-0 bg-[white] z-[1]">
+                                    <tr class="border-b border-[#ececec]">
+                                        <th class="stickyleft size-1/2 text-sm font-medium text-left p-3">
+                                            <div class="flex gap-3">
+                                                <span class="">{% trans "Question" %}</span>
+                                            </div>
+                                        </th>
+                                        <th class="text-sm font-medium text-left p-3 size-1/3">
+                                            <div class="flex gap-3">
+                                                <span class="">{% trans "Type" %}</span>
+                                            </div>
+                                        </th>
+                                        {% if perms.recruitment.change_recruitmentsurvey or perms.recruitment.delete_recruitmentsurvey %}
+                                            <th class="text-sm font-medium text-left p-3">
+                                                <div class="flex gap-3 justify-center">
+                                                    <span class="">{% trans "Actions" %}</span>
+                                                </div>
+                                            </th>
+                                        {% endif %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for question in grouper.list %}
+                                        <tr class="border-b border-[#ebebeb]">
+                                            <td
+                                                class="stickyleft text-sm text-left p-3 text-[#666]"
+                                                data-target="#genericModal"
+                                                data-toggle="oh-modal-toggle"
+                                                hx-get="{% url 'single-survey-view' question.id %}?instance_ids={{requests_ids}}"
+                                                hx-target="#genericModalBody"
+                                            >
+                                                <div class="flex gap-3 items-center">
+                                                    <img
+                                                        src="https://ui-avatars.com/api/?name={{question.question}}&background=random"
+                                                        class="rounded-full"
+                                                        alt=""
+                                                        width="30"
+                                                    >
+                                                    <span>{{ question.question }}</span>
+                                                </div>
+                                            </td>
+                                            <td class="text-sm text-left p-3 text-[#666]">
+                                                {{ question.get_type_display }}
+                                            </td>
+                                            {% if perms.recruitment.change_recruitmentsurvey or perms.recruitment.delete_recruitmentsurvey %}
+                                                <td class="text-sm text-left p-3 text-[#666]">
+                                                    <div class="flex items-center justify-center gap-1" onclick="event.stopPropagation()">
+                                                        {% if perms.recruitment.change_recruitmentsurvey %}
+                                                            <button
+                                                                hx-get="{% url 'recruitment-survey-question-template-edit' question.id %}"
+                                                                data-toggle="oh-modal-toggle"
+                                                                data-target="#genericModal"
+                                                                hx-target="#genericModalBody"
+                                                                class="oh-btn oh-btn--light-bkg oh-btn--sq-sm"
+                                                                title="{% trans 'Edit' %}"
+                                                            >
+                                                                <ion-icon name="create-outline"></ion-icon>
+                                                            </button>
+                                                        {% endif %}
+                                                        {% if perms.recruitment.delete_recruitmentsurvey %}
+                                                            <form
+                                                                hx-post="{% url 'recruitment-survey-question-template-delete' question.id %}"
+                                                                hx-target="#view-container"
+                                                                hx-swap="innerHTML"
+                                                                hx-confirm="{% trans 'Do you want to delete this record?' %}"
+                                                                hx-on-htmx-after-request="$('#reloadMessagesButton').click();"
+                                                                onsubmit="event.stopPropagation()"
+                                                            >
+                                                                {% csrf_token %}
+                                                                <button
+                                                                    type="submit"
+                                                                    class="oh-btn oh-btn--danger oh-btn--sq-sm"
+                                                                    title="{% trans 'delete' %}"
+                                                                >
+                                                                    <ion-icon name="trash-outline"></ion-icon>
+                                                                </button>
+                                                            </form>
+                                                        {% endif %}
+                                                    </div>
+                                                </td>
+                                            {% endif %}
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="oh-wrapper h-full" align="center">
+                                <div class="xl:col-span-4 md:col-span-6 col-span-12 bg-white p-6 rounded-md shadow-card h-[70%]">
+                                    <div class="flex flex-col items-center justify-center h-full">
+                                        <img
+                                            src="/static/horilla_theme/assets/img/no-records.svg"
+                                            alt=""
+                                            width="300"
+                                            class="mb-4"
+                                        >
+                                        <p class="text-[#666] mb-5">{% trans "No records available at the moment" %}</p>
+                                        {% include "generic/import_block.html" %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="oh-empty">
+        <img src="{% static 'images/ui/search.svg' %}" class="oh-404__image" alt="{% trans 'Page not found. 404.' %}">
+        <h1 class="oh-empty__title">{% trans "No Records found." %}</h1>
+        <p class="oh-empty__subtitle">{% trans "No template groups have been established yet." %}</p>
+    </div>
+{% endif %}

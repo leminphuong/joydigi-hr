@@ -1,0 +1,22 @@
+{% extends "index.html" %}
+{% load static %}
+{% load i18n %}
+{% block content %}
+<meta name="csrf-token" content="{{ csrf_token }}">
+<div hx-get="{% url 'filing-status-nav' %}" hx-trigger="load"></div>
+
+{% include "generic/components.html" %}
+<div class="oh-checkpoint-badge mb-2" id="selectedInstances" data-ids="[]" data-clicked="" style="display: none">
+</div>
+
+
+<div class="oh-wrapper" hx-get="{% url "filing-status-search" %}?{{request.GET.urlencode}}" hx-trigger="load"
+ id="FilingStatusList">
+  <div class="animated-background">
+</div>
+</div>
+
+<div class="oh-modal" id="objectUpdateModal" role="dialog" aria-labelledby="objectUpdateModalLabel" aria-hidden="true">
+    <div class="oh-modal__dialog" id="objectUpdateModalTarget"></div>
+</div>
+{% endblock content %}

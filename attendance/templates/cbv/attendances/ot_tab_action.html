@@ -1,0 +1,133 @@
+{% load i18n %}
+{% load static %}
+{% load basefilters %}
+{% is_manager_of request.user instance as can_manage %}
+{% if perms.attendance.change_attendance or can_manage %}
+    <a
+        class="oh-btn oh-btn-group oh-btn--light-bkg oh-btn--secondary"
+        hx-get="{% url 'attendance-update' instance.id %}"
+        hx-target="#genericModalBody"
+        hx-swap="innerHTML"
+        data-toggle="oh-modal-toggle"
+        data-target="#genericModal"
+        style="width: 50%"
+    >
+        <button style="background: none; color: inherit; border: none; padding: 0; font: inherit; cursor: pointer; outline: inherit">
+            <ion-icon
+                name="create-outline"
+                role="img"
+                class="md hydrated"
+                aria-label="{% trans 'create outline' %}"
+            ></ion-icon>{% trans "Edit" %}
+        </button>
+    </a>
+
+    {% if instance.attendance_overtime_approve %}
+        <a
+            type="submit"
+            href="#"
+            title="{% trans 'Approved' %}"
+            class="oh-btn oh-btn-group oh-btn--success oh-btn--disabled"
+            onclick="event.stopPropagation()"
+            style="width: 50%"
+        >
+            <button style="background: none; color: inherit; border: none; padding: 0; font: inherit; cursor: pointer; outline: inherit">
+                <ion-icon class="me-1" name="checkmark-done-outline"></ion-icon>{% trans "Approve" %}
+            </button>
+        </a>
+    {% elif minot <= instance.overtime_second %}
+        {% if instance.employee_id == request.user.employee_get and not request.user.is_superuser %}
+            <a type="submit" href="#" class="oh-btn oh-btn--success w-50 oh-btn--disabled">
+                <ion-icon name="checkmark-done-outline"></ion-icon>
+                {% trans "Approve" %}
+            </a>
+        {% else %}
+            <form
+                hx-post="{% url 'approve-overtime' instance.id %}"
+                hx-swap="none"
+                hx-confirm="{% trans 'Do you want to approve this overtime?' %}"
+                style="display: inline; margin: 0; padding: 0; border: none; background: none; width: 50%"
+                onclick="event.stopPropagation()"
+            >
+                {% csrf_token %}
+                <button
+                    type="submit"
+                    title="{% trans 'Approve Overtime' %}"
+                    class="oh-btn oh-btn-group oh-btn--success w-100"
+                >
+                    <ion-icon class="me-1" name="checkmark-done-outline"></ion-icon>{% trans "Approve" %}
+                </button>
+            </form>
+        {% endif %}
+    {% elif instance.overtime_second >= 60 %}
+        <button
+            type="button"
+            title="{% trans 'Approve Overtime (OT < min.OT)' %}"
+            class="oh-btn oh-btn-group oh-btn--warning w-50"
+            onclick="event.stopPropagation(); (function(pk){
+                Swal.fire({
+                    title: '{% trans 'Are you sure?' %}',
+                    text: '{% trans 'This does not satisfy the minimum OT requirement!' %}',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#008000',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Approve',
+                    cancelButtonText: i18nMessages.cancel
+                }).then(function(result) {
+                    if (result.isConfirmed) {
+                        var f = document.getElementById('ot-approve-tab-' + pk);
+                        if (f && f.requestSubmit) f.requestSubmit();
+                    }
+                });
+            })({{ instance.id }})"
+        >
+            <ion-icon class="me-1" name="checkmark-done-outline"></ion-icon>{% trans "Approve" %}
+        </button>
+        <form
+            id="ot-approve-tab-{{ instance.id }}"
+            hx-post="{% url 'approve-overtime' instance.id %}"
+            hx-swap="none"
+            hidden
+        >
+            {% csrf_token %}
+        </form>
+    {% endif %}
+
+    {% comment %} {% if instance.attendance_overtime_approve %}
+    <a type="submit" href="#" title="{% trans 'Approved' %}"
+        class="oh-btn oh-btn-group oh-btn--success oh-btn--disabled" onclick="event.stopPropagation()"
+        style="width: 50%;">
+        <button
+            style="background: none; color: inherit; border: none; padding: 0; font: inherit; cursor: pointer; outline: inherit;">
+            <ion-icon class="me-1" name="ban-outline"></ion-icon>{% trans "Approve" %}
+        </button>
+    </a>
+    {% else %}
+    <a type="submit" href="{% url 'approve-overtime' instance.id %}" title="{% trans 'Approve Overtime' %}"
+        class="oh-btn oh-btn-group oh-btn--success" onclick="event.stopPropagation()" style="width: 50%;">
+        <button
+            style="background: none; color: inherit; border: none; padding: 0; font: inherit; cursor: pointer; outline: inherit;">
+            <ion-icon class="me-1" name="checkmark-done-outline"></ion-icon>{% trans "Approve" %}
+        </button>
+    </a>
+    {% endif %} {% endcomment %}
+{% endif %}
+{% if perms.attendance.delete_attendance or can_manage %}
+    <form
+        hx-post="{% url 'attendance-delete' instance.id  %}"
+        hx-swap="none"
+        onsubmit="return confirm('{% trans "Are you sure want to delete this attendance?" %}')"
+        method="post"
+        style="width: 50%"
+        class="oh-btn oh-btn-group oh-btn--danger"
+    >
+        {% csrf_token %}
+        <button
+            type="submit"
+            style="background: none; color: inherit; border: none; padding: 0; font: inherit; cursor: pointer; outline: inherit"
+        >
+            <ion-icon name="trash-outline"></ion-icon>{% trans 'Delete' %}
+        </button>
+    </form>
+{% endif %}

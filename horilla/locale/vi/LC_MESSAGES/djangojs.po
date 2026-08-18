@@ -1,0 +1,231 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026 THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Horilla HR Vietnamese VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-12-18 13:57+0530\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: ChatGPT\n"
+"Language: vi\n"
+"Language-Team: Vietnamese\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+msgid "An unexpected error occurred. Please refresh the page."
+msgstr "unexpected lỗi occurred. Vui lòng refresh page."
+
+msgid "Do you really want to validate all the selected attendances?"
+msgstr "Bạn có muốn xác nhận tất cả đã chọn chấm công?"
+
+msgid "No rows are selected from Validate Attendances."
+msgstr "Không rows are đã chọn từ Xác nhận Chấm công."
+
+msgid "Do you really want to approve OT for all the selected attendances?"
+msgstr "Bạn có muốn duyệt OT cho tất cả đã chọn chấm công?"
+
+msgid "No rows are selected from OT Attendances."
+msgstr "Không rows are đã chọn từ Chấm công tăng ca."
+
+msgid "Do you really want to reject all the selected attendance requests?"
+msgstr "Bạn có muốn từ chối tất cả đã chọn yêu cầu chấm công?"
+
+msgid "Pending Attendance Update Request!"
+msgstr "Đang chờ Chấm công Cập nhật Yêu cầu!"
+
+msgid "An attendance request exists for updating this attendance prior to validation."
+msgstr "yêu cầu chấm công tồn tại cho updating này chấm công prior đến validation."
+
+msgid "View Request"
+msgstr "Xem yêu cầu"
+
+msgid "Some selected requests have already been approved."
+msgstr "Đã duyệt Một số đã chọn yêu cầu have đã been."
+
+msgid "Some selected requests have already been rejected."
+msgstr "Đã từ chối Một số đã chọn yêu cầu have đã been."
+
+msgid "Do you wish to create a Leave Report?"
+msgstr "Bạn có muốn tạo Nghỉ phép Báo cáo?"
+
+msgid "Do you want to reject the selected leave requests?"
+msgstr "Bạn có muốn từ chối đã chọn yêu cầu nghỉ phép?"
+
+msgid "Do you want to send the payslip by mail?"
+msgstr "Bạn có muốn gửi phiếu lương bởi email?"
+
+msgid "Name of Employees"
+msgstr "Tên của Nhân viên"
+
+msgid "Amount"
+msgstr "Số tiền"
+
+msgid "Upload Completed!"
+msgstr "Đã hoàn thành Tải lên."
+
+msgid "Imported Successfully!"
+msgstr "Đã nhập Thành công!"
+
+msgid "Please upload a file with the .xlsx extension only."
+msgstr "Vui lòng tải lên tệp với .xlsx extension chỉ."
+
+msgid "visible"
+msgstr "visible"
+
+msgid "bgcolor"
+msgstr "bgcolor"
+
+msgid "bordercolor"
+msgstr "bordercolor"
+
+msgid "borderwidth"
+msgstr "borderwidth"
+
+msgid "thickness"
+msgstr "thickness"
+
+msgid "autorange"
+msgstr "autorange"
+
+msgid "range"
+msgstr "range"
+
+msgid "x"
+msgstr "x"
+
+msgid "y"
+msgstr "y"
+
+msgid "minor"
+msgstr "minor"
+
+msgid "label"
+msgstr "label"
+
+msgid "arrowlen"
+msgstr "arrowlen"
+
+msgid "source"
+msgstr "source"
+
+msgid "target"
+msgstr "target"
+
+msgid "value"
+msgstr "value"
+
+msgid "line.color"
+msgstr "line.color"
+
+msgid "line.width"
+msgstr "line.width"
+
+msgid "hoverinfo"
+msgstr "hoverinfo"
+
+msgid "hovertemplate"
+msgstr "hovertemplate"
+
+msgid "color"
+msgstr "color"
+
+msgid "hovercolor"
+msgstr "hovercolor"
+
+msgid "customdata"
+msgstr "customdata"
+
+msgid "punc"
+msgstr "punc"
+
+msgid "name"
+msgstr "name"
+
+msgid "keyword"
+msgstr "keyword"
+
+msgid "arrow"
+msgstr "arrow"
+
+msgid "operator"
+msgstr "operator"
+
+msgid "close"
+msgstr "Đóng"
+
+msgid "Confirm"
+msgstr "Xác nhận"
+
+msgid "Close"
+msgstr "Đóng"
+
+msgid "Cancel"
+msgstr "Hủy"
+
+msgid "Selected"
+msgstr "Đã chọn"
+
+msgid "Uploading..."
+msgstr "Đang tải lên..."
+
+msgid "No Records found"
+msgstr "Không tìm thấy bản ghi"
+
+msgid "Do you want to download the excel file?"
+msgstr "Bạn có muốn tải xuống excel tệp?"
+
+msgid "Do you want to download the template?"
+msgstr "Bạn có muốn tải xuống mẫu?"
+
+msgid "No rows are selected from the records."
+msgstr "Không rows are đã chọn từ bản ghi."
+
+msgid "Do you really want to delete all the selected records?"
+msgstr "Bạn có muốn xóa tất cả đã chọn bản ghi?"
+
+msgid "Do you really want to archive all the selected records?"
+msgstr "Bạn có muốn lưu trữ tất cả đã chọn bản ghi?"
+
+msgid "Do you really want to approve all the selected requests?"
+msgstr "Bạn có muốn duyệt tất cả đã chọn yêu cầu?"
+
+msgid "Do you really want to unarchive all the selected records?"
+msgstr "Bạn có muốn bỏ lưu trữ tất cả đã chọn bản ghi?"
+
+msgid "Ok"
+msgstr "OK"
+
+#, python-format
+msgid "Total vacancy is %(vacancy)s."
+msgstr "Tổng vị trí tuyển dụng is %(vacancy)s."
+
+#, python-format
+msgid "Are you sure to change the candidate from %(from)s stage to %(to)s stage"
+msgstr "Are bạn sure đến thay đổi ứng viên từ %(from)s giai đoạn đến %(to)s giai đoạn"
+
+msgid "Stage updated"
+msgstr "Đã cập nhật Giai đoạn."
+
+msgid "Confirm Stage Change"
+msgstr "Xác nhận Giai đoạn Thay đổi"
+
+#, python-format
+msgid "The candidate is being moved from %(from)s to the %(to)s stage. Do you want to proceed?"
+msgstr "ứng viên đang được moved từ %(from)s đến %(to)s giai đoạn. Do bạn want đến tiếp tục?"
+
+msgid "Don't show this again in this session"
+msgstr "Don't show này again trong này session"
+
+msgid "Cannot Change Stage"
+msgstr "Không thể Thay đổi Giai đoạn"
+
+msgid "This move is not allowed."
+msgstr "Này di chuyển is không allowed."
+

@@ -1,0 +1,136 @@
+{% extends "index.html" %}
+{% load i18n horillafilters %}
+{% get_company as theme_obj %}
+
+{% block content %}
+    <style>
+        /* Match attendance tab chip appearance */
+        .oh-tabs__tab {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            gap: 0.5rem;
+            border: 1px solid #f6f6f6;
+            border-radius: 6px;
+            color: #1f2937;
+            font-size: 0.75rem;
+            transition-duration: 300ms;
+            transition-property: all;
+        }
+
+        .oh-tabs__tab--active {
+            background-color: {{ theme_obj.primary_200|default:"#fcedeb" }};
+            color: {{ theme_obj.primary_600|default:"#e54f38" }};
+            border: 1px solid {{ theme_obj.primary_600|default:"#e54f38" }};
+        }
+
+        .oh-tabs__tab:not(.oh-tabs__tab--active):hover {
+            background-color: {{ theme_obj.primary_100|default:"#FFF5F1" }};
+            border: 1px solid {{ theme_obj.primary_300|default:"#FCEDEB" }};
+            cursor: pointer;
+        }
+    </style>
+
+    <div class="flex flex-wrap justify-between items-center mb-3">
+        <h3 class="text-lg font-semibold">{% trans "Policies & Discipline" %}</h3>
+    </div>
+
+    <div class="bg-white p-3 rounded-md shadow-card oh-tabs">
+        <div class="flex gap-1 flex-wrap mb-3">
+            <button
+                type="button"
+                class="oh-tabs__tab policies-discipline-tab-btn"
+                data-tab-id="policies"
+                data-url="{% url 'policies-discipline-policies-tab' %}"
+            >
+                {% trans "Policies" %}
+            </button>
+            <button
+                type="button"
+                class="oh-tabs__tab policies-discipline-tab-btn"
+                data-tab-id="disciplinary"
+                data-url="{% url 'policies-discipline-disciplinary-tab' %}"
+            >
+                {% trans "Disciplinary Actions" %}
+            </button>
+            {% if perms.employee.view_actiontype %}
+                <button
+                    type="button"
+                    class="oh-tabs__tab policies-discipline-tab-btn"
+                    data-tab-id="action-type"
+                    data-url="{% url 'policies-discipline-action-type-tab' %}"
+                >
+                    {% trans "Disciplinary Action Type" %}
+                </button>
+            {% endif %}
+        </div>
+
+        <div id="policiesDisciplineContent" class="oh-wrapper"></div>
+    </div>
+
+    <script>
+        (function () {
+            var STORAGE_KEY = "activePoliciesDisciplineTab";
+
+            function loadPoliciesDisciplineTab(buttonEl, persist) {
+                if (!buttonEl || typeof htmx === "undefined") return;
+                var url = buttonEl.getAttribute("data-url");
+                if (!url) return;
+                var tabId = buttonEl.getAttribute("data-tab-id");
+                document.querySelectorAll(".policies-discipline-tab-btn").forEach(function (btn) {
+                    btn.classList.remove("oh-tabs__tab--active");
+                });
+                buttonEl.classList.add("oh-tabs__tab--active");
+                if (persist !== false && tabId) {
+                    try {
+                        localStorage.setItem(STORAGE_KEY, tabId);
+                    } catch (_) {}
+                }
+                htmx.ajax("GET", url, {
+                    target: "#policiesDisciplineContent",
+                    swap: "innerHTML",
+                });
+            }
+
+            function restorePoliciesDisciplineTab() {
+                if (!document.getElementById("policiesDisciplineContent")) return;
+
+                var savedTabId = null;
+                try {
+                    savedTabId = localStorage.getItem(STORAGE_KEY);
+                } catch (_) {}
+
+                var initialTab = null;
+                if (savedTabId) {
+                    initialTab = document.querySelector(
+                        '.policies-discipline-tab-btn[data-tab-id="' + savedTabId.replace(/"/g, '\\"') + '"]'
+                    );
+                }
+                if (!initialTab) {
+                    initialTab = document.querySelector(".policies-discipline-tab-btn");
+                }
+                loadPoliciesDisciplineTab(initialTab, false);
+            }
+
+            function runWhenHtmxReady(fn) {
+                if (typeof htmx !== "undefined") {
+                    fn();
+                    return;
+                }
+                document.addEventListener("DOMContentLoaded", fn, { once: true });
+            }
+
+            if (!window._policiesDisciplineTabsClickBound) {
+                window._policiesDisciplineTabsClickBound = true;
+                document.addEventListener("click", function (event) {
+                    var buttonEl = event.target.closest(".policies-discipline-tab-btn");
+                    if (!buttonEl) return;
+                    event.preventDefault();
+                    loadPoliciesDisciplineTab(buttonEl);
+                });
+            }
+
+            runWhenHtmxReady(restorePoliciesDisciplineTab);
+        })();
+    </script>
+{% endblock content %}

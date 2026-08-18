@@ -1,0 +1,34 @@
+"""
+apps.py
+"""
+
+from django.apps import AppConfig
+from django.conf import settings
+
+
+class RecruitmentConfig(AppConfig):
+    """
+    AppConfig for the 'recruitment' app.
+
+    This class represents the configuration for the 'recruitment' app. It provides
+    the necessary settings and metadata for the app.
+
+    Attributes:
+        default_auto_field (str): The default auto field to use for model field IDs.
+        name (str): The name of the app.
+    """
+
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "recruitment"
+
+    def ready(self):
+        from django.urls import include, path
+
+        from horilla.urls import urlpatterns
+        from recruitment import signals
+
+        settings.APPS.append("recruitment")
+        urlpatterns.append(
+            path("recruitment/", include("recruitment.urls")),
+        )
+        super().ready()

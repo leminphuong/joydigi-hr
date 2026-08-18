@@ -1,0 +1,10 @@
+{% load i18n %}
+<label
+  class="oh-label required-star"
+  for="id_{{ form.reallocate_to.title }}"
+  title="{{ form.reallocate_to.help_text }}"
+  >{% trans form.reallocate_to.label %}</label
+>
+<div id ="dynamic_field_task_id">
+{{form.reallocate_to}}
+</div>

@@ -1,0 +1,170 @@
+{% load static i18n basefilters %}
+
+{% if groups %}
+    {% for group in groups %}
+        <div
+            class="accordion-item border border-primary-300 rounded-md overflow-hidden"
+            id="groupPanel{{ group.id }}"
+        >
+            <button
+                type="button"
+                onclick="event.preventDefault()"
+                class="accordion-btn-gp w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-primary-100 text-primary-600 text-sm transition-all text-left min-h-0"
+            >
+                <div class="flex items-center gap-2 min-w-0 flex-1">
+                    <span class="w-6 h-6 bg-primary-600 rounded-full text-white flex items-center justify-center text-[10px] font-semibold shrink-0">
+                        {{ group.name|slice:":1"|upper }}
+                    </span>
+                    <input
+                        type="text"
+                        value="{{ group.name }}"
+                        name="name"
+                        size="{{ group.name|length|default:10 }}"
+                        class="font-semibold text-sm text-inherit bg-transparent border-none px-1 m-0 outline-none cursor-pointer focus:cursor-text focus:bg-white focus:ring-1 focus:ring-primary-300 rounded transition-all shrink min-w-0 max-w-[140px]"
+                        style="field-sizing: content"
+                        title="{% trans 'Click to rename' %}"
+                        readonly
+                        onclick="this.removeAttribute('readonly'); event.stopPropagation()"
+                        onblur="this.setAttribute('readonly', true)"
+                        onkeydown="if (event.key === 'Enter') this.blur(); event.stopPropagation()"
+                        hx-post="{% url 'update-group-permission' %}"
+                        hx-vals='{"name_update": true, "id": {{ group.id }}}'
+                        hx-swap="none"
+                        hx-trigger="change"
+                        hx-on-htmx-after-request="reloadMessage()"
+                    >
+                    <span class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-white text-dark-300 border border-primary-200 whitespace-nowrap shrink-0">
+                        <i class="fa-solid fa-users text-[9px]"></i>
+                        {{ group.member_count }} {% trans "employees" %}
+                    </span>
+                    <span class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-white text-dark-300 border border-primary-200 whitespace-nowrap shrink-0">
+                        <i class="fa-solid fa-key text-[9px]"></i>
+                        {{ group.perm_count }} {% trans "permissions" %}
+                    </span>
+                </div>
+
+                <div class="flex items-center gap-1.5 shrink-0">
+                    {% if request.user.is_superuser %}
+                        <a
+                            href="#"
+                            class="cursor-pointer px-2 py-1 text-[11px] leading-none bg-danger shadow-card text-white rounded inline-flex items-center gap-1 hover:bg-danger-dark transition duration-300 h-6"
+                            hx-post="{% url 'user-group-delete' group.id %}"
+                            hx-target="#settingsContainer"
+                            hx-swap="none"
+                            hx-confirm="{% trans 'Delete this role? Employees will keep their accounts, but will no longer get permissions from this role.' %}"
+                            onclick="event.preventDefault(); event.stopPropagation()"
+                            title="{% trans 'Delete role' %}"
+                        >
+                            <i class="fa-solid fa-trash text-[10px]"></i>
+                            <span>{% trans "Delete" %}</span>
+                        </a>
+                    {% endif %}
+                    <ion-icon
+                        name="chevron-down-outline"
+                        class="icon oh-tabs__movable-fold-icon text-lg leading-none select-none"
+                        role="img"
+                        aria-hidden="true"
+                    ></ion-icon>
+                </div>
+            </button>
+
+            <div
+                class="panel accordion-panel-gp max-h-0 overflow-hidden transition-all duration-300 bg-white text-sm text-gray-700"
+                id="panel{{ group.id }}"
+                data-group-id="{{ group.id }}"
+                data-group-name="{{ group.name }}"
+            >
+                <div
+                    class="ug-detail-body px-4 pt-3 pb-4"
+                    data-url="{% url 'user-group-detail' group.id %}"
+                ></div>
+            </div>
+        </div>
+    {% endfor %}
+{% else %}
+    <div class="oh-wrapper h-full" align="center">
+        <div class="xl:col-span-4 md:col-span-6 col-span-12 bg-white p-6 rounded-md shadow-card h-[70%]">
+            <div class="flex flex-col items-center justify-center h-full">
+                <img
+                    src="/static/horilla_theme/assets/img/no-records.svg"
+                    alt=""
+                    width="260"
+                    class="mb-4"
+                >
+                <p class="text-[#666] mb-2 font-medium">
+                    {% trans "No roles yet" %}
+                </p>
+                <p class="text-xs text-dark-200 mb-5 max-w-sm">
+                    {% trans "Create a group, add employees, then choose what they can access. You can change this anytime." %}
+                </p>
+                {% if request.user.is_superuser %}
+                    <button
+                        class="px-4 py-2 bg-brand-600 text-white rounded-md text-xs inline-flex items-center gap-2 hover:bg-brand-800 transition"
+                        data-toggle="oh-modal-toggle"
+                        data-target="#Permissions"
+                        hx-get="{% url 'user-group-create' %}"
+                        hx-target="#permissionForm"
+                    >
+                        <i class="fa-solid fa-plus"></i>
+                        {% trans "Create your first group" %}
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+{% if groups %}
+    <div class="flex justify-between items-center mt-4 w-full bottom-0 inset-0">
+        <p class="text-xs text-[#666]">
+            {% trans "Page" %}
+            {{ groups.number }}
+            {% trans "of" %}
+            {{ groups.paginator.num_pages }}
+        </p>
+        <div class="text-sm flex gap-3 text-[#666] items-center">
+            {% if groups.has_previous %}
+                <button
+                    hx-get="{% url 'user-group-search' %}?{{ pd }}&page={{ groups.previous_page_number }}"
+                    hx-target="#permissionContainer"
+                    class="text-xs hover:text-primary-600 transition duration-300"
+                    title="{% trans 'Previous Page' %}"
+                >
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+            {% else %}
+                <button class="text-xs text-gray-300 cursor-not-allowed" disabled>
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+            {% endif %}
+            <span class="text-xs">
+                {{ groups.number }} / {{ groups.paginator.num_pages }}
+            </span>
+            {% if groups.has_next %}
+                <button
+                    hx-get="{% url 'user-group-search' %}?{{ pd }}&page={{ groups.next_page_number }}"
+                    hx-target="#permissionContainer"
+                    class="text-xs hover:text-primary-600 transition duration-300"
+                    title="{% trans 'Next Page' %}"
+                >
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            {% else %}
+                <button class="text-xs text-gray-300 cursor-not-allowed" disabled>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            {% endif %}
+        </div>
+    </div>
+{% endif %}
+
+<script>
+    document.body.addEventListener("htmx:afterRequest", function (evt) {
+        var url = evt.detail.pathInfo && evt.detail.pathInfo.requestPath;
+        if (url && url.includes("user-group-delete") && evt.detail.successful) {
+            if (typeof reloadSettingsContainer === "function") {
+                reloadSettingsContainer();
+            }
+        }
+    });
+</script>

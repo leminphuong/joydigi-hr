@@ -1,0 +1,10 @@
+{% load i18n static %}
+<div id="mail-server-cont">
+    {% if primary_mail_not_exist %}
+  <div class="bg-primary-100 border border-primary-500 rounded-md px-4 py-2 flex items-center gap-2 m-2" role="alert">
+    <span class="text-primary-600">{% trans "Primary mail is not configured!" %}</span>
+    <ion-icon name="mail-outline" class="text-primary-600 text-2xl shrink-0 animate-pulse"></ion-icon>
+  </div>
+{% endif %}
+    {% include "generic/horilla_list_table.html" %}
+</div>

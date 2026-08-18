@@ -1,0 +1,40 @@
+{% load i18n %}{% load basefilters %}
+{% is_manager_of request.user instance as can_manage %}
+{% with can_penalty=perms.base.change_penaltyaccounts can_delete=perms.attendance.delete_attendance %}
+    {% if can_manage or can_penalty or can_delete %}
+        <div onclick="event.stopPropagation()">
+            <div class="flex items-center justify-center gap-1">
+                {% if can_manage or can_penalty %}
+                    <button
+                        data-toggle="oh-modal-toggle"
+                        data-target="#penaltyModal"
+                        hx-target="#penaltyModalBody"
+                        hx-get="{% url 'cut-penalty' instance.id %}"
+                        type="submit"
+                        class="oh-btn oh-btn--danger oh-btn--sq-sm"
+                        title="{% trans 'Penalty' %}"
+                    >
+                        <ion-icon name="information-circle-outline"></ion-icon>
+                    </button>
+                {% endif %}
+                {% if can_manage or can_delete %}
+                    <form
+                        hx-confirm="{% trans 'Are you sure want to delete this attendance?' %}"
+                        hx-post="{% url 'late-come-early-out-delete' instance.id  %}"
+                        hx-target="#late-container"
+                        onclick="event.stopPropagation()"
+                    >
+                        {% csrf_token %}
+                        <button
+                            type="submit"
+                            class="oh-btn oh-btn--danger oh-btn--sq-sm"
+                            title="{% trans 'Remove' %}"
+                        >
+                            <ion-icon name="trash-outline"></ion-icon>
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+{% endwith %}

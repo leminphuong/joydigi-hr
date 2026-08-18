@@ -1,0 +1,70 @@
+{% load i18n %}
+<label class="settings-label mb-1" for="id_{{form.department.name}}">
+  {% trans "Employees" %}
+</label>
+<div class="oh-input-group mb-2">
+  {{form.employee.errors}} {{form.employee}}
+</div>
+{{form.permissions.errors}}
+<div id="permTable">{% include "base/auth/permission_table.html" %}</div>
+
+<div class="d-flex flex-row-reverse mt-3">
+  <button type="submit" class="oh-btn oh-btn--secondary mt-2 mr-0 pl-4 pr-5 oh-btn--w-100-resp">
+    {% trans "Save" %}
+  </button>
+</div>
+<script>
+  function clearAssignPermChecks() {
+    var $root = $("#permTable");
+    $root.find("[name=permissions]").prop("checked", false);
+    $root.find(".row-permission, .row-permission__select-all").prop("checked", false);
+    if (typeof refreshPermPicker === "function") {
+      var $picker = $root.find("[data-perm-picker]");
+      if ($picker.length) {
+        refreshPermPicker($picker);
+      }
+    } else if (typeof updateBadge === "function") {
+      updateBadge();
+    }
+  }
+
+  function getSelectedEmployeeIds() {
+    var selected = $("#permissionForm [name=employee]").val() || [];
+    if (!Array.isArray(selected)) {
+      selected = selected ? [selected] : [];
+    }
+    return selected.filter(Boolean);
+  }
+
+  function syncAssignPermsFromEmployees() {
+    var selected = getSelectedEmployeeIds();
+    clearAssignPermChecks();
+    // Only pre-fill when exactly one employee is selected
+    if (selected.length !== 1) {
+      return;
+    }
+    var empId = selected[0];
+    var url = "{% url 'employee-permission-codenames' 999999999 %}".replace(
+      "999999999",
+      empId
+    );
+    $.getJSON(url, function (data) {
+      var current = getSelectedEmployeeIds();
+      if (current.length !== 1 || String(current[0]) !== String(empId)) {
+        return;
+      }
+      if (typeof checkSelected === "function") {
+        checkSelected(JSON.stringify(data.codenames || []), "#permTable", true);
+      }
+    });
+  }
+
+  $(document)
+    .off("change.ugAssignPerm", "#permissionForm [name=employee]")
+    .on("change.ugAssignPerm", "#permissionForm [name=employee]", function () {
+      syncAssignPermsFromEmployees();
+    });
+
+  // If the modal opens with a pre-selected employee, sync once after widgets init
+  setTimeout(syncAssignPermsFromEmployees, 50);
+</script>

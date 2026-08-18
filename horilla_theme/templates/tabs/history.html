@@ -1,0 +1,6 @@
+{% load i18n activity_history %}
+{% if employee.employee_work_info %}
+    {% activity_history_feed tracking=employee.employee_work_info.tracking feed_id="employeeActivityHistory" %}
+{% else %}
+    {% activity_history_feed tracking=None feed_id="employeeActivityHistory" empty_message=_("No changes recorded yet") %}
+{% endif %}

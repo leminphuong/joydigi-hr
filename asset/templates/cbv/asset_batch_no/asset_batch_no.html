@@ -1,0 +1,52 @@
+{% extends "index.html" %}
+{% load i18n static horillafilters %}
+
+{% block content %}
+    {% get_company as theme_obj %}
+    <style>
+        .oh-badge {
+            display: inline-block;
+            padding: 0.25rem;
+            text-align: center;
+        }
+        .oh-badge--small {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: fit-content;
+            min-width: 20px !important;
+            height: fit-content;
+            min-height: 20px !important;
+            margin-top: 0px !important;
+            padding: 0.1rem 0.5rem;
+            border-radius: 30px;
+            font-size: 0.7rem !important;
+        }
+
+        .oh-badge--round {
+            display: flex;
+            justify-content: center;
+        }
+
+        .oh-badge--secondary {
+            background-color: {{ theme_obj.primary_600|default:'hsl(8, 77%, 56%)' }};
+            color: hsl(0, 0%, 100%);
+        }
+    </style>
+    <div hx-get="{% url 'asset-batch-nav' %}?{{request.GET.urlencode}}" hx-trigger="load"></div>
+
+    {% include "generic/components.html" %}
+
+    <div
+        class="oh-checkpoint-badge mb-2"
+        id="selectedInstances"
+        data-ids="[]"
+        data-clicked=""
+        style="display: none"
+    >
+    </div>
+
+    <div class="oh-wrapper" id="listContainer">
+        <div class="animated-background"></div>
+    </div>
+{% endblock %}

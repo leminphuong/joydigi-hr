@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+{% load static horillafilters i18n %}
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+  @page {
+    size: A4 {% if headers|length > 5 %}landscape{% else %}portrait{% endif %};
+    margin: 10mm;
+  }
+
+  body {
+    font-family: Arial, sans-serif;
+    font-size: 9px;
+    padding: 0;
+    color: #333;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 6px;
+  }
+
+  .logo {
+    margin-right: 10px;
+  }
+
+  .logo img {
+    max-width: 30px;
+    height: auto;
+    display: block;
+  }
+
+  .header-content {
+    flex-grow: 1;
+  }
+
+  .report-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #d32f2f;
+    margin-bottom: 2px;
+  }
+
+  .company-name {
+    font-weight: bold;
+    font-size: 12px;
+    margin-bottom: 2px;
+  }
+
+  .date-range {
+    font-size: 10px;
+    color: #555;
+    margin-bottom: 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;     /* <-- change this */
+    margin-top: 5px;
+    table-layout: fixed;           /* <-- important */
+  }
+
+  th, td {
+    border: 1px solid #555;
+    padding: 1px;
+    font-size: 9px;
+    vertical-align: top;
+    text-align: left;
+
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    white-space: normal;
+  }
+
+  th {
+    background-color: #f2f2f2;
+    font-weight: 600;
+  }
+
+  td.sn {
+    width: 20px;
+    text-align: left;
+    font-weight: 600;
+  }
+
+  tr:nth-child(even) {
+    background-color: #fafafa;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 16px;
+  }
+
+  ul li {
+    margin: 0;
+    padding: 0;
+    line-height: 1.2em;
+  }
+</style>
+</head>
+<body>
+
+  <div>
+    <div class="header">
+      <div class="logo">
+        {% if logo_path %}
+          <img src="{{ logo_path }}" alt="{% trans 'Company Logo' %}" / width="100px">
+        {% endif %}
+      </div>
+      <div class="header-content">
+        <div class="report-title">{{ report_title }}</div>
+        <div class="company-name">{{ company_name }}</div>
+        <div class="date-range">{{ date_range }}</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th class="sn">SN</th>
+          {% for header in headers %}
+            <th>{{ header }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td class="sn">{{ forloop.counter }}</td>
+          {% for header in headers %}
+            <td>
+              {% with cell=row|get_item:header %}
+                {% if cell is iterable and not cell|stringformat:'s' == cell %}
+                  <ul>
+                    {% for item in cell %}
+                      <li>{{ item }}</li>
+                    {% endfor %}
+                  </ul>
+                {% else %}
+                  {{ cell }}
+                {% endif %}
+              {% endwith %}
+            </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</body>
+</html>

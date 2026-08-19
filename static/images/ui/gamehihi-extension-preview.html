@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GameHiHi Extension - Bản xem trước</title>
+<style>
+/* GameHiHi New Tab — brand: tím #7C3AED, hồng #EC4899, vàng #FBBF24 */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --purple: #7C3AED;
+  --purple-deep: #2A1458;
+  --purple-dark: #1B0E3D;
+  --pink: #EC4899;
+  --yellow: #FBBF24;
+  --white: #FFFFFF;
+  --glass: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.16);
+  --text-dim: rgba(255, 255, 255, 0.65);
+  --radius: 20px;
+}
+
+html, body { height: 100%; }
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  background: linear-gradient(160deg, var(--purple-dark) 0%, var(--purple-deep) 45%, #3B1878 100%);
+  color: var(--white);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ===== Nền trang trí ===== */
+.bg-shapes { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+.shape { position: absolute; border-radius: 50%; opacity: 0.5; }
+.s1 { width: 420px; height: 420px; top: -120px; right: -100px;
+  background: radial-gradient(circle, rgba(236,72,153,0.35), transparent 70%); }
+.s2 { width: 360px; height: 360px; bottom: -100px; left: -80px;
+  background: radial-gradient(circle, rgba(124,58,237,0.5), transparent 70%); }
+.s3 { width: 220px; height: 220px; top: 40%; left: 55%;
+  background: radial-gradient(circle, rgba(251,191,36,0.18), transparent 70%); }
+.s4, .s5 { font-size: 40px; opacity: 0.12; animation: float 9s ease-in-out infinite; }
+.s4 { top: 22%; left: 6%; }
+.s5 { bottom: 18%; right: 8%; animation-delay: -4.5s; }
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(-8deg); }
+  50% { transform: translateY(-22px) rotate(8deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .s4, .s5 { animation: none; }
+  * { transition: none !important; }
+}
+
+/* ===== Thanh trên ===== */
+.topbar {
+  position: relative; z-index: 2;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 20px 32px 0;
+  max-width: 1100px; margin: 0 auto;
+}
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; color: var(--white);
+}
+.brand-face {
+  font-size: 30px;
+  display: inline-block;
+  transition: transform 0.25s;
+}
+.brand:hover .brand-face { transform: rotate(-12deg) scale(1.15); }
+.brand-name { font-size: 22px; font-weight: 600; letter-spacing: 0.2px; }
+.brand-name b { color: var(--yellow); }
+.clock-box { text-align: right; }
+.clock { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.dateline { font-size: 13px; color: var(--text-dim); text-transform: capitalize; }
+
+/* ===== Bố cục chính ===== */
+.wrap {
+  position: relative; z-index: 2;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px 32px 40px;
+}
+
+.hero { text-align: center; padding: 18px 0 26px; }
+.greeting { font-size: 34px; font-weight: 800; }
+.sub { color: var(--text-dim); margin-top: 6px; font-size: 16px; }
+
+.search-row {
+  display: flex; gap: 12px; justify-content: center; align-items: stretch;
+  margin-top: 22px; flex-wrap: wrap;
+}
+.search-box {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  border-radius: 999px;
+  padding: 0 20px;
+  width: min(460px, 100%);
+  transition: border-color 0.2s, background 0.2s;
+}
+.search-box:focus-within {
+  border-color: var(--yellow);
+  background: rgba(255, 255, 255, 0.12);
+}
+.search-ico { font-size: 16px; opacity: 0.8; }
+#search {
+  flex: 1; background: none; border: none; outline: none;
+  color: var(--white); font-size: 15px; padding: 14px 0;
+}
+#search::placeholder { color: rgba(255, 255, 255, 0.45); }
+
+.btn-random {
+  border: none; cursor: pointer;
+  background: linear-gradient(135deg, var(--pink), var(--purple));
+  color: var(--white); font-size: 15px; font-weight: 700;
+  padding: 0 22px; border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(236, 72, 153, 0.35);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.btn-random:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 10px 24px rgba(236,72,153,0.5); }
+.btn-random:focus-visible, a:focus-visible, .chip:focus-visible {
+  outline: 2px solid var(--yellow); outline-offset: 2px;
+}
+
+/* ===== Game của ngày ===== */
+.daily-card {
+  display: flex; align-items: center; gap: 22px;
+  background: linear-gradient(120deg, rgba(251,191,36,0.16), rgba(236,72,153,0.14) 60%, rgba(124,58,237,0.2));
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: var(--radius);
+  padding: 22px 26px;
+  text-decoration: none; color: var(--white);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.daily-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 34px rgba(251, 191, 36, 0.18);
+}
+.daily-emoji {
+  font-size: 58px; line-height: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 18px; padding: 14px;
+}
+.daily-info { flex: 1; }
+.daily-tag {
+  font-size: 11px; font-weight: 800; letter-spacing: 1.5px;
+  color: var(--yellow);
+}
+.daily-name { font-size: 26px; font-weight: 800; margin: 4px 0 2px; }
+.daily-cat { font-size: 13px; color: var(--text-dim); }
+.daily-play {
+  background: var(--yellow); color: #3B2500;
+  font-weight: 800; font-size: 15px;
+  padding: 12px 22px; border-radius: 999px;
+  white-space: nowrap;
+  transition: transform 0.15s;
+}
+.daily-card:hover .daily-play { transform: scale(1.06); }
+
+/* ===== Tiêu đề mục & chips ===== */
+.recent, .all-games { margin-top: 34px; }
+.sec-head {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 16px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.sec-title { font-size: 19px; font-weight: 800; margin-bottom: 0; }
+.recent .sec-title { margin-bottom: 14px; }
+
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--text-dim);
+  font-size: 13px; font-weight: 600;
+  padding: 7px 15px; border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.chip:hover { color: var(--white); border-color: rgba(255,255,255,0.35); }
+.chip.active {
+  background: var(--white); color: var(--purple-deep);
+  border-color: var(--white);
+}
+
+/* ===== Lưới game (hover kiểu Poki) ===== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+.grid-small { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+
+.card {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; text-align: center;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 20px 12px 16px;
+  text-decoration: none; color: var(--white);
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s, border-color 0.18s;
+}
+.card:hover {
+  transform: translateY(-6px) scale(1.04) rotate(-1deg);
+  border-color: var(--pink);
+  box-shadow: 0 14px 30px rgba(236, 72, 153, 0.28);
+  z-index: 1;
+}
+.card-emoji { font-size: 42px; line-height: 1; transition: transform 0.18s; }
+.card:hover .card-emoji { transform: scale(1.18) rotate(6deg); }
+.card-name { font-size: 14px; font-weight: 700; }
+.card-cat { font-size: 11.5px; color: var(--text-dim); }
+.badge-hot {
+  position: absolute; top: 8px; right: 8px;
+  background: var(--pink); color: var(--white);
+  font-size: 10px; font-weight: 800;
+  padding: 3px 8px; border-radius: 999px;
+}
+.badge-kids {
+  position: absolute; top: 8px; left: 8px;
+  background: var(--yellow); color: #3B2500;
+  font-size: 10px; font-weight: 800;
+  padding: 3px 8px; border-radius: 999px;
+}
+
+.empty { color: var(--text-dim); text-align: center; padding: 30px 0; font-size: 15px; }
+.empty a { color: var(--yellow); }
+
+/* ===== Chân trang ===== */
+.foot {
+  position: relative; z-index: 2;
+  display: flex; gap: 10px; justify-content: center; align-items: center;
+  padding: 16px 20px 26px;
+  font-size: 13.5px; color: var(--text-dim);
+}
+.foot a { color: var(--yellow); text-decoration: none; font-weight: 600; }
+.foot a:hover { text-decoration: underline; }
+
+@media (max-width: 640px) {
+  .topbar { padding: 16px 18px 0; }
+  .wrap { padding: 20px 18px 30px; }
+  .greeting { font-size: 26px; }
+  .clock { font-size: 24px; }
+  .daily-card { flex-direction: column; text-align: center; gap: 12px; }
+  .daily-play { width: 100%; text-align: center; }
+}
+
+/* ===== Nav portal thật ===== */
+.main-nav { display: flex; gap: 6px; flex-wrap: wrap; }
+.main-nav a {
+  color: var(--text-dim); text-decoration: none;
+  font-size: 13.5px; font-weight: 600;
+  padding: 8px 13px; border-radius: 999px;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+.main-nav a:hover {
+  color: var(--white);
+  background: var(--glass);
+  border-color: var(--glass-border);
+}
+@media (max-width: 760px) { .main-nav { display: none; } }
+
+/* ===== Thumbnail ảnh thật ===== */
+.card-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.07);
+  display: flex; align-items: center; justify-content: center;
+}
+.card-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.grid-small .card-thumb { aspect-ratio: auto; background: none; }
+
+
+/* ===== Khung xem trước popup ===== */
+#popupToggle {
+  position: fixed; bottom: 24px; right: 24px; z-index: 50;
+  border: none; cursor: pointer;
+  background: linear-gradient(135deg, #FBBF24, #EC4899);
+  color: #fff; font-size: 14px; font-weight: 800;
+  padding: 13px 20px; border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  transition: transform 0.15s;
+}
+#popupToggle:hover { transform: scale(1.06); }
+#popupWrap {
+  position: fixed; bottom: 80px; right: 24px; z-index: 49;
+  border-radius: 16px; overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  border: 1px solid rgba(255,255,255,0.15);
+}
+#popupWrap[hidden] { display: none; }
+#popupFrame { display: block; }
+
+
+#popupFrame {
+  width: 320px;
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  background: linear-gradient(160deg, #1B0E3D, #2A1458);
+  color: #fff;
+}
+
+.p-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 16px 10px;
+}
+.p-face { font-size: 22px; }
+.p-brand { font-size: 17px; font-weight: 700; }
+.p-brand b { color: #FBBF24; }
+
+.p-search { padding: 0 14px 10px; }
+#pSearch {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  color: #fff; font-size: 13.5px;
+  padding: 9px 14px;
+  outline: none;
+}
+#pSearch:focus { border-color: #FBBF24; }
+#pSearch::placeholder { color: rgba(255, 255, 255, 0.45); }
+
+.p-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 0 10px;
+}
+.p-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  text-decoration: none; color: #fff;
+  transition: background 0.12s;
+}
+.p-item:hover { background: rgba(255, 255, 255, 0.1); }
+.p-emoji { font-size: 22px; width: 28px; text-align: center; }
+.p-name { flex: 1; font-size: 13.5px; font-weight: 600; }
+.p-cat { font-size: 11px; color: rgba(255, 255, 255, 0.55); }
+.p-hot {
+  background: #EC4899; font-size: 9px; font-weight: 800;
+  padding: 2px 6px; border-radius: 999px;
+}
+.p-empty { padding: 20px; text-align: center; font-size: 13px; color: rgba(255,255,255,0.6); }
+
+.p-foot {
+  display: flex; gap: 8px;
+  padding: 12px 14px 14px;
+}
+.p-btn {
+  flex: 1;
+  border: none; cursor: pointer;
+  text-align: center; text-decoration: none;
+  font-size: 13px; font-weight: 700;
+  padding: 10px 0; border-radius: 999px;
+  transition: transform 0.12s;
+}
+.p-btn:hover { transform: scale(1.04); }
+.p-btn-pink { background: linear-gradient(135deg, #EC4899, #7C3AED); color: #fff; }
+.p-btn-yellow { background: #FBBF24; color: #3B2500; }
+
+.preview-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 60;
+  background: rgba(0,0,0,0.55); backdrop-filter: blur(8px);
+  color: #fff; font-size: 12.5px; text-align: center;
+  padding: 6px; font-family: system-ui, sans-serif;
+}
+.preview-banner b { color: #FBBF24; }
+.topbar { margin-top: 30px; }
+</style>
+</head>
+<body>
+<div class="preview-banner">🔍 <b>BẢN XEM TRƯỚC</b> — Giao diện New Tab của GameHiHi Extension · Bấm nút góc phải dưới để xem Popup toolbar</div>
+
+  <div class="bg-shapes" aria-hidden="true">
+    <span class="shape s1"></span>
+    <span class="shape s2"></span>
+    <span class="shape s3"></span>
+    <span class="shape s4">🎮</span>
+    <span class="shape s5">🕹️</span>
+  </div>
+
+  <header class="topbar">
+    <a class="brand" href="https://gamehihi.com/vi/?utm_source=extension&utm_medium=newtab" title="Về trang chủ GameHiHi">
+      <span class="brand-face">😆</span>
+      <span class="brand-name">Game<b>HiHi</b></span>
+    </a>
+    <nav id="mainNav" class="main-nav"></nav>
+    <div class="clock-box">
+      <div id="clock" class="clock">00:00</div>
+      <div id="dateline" class="dateline"></div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1 id="greeting" class="greeting">Chào bạn! 👋</h1>
+      <p class="sub">Mở game là chơi — không cần tải, không cần cài đặt</p>
+
+      <div class="search-row">
+        <div class="search-box">
+          <span class="search-ico">🔍</span>
+          <input id="search" type="text" placeholder="Tìm game... (VD: cờ tỷ phú, đào vàng, bi a)" autocomplete="off">
+        </div>
+        <button id="randomBtn" class="btn-random" title="Chơi một game ngẫu nhiên">
+          🎲 Chơi ngẫu nhiên
+        </button>
+      </div>
+    </section>
+
+    <section class="daily" id="dailySection">
+      <a id="dailyLink" class="daily-card" href="#">
+        <div class="daily-emoji" id="dailyEmoji">🎮</div>
+        <div class="daily-info">
+          <span class="daily-tag">⭐ GAME CỦA NGÀY</span>
+          <h2 id="dailyName" class="daily-name">...</h2>
+          <span id="dailyCat" class="daily-cat"></span>
+        </div>
+        <span class="daily-play">▶ Chơi ngay trong 3 giây</span>
+      </a>
+    </section>
+
+    <section class="recent" id="recentSection" hidden>
+      <h3 class="sec-title">🕘 Chơi gần đây</h3>
+      <div id="recentGrid" class="grid grid-small"></div>
+    </section>
+
+    <section class="all-games">
+      <div class="sec-head">
+        <h3 class="sec-title">🔥 Thịnh hành</h3>
+        <div id="catChips" class="chips"></div>
+      </div>
+      <div id="gameGrid" class="grid"></div>
+      <p id="emptyMsg" class="empty" hidden>Không tìm thấy game. Nhấn Enter để tìm trên <a id="searchSiteLink" href="https://gamehihi.com/vi/?utm_source=extension&utm_medium=newtab">GameHiHi.com</a></p>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <a href="https://gamehihi.com/vi/?utm_source=extension&utm_medium=newtab">GameHiHi.com</a>
+    <span>·</span>
+    <a href="https://gamehihi.com/vi/kids/?utm_source=extension&utm_medium=newtab">HiHi Kids 🧒</a>
+    <span>·</span>
+    <a href="https://gamehihi.com/vi/danh-cho-nha-phat-trien/?utm_source=extension&utm_medium=newtab">Dành cho nhà phát triển</a>
+    <span>·</span>
+    <span class="foot-note">🇻🇳 Made in Vietnam</span>
+  </footer>
+
+  
+  
+
+
+<button id="popupToggle">😆 Xem Popup</button>
+<div id="popupWrap" hidden><div id="popupFrame">
+
+  <header class="p-head">
+    <span class="p-face">😆</span>
+    <span class="p-brand">Game<b>HiHi</b></span>
+  </header>
+
+  <div class="p-search">
+    <input id="pSearch" type="text" placeholder="Tìm game nhanh..." autocomplete="off">
+  </div>
+
+  <div id="pList" class="p-list"></div>
+
+  <footer class="p-foot">
+    <button id="pRandom" class="p-btn p-btn-pink">🎲 Ngẫu nhiên</button>
+    <a class="p-btn p-btn-yellow" href="https://gamehihi.com/vi/?utm_source=extension&utm_medium=popup" target="_blank" rel="noopener">🏠 GameHiHi.com</a>
+  </footer>
+
+  
+  
+
+</div></div>
+
+<script>
+// ===== Stub chrome.* API cho bản xem trước =====
+var __store = {};
+window.chrome = window.chrome || {};
+chrome.storage = { local: {
+  get: function(defs, cb) {
+    var out = {};
+    for (var k in defs) out[k] = (k in __store) ? __store[k] : defs[k];
+    setTimeout(function() { cb(out); }, 0);
+  },
+  set: function(obj) { for (var k in obj) __store[k] = obj[k]; }
+} };
+chrome.tabs = { create: function(o) { window.open(o.url, "_blank"); } };
+</script>
+<script>
+// GameHiHi Extension - Dữ liệu thật từ gamehihi.com (cập nhật 15/08/2026)
+// Cấu trúc URL thật: https://gamehihi.com/vi/<slug>/
+// Cập nhật file này khi thêm game mới lên portal.
+
+const GAMEHIHI_BASE = "https://gamehihi.com";
+
+const GAMEHIHI_GAMES = [
+  { slug: "game-tron-tim",        name: "Game Trốn Tìm",   emoji: "🙈", cat: "game-giai-tri",    catName: "Giải trí",    rating: 4.8, plays: "5.6K", hot: true,
+    img: "https://gamehihi.com/wp-content/uploads/2026/08/Game-Tron-tim_gamhihi-768x384.jpg" },
+  { slug: "co-ty-phu",            name: "Cờ Tỷ Phú",       emoji: "🎩", cat: "game-nhieu-nguoi", catName: "Nhiều người", rating: 4.0, plays: "9.2K", hot: true },
+  { slug: "bi-a",                 name: "Bi A",            emoji: "🎱", cat: "game-the-thao",    catName: "Thể thao",    rating: 4.0, plays: "7.1K", hot: true,
+    img: "https://gamehihi.com/wp-content/uploads/2026/08/Bi-a-768x384.jpg" },
+  { slug: "game-dao-vang-online", name: "Đào Vàng",        emoji: "⛏️", cat: "game-viet",        catName: "Game Việt",   rating: 4.0, plays: "6.5K", hot: true, viet: true },
+  { slug: "mario-dua-xe",         name: "Mario Đua Xe",    emoji: "🏎️", cat: "game-dua-xe",      catName: "Đua xe",      rating: 4.0, plays: "6K",
+    img: "https://gamehihi.com/wp-content/uploads/2026/08/super-mario-run-race-online-512x384-1.jpg" },
+  { slug: "tic-tac-toe",          name: "Tic Tac Toe",     emoji: "⭕", cat: "game-tri-tue",     catName: "Trí tuệ",     rating: 4.0, plays: "4.6K" },
+  { slug: "co-ca-ngua",           name: "Cờ Cá Ngựa",      emoji: "🐴", cat: "game-nhieu-nguoi", catName: "Nhiều người", rating: 4.4, plays: "4.6K" },
+  { slug: "block-blast",          name: "Block Blast",     emoji: "🧱", cat: "game-tri-tue",     catName: "Trí tuệ",     rating: 4.0, plays: "4.6K" },
+  { slug: "moto-x3m",             name: "Moto X3M",        emoji: "🏍️", cat: "game-dua-xe",      catName: "Đua xe",      rating: 4.0, plays: "3.8K" },
+  { slug: "among-us",             name: "Among Us Online", emoji: "👾", cat: "game-nhieu-nguoi", catName: "Nhiều người", rating: 4.4, plays: "3.6K",
+    img: "https://gamehihi.com/wp-content/uploads/2026/08/among-us-768x384.jpg" },
+  { slug: "subway-surfers",       name: "Subway Surfers",  emoji: "🛹", cat: "game-phieu-luu",   catName: "Phiêu lưu",   rating: 4.0, plays: "3K" },
+  { slug: "master-chess",         name: "Master Chess",    emoji: "♟️", cat: "game-tri-tue",     catName: "Trí tuệ",     rating: 4.0, plays: "3K" }
+];
+
+// Danh mục thật trên gamehihi.com/vi/ (theo menu điều hướng)
+const GAMEHIHI_CATS = [
+  { id: "all",              name: "🎮 Tất cả" },
+  { id: "game-viet",        name: "🇻🇳 Game Việt" },
+  { id: "game-tri-tue",     name: "🧠 Trí tuệ" },
+  { id: "game-nhieu-nguoi", name: "👥 Nhiều người" },
+  { id: "game-dua-xe",      name: "🏎️ Đua xe" },
+  { id: "game-the-thao",    name: "⚽ Thể thao" },
+  { id: "game-phieu-luu",   name: "🗺️ Phiêu lưu" },
+  { id: "game-giai-tri",    name: "🎲 Giải trí" }
+];
+
+// Các mục điều hướng thật trên portal
+const GAMEHIHI_NAV = [
+  { name: "📱 Lướt",     path: "/vi/feed/" },
+  { name: "🎁 Sự kiện",  path: "/vi/events/" },
+  { name: "🏆 BXH",      path: "/vi/leaderboard/" },
+  { name: "🧒 HiHi Kids", path: "/vi/kids/" }
+];
+
+function gameUrl(g, medium) {
+  return GAMEHIHI_BASE + "/vi/" + g.slug + "/?utm_source=extension&utm_medium=" + (medium || "newtab");
+}
+
+function siteUrl(path, medium) {
+  return GAMEHIHI_BASE + (path || "/vi/") + "?utm_source=extension&utm_medium=" + (medium || "newtab");
+}
+
+</script>
+<script>
+// GameHiHi New Tab - dữ liệu thật từ gamehihi.com
+(function () {
+  "use strict";
+
+  var grid = document.getElementById("gameGrid");
+  var recentGrid = document.getElementById("recentGrid");
+  var recentSection = document.getElementById("recentSection");
+  var chipsBox = document.getElementById("chips") || document.getElementById("catChips");
+  var searchInput = document.getElementById("search");
+  var emptyMsg = document.getElementById("emptyMsg");
+  var currentCat = "all";
+
+  // ===== Menu điều hướng thật của portal =====
+  var nav = document.getElementById("mainNav");
+  GAMEHIHI_NAV.forEach(function (item) {
+    var a = document.createElement("a");
+    a.href = siteUrl(item.path, "newtab");
+    a.textContent = item.name;
+    nav.appendChild(a);
+  });
+
+  // ===== Đồng hồ + lời chào =====
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+
+  function tick() {
+    var now = new Date();
+    document.getElementById("clock").textContent =
+      pad(now.getHours()) + ":" + pad(now.getMinutes());
+
+    var days = ["Chủ nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy"];
+    document.getElementById("dateline").textContent =
+      days[now.getDay()] + ", " + now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear();
+
+    var h = now.getHours(), greet;
+    if (h >= 5 && h < 11) greet = "Chào buổi sáng! ☀️";
+    else if (h >= 11 && h < 13) greet = "Nghỉ trưa chơi game thôi! 🍜";
+    else if (h >= 13 && h < 18) greet = "Chào buổi chiều! 🌤️";
+    else if (h >= 18 && h < 22) greet = "Buổi tối vui vẻ! 🌙";
+    else greet = "Khuya rồi, chơi nhẹ thôi nha! 😴";
+    document.getElementById("greeting").textContent = greet;
+  }
+  tick();
+  setInterval(tick, 15000);
+
+  // ===== Game của ngày (cố định theo ngày) =====
+  function dailyGame() {
+    var now = new Date();
+    var seed = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+    return GAMEHIHI_GAMES[seed % GAMEHIHI_GAMES.length];
+  }
+  var daily = dailyGame();
+  document.getElementById("dailyEmoji").textContent = daily.emoji;
+  document.getElementById("dailyName").textContent = daily.name;
+  document.getElementById("dailyCat").textContent =
+    daily.catName + " · ★ " + daily.rating + " · " + daily.plays + " lượt chơi";
+  var dailyLink = document.getElementById("dailyLink");
+  dailyLink.href = gameUrl(daily, "newtab");
+  dailyLink.addEventListener("click", function () { saveRecent(daily); });
+
+  // ===== Chơi gần đây (chrome.storage.local) =====
+  function saveRecent(game) {
+    try {
+      chrome.storage.local.get({ recent: [] }, function (data) {
+        var list = data.recent.filter(function (s) { return s !== game.slug; });
+        list.unshift(game.slug);
+        chrome.storage.local.set({ recent: list.slice(0, 6) });
+      });
+    } catch (e) { /* bỏ qua nếu storage không khả dụng */ }
+  }
+
+  function loadRecent() {
+    try {
+      chrome.storage.local.get({ recent: [] }, function (data) {
+        if (!data.recent.length) return;
+        var games = data.recent
+          .map(function (slug) {
+            return GAMEHIHI_GAMES.find(function (g) { return g.slug === slug; });
+          })
+          .filter(Boolean);
+        if (!games.length) return;
+        recentGrid.innerHTML = "";
+        games.forEach(function (g) { recentGrid.appendChild(makeCard(g, true)); });
+        recentSection.hidden = false;
+      });
+    } catch (e) { /* bỏ qua */ }
+  }
+
+  // ===== Thẻ game (ảnh thật, lỗi thì hiện emoji) =====
+  function makeCard(g, small) {
+    var a = document.createElement("a");
+    a.className = "card";
+    a.href = gameUrl(g, "newtab");
+    a.title = "Chơi " + g.name + " trên GameHiHi";
+
+    if (g.hot) {
+      var hot = document.createElement("span");
+      hot.className = "badge-hot";
+      hot.textContent = "HOT";
+      a.appendChild(hot);
+    }
+    if (g.viet) {
+      var vn = document.createElement("span");
+      vn.className = "badge-viet";
+      vn.textContent = "🇻🇳";
+      a.appendChild(vn);
+    }
+
+    var thumb = document.createElement("div");
+    thumb.className = "card-thumb";
+    var em = document.createElement("span");
+    em.className = "card-emoji";
+    em.textContent = g.emoji;
+    thumb.appendChild(em);
+
+    if (g.img && !small) {
+      var img = document.createElement("img");
+      img.className = "card-img";
+      img.alt = g.name;
+      img.loading = "lazy";
+      img.addEventListener("error", function () { img.remove(); });
+      img.src = g.img;
+      thumb.appendChild(img);
+    }
+
+    var name = document.createElement("span");
+    name.className = "card-name";
+    name.textContent = g.name;
+
+    var meta = document.createElement("span");
+    meta.className = "card-cat";
+    meta.textContent = "★ " + g.rating + " · " + g.plays;
+
+    a.appendChild(thumb);
+    a.appendChild(name);
+    a.appendChild(meta);
+    a.addEventListener("click", function () { saveRecent(g); });
+    return a;
+  }
+
+  // ===== Lọc + tìm kiếm =====
+  function normalize(str) {
+    return str.toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d");
+  }
+
+  function render() {
+    var q = normalize(searchInput.value.trim());
+    var list = GAMEHIHI_GAMES.filter(function (g) {
+      var okCat = currentCat === "all" || g.cat === currentCat;
+      var okQ = !q || normalize(g.name).indexOf(q) !== -1 || normalize(g.catName).indexOf(q) !== -1;
+      return okCat && okQ;
+    });
+    grid.innerHTML = "";
+    list.forEach(function (g) { grid.appendChild(makeCard(g)); });
+    emptyMsg.hidden = list.length > 0;
+  }
+
+  GAMEHIHI_CATS.forEach(function (c) {
+    var btn = document.createElement("button");
+    btn.className = "chip" + (c.id === "all" ? " active" : "");
+    btn.textContent = c.name;
+    btn.addEventListener("click", function () {
+      currentCat = c.id;
+      chipsBox.querySelectorAll(".chip").forEach(function (el) { el.classList.remove("active"); });
+      btn.classList.add("active");
+      render();
+    });
+    chipsBox.appendChild(btn);
+  });
+
+  // Enter -> tìm kiếm thật trên portal (WordPress: /vi/?s=)
+  searchInput.addEventListener("input", render);
+  searchInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && searchInput.value.trim()) {
+      window.location.href = GAMEHIHI_BASE + "/vi/?s=" +
+        encodeURIComponent(searchInput.value.trim()) + "&utm_source=extension&utm_medium=newtab";
+    }
+  });
+
+  // ===== Chơi ngẫu nhiên =====
+  document.getElementById("randomBtn").addEventListener("click", function () {
+    var g = GAMEHIHI_GAMES[Math.floor(Math.random() * GAMEHIHI_GAMES.length)];
+    saveRecent(g);
+    window.location.href = gameUrl(g, "newtab");
+  });
+
+  render();
+  loadRecent();
+})();
+
+</script>
+<script>
+// GameHiHi Popup - dữ liệu thật từ gamehihi.com
+(function () {
+  "use strict";
+
+  var list = document.getElementById("pList");
+  var search = document.getElementById("pSearch");
+
+  function normalize(str) {
+    return str.toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d");
+  }
+
+  function render() {
+    var q = normalize(search.value.trim());
+    var games = GAMEHIHI_GAMES.filter(function (g) {
+      return !q || normalize(g.name).indexOf(q) !== -1 || normalize(g.catName).indexOf(q) !== -1;
+    });
+
+    list.innerHTML = "";
+    if (!games.length) {
+      var p = document.createElement("p");
+      p.className = "p-empty";
+      p.textContent = "Không tìm thấy game nào 😢 Nhấn Enter để tìm trên GameHiHi.com";
+      list.appendChild(p);
+      return;
+    }
+
+    games.forEach(function (g) {
+      var a = document.createElement("a");
+      a.className = "p-item";
+      a.href = gameUrl(g, "popup");
+      a.target = "_blank";
+      a.rel = "noopener";
+
+      var em = document.createElement("span");
+      em.className = "p-emoji";
+      em.textContent = g.emoji;
+
+      var name = document.createElement("span");
+      name.className = "p-name";
+      name.textContent = g.name;
+
+      var cat = document.createElement("span");
+      cat.className = "p-cat";
+      cat.textContent = "★" + g.rating + " · " + g.plays;
+
+      a.appendChild(em);
+      a.appendChild(name);
+      a.appendChild(cat);
+
+      if (g.hot) {
+        var hot = document.createElement("span");
+        hot.className = "p-hot";
+        hot.textContent = "HOT";
+        a.appendChild(hot);
+      }
+      list.appendChild(a);
+    });
+  }
+
+  search.addEventListener("input", render);
+  search.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && search.value.trim()) {
+      chrome.tabs.create({
+        url: GAMEHIHI_BASE + "/vi/?s=" + encodeURIComponent(search.value.trim()) +
+             "&utm_source=extension&utm_medium=popup"
+      });
+    }
+  });
+
+  document.getElementById("pRandom").addEventListener("click", function () {
+    var g = GAMEHIHI_GAMES[Math.floor(Math.random() * GAMEHIHI_GAMES.length)];
+    chrome.tabs.create({ url: gameUrl(g, "popup") });
+  });
+
+  render();
+})();
+
+</script>
+<script>
+document.getElementById("popupToggle").addEventListener("click", function() {
+  var w = document.getElementById("popupWrap");
+  w.hidden = !w.hidden;
+  this.textContent = w.hidden ? "😆 Xem Popup" : "✕ Đóng Popup";
+});
+</script>
+</body>
+</html>

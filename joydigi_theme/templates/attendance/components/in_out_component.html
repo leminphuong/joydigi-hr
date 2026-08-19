@@ -56,35 +56,6 @@
                         <span class="con hr-Check-In-out-text">{% trans "Check In" %}</span>
                     </button>
                     <span class="at_work_seconds" data-at-work-seconds = "{{ get_forecasted_at_work.forecasted_at_work_seconds|default:0 }}" data-run= "{{run|default:0}}" ></span> {% endcomment %}
-                    <button
-                        class="check checkin"
-                        hx-get="{% url 'clock-in' %}"
-                        hx-target="#attendance-activity-container"
-                        hx-swap="innerHTML"
-                        {% if request|is_timerunner_enabled %}
-                            onmouseenter="$(this).find('span.hr-Check-In-out-text').show();$(this).find('.at-work-seconds').hide()"
-                            onmouseleave="$(this).find('span.hr-Check-In-out-text').hide();$(this).find('.at-work-seconds').show()"
-                        {% endif %}
-                    >
-                        <span class="date">
-                            <i class="fa-solid fa-right-to-bracket pe-2"></i>
-                            <div class="at-work-seconds">
-                                {% if request|is_timerunner_enabled %}
-                                    {{ get_forecasted_at_work.forecasted_at_work|default:"00:00:00" }}
-                                {% else %}
-                                    {% trans "Check In" %}
-                                {% endif %}
-                            </div>
-                        </span>
-                        <span
-                            class="con hr-Check-In-out-text"
-                            {% if request|is_timerunner_enabled %}
-                                style="display: none"
-                            {% endif %}
-                        >
-                            {% trans "Check In" %}
-                        </span>
-                    </button>
                     <span
                         class="at_work_seconds"
                         data-at-work-seconds="{{ get_forecasted_at_work.forecasted_at_work_seconds|default:0 }}"

@@ -1,0 +1,112 @@
+CÁC CHUỖI NGHI CÒN TIẾNG ANH:
+
+MSGID : employee-view
+MSGSTR: employee-view
+
+MSGID : shift-request-view
+MSGSTR: shift-request-view
+
+MSGID : work-type-request-view
+MSGSTR: work-type-request-view
+
+MSGID : filing-status-view
+MSGSTR: filing-status-view
+
+MSGID : attendance-view
+MSGSTR: attendance-view
+
+MSGID : request-attendance-view
+MSGSTR: request-attendance-view
+
+MSGID : attendance-overtime-view
+MSGSTR: attendance-overtime-view
+
+MSGID : attendance-activity-view
+MSGSTR: attendance-activity-view
+
+MSGID : view-my-attendance
+MSGSTR: view-my-attendance
+
+MSGID : leave-employee-dashboard
+MSGSTR: leave-employee-dashboard
+
+MSGID : user-request-view
+MSGSTR: user-request-view
+
+MSGID : request-view
+MSGSTR: request-view
+
+MSGID : company-leave-view
+MSGSTR: company-leave-view
+
+MSGID : asset-request-allocation-view
+MSGSTR: asset-request-allocation-view
+
+MSGID : department-view
+MSGSTR: department-view
+
+MSGID : employee-type-view
+MSGSTR: employee-type-view
+
+MSGID : employee-shift-view
+MSGSTR: employee-shift-view
+
+MSGID : employee-shift-schedule-view
+MSGSTR: employee-shift-schedule-view
+
+MSGID : rotating-shift-view
+MSGSTR: rotating-shift-view
+
+MSGID : attendance-settings-view
+MSGSTR: attendance-settings-view
+
+MSGID : leave-allocation-request-view
+MSGSTR: leave-allocation-request-view
+
+MSGID : employee-view-update
+MSGSTR: employee-view-update
+
+MSGID : employee-bulk-update
+MSGSTR: employee-bulk-update
+
+MSGID : department-manager-view
+MSGSTR: department-manager-view
+
+MSGID : employee-create-personal-info
+MSGSTR: employee-create-personal-info
+
+MSGID : document-request-view
+MSGSTR: document-request-view
+
+MSGID : employee-tag-view
+MSGSTR: employee-tag-view
+
+MSGID : compensatory-leave-settings-view
+MSGSTR: compensatory-leave-settings-view
+
+MSGID : view-compensatory-leave
+MSGSTR: view-compensatory-leave
+
+MSGID : employee-past-leave-restriction
+MSGSTR: employee-past-leave-restriction
+
+MSGID : attendance-rule-view
+MSGSTR: attendance-rule-view
+
+MSGID : leave-rules-view
+MSGSTR: leave-rules-view
+
+MSGID : If 'is_fixed' is False, 'based_on' is required.
+MSGSTR: Nếu 'is_fixed' là Sai thì 'based_on' là bắt buộc.
+
+MSGID : If 'based_on' is 'attendance', 'per_attendance_fixed_amount' is required.
+MSGSTR: Nếu 'based_on' là 'chấm công' thì 'per_attendance_fixed_amount' là bắt buộc.
+
+MSGID : If 'based_on' is 'shift_id', 'shift_id' is required.
+MSGSTR: Nếu 'based_on' là 'shift_id' thì bắt buộc phải có 'shift_id'.
+
+MSGID : Payment percentage is required for Custom payment type.
+MSGSTR: Tỷ lệ thanh toán là bắt buộc đối với loại thanh toán tùy chỉnh.
+
+MSGID : If based on is shift, then shift must be filled.
+MSGSTR: Nếu dựa trên là shift thì phải điền shift.

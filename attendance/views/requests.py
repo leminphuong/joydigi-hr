@@ -11,7 +11,7 @@ from urllib.parse import parse_qs
 
 from django.contrib import messages
 from django.db.models import ProtectedError, Q
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -47,6 +47,7 @@ from base.methods import (
     is_reportingmanager,
 )
 from base.models import EmployeeShift, EmployeeShiftDay
+from base.roles import is_checkin_admin
 from employee.models import Employee
 from joydigi.decorators import (
     hx_request_required,
@@ -66,9 +67,25 @@ def _clean_requested_data_none_strings(requested_data):
     null. Convert any such literal "None" strings back to real None so they
     don't get passed as-is to a FK field on Attendance.objects.update().
     """
-    return {
-        key: None if value == "None" else value for key, value in requested_data.items()
+    valid_fields = {
+        name
+        for field in Attendance._meta.concrete_fields
+        for name in (field.name, field.attname)
     }
+    return {
+        key: None if value == "None" else value
+        for key, value in requested_data.items()
+        if key in valid_fields
+    }
+
+
+def _can_review_attendance_request(user, attendance):
+    if is_checkin_admin(user):
+        return True
+    actor = getattr(user, "employee_get", None)
+    if not actor or attendance.employee_id == actor:
+        return False
+    return attendance.employee_id.get_reporting_manager() == actor
 
 
 @login_required
@@ -321,6 +338,10 @@ def attendance_request_changes(request, attendance_id):
         return JoydigiRedirect(
             request, message=_("No Attendance found matching the query.")
         )
+    if not _can_review_attendance_request(request.user, attendance):
+        return HttpResponseForbidden(
+            "Bạn chỉ được duyệt chấm công của thành viên trong nhóm mình."
+        )
 
     if request.GET.get("previous_url"):
         form = AttendanceRequestForm(initial=request.GET.dict())
@@ -485,13 +506,16 @@ def approve_validate_attendance_request(request, attendance_id):
     attendance.approved_by = request.user.employee_get
     attendance.save()
     if attendance.requested_data is not None:
+        raw_requested_data = attendance.requested_data
+        if isinstance(raw_requested_data, str):
+            raw_requested_data = json.loads(raw_requested_data)
         requested_data = _clean_requested_data_none_strings(
-            json.loads(attendance.requested_data)
+            raw_requested_data
         )
-        Attendance.objects.filter(id=attendance_id).update(**requested_data)
-        # DUE TO AFFECT THE OVERTIME CALCULATION ON SAVE METHOD, SAVE THE INSTANCE ONCE MORE
-        attendance = Attendance.objects.get(id=attendance_id)
-        attendance.save()
+        if requested_data:
+            Attendance.objects.filter(id=attendance_id).update(**requested_data)
+            attendance = Attendance.objects.get(id=attendance_id)
+            attendance.save()
     if attendance.request_type == "create_request":
         attendance.request_type = "created_request"
         attendance.requested_data = None
@@ -528,17 +552,18 @@ def approve_validate_attendance_request(request, attendance_id):
     day = attendance.attendance_date.strftime("%A").lower()
     day = EmployeeShiftDay.objects.get(day=day)
 
-    minimum_hour, start_time_sec, end_time_sec = shift_schedule_today(
-        day=day, shift=shift
-    )
-    if attendance.attendance_clock_in:
-        late_come(
-            attendance, start_time=start_time_sec, end_time=end_time_sec, shift=shift
+    if shift:
+        minimum_hour, start_time_sec, end_time_sec = shift_schedule_today(
+            day=day, shift=shift
         )
-    if attendance.attendance_clock_out:
-        early_out(
-            attendance, start_time=start_time_sec, end_time=end_time_sec, shift=shift
-        )
+        if attendance.attendance_clock_in:
+            late_come(
+                attendance, start_time=start_time_sec, end_time=end_time_sec, shift=shift
+            )
+        if attendance.attendance_clock_out:
+            early_out(
+                attendance, start_time=start_time_sec, end_time=end_time_sec, shift=shift
+            )
     messages.success(request, _("Attendance request has been approved"))
     employee = attendance.employee_id
     notify.send(
@@ -608,10 +633,8 @@ def cancel_attendance_request(request, attendance_id):
     """
     try:
         attendance = Attendance.objects.get(id=attendance_id)
-        if (
-            attendance.employee_id.employee_user_id == request.user
-            or is_reportingmanager(request)
-            or request.user.has_perm("attendance.change_attendance")
+        if attendance.employee_id.employee_user_id == request.user or _can_review_attendance_request(
+            request.user, attendance
         ):
             attendance.is_validate_request_approved = False
             attendance.is_validate_request = False

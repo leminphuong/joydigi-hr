@@ -69,6 +69,9 @@ urlpatterns = [
     path("dashboard/", dashboard_module.main_dashboard_view, name="dashboard"),
     path("cham-cong-hom-nay/", checkin_portal.today_attendance, name="today-attendance"),
     path("duyet-don/", checkin_portal.approval_hub, name="approval-hub"),
+    path("kiosk/", checkin_portal.kiosk, name="checkin-kiosk"),
+    path("kiosk/ma-qr/", checkin_portal.kiosk_qr, name="checkin-kiosk-qr"),
+    path("cham-cong/qr/", checkin_portal.qr_checkin, name="qr-checkin"),
     path("settings/cham-cong/", checkin_portal.checkin_settings, name="checkin-settings"),
     path(
         "settings/cham-cong/dia-diem/<int:pk>/xoa/",
@@ -1779,7 +1782,7 @@ urlpatterns = [
     ),
     path(
         "configuration/holiday-view/",
-        holidays.HolidaysView.as_view(),
+        views.holidays_settings_view,
         name="holiday-view",
     ),
     path("holiday-filter/", holidays.HolidayListView.as_view(), name="holiday-filter"),
@@ -1942,6 +1945,11 @@ urlpatterns = [
         "roster/employees/publish/",
         roster.RosterEmployeeBulkPublishView.as_view(),
         name="roster-employees-publish",
+    ),
+    path(
+        "roster/copy-previous-week/",
+        roster.RosterCopyPreviousWeekView.as_view(),
+        name="roster-copy-previous-week",
     ),
     path(
         "roster/my/",

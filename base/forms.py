@@ -2363,6 +2363,28 @@ class WorkTypeRequestForm(ModelForm):
         table_html = render_to_string("joydigi_form.html", context)
         return table_html
 
+    def clean(self):
+        cleaned_data = super().clean()
+        employee = cleaned_data.get("employee_id") or self.instance.employee_id
+        work_type = cleaned_data.get("work_type_id")
+        remote_names = ("remote", "từ xa", "tại nhà", "tai nha", "home")
+        if work_type and any(
+            word in work_type.work_type.lower() for word in remote_names
+        ):
+            work_info = getattr(employee, "employee_work_info", None)
+            company = getattr(work_info, "company_id", None)
+            policy = CheckInPolicy.objects.filter(company_id=company).first()
+            if not work_info or not work_info.allow_remote:
+                self.add_error(
+                    "work_type_id",
+                    "Vị trí của nhân viên này chưa được phép làm việc từ xa.",
+                )
+            elif policy and not policy.allow_remote:
+                self.add_error(
+                    "work_type_id", "Công ty đang tắt hình thức làm việc từ xa."
+                )
+        return cleaned_data
+
     def save(self, commit: bool = ...):
         if not self.instance.approved:
             employee = self.instance.employee_id
@@ -3583,3 +3605,13 @@ class RosterCellUpdateForm(ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["shift"].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        shift = cleaned_data.get("shift")
+        is_off = cleaned_data.get("is_off")
+        if not shift and not is_off:
+            raise ValidationError("Vui lòng chọn ca làm việc hoặc bật Ngày nghỉ.")
+        if is_off:
+            cleaned_data["shift"] = None
+        return cleaned_data

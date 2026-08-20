@@ -152,14 +152,25 @@
             if (!$el.length || typeof $.fn.select2 !== "function") {
                 return;
             }
-            if ($el.hasClass("select2-hidden-accessible")) {
-                $el.select2("destroy");
+            // HTMX can execute this fragment while the global Select2 hook is
+            // also running.  The CSS class can survive after Select2's cached
+            // instance has already gone, so it is not safe to use the class as
+            // proof that `destroy` may be called.
+            if ($el.data("select2")) {
+                styleSelect($el);
+                return;
             }
+            $el.removeClass("select2-hidden-accessible")
+                .removeAttr("data-select2-id aria-hidden tabindex");
+            $el.next(".select2-container").remove();
             $el.select2({
                 width: "100%",
                 placeholder: placeholder || "",
                 closeOnSelect: false,
             });
+            styleSelect($el);
+        }
+        function styleSelect($el) {
             // Keep both multi-selects the same visual height.
             $el.next(".select2-container")
                 .find(".select2-selection--multiple")
@@ -176,6 +187,5 @@
             );
         }
         initHistoryTrackingSelects();
-        setTimeout(initHistoryTrackingSelects, 50);
     })();
 </script>

@@ -1,0 +1,546 @@
+<div class="leave-type-detail" id="detailViewContainer">
+    <style>
+        .leave-type-detail {
+            --lt-accent: #e54f38;
+            --lt-accent-soft: #fff1ee;
+            --lt-surface: #ffffff;
+            --lt-surface-soft: #f8fafc;
+            --lt-border: #e5e7eb;
+            --lt-text: #172033;
+            --lt-muted: #667085;
+            width: min(780px, calc(100vw - 32px));
+            max-height: min(780px, calc(100vh - 40px));
+            overflow-y: auto;
+            border: 1px solid var(--lt-border);
+            border-radius: 18px;
+            background: var(--lt-surface);
+            color: var(--lt-text);
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+        }
+
+        .leave-type-detail * {
+            box-sizing: border-box;
+        }
+
+        .leave-type-detail__topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 20px 22px 18px;
+            border-bottom: 1px solid var(--lt-border);
+            background: linear-gradient(135deg, var(--lt-accent-soft), var(--lt-surface) 64%);
+        }
+
+        .leave-type-detail__eyebrow {
+            margin: 0 0 3px;
+            color: var(--lt-accent);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .leave-type-detail__title {
+            margin: 0;
+            color: var(--lt-text);
+            font-size: 19px;
+            font-weight: 750;
+            line-height: 1.3;
+        }
+
+        .leave-type-detail__top-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .leave-type-detail__nav,
+        .leave-type-detail__close {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            padding: 0;
+            border: 1px solid var(--lt-border);
+            border-radius: 10px;
+            background: var(--lt-surface);
+            color: var(--lt-muted);
+            cursor: pointer;
+            transition: border-color .2s ease, color .2s ease, transform .2s ease;
+        }
+
+        .leave-type-detail__nav:hover,
+        .leave-type-detail__close:hover {
+            border-color: var(--lt-accent);
+            color: var(--lt-accent);
+            transform: translateY(-1px);
+        }
+
+        .leave-type-detail__body {
+            padding: 22px;
+        }
+
+        .leave-type-detail__profile {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid var(--lt-border);
+            border-radius: 14px;
+            background: var(--lt-surface-soft);
+        }
+
+        .leave-type-detail__avatar {
+            width: 52px;
+            height: 52px;
+            flex: 0 0 52px;
+            border: 3px solid var(--lt-surface);
+            border-radius: 15px;
+            object-fit: cover;
+            box-shadow: 0 5px 16px rgba(15, 23, 42, .12);
+        }
+
+        .leave-type-detail__name {
+            margin: 0 0 5px;
+            color: var(--lt-text);
+            font-size: 16px;
+            font-weight: 750;
+        }
+
+        .leave-type-detail__subtitle {
+            margin: 0;
+            color: var(--lt-muted);
+            font-size: 12px;
+        }
+
+        .leave-type-detail__section-title {
+            margin: 0 0 10px;
+            color: var(--lt-muted);
+            font-size: 11px;
+            font-weight: 750;
+            letter-spacing: .07em;
+            text-transform: uppercase;
+        }
+
+        .leave-type-detail__grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .leave-type-detail__item {
+            min-width: 0;
+            padding: 13px 14px;
+            border: 1px solid var(--lt-border);
+            border-radius: 12px;
+            background: var(--lt-surface);
+        }
+
+        .leave-type-detail__label {
+            display: block;
+            margin-bottom: 7px;
+            color: var(--lt-muted);
+            font-size: 11px;
+            font-weight: 650;
+        }
+
+        .leave-type-detail__value {
+            display: block;
+            overflow-wrap: anywhere;
+            color: var(--lt-text);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .leave-type-detail__pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 25px;
+            padding: 4px 9px;
+            border-radius: 999px;
+            background: #eef2f7;
+            color: #344054;
+            font-size: 11px;
+            font-weight: 750;
+        }
+
+        .leave-type-detail__pill::before {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            content: "";
+        }
+
+        .leave-type-detail__pill--yes,
+        .leave-type-detail__pill--paid {
+            background: #eaf8f0;
+            color: #138a4b;
+        }
+
+        .leave-type-detail__pill--no {
+            background: #f2f4f7;
+            color: #667085;
+        }
+
+        .leave-type-detail__conditions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-height: 48px;
+            margin-bottom: 20px;
+            padding: 12px;
+            border: 1px solid var(--lt-border);
+            border-radius: 12px;
+            background: var(--lt-surface-soft);
+        }
+
+        .leave-type-detail__condition {
+            display: inline-flex;
+            align-items: center;
+            padding: 7px 10px;
+            border: 1px solid #cdd7fe;
+            border-radius: 9px;
+            background: #eef2ff;
+            color: #3448a3;
+            font-size: 11px;
+            font-weight: 650;
+        }
+
+        .leave-type-detail__empty {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--lt-muted);
+            font-size: 12px;
+        }
+
+        .leave-type-detail__footer {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 9px;
+            padding-top: 18px;
+            border-top: 1px solid var(--lt-border);
+        }
+
+        .leave-type-detail__button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            min-width: 96px;
+            min-height: 38px;
+            padding: 8px 14px;
+            border: 1px solid var(--lt-border);
+            border-radius: 10px;
+            background: var(--lt-surface);
+            color: var(--lt-text);
+            font-size: 12px;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+            transition: filter .2s ease, transform .2s ease;
+        }
+
+        .leave-type-detail__button:hover {
+            filter: brightness(.96);
+            transform: translateY(-1px);
+        }
+
+        .leave-type-detail__button--primary {
+            border-color: var(--lt-accent);
+            background: var(--lt-accent);
+            color: #ffffff;
+        }
+
+        .leave-type-detail__button--danger {
+            border-color: #ef4444;
+            background: #ef4444;
+            color: #ffffff;
+        }
+
+        body.dark .leave-type-detail {
+            --lt-accent-soft: rgba(229, 79, 56, .14);
+            --lt-surface: #202020;
+            --lt-surface-soft: #292929;
+            --lt-border: #3f3f46;
+            --lt-text: #f8fafc;
+            --lt-muted: #aeb5c2;
+            box-shadow: 0 28px 80px rgba(0, 0, 0, .55);
+        }
+
+        body.dark .leave-type-detail__pill--no,
+        body.dark .leave-type-detail__pill {
+            background: #33343a;
+            color: #d2d6dc;
+        }
+
+        body.dark .leave-type-detail__pill--yes,
+        body.dark .leave-type-detail__pill--paid {
+            background: rgba(34, 197, 94, .15);
+            color: #86efac;
+        }
+
+        body.dark .leave-type-detail__condition {
+            border-color: #414f87;
+            background: #292f4c;
+            color: #c7d2fe;
+        }
+
+        @media (max-width: 640px) {
+            .leave-type-detail {
+                width: calc(100vw - 20px);
+                max-height: calc(100vh - 20px);
+                border-radius: 14px;
+            }
+
+            .leave-type-detail__topbar,
+            .leave-type-detail__body {
+                padding: 16px;
+            }
+
+            .leave-type-detail__grid {
+                grid-template-columns: 1fr;
+            }
+
+            .leave-type-detail__footer {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .leave-type-detail__button {
+                width: 100%;
+            }
+        }
+    </style>
+
+    <header class="leave-type-detail__topbar">
+        <div>
+            <p class="leave-type-detail__eyebrow">Leave management</p>
+            <h2 class="leave-type-detail__title">Leave Type Details</h2>
+        </div>
+        <div class="leave-type-detail__top-actions">
+            {% if instance_ids %}
+                <button
+                    type="button"
+                    class="leave-type-detail__nav"
+                    aria-label="Previous leave type"
+                    title="Previous"
+                    data-action="previous"
+                    hx-get="{{ previous_url }}?{{ ids_key }}={{ instance_ids }}{% if extra_query %}&{{ extra_query }}{% endif %}"
+                    hx-target="#genericModalBody"
+                >
+                    <ion-icon name="chevron-back-outline"></ion-icon>
+                </button>
+                <button
+                    type="button"
+                    class="leave-type-detail__nav"
+                    aria-label="Next leave type"
+                    title="Next"
+                    data-action="next"
+                    hx-get="{{ next_url }}?{{ ids_key }}={{ instance_ids }}{% if extra_query %}&{{ extra_query }}{% endif %}"
+                    hx-target="#genericModalBody"
+                >
+                    <ion-icon name="chevron-forward-outline"></ion-icon>
+                </button>
+            {% endif %}
+            <button
+                type="button"
+                class="leave-type-detail__close oh-modal__close oh-modal__close--custom"
+                aria-label="Close"
+                title="Close"
+                onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')"
+            >
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+    </header>
+
+    <div class="leave-type-detail__body">
+        <div class="leave-type-detail__profile">
+            <img class="leave-type-detail__avatar" src="{{ object.get_avatar }}" alt="">
+            <div>
+                <h3 class="leave-type-detail__name">{{ object.name }}</h3>
+                <p class="leave-type-detail__subtitle">Rules and allowance configuration for this leave type</p>
+            </div>
+        </div>
+
+        <h4 class="leave-type-detail__section-title">Allowance</h4>
+        <div class="leave-type-detail__grid">
+            <div class="leave-type-detail__item">
+                <span class="leave-type-detail__label">Allowance period</span>
+                <span class="leave-type-detail__value">
+                    {% if object.period_in == "day" %}Day{% elif object.period_in == "month" %}Month{% elif object.period_in == "year" %}Year{% else %}{{ object.period_in|default:"Not set"|capfirst }}{% endif %}
+                </span>
+            </div>
+            <div class="leave-type-detail__item">
+                <span class="leave-type-detail__label">Total allowance</span>
+                <span class="leave-type-detail__value">
+                    {% if object.limit_leave %}{{ object.count|floatformat:"-2" }} day{{ object.count|pluralize }}{% else %}Unlimited{% endif %}
+                </span>
+            </div>
+            <div class="leave-type-detail__item">
+                <span class="leave-type-detail__label">Payment</span>
+                <span class="leave-type-detail__pill leave-type-detail__pill--{% if object.payment_type == 'paid' or not object.payment_type and object.payment == 'paid' %}paid{% else %}no{% endif %}">
+                    {% if object.payment_type == "custom" %}Custom ({{ object.payment_percentage|default:0|floatformat:"-2" }}%){% elif object.payment_type == "paid" or not object.payment_type and object.payment == "paid" %}Paid (100%){% else %}Unpaid (0%){% endif %}
+                </span>
+            </div>
+            <div class="leave-type-detail__item">
+                <span class="leave-type-detail__label">Cash conversion</span>
+                <span class="leave-type-detail__pill leave-type-detail__pill--{% if object.is_encashable %}yes{% else %}no{% endif %}">
+                    {% if object.is_encashable %}Allowed{% else %}Not allowed{% endif %}
+                </span>
+            </div>
+        </div>
+
+        <h4 class="leave-type-detail__section-title">Rules</h4>
+        <div class="leave-type-detail__grid">
+            <div class="leave-type-detail__item">
+                <span class="leave-type-detail__label">Automatic reset</span>
+                <span class="leave-type-detail__pill leave-type-detail__pill--{% if object.reset %}yes{% else %}no{% endif %}">
+                    {% if object.reset %}Enabled{% else %}Disabled{% endif %}
+                </span>
+            </div>
+            <div class="leave-type-detail__item">
+                <span class="leave-type-detail__label">Carry forward</span>
+                <span class="leave-type-detail__value">
+                    {% if object.carryforward_type == "carryforward" %}Carry forward{% elif object.carryforward_type == "carryforward expire" %}Carry forward with expiry{% else %}No carry forward{% endif %}
+                </span>
+            </div>
+            {% if object.reset_based %}
+                <div class="leave-type-detail__item">
+                    <span class="leave-type-detail__label">Reset frequency</span>
+                    <span class="leave-type-detail__value">{{ object.reset_based|capfirst }}</span>
+                </div>
+            {% endif %}
+            {% if object.reset_month %}
+                <div class="leave-type-detail__item">
+                    <span class="leave-type-detail__label">Reset month</span>
+                    <span class="leave-type-detail__value">{{ object.reset_month|capfirst }}</span>
+                </div>
+            {% endif %}
+            {% if object.reset_day %}
+                <div class="leave-type-detail__item">
+                    <span class="leave-type-detail__label">Reset day</span>
+                    <span class="leave-type-detail__value">{{ object.reset_day }}</span>
+                </div>
+            {% endif %}
+            {% if object.reset_weekend %}
+                <div class="leave-type-detail__item">
+                    <span class="leave-type-detail__label">Reset weekday</span>
+                    <span class="leave-type-detail__value">
+                        {% if object.reset_weekend == "0" %}Monday{% elif object.reset_weekend == "1" %}Tuesday{% elif object.reset_weekend == "2" %}Wednesday{% elif object.reset_weekend == "3" %}Thursday{% elif object.reset_weekend == "4" %}Friday{% elif object.reset_weekend == "5" %}Saturday{% else %}Sunday{% endif %}
+                    </span>
+                </div>
+            {% endif %}
+            {% if object.carryforward_max %}
+                <div class="leave-type-detail__item">
+                    <span class="leave-type-detail__label">Maximum carry forward</span>
+                    <span class="leave-type-detail__value">{{ object.carryforward_max|floatformat:"-2" }} days</span>
+                </div>
+            {% endif %}
+            {% if object.carryforward_expire_in %}
+                <div class="leave-type-detail__item">
+                    <span class="leave-type-detail__label">Carry-forward expiry</span>
+                    <span class="leave-type-detail__value">{{ object.carryforward_expire_in }} {{ object.carryforward_expire_period|default:"day" }}{{ object.carryforward_expire_in|pluralize }}</span>
+                </div>
+            {% endif %}
+            <div class="leave-type-detail__item">
+                <span class="leave-type-detail__label">Approval required</span>
+                <span class="leave-type-detail__pill leave-type-detail__pill--{% if object.require_approval == 'yes' %}yes{% else %}no{% endif %}">
+                    {% if object.require_approval == "yes" %}Yes{% else %}No{% endif %}
+                </span>
+            </div>
+            <div class="leave-type-detail__item">
+                <span class="leave-type-detail__label">Attachment required</span>
+                <span class="leave-type-detail__pill leave-type-detail__pill--{% if object.require_attachment == 'yes' %}yes{% else %}no{% endif %}">
+                    {% if object.require_attachment == "yes" %}Yes{% else %}No{% endif %}
+                </span>
+            </div>
+            <div class="leave-type-detail__item">
+                <span class="leave-type-detail__label">Exclude company leave days</span>
+                <span class="leave-type-detail__pill leave-type-detail__pill--{% if object.exclude_company_leave == 'yes' %}yes{% else %}no{% endif %}">
+                    {% if object.exclude_company_leave == "yes" %}Yes{% else %}No{% endif %}
+                </span>
+            </div>
+            <div class="leave-type-detail__item">
+                <span class="leave-type-detail__label">Exclude public holidays</span>
+                <span class="leave-type-detail__pill leave-type-detail__pill--{% if object.exclude_holiday == 'yes' %}yes{% else %}no{% endif %}">
+                    {% if object.exclude_holiday == "yes" %}Yes{% else %}No{% endif %}
+                </span>
+            </div>
+        </div>
+
+        <h4 class="leave-type-detail__section-title">Eligibility conditions</h4>
+        <div class="leave-type-detail__conditions">
+            {% with conditions=object.conditions.all %}
+                {% if conditions %}
+                    {% for condition in conditions %}
+                        <span class="leave-type-detail__condition">
+                            {% if condition.condition_type == "gender" %}Gender{% elif condition.condition_type == "once_per_employment" %}Once per employment{% elif condition.condition_type == "marital_status" %}Marital status{% elif condition.condition_type == "nationality" %}Nationality{% elif condition.condition_type == "department" %}Department{% elif condition.condition_type == "employment_type" %}Employment type{% elif condition.condition_type == "grade" %}Grade{% elif condition.condition_type == "service_duration" %}Service duration{% else %}{{ condition.condition_type|capfirst }}{% endif %}{% if condition.value %}: {{ condition.value }}{% endif %}
+                        </span>
+                    {% endfor %}
+                {% else %}
+                    <span class="leave-type-detail__empty">
+                        <ion-icon name="information-circle-outline"></ion-icon>
+                        No eligibility conditions have been added.
+                    </span>
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        {% if perms.leave.change_leavetype or perms.leave.add_availableleave or perms.leave.delete_leavetype %}
+            <footer class="leave-type-detail__footer">
+                {% if perms.leave.change_leavetype %}
+                    <a class="leave-type-detail__button" href="{% url 'type-update' object.id %}{% if object.is_compensatory_leave %}?compensatory=True{% endif %}">
+                        <ion-icon name="create-outline"></ion-icon>
+                        Edit
+                    </a>
+                {% endif %}
+                {% if perms.leave.add_availableleave and not object.is_compensatory_leave %}
+                    <button
+                        type="button"
+                        class="leave-type-detail__button leave-type-detail__button--primary"
+                        data-toggle="oh-modal-toggle"
+                        data-target="#genericModal"
+                        hx-get="{% url 'assign-one' object.id %}"
+                        hx-target="#genericModalBody"
+                    >
+                        <ion-icon name="person-add-outline"></ion-icon>
+                        Assign
+                    </button>
+                {% endif %}
+                {% if perms.leave.delete_leavetype %}
+                    <button
+                        type="button"
+                        class="leave-type-detail__button leave-type-detail__button--danger"
+                        hx-confirm="Are you sure you want to delete this leave type?"
+                        hx-post="{% url 'type-delete' object.id %}"
+                        hx-target="#listContainer"
+                    >
+                        <ion-icon name="trash-outline"></ion-icon>
+                        Delete
+                    </button>
+                {% endif %}
+            </footer>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    (function () {
+        var modalBody = document.getElementById("genericModalBody");
+        if (modalBody && modalBody.querySelector(".leave-type-detail")) {
+            modalBody.style.maxWidth = "820px";
+            modalBody.style.width = "auto";
+            modalBody.style.padding = "0";
+            modalBody.style.background = "transparent";
+        }
+    })();
+</script>

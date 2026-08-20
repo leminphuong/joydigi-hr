@@ -85,4 +85,4 @@ class LeaveAllocationApproveTests(TestCase):
         )
         with self.assertRaises(ValidationError) as ctx:
             req.clean()
-        self.assertIn("breakdown", str(ctx.exception).lower())
+        self.assertIn("phân tích ngày bắt đầu", str(ctx.exception).lower())

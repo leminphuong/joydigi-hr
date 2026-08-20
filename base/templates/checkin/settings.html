@@ -2,39 +2,154 @@
 
 {% block settings %}
 <style>
-    .checkin-form p { margin-bottom: 14px; }
-    .checkin-form label { display:block; margin-bottom:6px; color:#374151; font-size:13px; font-weight:600; }
-    .checkin-form input[type=text], .checkin-form input[type=number] { width:100%; border:1px solid #d1d5db; border-radius:8px; padding:9px 11px; }
-    .checkin-form .errorlist { color:#dc2626; font-size:12px; margin:4px 0; }
+    .checkin-shell {
+        --ci-surface: #ffffff;
+        --ci-surface-soft: #f8fafc;
+        --ci-border: #e2e8f0;
+        --ci-text: #0f172a;
+        --ci-muted: #64748b;
+        --ci-primary: #2563eb;
+        --ci-primary-soft: #eff6ff;
+        color: var(--ci-text);
+    }
+    .checkin-hero {
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 24px;
+        border: 1px solid #bfdbfe;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 55%, #eef2ff 100%);
+    }
+    .checkin-hero::after {
+        content: "";
+        position: absolute;
+        width: 190px;
+        height: 190px;
+        right: -55px;
+        top: -95px;
+        border-radius: 999px;
+        background: rgba(37, 99, 235, .10);
+    }
+    .checkin-kicker { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 8px; color: var(--ci-primary); font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .checkin-title { margin: 0; font-size: 24px; line-height: 1.25; font-weight: 800; }
+    .checkin-subtitle { margin-top: 7px; color: var(--ci-muted); font-size: 14px; }
+    .checkin-stats { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; z-index: 1; }
+    .checkin-stat { min-width: 112px; padding: 11px 14px; border: 1px solid rgba(255,255,255,.8); border-radius: 13px; background: rgba(255,255,255,.78); box-shadow: 0 8px 24px rgba(37, 99, 235, .08); }
+    .checkin-stat strong { display: block; font-size: 18px; line-height: 1.1; }
+    .checkin-stat span { display: block; margin-top: 4px; color: var(--ci-muted); font-size: 11px; }
+    .checkin-toolbar { display: flex; justify-content: flex-end; margin-top: 14px; }
+    .checkin-link { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border: 1px solid var(--ci-border); border-radius: 11px; background: var(--ci-surface); color: var(--ci-text); font-size: 13px; font-weight: 700; transition: .2s ease; }
+    .checkin-link:hover { border-color: #93c5fd; color: var(--ci-primary); transform: translateY(-1px); }
+    .checkin-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
+    .checkin-card { overflow: hidden; border: 1px solid var(--ci-border); border-radius: 16px; background: var(--ci-surface); box-shadow: 0 8px 26px rgba(15, 23, 42, .045); }
+    .checkin-card-head { display: flex; align-items: center; gap: 11px; padding: 18px 18px 12px; }
+    .checkin-card-icon { display: grid; place-items: center; width: 38px; height: 38px; flex: 0 0 38px; border-radius: 11px; background: var(--ci-primary-soft); color: var(--ci-primary); font-size: 20px; }
+    .checkin-card-title { margin: 0; color: var(--ci-text); font-size: 15px; font-weight: 800; }
+    .checkin-card-note { margin-top: 3px; color: var(--ci-muted); font-size: 11px; }
+    .checkin-form { padding: 4px 18px 18px; }
+    .checkin-field { margin-top: 13px; }
+    .checkin-field label { display: block; margin-bottom: 6px; color: var(--ci-text); font-size: 12px; font-weight: 700; }
+    .checkin-field input[type="text"], .checkin-field input[type="number"] { width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--ci-border); border-radius: 10px; outline: none; background: var(--ci-surface-soft); color: var(--ci-text); transition: border-color .2s, box-shadow .2s, background .2s; }
+    .checkin-field input:focus { border-color: #60a5fa; background: var(--ci-surface); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+    .checkin-help { margin-top: 6px; color: var(--ci-muted); font-size: 11px; line-height: 1.45; }
+    .checkin-field .errorlist { margin: 5px 0 0; padding: 0; list-style: none; color: #dc2626; font-size: 11px; }
+    .checkin-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 11px 12px; border: 1px solid var(--ci-border); border-radius: 10px; background: var(--ci-surface-soft); }
+    .checkin-toggle label { margin: 0; color: var(--ci-text); font-size: 12px; font-weight: 700; cursor: pointer; }
+    .checkin-toggle input { width: 17px; height: 17px; accent-color: var(--ci-primary); }
+    .checkin-submit { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 16px; padding: 11px 14px; border: 0; border-radius: 10px; background: linear-gradient(135deg, #2563eb, #3b82f6); color: #fff; font-size: 13px; font-weight: 800; box-shadow: 0 8px 18px rgba(37,99,235,.22); cursor: pointer; transition: .2s ease; }
+    .checkin-submit:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(37,99,235,.30); }
+    .checkin-list-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+    .checkin-list-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--ci-border); }
+    .checkin-list-head h2 { margin: 0; color: var(--ci-text); font-size: 14px; font-weight: 800; }
+    .checkin-badge { padding: 4px 9px; border-radius: 999px; background: var(--ci-primary-soft); color: var(--ci-primary); font-size: 11px; font-weight: 800; }
+    .checkin-list-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 15px 18px; border-top: 1px solid var(--ci-border); }
+    .checkin-list-item:first-child { border-top: 0; }
+    .checkin-list-name { display: flex; align-items: center; gap: 8px; color: var(--ci-text); font-size: 13px; font-weight: 800; }
+    .checkin-status { width: 8px; height: 8px; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,.12); }
+    .checkin-list-meta { margin-top: 6px; color: var(--ci-muted); font-size: 11px; line-height: 1.55; }
+    .checkin-actions { display: flex; align-items: center; gap: 9px; white-space: nowrap; }
+    .checkin-edit, .checkin-delete { font-size: 11px; font-weight: 800; }
+    .checkin-edit { color: var(--ci-primary); }
+    .checkin-delete { border: 0; background: transparent; color: #ef4444; cursor: pointer; }
+    .checkin-empty { padding: 28px 18px; color: var(--ci-muted); text-align: center; font-size: 12px; }
+    body.dark .checkin-shell { --ci-surface: #20242b; --ci-surface-soft: #181c22; --ci-border: #39414d; --ci-text: #f8fafc; --ci-muted: #b1bdcc; --ci-primary: #60a5fa; --ci-primary-soft: rgba(59,130,246,.15); }
+    body.dark .checkin-hero { border-color: #334155; background: linear-gradient(135deg, #172033 0%, #1e242c 60%, #24213a 100%); }
+    body.dark .checkin-stat { border-color: #3b4554; background: rgba(15,23,42,.70); box-shadow: none; }
+    body.dark .checkin-card { box-shadow: 0 10px 28px rgba(0,0,0,.22); }
+    body.dark .checkin-field input[type="text"], body.dark .checkin-field input[type="number"] { border-color: var(--ci-border) !important; background: var(--ci-surface-soft) !important; color: var(--ci-text) !important; }
+    body.dark .checkin-field input:focus { border-color: #60a5fa !important; background: #111827 !important; }
+    @media (max-width: 1180px) { .checkin-grid { grid-template-columns: 1fr 1fr; } .checkin-grid .checkin-card:first-child { grid-column: 1 / -1; } }
+    @media (max-width: 760px) { .checkin-hero { align-items: flex-start; flex-direction: column; padding: 19px; } .checkin-stats { justify-content: flex-start; } .checkin-stat { min-width: 96px; } .checkin-grid, .checkin-list-grid { grid-template-columns: 1fr; } .checkin-grid .checkin-card:first-child { grid-column: auto; } }
 </style>
-<section class="space-y-5">
-    <header class="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 class="text-xl font-semibold text-gray-900">Cài đặt chấm công</h1><p class="mt-1 text-sm text-gray-500">Áp dụng cho {{ company }}.</p></div>
-        <a href="{% url 'holiday-view' %}" class="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50">Quản lý ngày nghỉ lễ</a>
+
+<section class="checkin-shell">
+    <header class="checkin-hero">
+        <div>
+            <div class="checkin-kicker"><ion-icon name="settings-outline"></ion-icon> Thiết lập hệ thống</div>
+            <h1 class="checkin-title">Cài đặt chấm công</h1>
+            <p class="checkin-subtitle">Quản lý quy định, vị trí và mạng Wifi cho công ty <strong>{{ company }}</strong>.</p>
+        </div>
+        <div class="checkin-stats">
+            <div class="checkin-stat"><strong>{{ policy_form.instance.late_threshold_minutes }}</strong><span>Phút cho phép đi muộn</span></div>
+            <div class="checkin-stat"><strong>{{ locations|length }}</strong><span>Địa điểm đang quản lý</span></div>
+            <div class="checkin-stat"><strong>{{ wifi_networks|length }}</strong><span>Mạng Wifi văn phòng</span></div>
+        </div>
     </header>
 
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <div class="bg-white rounded-xl border border-gray-100 p-5">
-            <h2 class="font-semibold text-gray-900 mb-4">Quy định chung</h2>
-            <form method="post" class="checkin-form">{% csrf_token %}<input type="hidden" name="action" value="policy">{{ policy_form.as_p }}<button class="w-full px-4 py-2 rounded-lg bg-primary-600 text-white font-medium">Lưu quy định</button></form>
-        </div>
-        <div class="bg-white rounded-xl border border-gray-100 p-5">
-            <h2 class="font-semibold text-gray-900 mb-4">{% if location_instance %}Sửa địa điểm{% else %}Thêm địa điểm chấm công{% endif %}</h2>
-            <form method="post" class="checkin-form">{% csrf_token %}<input type="hidden" name="action" value="location"><input type="hidden" name="object_id" value="{{ location_instance.pk|default:'' }}">{{ location_form.as_p }}<button class="w-full px-4 py-2 rounded-lg bg-primary-600 text-white font-medium">Lưu địa điểm</button></form>
-        </div>
-        <div class="bg-white rounded-xl border border-gray-100 p-5">
-            <h2 class="font-semibold text-gray-900 mb-4">{% if wifi_instance %}Sửa Wifi{% else %}Thêm Wifi văn phòng{% endif %}</h2>
-            <form method="post" class="checkin-form">{% csrf_token %}<input type="hidden" name="action" value="wifi"><input type="hidden" name="object_id" value="{{ wifi_instance.pk|default:'' }}">{{ wifi_form.as_p }}<button class="w-full px-4 py-2 rounded-lg bg-primary-600 text-white font-medium">Lưu Wifi</button></form>
-        </div>
+    <div class="checkin-toolbar"><a href="{% url 'holiday-view' %}" class="checkin-link"><ion-icon name="calendar-outline"></ion-icon> Quản lý ngày nghỉ lễ</a></div>
+
+    <div class="checkin-grid">
+        <article class="checkin-card">
+            <div class="checkin-card-head"><div class="checkin-card-icon"><ion-icon name="options-outline"></ion-icon></div><div><h2 class="checkin-card-title">Quy định chung</h2><p class="checkin-card-note">Áp dụng cho toàn bộ nhân viên</p></div></div>
+            <form method="post" class="checkin-form">
+                {% csrf_token %}<input type="hidden" name="action" value="policy">
+                <div class="checkin-field"><label for="{{ policy_form.late_threshold_minutes.id_for_label }}">Ngưỡng đi muộn (phút)</label>{{ policy_form.late_threshold_minutes }}{{ policy_form.late_threshold_minutes.errors }}</div>
+                <div class="checkin-field"><label for="{{ policy_form.annual_leave_days.id_for_label }}">Số ngày phép mỗi năm</label>{{ policy_form.annual_leave_days }}{{ policy_form.annual_leave_days.errors }}</div>
+                <div class="checkin-toggle"><label for="{{ policy_form.allow_remote.id_for_label }}">Cho phép làm việc từ xa</label>{{ policy_form.allow_remote }}</div>
+                <div class="checkin-toggle"><label for="{{ policy_form.allow_outside_radius_request.id_for_label }}">Cho gửi đơn ngoài bán kính</label>{{ policy_form.allow_outside_radius_request }}</div>
+                <button class="checkin-submit" type="submit"><ion-icon name="save-outline"></ion-icon> Lưu quy định</button>
+            </form>
+        </article>
+
+        <article class="checkin-card">
+            <div class="checkin-card-head"><div class="checkin-card-icon"><ion-icon name="location-outline"></ion-icon></div><div><h2 class="checkin-card-title">{% if location_instance %}Sửa địa điểm{% else %}Thêm địa điểm chấm công{% endif %}</h2><p class="checkin-card-note">Giới hạn khu vực chấm công bằng GPS</p></div></div>
+            <form method="post" class="checkin-form">
+                {% csrf_token %}<input type="hidden" name="action" value="location"><input type="hidden" name="object_id" value="{{ location_instance.pk|default:'' }}">
+                <div class="checkin-field"><label for="{{ location_form.name.id_for_label }}">Tên địa điểm</label>{{ location_form.name }}{{ location_form.name.errors }}</div>
+                <div class="checkin-field"><label for="{{ location_form.latitude.id_for_label }}">Vĩ độ</label>{{ location_form.latitude }}{{ location_form.latitude.errors }}</div>
+                <div class="checkin-field"><label for="{{ location_form.longitude.id_for_label }}">Kinh độ</label>{{ location_form.longitude }}{{ location_form.longitude.errors }}</div>
+                <div class="checkin-field"><label for="{{ location_form.radius_meters.id_for_label }}">Bán kính cho phép (mét)</label>{{ location_form.radius_meters }}{{ location_form.radius_meters.errors }}</div>
+                <div class="checkin-toggle"><label for="{{ location_form.is_active.id_for_label }}">Đang sử dụng</label>{{ location_form.is_active }}</div>
+                <button class="checkin-submit" type="submit"><ion-icon name="save-outline"></ion-icon> Lưu địa điểm</button>
+            </form>
+        </article>
+
+        <article class="checkin-card">
+            <div class="checkin-card-head"><div class="checkin-card-icon"><ion-icon name="wifi-outline"></ion-icon></div><div><h2 class="checkin-card-title">{% if wifi_instance %}Sửa Wifi{% else %}Thêm Wifi văn phòng{% endif %}</h2><p class="checkin-card-note">Cho phép chấm công qua mạng nội bộ</p></div></div>
+            <form method="post" class="checkin-form">
+                {% csrf_token %}<input type="hidden" name="action" value="wifi"><input type="hidden" name="object_id" value="{{ wifi_instance.pk|default:'' }}">
+                <div class="checkin-field"><label for="{{ wifi_form.name.id_for_label }}">Tên mạng Wifi</label>{{ wifi_form.name }}{{ wifi_form.name.errors }}</div>
+                <div class="checkin-field"><label for="{{ wifi_form.ssid.id_for_label }}">Tên Wifi hiển thị</label>{{ wifi_form.ssid }}{{ wifi_form.ssid.errors }}</div>
+                <div class="checkin-field"><label for="{{ wifi_form.bssid.id_for_label }}">Mã thiết bị phát Wifi</label>{{ wifi_form.bssid }}<p class="checkin-help">Có thể để trống nếu không cần giới hạn đúng thiết bị phát.</p>{{ wifi_form.bssid.errors }}</div>
+                <div class="checkin-toggle"><label for="{{ wifi_form.is_active.id_for_label }}">Đang sử dụng</label>{{ wifi_form.is_active }}</div>
+                <button class="checkin-submit" type="submit"><ion-icon name="save-outline"></ion-icon> Lưu Wifi</button>
+            </form>
+        </article>
     </div>
 
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <div class="bg-white rounded-xl border border-gray-100 overflow-hidden"><div class="px-5 py-4 border-b border-gray-100 font-semibold">Địa điểm chấm công</div><div class="divide-y divide-gray-100">
-            {% for item in locations %}<div class="p-4 flex items-start justify-between gap-3"><div><p class="font-medium text-gray-900">{{ item.name }}</p><p class="mt-1 text-sm text-gray-500">Vĩ độ {{ item.latitude }} · Kinh độ {{ item.longitude }} · Bán kính {{ item.radius_meters }} mét</p></div><div class="flex gap-2"><a href="?edit_location={{ item.pk }}" class="text-sm text-primary-600">Sửa</a><form method="post" action="{% url 'delete-checkin-location' item.pk %}" onsubmit="return confirm('Xóa địa điểm này?')">{% csrf_token %}<button class="text-sm text-red-600">Xóa</button></form></div></div>{% empty %}<p class="p-5 text-sm text-gray-400">Chưa có địa điểm.</p>{% endfor %}
-        </div></div>
-        <div class="bg-white rounded-xl border border-gray-100 overflow-hidden"><div class="px-5 py-4 border-b border-gray-100 font-semibold">Wifi văn phòng</div><div class="divide-y divide-gray-100">
-            {% for item in wifi_networks %}<div class="p-4 flex items-start justify-between gap-3"><div><p class="font-medium text-gray-900">{{ item.name }}</p><p class="mt-1 text-sm text-gray-500">Tên Wifi: {{ item.ssid }}{% if item.bssid %} · Mã thiết bị: {{ item.bssid }}{% endif %}</p></div><div class="flex gap-2"><a href="?edit_wifi={{ item.pk }}" class="text-sm text-primary-600">Sửa</a><form method="post" action="{% url 'delete-office-wifi' item.pk %}" onsubmit="return confirm('Xóa Wifi này?')">{% csrf_token %}<button class="text-sm text-red-600">Xóa</button></form></div></div>{% empty %}<p class="p-5 text-sm text-gray-400">Chưa có Wifi văn phòng.</p>{% endfor %}
-        </div></div>
+    <div class="checkin-list-grid">
+        <article class="checkin-card">
+            <div class="checkin-list-head"><h2>Địa điểm chấm công</h2><span class="checkin-badge">{{ locations|length }} địa điểm</span></div>
+            <div>{% for item in locations %}<div class="checkin-list-item"><div><div class="checkin-list-name"><span class="checkin-status"></span>{{ item.name }}</div><p class="checkin-list-meta">Vĩ độ {{ item.latitude }} · Kinh độ {{ item.longitude }}<br>Bán kính cho phép: {{ item.radius_meters }} mét</p></div><div class="checkin-actions"><a href="?edit_location={{ item.pk }}" class="checkin-edit">Sửa</a><form method="post" action="{% url 'delete-checkin-location' item.pk %}" onsubmit="return confirm('Xóa địa điểm này?')">{% csrf_token %}<button class="checkin-delete" type="submit">Xóa</button></form></div></div>{% empty %}<div class="checkin-empty">Chưa có địa điểm chấm công.</div>{% endfor %}</div>
+        </article>
+        <article class="checkin-card">
+            <div class="checkin-list-head"><h2>Wifi văn phòng</h2><span class="checkin-badge">{{ wifi_networks|length }} mạng</span></div>
+            <div>{% for item in wifi_networks %}<div class="checkin-list-item"><div><div class="checkin-list-name"><span class="checkin-status"></span>{{ item.name }}</div><p class="checkin-list-meta">Tên Wifi: {{ item.ssid }}{% if item.bssid %}<br>Mã thiết bị: {{ item.bssid }}{% endif %}</p></div><div class="checkin-actions"><a href="?edit_wifi={{ item.pk }}" class="checkin-edit">Sửa</a><form method="post" action="{% url 'delete-office-wifi' item.pk %}" onsubmit="return confirm('Xóa Wifi này?')">{% csrf_token %}<button class="checkin-delete" type="submit">Xóa</button></form></div></div>{% empty %}<div class="checkin-empty">Chưa có Wifi văn phòng.</div>{% endfor %}</div>
+        </article>
     </div>
 </section>
 {% endblock %}

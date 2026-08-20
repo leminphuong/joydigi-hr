@@ -11,6 +11,7 @@ from django.conf import settings
 from base.demo_data.companies import ensure_companies
 from base.demo_data.media import copy_demo_media
 from base.demo_data.modules.announcements import refresh_announcements
+from base.demo_data.modules.checkin import seed_joydigi_checkin_demo
 from base.demo_data.modules.recruitment import seed_recruitment_catalog
 from base.demo_data.org import standardize_org_taxonomy
 from base.demo_data.sanitize import sanitize_loaded_records, scrub_side_fixture_files
@@ -28,9 +29,9 @@ def run_enterprise_demo_seeder(
     """
     Standardize demo data after JSON fixtures are loaded.
 
-    Safe to call repeatedly (idempotent renames / upserts). Does not create
-    or delete employees — only activates companies, renames org taxonomy,
-    refreshes announcements, and sanitizes vendor-specific labels.
+    Safe to call repeatedly (idempotent renames / upserts). It creates the
+    JOYDIGI check-in company, 15 employees, and two months of attendance data
+    when those records do not exist.
     """
     today = today or date.today()
     root = Path(load_dir) if load_dir else Path(settings.BASE_DIR) / "load_data"
@@ -47,6 +48,7 @@ def run_enterprise_demo_seeder(
     result["announcements"] = refresh_announcements(today)
     result["recruitment"] = seed_recruitment_catalog()
     result["sanitized"] = sanitize_loaded_records()
+    result["joydigi_checkin"] = seed_joydigi_checkin_demo(today=today)
 
     logger.info("Enterprise demo seeder finished: %s", result)
     return result

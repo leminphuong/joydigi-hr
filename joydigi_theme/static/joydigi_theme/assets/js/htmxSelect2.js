@@ -3999,13 +3999,27 @@
 });
 staticUrl = $("#statiUrl").attr("data-url");
 
-$(document).ready(function () {
-    $(".oh-select").each(function () {
-        if ($(this).hasClass("select2-hidden-accessible") && $(this).data("select2")) {
-            $(this).select2("destroy");
+function initSelect2Safely(elements) {
+    if (typeof $.fn.select2 !== "function") {
+        return;
+    }
+    elements.each(function () {
+        var element = $(this);
+        if (element.data("select2")) {
+            return;
         }
-        $(this).select2({ width: '100%' });
+
+        // HTMX may leave marker attributes after the Select2 instance has
+        // already been removed. Clean stale markup without calling destroy.
+        element.removeClass("select2-hidden-accessible")
+            .removeAttr("data-select2-id aria-hidden tabindex");
+        element.next(".select2-container").remove();
+        element.select2({ width: "100%" });
     });
+}
+
+$(document).ready(function () {
+    initSelect2Safely($(".oh-select"));
 
     $("select").on("select2:select", function (e) {
         $(this)[0].dispatchEvent(new Event("change"));
@@ -4030,7 +4044,7 @@ $(document).on("click", "[data-toggle='oh-modal-toggle']", function () {
 
 $(document).on("htmx:afterSettle", function (event) {
     var target = $(event.target);
-    target.find(".oh-select").select2({ width: '100%' });
+    initSelect2Safely(target.find(".oh-select").add(target.filter(".oh-select")));
 
     target.find("select").off("select2:select").on("select2:select", function (e) {
         this.dispatchEvent(new Event("change"));

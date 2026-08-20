@@ -1,47 +1,10 @@
-"""
-pg_backup.scheduler
-
-This module sets up scheduled PostgreSQL backups using APScheduler and pg_dump.
-
-Backups are only enabled if the configured Django database engine is PostgreSQL.
-It supports backing up the default Django database at multiple daily times,
-configured via environment variables.
-
-Environment Variables:
-----------------------
-- BACKUP_CRON_TIMES (str, optional)
-    A comma-separated list of times in 24h format ("HH:MM") to run backups.
-    Example: "02:00,10:00,18:00"
-    Default: "02:00,10:00,18:00"
-    If unset or empty, scheduling is disabled and no automated backups will run.
-
-- BACKUP_DIR (str, optional)
-    Directory path where PostgreSQL backups will be stored.
-    Default: <project_root>/pg_backup/backups
-
-Requirements:
--------------
-- The system must have `pg_dump` available in PATH.
-- The database user must have permission to perform backups.
-- APScheduler and django-environ must be installed and configured.
-
-Logging:
---------
-Logs are emitted using the `pg_backup` logger and include backup progress and scheduler setup.
-Logging format and handlers can be customized via `LOGGING_CONFIG` in this module.
-
-Usage:
-------
-This module is automatically executed when imported (e.g., from Django AppConfig's `ready()`).
-Backups can also be triggered manually by calling `backup_postgres()`.
-
-"""
+"""Sao lưu cơ sở dữ liệu vào thư mục nội bộ theo lịch hằng đêm."""
 
 import datetime
 import logging
-import logging.config
 import os
 import shutil
+import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -49,119 +12,118 @@ import environ
 from apscheduler.schedulers.background import BackgroundScheduler
 from django.conf import settings
 
-# === Logging Configuration ===
-
-LOGGING_CONFIG = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "standard": {"format": "[%(asctime)s] [%(levelname)s] %(name)s: %(message)s"},
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "standard",
-        },
-    },
-    "loggers": {
-        "pg_backup": {
-            "handlers": ["console"],
-            "level": "INFO",
-            "propagate": False,
-        },
-    },
-}
-
-logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger("pg_backup")
-
-# === Configuration ===
-
 env = environ.Env()
 
-default_backup_dir = Path(settings.BASE_DIR) / "pg_backup" / "backups"
-BACKUP_DIR = Path(env("BACKUP_DIR", default=str(default_backup_dir)))
-BACKUP_CRON_TIMES = env("BACKUP_CRON_TIMES", default="02:00,10:00,18:00")
+BACKUP_DIR = Path(
+    env("BACKUP_DIR", default=str(Path(settings.BASE_DIR) / "backup"))
+).resolve()
+BACKUP_CRON_TIMES = env("BACKUP_CRON_TIMES", default="02:00")
+BACKUP_RETENTION_DAYS = env.int("BACKUP_RETENTION_DAYS", default=30)
 DATE_FORMAT = "%Y-%m-%d_%H-%M-%S"
+_scheduler = None
 
-# Load DB settings
-db = settings.DATABASES["default"]
-DB_ENGINE = db["ENGINE"]
 
-if "postgresql" not in DB_ENGINE:
-    logger.warning(
-        "Skipping backup scheduler: not a PostgreSQL database (engine: %s)", DB_ENGINE
-    )
-else:
-    DB_NAME = db["NAME"]
-    DB_USER = db["USER"]
-    DB_PASSWORD = db["PASSWORD"]
-    DB_HOST = db.get("HOST", "localhost")
-    DB_PORT = str(db.get("PORT", 5432))
-
-    def backup_postgres():
-        """
-        Method that dump pg data
-        """
-        timestamp = datetime.datetime.now().strftime(DATE_FORMAT)
-        backup_file = BACKUP_DIR / f"{DB_NAME}_backup_{timestamp}.sql"
-
-        os.makedirs(BACKUP_DIR, exist_ok=True)
-        os.environ["PGPASSWORD"] = DB_PASSWORD
-
-        command = [
-            shutil.which("pg_dump"),
-            "-h",
-            DB_HOST,
-            "-p",
-            DB_PORT,
-            "-U",
-            DB_USER,
-            "-F",
-            "c",
-            "-b",
-            "-v",
-            "-f",
-            str(backup_file),
-            DB_NAME,
-        ]
-
-        try:
-            logger.info("Starting backup: %s", backup_file)
-            subprocess.run(command, check=True)
-            logger.info("Backup successful: %s", backup_file)
-        except subprocess.CalledProcessError as e:
-            logger.error("Backup failed: %s", e)
-        finally:
-            os.environ.pop("PGPASSWORD", None)
-
-    def start():
-        """
-        Start the scheduler
-        """
-        if not BACKUP_CRON_TIMES:
-            logger.warning("BACKUP_CRON_TIMES not set. Scheduler is disabled.")
-            return
-
-        scheduler = BackgroundScheduler()
-        times = [t.strip() for t in BACKUP_CRON_TIMES.split(",")]
-
-        for time_str in times:
+def _remove_expired_backups():
+    if BACKUP_RETENTION_DAYS <= 0 or not BACKUP_DIR.exists():
+        return
+    cutoff = datetime.datetime.now().timestamp() - BACKUP_RETENTION_DAYS * 86400
+    for path in BACKUP_DIR.glob("joydigi-*"):
+        if path.is_file() and path.stat().st_mtime < cutoff:
             try:
-                hour, minute = map(int, time_str.split(":"))
-                scheduler.add_job(
-                    backup_postgres,
-                    "cron",
-                    hour=hour,
-                    minute=minute,
-                    id=f"backup_{hour}_{minute}",
-                    replace_existing=True,
-                )
-                logger.info("Backup scheduled at %02d:%02d", hour, minute)
+                path.unlink()
+            except OSError as exc:
+                logger.warning("Không thể xóa bản sao lưu cũ %s: %s", path, exc)
+
+
+def _backup_postgres(database, target):
+    pg_dump = shutil.which("pg_dump")
+    if not pg_dump and os.name == "nt":
+        program_files = Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
+        candidates = list(
+            (program_files / "PostgreSQL").glob("*/bin/pg_dump.exe")
+        )
+
+        def version_key(path):
+            try:
+                return int(path.parent.parent.name)
             except ValueError:
-                logger.error("Invalid time format in BACKUP_CRON_TIMES: '%s'", time_str)
+                return 0
 
+        if candidates:
+            pg_dump = str(max(candidates, key=version_key))
+    if not pg_dump:
+        raise RuntimeError("Không tìm thấy chương trình pg_dump trong PATH.")
+    process_env = os.environ.copy()
+    process_env["PGPASSWORD"] = str(database.get("PASSWORD") or "")
+    command = [
+        pg_dump,
+        "-h",
+        str(database.get("HOST") or "localhost"),
+        "-p",
+        str(database.get("PORT") or 5432),
+        "-U",
+        str(database.get("USER") or ""),
+        "-F",
+        "c",
+        "-b",
+        "-f",
+        str(target),
+        str(database["NAME"]),
+    ]
+    subprocess.run(command, check=True, env=process_env, capture_output=True)
+
+
+def _backup_sqlite(database, target):
+    source_path = Path(database["NAME"]).resolve()
+    with sqlite3.connect(source_path) as source, sqlite3.connect(target) as destination:
+        source.backup(destination)
+
+
+def backup_database():
+    database = settings.DATABASES["default"]
+    engine = database["ENGINE"]
+    timestamp = datetime.datetime.now().strftime(DATE_FORMAT)
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        if "postgresql" in engine:
+            target = BACKUP_DIR / f"joydigi-{timestamp}.dump"
+            _backup_postgres(database, target)
+        elif "sqlite" in engine:
+            target = BACKUP_DIR / f"joydigi-{timestamp}.sqlite3"
+            _backup_sqlite(database, target)
+        else:
+            logger.warning("Chưa hỗ trợ sao lưu loại cơ sở dữ liệu: %s", engine)
+            return
+        _remove_expired_backups()
+        logger.info("Đã sao lưu cơ sở dữ liệu: %s", target)
+    except (OSError, RuntimeError, sqlite3.Error, subprocess.SubprocessError) as exc:
+        logger.error("Sao lưu cơ sở dữ liệu thất bại: %s", exc)
+
+
+def start():
+    global _scheduler
+    if _scheduler is not None or not BACKUP_CRON_TIMES.strip():
+        return
+    scheduler = BackgroundScheduler(timezone=str(settings.TIME_ZONE))
+    for time_text in BACKUP_CRON_TIMES.split(","):
+        try:
+            hour, minute = (int(value) for value in time_text.strip().split(":"))
+            if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                raise ValueError
+            scheduler.add_job(
+                backup_database,
+                "cron",
+                hour=hour,
+                minute=minute,
+                id=f"joydigi_backup_{hour:02d}_{minute:02d}",
+                replace_existing=True,
+                max_instances=1,
+                coalesce=True,
+            )
+        except ValueError:
+            logger.error("Giờ sao lưu không hợp lệ: %s", time_text)
+    if scheduler.get_jobs():
         scheduler.start()
-
-    # Start the scheduler
-    start()
+        _scheduler = scheduler
+        logger.info("Đã bật lịch sao lưu nội bộ lúc %s.", BACKUP_CRON_TIMES)

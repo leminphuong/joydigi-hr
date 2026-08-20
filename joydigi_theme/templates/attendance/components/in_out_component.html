@@ -15,9 +15,8 @@
                     <span class="at_work_seconds" data-at-work-seconds = "{{ get_forecasted_at_work.forecasted_at_work_seconds|default:0 }}" data-run= "{{run|default:1}}" ></span> {% endcomment %}
                     <button
                         class="check checkout"
-                        hx-get="{% url 'clock-out' %}"
-                        hx-target="#attendance-activity-container"
-                        hx-swap="innerHTML"
+                        type="button"
+                        onclick="joydigiChamCong('{% url 'clock-out' %}')"
                         {% if request|is_timerunner_enabled and get_forecasted_at_work.has_attendance %}
                             onmouseenter="$(this).find('span.hr-Check-In-out-text').show();$(this).find('.time-runner').hide()"
                             onmouseleave="$(this).find('span.hr-Check-In-out-text').hide();$(this).find('.time-runner').show()"
@@ -29,7 +28,7 @@
                                 {% if request|is_timerunner_enabled %}
                                     {{ get_forecasted_at_work.forecasted_at_work|default:"00:00:00" }}
                                 {% else %}
-                                    {% trans "Check Out" %}
+                                    Chấm công ra
                                 {% endif %}
                             </div>
                         </span>
@@ -39,7 +38,7 @@
                                 style="display: none"
                             {% endif %}
                         >
-                            {% trans "Check Out" %}
+                            Chấm công ra
                         </span>
                     </button>
                     <span
@@ -48,6 +47,18 @@
                         data-run="{{ run|default:1 }}"
                     >
                     </span>
+
+                    <button
+                        class="check checkin"
+                        type="button"
+                        onclick="joydigiChamCong('{% url 'clock-in' %}')"
+                    >
+                        <span class="date">
+                            <i class="fa-solid fa-right-to-bracket pe-2"></i>
+                            <span class="at-work-seconds"></span>
+                        </span>
+                        <span class="con hr-Check-In-out-text">Chấm công vào</span>
+                    </button>
                 {% else %}
                     {% comment %} <button class="check checkin" hx-get="{% url 'clock-in' %}"  hx-target='#attendance-activity-container' hx-swap='innerHTML'>
                         <span class="date">
@@ -77,11 +88,36 @@
     {% endwith %}
 {% endif %}
 
+<script>
+    function joydigiChamCong(url) {
+        const sendRequest = function (coords) {
+            const values = coords ? {
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                accuracy: coords.accuracy
+            } : {};
+            htmx.ajax('GET', url, {
+                target: '#attendance-activity-container',
+                swap: 'innerHTML',
+                values: values
+            });
+        };
+        if (!navigator.geolocation) {
+            sendRequest(null);
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            function (position) { sendRequest(position.coords); },
+            function () { sendRequest(null); },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 }
+        );
+    }
+</script>
+
 {% if request|is_timerunner_enabled %}
     <script>
         var at_work_seconds = $(".at_work_seconds").data("at-work-seconds");
         var run = $(".at_work_seconds").data("run");
-        var whiteLabelCompany = $("#whiteLabelCompany").data("company");
 
         // time-runner
         function secondsToDuration(seconds) {
@@ -104,13 +140,10 @@
         }
 
         $(".time-runner").not("title").html(secondsToDuration(at_work_seconds));
-        $("title.time-runner").html(` ${whiteLabelCompany} | ` + secondsToDuration(at_work_seconds));
-
         if (run) {
             window.timeRunnerInterval = setInterval(() => {
                 at_work_seconds = parseInt(at_work_seconds) + 1;
                 $("div.time-runner").html(secondsToDuration(at_work_seconds));
-                $("title").html(` ${whiteLabelCompany} | ` + secondsToDuration(at_work_seconds));
             }, 1000);
         }
     </script>

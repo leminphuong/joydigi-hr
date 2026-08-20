@@ -9,14 +9,14 @@
 
     <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <h2 class="font-semibold text-gray-900">Đơn xin phép chờ duyệt</h2>
-            <a href="{% url 'request-view' %}?status=requested" class="text-sm text-primary-600 hover:underline">Mở trang duyệt đầy đủ</a>
+            <h2 class="font-semibold text-gray-900">Đơn xin phép</h2>
+            <a href="{% url 'request-view' %}" class="text-sm text-primary-600 hover:underline">Mở trang duyệt đầy đủ</a>
         </div>
         <div class="overflow-x-auto"><table class="w-full text-sm">
-            <thead class="bg-gray-50 text-left text-gray-500"><tr><th class="px-5 py-3">Nhân viên</th><th class="px-5 py-3">Loại phép</th><th class="px-5 py-3">Từ ngày</th><th class="px-5 py-3">Đến ngày</th><th class="px-5 py-3">Số ngày</th></tr></thead>
+            <thead class="bg-gray-50 text-left text-gray-500"><tr><th class="px-5 py-3">Nhân viên</th><th class="px-5 py-3">Loại phép</th><th class="px-5 py-3">Từ ngày</th><th class="px-5 py-3">Đến ngày</th><th class="px-5 py-3">Số ngày</th><th class="px-5 py-3">Trạng thái</th><th class="px-5 py-3">Các bước duyệt</th><th class="px-5 py-3">Thao tác</th></tr></thead>
             <tbody class="divide-y divide-gray-100">
-                {% for item in leave_requests %}<tr><td class="px-5 py-3 font-medium">{{ item.employee_id.get_full_name }}</td><td class="px-5 py-3">{{ item.leave_type_id }}</td><td class="px-5 py-3">{{ item.start_date|date:"d/m/Y" }}</td><td class="px-5 py-3">{{ item.end_date|date:"d/m/Y"|default:"—" }}</td><td class="px-5 py-3">{{ item.requested_days|default:"—" }}</td></tr>
-                {% empty %}<tr><td colspan="5" class="px-5 py-9 text-center text-gray-400">Không có đơn xin phép đang chờ.</td></tr>{% endfor %}
+                {% for item in leave_requests %}<tr><td class="px-5 py-3 font-medium">{{ item.employee_id.get_full_name }}</td><td class="px-5 py-3">{{ item.leave_type_id }}</td><td class="px-5 py-3">{{ item.start_date|date:"d/m/Y" }}</td><td class="px-5 py-3">{{ item.end_date|date:"d/m/Y"|default:"—" }}</td><td class="px-5 py-3">{{ item.requested_days|default:"—" }}</td><td class="px-5 py-3">{% if item.status == "requested" %}<span class="text-amber-600">Chờ duyệt</span>{% elif item.status == "approved" %}<span class="text-green-600">Đã duyệt</span>{% elif item.status == "rejected" or item.status == "cancelled" %}<span class="text-red-600">{% if item.status == "rejected" %}Đã từ chối{% else %}Đã hủy{% endif %}</span>{% else %}{{ item.status }}{% endif %}</td><td class="px-5 py-3">{% for step in item.approval_steps %}<div>Bước {{ step.sequence }} · {{ step.manager_id.get_full_name }} — {% if step.is_approved %}Đã duyệt{% elif step.is_rejected %}Đã từ chối{% else %}Đang chờ{% endif %}{% if step.acted_at %} lúc {{ step.acted_at|date:"H:i d/m/Y" }}{% endif %}</div>{% empty %}<span>Duyệt một bước</span>{% endfor %}</td><td class="px-5 py-3">{% if item.status != "requested" %}<span class="text-xs text-gray-500">Đã xử lý</span>{% elif item.can_act %}<form method="post" action="{% url 'request-approve' item.id %}">{% csrf_token %}<button class="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white" type="submit">Duyệt</button></form>{% elif item.current_approval %}<span class="text-xs text-amber-600">Đang chờ {{ item.current_approval.manager_id.get_full_name }}</span>{% elif item.is_own_request %}<span class="text-xs text-gray-500">Không thể tự duyệt</span>{% else %}<span class="text-xs text-gray-500">Chưa đến lượt duyệt</span>{% endif %}</td></tr>
+                {% empty %}<tr><td colspan="8" class="px-5 py-9 text-center text-gray-400">Chưa có đơn xin phép.</td></tr>{% endfor %}
             </tbody>
         </table></div>
     </div>
@@ -27,10 +27,10 @@
             <a href="{% url 'request-attendance-view' %}?approved=false" class="text-sm text-primary-600 hover:underline">Mở trang duyệt đầy đủ</a>
         </div>
         <div class="overflow-x-auto"><table class="w-full text-sm">
-            <thead class="bg-gray-50 text-left text-gray-500"><tr><th class="px-5 py-3">Nhân viên</th><th class="px-5 py-3">Ngày</th><th class="px-5 py-3">Khoảng cách</th><th class="px-5 py-3">Lý do</th></tr></thead>
+            <thead class="bg-gray-50 text-left text-gray-500"><tr><th class="px-5 py-3">Nhân viên</th><th class="px-5 py-3">Ngày</th><th class="px-5 py-3">Khoảng cách</th><th class="px-5 py-3">Lý do</th><th class="px-5 py-3">Thao tác</th></tr></thead>
             <tbody class="divide-y divide-gray-100">
-                {% for item in outside_requests %}<tr><td class="px-5 py-3 font-medium">{{ item.employee_id.get_full_name }}</td><td class="px-5 py-3">{{ item.attendance_date|date:"d/m/Y" }}</td><td class="px-5 py-3">{% if item.distance %}{{ item.distance }} mét{% else %}Ngoài khu vực{% endif %}</td><td class="px-5 py-3">{{ item.request_description|default:"Không có lý do" }}</td></tr>
-                {% empty %}<tr><td colspan="4" class="px-5 py-9 text-center text-gray-400">Không có yêu cầu chấm công ngoài bán kính.</td></tr>{% endfor %}
+                {% for item in outside_requests %}<tr><td class="px-5 py-3 font-medium">{{ item.employee_id.get_full_name }}</td><td class="px-5 py-3">{{ item.attendance_date|date:"d/m/Y" }}</td><td class="px-5 py-3">{% if item.distance %}{{ item.distance }} mét{% else %}Ngoài khu vực{% endif %}</td><td class="px-5 py-3">{{ item.request_description|default:"Không có lý do" }}</td><td class="px-5 py-3"><form method="post" action="{% url 'approve-validate-attendance-request' item.id %}">{% csrf_token %}<button class="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white" type="submit">Duyệt</button></form></td></tr>
+                {% empty %}<tr><td colspan="5" class="px-5 py-9 text-center text-gray-400">Không có yêu cầu chấm công ngoài bán kính.</td></tr>{% endfor %}
             </tbody>
         </table></div>
     </div>

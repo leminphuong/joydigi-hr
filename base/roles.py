@@ -2,6 +2,8 @@
 
 from django.contrib.auth.models import Group
 from django.db import DatabaseError, IntegrityError, transaction
+from django.http import HttpResponseForbidden
+from functools import wraps
 
 
 ADMIN_ROLE = "Quản trị viên"
@@ -28,3 +30,49 @@ def standard_roles_queryset():
 
 def is_standard_role(group):
     return bool(group and group.name in STANDARD_ROLE_NAMES)
+
+
+def user_has_role(user, role_name):
+    """Kiểm tra vai trò theo phạm vi công ty hiện tại của người dùng."""
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    try:
+        from base.auth_backends import get_user_groups_for_company
+
+        return get_user_groups_for_company(user).filter(name=role_name).exists()
+    except (DatabaseError, AttributeError):
+        return user.groups.filter(name=role_name).exists()
+
+
+def is_checkin_admin(user):
+    return bool(
+        user
+        and getattr(user, "is_authenticated", False)
+        and (getattr(user, "is_superuser", False) or user_has_role(user, ADMIN_ROLE))
+    )
+
+
+def is_checkin_leader(user):
+    """Quản trị viên cũng có toàn bộ quyền của trưởng nhóm."""
+    return is_checkin_admin(user) or user_has_role(user, LEADER_ROLE)
+
+
+def _role_required(checker, message):
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapped(request, *args, **kwargs):
+            if not checker(request.user):
+                return HttpResponseForbidden(message)
+            return view_func(request, *args, **kwargs)
+
+        return wrapped
+
+    return decorator
+
+
+checkin_admin_required = _role_required(
+    is_checkin_admin, "Bạn không có quyền quản trị hệ thống chấm công."
+)
+checkin_leader_required = _role_required(
+    is_checkin_leader, "Bạn không có quyền quản lý chấm công của nhóm."
+)

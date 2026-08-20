@@ -416,6 +416,10 @@ def load_demo_database(request):
 
                 for file in data_files:
                     file_path = path.join(settings.BASE_DIR, "load_data", file)
+                    # Bản JOYDIGI tinh gọn không bắt buộc các fixture của những
+                    # mô-đun đã loại bỏ. Chỉ nạp tệp thực sự có trong thư mục.
+                    if not path.exists(file_path):
+                        continue
                     tmp = None
                     try:
                         shifted = _shift_fixture_dates(file_path)
@@ -457,7 +461,12 @@ def load_demo_database(request):
 
                 normalize_demo_payslips()
 
-                messages.success(request, _("Database loaded successfully."))
+                messages.success(
+                    request,
+                    _(
+                        "Đã tạo dữ liệu mẫu JOYDIGI gồm 15 nhân viên và dữ liệu chấm công trong 2 tháng."
+                    ),
+                )
                 try:
                     from base.demo_roles import assign_demo_user_groups
 
@@ -474,7 +483,7 @@ def load_demo_database(request):
                         _("Demo roles could not be assigned: %(error)s") % {"error": e},
                     )
             else:
-                messages.error(request, _("Database Authentication Failed"))
+                messages.error(request, _("Mật khẩu tạo dữ liệu mẫu không đúng."))
         return redirect(home)
     return redirect("/")
 

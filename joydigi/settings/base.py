@@ -78,7 +78,7 @@ INSTALLED_APPS = [
     "joydigi_documents",
     "joydigi_views",
     "joydigi_api",
-    "joydigi_backup",
+    "pg_backup",
     "joydigi_dbtemplate",
 ]
 
@@ -327,6 +327,8 @@ AUDITLOG_EXCLUDE_TRACKING_MODELS = (
 )
 
 EMAIL_BACKEND = "base.backends.ConfiguredEmailBackend"
+EMAIL_NOTIFICATIONS_ENABLED = env.bool("EMAIL_NOTIFICATIONS_ENABLED", default=False)
+ENABLE_DB_BACKUP = env.bool("ENABLE_DB_BACKUP", default=True)
 
 """
 DB_INIT_PASSWORD: str

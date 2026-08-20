@@ -28,6 +28,39 @@ from joydigi_auth.models import JoydigiUser
 from notifications.signals import notify
 
 
+def _announcement_recipients(form):
+    """Tập nhân viên nhận bản tin, kể cả trường hợp gửi toàn công ty."""
+    employees = form.cleaned_data["employees"]
+    departments = form.cleaned_data["department"]
+    job_positions = form.cleaned_data["job_position"]
+    companies = form.cleaned_data["company_id"]
+
+    recipients = Employee.objects.filter(is_active=True)
+    if employees.exists() or departments.exists() or job_positions.exists():
+        recipients = recipients.filter(
+            Q(pk__in=employees.values_list("pk", flat=True))
+            | Q(employee_work_info__department_id__in=departments)
+            | Q(employee_work_info__job_position_id__in=job_positions)
+        )
+    elif companies.exists():
+        recipients = recipients.filter(employee_work_info__company_id__in=companies)
+    return recipients.distinct()
+
+
+def _send_announcement_notification(sender, announcement, recipients):
+    if not announcement.send_notification:
+        return
+    users = JoydigiUser.objects.filter(employee_get__in=recipients).distinct()
+    if users.exists():
+        notify.send(
+            sender,
+            recipient=users,
+            verb=f"Có bản tin mới: {announcement.title}",
+            redirect=reverse("bulletin"),
+            icon="chatbox-ellipses",
+        )
+
+
 @login_required
 def bulletin(request):
     """Trang Bản tin nội bộ đầy đủ, có ảnh đại diện và nội dung ngắn."""
@@ -109,6 +142,7 @@ def announcement_list(request):
 
 @login_required
 @hx_request_required
+@permission_required("base.add_announcement")
 def create_announcement(request):
     """
     Create a new announcement and notify relevant users.
@@ -121,116 +155,31 @@ def create_announcement(request):
             announcement.save()
             announcement.attachments.set(attachment_ids)
 
-            employees = form.cleaned_data["employees"]
             departments = form.cleaned_data["department"]
             job_positions = form.cleaned_data["job_position"]
-            company = form.cleaned_data["company_id"]
+            companies = form.cleaned_data["company_id"]
 
             announcement.department.set(departments)
             announcement.job_position.set(job_positions)
-            announcement.company_id.set(company)
-
-            dept_ids = departments.values_list("id", flat=True)
-            job_ids = job_positions.values_list("id", flat=True)
-
-            employees_from_dept = Employee.objects.filter(
-                employee_work_info__department_id__in=dept_ids
+            announcement.company_id.set(companies)
+            recipients = _announcement_recipients(form)
+            if (
+                form.cleaned_data["employees"].exists()
+                or departments.exists()
+                or job_positions.exists()
+            ):
+                announcement.employees.set(recipients)
+            _send_announcement_notification(
+                request.user.employee_get, announcement, recipients
             )
-            employees_from_job = Employee.objects.filter(
-                employee_work_info__job_position_id__in=job_ids
-            )
-
-            all_employees = (
-                employees | employees_from_dept | employees_from_job
-            ).distinct()
-            announcement.employees.add(*all_employees)
-
-            all_emps = employees_from_dept | employees_from_job | employees
-            user_map = JoydigiUser.objects.filter(employee_get__in=all_emps).distinct()
-
-            dept_emp_ids = set(employees_from_dept.values_list("id", flat=True))
-            job_emp_ids = set(employees_from_job.values_list("id", flat=True))
-            direct_emp_ids = set(employees.values_list("id", flat=True))
-
-            notified_ids = dept_emp_ids.union(job_emp_ids)
-            direct_only_ids = direct_emp_ids - notified_ids
-
-            sender = request.user.employee_get
-
-            def send_notification(users, verb):
-                if users.exists():
-                    notify.send(
-                        sender,
-                        recipient=users,
-                        verb=verb,
-                        verb_ar="لقد تم ذكرك في إعلان.",
-                        verb_de="Sie wurden in einer Ankündigung erwähnt.",
-                        verb_es="Has sido mencionado en un anuncio.",
-                        verb_fr="Vous avez été mentionné dans une annonce.",
-                        redirect="/",
-                        icon="chatbox-ellipses",
-                    )
-
-            send_notification(
-                user_map.filter(employee_get__id__in=dept_emp_ids),
-                _("Your department was mentioned in an announcement."),
-            )
-            send_notification(
-                user_map.filter(employee_get__id__in=job_emp_ids),
-                _("Your job position was mentioned in an announcement."),
-            )
-            send_notification(
-                user_map.filter(employee_get__id__in=direct_only_ids),
-                _("You have been mentioned in an announcement."),
-            )
-
-            messages.success(request, _("Announcement created successfully."))
-            form = AnnouncementForm()  # Reset the form
-
-            emp_dep = JoydigiUser.objects.filter(
-                employee_get__employee_work_info__department_id__in=departments
-            )
-            emp_jobs = JoydigiUser.objects.filter(
-                employee_get__employee_work_info__job_position_id__in=job_positions
-            )
-            employees = employees | Employee.objects.filter(
-                employee_work_info__department_id__in=departments
-            )
-            employees = employees | Employee.objects.filter(
-                employee_work_info__job_position_id__in=job_positions
-            )
-            announcement.employees.add(*employees)
-            announcement.save()
-
-            notify.send(
-                request.user.employee_get,
-                recipient=emp_dep,
-                verb="Your department was mentioned in a post.",
-                verb_ar="تم ذكر قسمك في منشور.",
-                verb_de="Ihr Abteilung wurde in einem Beitrag erwähnt.",
-                verb_es="Tu departamento fue mencionado en una publicación.",
-                verb_fr="Votre département a été mentionné dans un post.",
-                redirect="/",
-                icon="chatbox-ellipses",
-            )
-
-            notify.send(
-                request.user.employee_get,
-                recipient=emp_jobs,
-                verb="Your job position was mentioned in a post.",
-                verb_ar="تم ذكر وظيفتك في منشور.",
-                verb_de="Ihre Arbeitsposition wurde in einem Beitrag erwähnt.",
-                verb_es="Tu puesto de trabajo fue mencionado en una publicación.",
-                verb_fr="Votre poste de travail a été mentionné dans un post.",
-                redirect="/",
-                icon="chatbox-ellipses",
-            )
+            messages.success(request, "Đã đăng bản tin.")
             form = AnnouncementForm()
     return render(request, "announcement/announcement_form.html", {"form": form})
 
 
 @login_required
 @hx_request_required
+@permission_required("base.delete_announcement")
 def delete_announcement(request, anoun_id):
     """
     This method is used to delete announcements.
@@ -265,6 +214,7 @@ def delete_announcement(request, anoun_id):
 
 @login_required
 @hx_request_required
+@permission_required("base.change_announcement")
 def update_announcement(request, anoun_id):
     """
     This method renders form and template to update Announcement
@@ -296,45 +246,13 @@ def update_announcement(request, anoun_id):
             anou.department.set(departments)
             anou.job_position.set(job_positions)
             anou.company_id.set(company)
-            messages.success(request, _("Announcement updated successfully."))
-
-            emp_dep = JoydigiUser.objects.filter(
-                employee_get__employee_work_info__department_id__in=departments
-            )
-            emp_jobs = JoydigiUser.objects.filter(
-                employee_get__employee_work_info__job_position_id__in=job_positions
-            )
-            employees = employees | Employee.objects.filter(
-                employee_work_info__department_id__in=departments
-            )
-            employees = employees | Employee.objects.filter(
-                employee_work_info__job_position_id__in=job_positions
-            )
-            anou.employees.add(*employees)
-
-            notify.send(
-                request.user.employee_get,
-                recipient=emp_dep,
-                verb="Your department was mentioned in a post.",
-                verb_ar="تم ذكر قسمك في منشور.",
-                verb_de="Ihr Abteilung wurde in einem Beitrag erwähnt.",
-                verb_es="Tu departamento fue mencionado en una publicación.",
-                verb_fr="Votre département a été mentionné dans un post.",
-                redirect="/",
-                icon="chatbox-ellipses",
-            )
-
-            notify.send(
-                request.user.employee_get,
-                recipient=emp_jobs,
-                verb="Your job position was mentioned in a post.",
-                verb_ar="تم ذكر وظيفتك في منشور.",
-                verb_de="Ihre Arbeitsposition wurde in einem Beitrag erwähnt.",
-                verb_es="Tu puesto de trabajo fue mencionado en una publicación.",
-                verb_fr="Votre poste de travail a été mentionné dans un post.",
-                redirect="/",
-                icon="chatbox-ellipses",
-            )
+            recipients = _announcement_recipients(form)
+            if employees.exists() or departments.exists() or job_positions.exists():
+                anou.employees.set(recipients)
+            else:
+                anou.employees.clear()
+            _send_announcement_notification(request.user.employee_get, anou, recipients)
+            messages.success(request, "Đã cập nhật bản tin.")
     return render(
         request,
         "announcement/announcement_update_form.html",
@@ -348,6 +266,7 @@ def update_announcement(request, anoun_id):
 
 @login_required
 @hx_request_required
+@permission_required("base.change_announcement")
 def remove_announcement_file(request, obj_id, attachment_id):
     announcement = get_object_or_404(Announcement, id=obj_id)
     attachment = get_object_or_404(Attachment, id=attachment_id)

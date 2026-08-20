@@ -18,6 +18,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from base.joydigi_company_manager import JoydigiCompanyManager
+from base.roles import ADMIN_ROLE
 from base.models import (
     Company,
     CompanyLeaves,
@@ -1481,6 +1482,7 @@ class LeaveRequest(JoydigiModel):
         self.update_leave_clashes_count()
         work_info = EmployeeWorkInformation.objects.filter(employee_id=self.employee_id)
         department_id = None
+        emp_comp_id = None
         conditions = None
         if work_info.exists():
             department_id = self.employee_id.employee_work_info.department_id
@@ -1507,15 +1509,41 @@ class LeaveRequest(JoydigiModel):
                         applicable_condition = condition
                         break
 
-        if applicable_condition and self.status == "requested":
-            LeaveRequestConditionApproval.objects.filter(leave_request_id=self).delete()
-            sequence = 0
-            managers = applicable_condition.approval_managers()
-            for manager in managers:
-                if not isinstance(manager, Employee):
-                    manager = getattr(self.employee_id.employee_work_info, manager)
-                if manager:
-                    sequence += 1
+        if self.status == "requested":
+            approval_managers = []
+            if applicable_condition:
+                for manager in applicable_condition.approval_managers():
+                    if not isinstance(manager, Employee):
+                        manager = getattr(self.employee_id.employee_work_info, manager)
+                    if manager and manager not in approval_managers:
+                        approval_managers.append(manager)
+            elif requested_days >= 2 and work_info.exists():
+                # Quy tắc mặc định: trưởng nhóm duyệt trước, quản trị viên duyệt cuối.
+                reporting_manager = self.employee_id.get_reporting_manager()
+                if reporting_manager:
+                    approval_managers.append(reporting_manager)
+                admin = (
+                    Employee.objects.filter(
+                        Q(employee_user_id__is_superuser=True)
+                        | Q(
+                            employee_user_id__company_group_assignments__company=emp_comp_id,
+                            employee_user_id__company_group_assignments__group__name=ADMIN_ROLE,
+                        ),
+                        is_active=True,
+                        employee_work_info__company_id=emp_comp_id,
+                    )
+                    .exclude(pk__in=[manager.pk for manager in approval_managers])
+                    .distinct()
+                    .first()
+                )
+                if admin:
+                    approval_managers.append(admin)
+
+            if approval_managers:
+                LeaveRequestConditionApproval.objects.filter(
+                    leave_request_id=self
+                ).delete()
+                for sequence, manager in enumerate(approval_managers, start=1):
                     LeaveRequestConditionApproval.objects.create(
                         sequence=sequence,
                         leave_request_id=self,
@@ -2089,6 +2117,17 @@ class LeaveRequestConditionApproval(models.Model):
     is_rejected = models.BooleanField(default=False)
     leave_request_id = models.ForeignKey(LeaveRequest, on_delete=models.CASCADE)
     manager_id = models.ForeignKey(Employee, on_delete=models.CASCADE)
+    acted_at = models.DateTimeField(null=True, blank=True)
+    acted_by = models.ForeignKey(
+        Employee,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="leave_approval_actions",
+    )
+
+    class Meta:
+        ordering = ("sequence", "id")
 
 
 class RestrictLeave(JoydigiModel):

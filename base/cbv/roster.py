@@ -10,7 +10,8 @@ from datetime import date, timedelta
 
 import openpyxl
 from django.contrib import messages
-from django.http import HttpResponse, JsonResponse
+from django.db import models, transaction
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
@@ -25,6 +26,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from base.filters import RosterFilter
 from base.forms import RosterCellUpdateForm
 from base.models import CompanyLeaves, EmployeeShift, Holidays, Roster, RosterPublishLog
+from base.roles import checkin_leader_required, is_checkin_admin
 from employee.models import Employee
 from joydigi_views.cbv_methods import login_required, paginator_qry
 from joydigi_views.generic.cbv.views import JoydigiCardView, JoydigiNavView
@@ -46,12 +48,34 @@ def _week_start():
     return today - timedelta(days=today.weekday())
 
 
+def _managed_employees(user):
+    """Nhân sự mà tài khoản hiện tại được phép xếp ca."""
+    queryset = Employee.objects.filter(is_active=True)
+    if is_checkin_admin(user):
+        return queryset
+    manager = getattr(user, "employee_get", None)
+    if manager is None:
+        return queryset.none()
+    return queryset.filter(
+        models.Q(pk=manager.pk)
+        | models.Q(employee_work_info__reporting_manager_id=manager)
+    ).distinct()
+
+
+def _managed_employee_or_404(user, employee_id):
+    try:
+        return _managed_employees(user).get(pk=employee_id)
+    except Employee.DoesNotExist as exc:
+        raise Http404("Không tìm thấy nhân viên trong nhóm bạn quản lý.") from exc
+
+
 # ---------------------------------------------------------------------------
 # Roster Home
 # ---------------------------------------------------------------------------
 
 
 @method_decorator(login_required, name="dispatch")
+@method_decorator(checkin_leader_required, name="dispatch")
 class RosterHomeView(TemplateView):
     template_name = "base/roster/roster_home.html"
 
@@ -62,6 +86,7 @@ class RosterHomeView(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
+@method_decorator(checkin_leader_required, name="dispatch")
 class RosterNavView(JoydigiNavView):
     nav_title = _("Roster Planner")
     template_name = "generic/inline_nav.html"
@@ -73,6 +98,15 @@ class RosterNavView(JoydigiNavView):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.actions = [
+            {
+                "action": "Sao chép tuần trước",
+                "attrs": f"""
+                    data-toggle="oh-modal-toggle"
+                    data-target="#genericModal"
+                    hx-target="#genericModalBody"
+                    hx-get="{reverse('roster-copy-previous-week')}"
+                """,
+            },
             {
                 "action": _("Import Roster"),
                 "attrs": f"""
@@ -97,7 +131,11 @@ class RosterNavView(JoydigiNavView):
         from base.models import Department
 
         context = super().get_context_data(**kwargs)
-        context["departments"] = Department.objects.all()
+        context["departments"] = Department.objects.filter(
+            employeeworkinformation__employee_id__in=_managed_employees(
+                self.request.user
+            )
+        ).distinct()
         today = _week_start()
         context["default_from_date"] = self.request.GET.get(
             "from_date", today.isoformat()
@@ -114,6 +152,7 @@ class RosterNavView(JoydigiNavView):
 
 
 @method_decorator(login_required, name="dispatch")
+@method_decorator(checkin_leader_required, name="dispatch")
 class RosterGridView(JoydigiCardView):
     model = Roster
     filter_class = RosterFilter
@@ -121,7 +160,9 @@ class RosterGridView(JoydigiCardView):
     search_url = reverse_lazy("roster-grid")
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().filter(
+            employee_id__in=_managed_employees(self.request.user)
+        )
         today = _week_start()
         if not self.request.GET.get("from_date"):
             queryset = queryset.filter(
@@ -143,12 +184,17 @@ class RosterGridView(JoydigiCardView):
             from_date + timedelta(days=i) for i in range((to_date - from_date).days + 1)
         ]
 
-        emp_ids = list(self.queryset.values_list("employee_id", flat=True).distinct())
         employees_qs = (
-            Employee.objects.filter(pk__in=emp_ids)
+            _managed_employees(self.request.user)
             .select_related("employee_work_info__department_id")
             .order_by("employee_first_name", "employee_last_name")
         )
+        department_id = self.request.GET.get("department")
+        if department_id:
+            employees_qs = employees_qs.filter(
+                employee_work_info__department_id=department_id
+            )
+        emp_ids = list(employees_qs.values_list("pk", flat=True))
         paginated = paginator_qry(
             employees_qs, self.request.GET.get("page"), self.records_per_page
         )
@@ -201,6 +247,7 @@ class RosterGridView(JoydigiCardView):
 
 
 @method_decorator(login_required, name="dispatch")
+@method_decorator(checkin_leader_required, name="dispatch")
 class RosterCellUpdateView(View):
     template_name = "base/roster/roster_cell_form.html"
 
@@ -217,7 +264,7 @@ class RosterCellUpdateView(View):
         if not employee_id or not cell_date:
             return HttpResponse(status=400)
 
-        employee = get_object_or_404(Employee, pk=employee_id)
+        employee = _managed_employee_or_404(request.user, employee_id)
         entry = self._get_entry(employee_id, cell_date)
         form = RosterCellUpdateForm(instance=entry)
 
@@ -243,7 +290,7 @@ class RosterCellUpdateView(View):
         if not employee_id or not cell_date:
             return HttpResponse(status=400)
 
-        employee = get_object_or_404(Employee, pk=employee_id)
+        employee = _managed_employee_or_404(request.user, employee_id)
         department = employee.get_department()
         entry = self._get_entry(employee_id, cell_date)
         form = RosterCellUpdateForm(request.POST, instance=entry)
@@ -287,6 +334,7 @@ class RosterCellUpdateView(View):
 
 
 @method_decorator(login_required, name="dispatch")
+@method_decorator(checkin_leader_required, name="dispatch")
 class RosterPublishFormView(View):
     template_name = "base/roster/publish_form.html"
 
@@ -297,12 +345,17 @@ class RosterPublishFormView(View):
             request,
             self.template_name,
             {
-                "departments": Department.objects.all(),
+                "departments": Department.objects.filter(
+                    employeeworkinformation__employee_id__in=_managed_employees(
+                        request.user
+                    )
+                ).distinct(),
             },
         )
 
 
 @method_decorator(login_required, name="dispatch")
+@method_decorator(checkin_leader_required, name="dispatch")
 class RosterPublishView(View):
 
     def post(self, request, *args, **kwargs):
@@ -322,10 +375,14 @@ class RosterPublishView(View):
             departments = Department.objects.all()
 
         publisher = getattr(request.user, "employee_get", None)
+        allowed_employee_ids = set(
+            _managed_employees(request.user).values_list("pk", flat=True)
+        )
         all_employee_ids = set()
         for department in departments:
             qs = Roster.objects.filter(
                 department=department,
+                employee_id__in=allowed_employee_ids,
                 date__gte=from_date,
                 is_published=False,
             )
@@ -394,12 +451,19 @@ class RosterPublishView(View):
 
 
 @method_decorator(login_required, name="dispatch")
+@method_decorator(checkin_leader_required, name="dispatch")
 class RosterEmployeeBulkPublishView(View):
 
     def post(self, request, *args, **kwargs):
         from notifications.signals import notify
 
-        employee_ids = request.POST.getlist("employee_ids")
+        allowed_ids = set(
+            str(pk)
+            for pk in _managed_employees(request.user).values_list("pk", flat=True)
+        )
+        employee_ids = [
+            pk for pk in request.POST.getlist("employee_ids") if pk in allowed_ids
+        ]
         from_date = _parse_date(request.POST.get("from_date"), None)
         to_date = _parse_date(request.POST.get("to_date"), None)
 
@@ -461,6 +525,77 @@ class RosterEmployeeBulkPublishView(View):
         )
 
 
+@method_decorator(login_required, name="dispatch")
+@method_decorator(checkin_leader_required, name="dispatch")
+class RosterCopyPreviousWeekView(View):
+    template_name = "base/roster/copy_previous_week_form.html"
+
+    def _departments(self, request):
+        from base.models import Department
+
+        return Department.objects.filter(
+            employeeworkinformation__employee_id__in=_managed_employees(request.user)
+        ).distinct()
+
+    def get(self, request, *args, **kwargs):
+        target_start = _parse_date(request.GET.get("from_date"), _week_start())
+        return render(
+            request,
+            self.template_name,
+            {
+                "departments": self._departments(request),
+                "target_start": target_start,
+            },
+        )
+
+    def post(self, request, *args, **kwargs):
+        target_start = _parse_date(request.POST.get("target_start"), None)
+        if target_start is None:
+            return JsonResponse({"error": "Vui lòng chọn ngày bắt đầu tuần mới."}, status=400)
+        target_start -= timedelta(days=target_start.weekday())
+        source_start = target_start - timedelta(days=7)
+        source_end = source_start + timedelta(days=6)
+        employees = _managed_employees(request.user)
+        department_id = request.POST.get("department")
+        if department_id:
+            employees = employees.filter(employee_work_info__department_id=department_id)
+        source_entries = list(
+            Roster.objects.filter(
+                employee_id__in=employees,
+                date__range=(source_start, source_end),
+            ).select_related("employee", "department", "shift")
+        )
+        copied = 0
+        creator = getattr(request.user, "employee_get", None)
+        with transaction.atomic():
+            for source in source_entries:
+                target_date = source.date + timedelta(days=7)
+                Roster.objects.update_or_create(
+                    employee=source.employee,
+                    date=target_date,
+                    defaults={
+                        "shift": source.shift,
+                        "department": source.department,
+                        "is_off": source.is_off,
+                        "notes": source.notes,
+                        "is_published": False,
+                        "created_by": creator,
+                    },
+                )
+                copied += 1
+        if copied:
+            messages.success(request, f"Đã sao chép {copied} ô ca từ tuần trước.")
+        else:
+            messages.info(request, "Tuần trước chưa có lịch để sao chép.")
+        target_end = target_start + timedelta(days=6)
+        return HttpResponse(
+            "<script>$('#genericModal').removeClass('oh-modal--show');"
+            f"htmx.ajax('GET', '{reverse('roster-grid')}?from_date={target_start}&to_date={target_end}', "
+            "{'target':'#rosterGridContainer','swap':'innerHTML'});"
+            "$('#reloadMessagesButton').click();</script>"
+        )
+
+
 # ---------------------------------------------------------------------------
 # My Roster (employee self-service)
 # ---------------------------------------------------------------------------
@@ -504,6 +639,7 @@ class MyRosterView(View):
 
 
 @method_decorator(login_required, name="dispatch")
+@method_decorator(checkin_leader_required, name="dispatch")
 class RosterImportFormView(View):
     template_name = "base/roster/roster_import_form.html"
 
@@ -520,6 +656,7 @@ class RosterImportFormView(View):
 
 
 @method_decorator(login_required, name="dispatch")
+@method_decorator(checkin_leader_required, name="dispatch")
 class RosterTemplateDownloadView(View):
 
     def get(self, request, *args, **kwargs):
@@ -580,7 +717,8 @@ class RosterTemplateDownloadView(View):
 
         selected_company = request.session.get("selected_company")
         emp_qs = (
-            Employee.objects.filter(is_active=True, employee_work_info__isnull=False)
+            _managed_employees(request.user)
+            .filter(employee_work_info__isnull=False)
             .select_related(
                 "employee_work_info__department_id", "employee_work_info__company_id"
             )
@@ -687,6 +825,7 @@ class RosterTemplateDownloadView(View):
 
 
 @method_decorator(login_required, name="dispatch")
+@method_decorator(checkin_leader_required, name="dispatch")
 class RosterImportView(View):
 
     def post(self, request, *args, **kwargs):
@@ -740,7 +879,7 @@ class RosterImportView(View):
             if emp_id_val is None:
                 continue
             try:
-                emp = Employee.objects.select_related(
+                emp = _managed_employees(request.user).select_related(
                     "employee_work_info__department_id",
                 ).get(pk=int(emp_id_val))
             except (Employee.DoesNotExist, ValueError, TypeError):

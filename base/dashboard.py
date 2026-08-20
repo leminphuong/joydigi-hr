@@ -15,6 +15,8 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_http_methods
 
+from base.roles import checkin_admin_required
+
 
 VIETNAMESE_MONTHS = (
     "",
@@ -120,7 +122,7 @@ def _get_setup_checklist_context(request):
     Returns ``{"show_setup_checklist": False}`` when:
       • the user is not an admin/manager (regular employees skip it)
       • the user has already dismissed the banner for the active company
-      • all 8 steps are complete for the active company
+      • all 7 steps are complete for the active company
 
     In DEBUG mode only, ``?preview_checklist=1`` forces the banner visible
     with every step shown as incomplete — useful for testing on populated DBs
@@ -131,7 +133,6 @@ def _get_setup_checklist_context(request):
     from base.models import (
         Company,
         Department,
-        DynamicEmailConfiguration,
         EmployeeShift,
         EmployeeShiftSchedule,
         JobPosition,
@@ -169,14 +170,6 @@ def _get_setup_checklist_context(request):
             from employee.models import Employee
 
             return _exists_for_company(Employee, company_pk)
-        except Exception:
-            return False
-
-    def _has_mail_server():
-        try:
-            return DynamicEmailConfiguration.objects.filter(
-                is_primary=True, host__isnull=False
-            ).exists()
         except Exception:
             return False
 
@@ -232,15 +225,6 @@ def _get_setup_checklist_context(request):
             "description": _("Set engagement types — Full Time, Part Time, Contract."),
             "url": _safe_url("work-type-view"),
             "done": _exists_for_company(WorkType, company_pk) if company_pk else False,
-        },
-        {
-            "key": "mail_server",
-            "title": _("Mail Server"),
-            "description": _(
-                "Configure an outgoing mail server so Joydigi can send emails."
-            ),
-            "url": _safe_url("mail-server-conf"),
-            "done": _has_mail_server(),
         },
         {
             "key": "first_employee",
@@ -313,6 +297,7 @@ def _is_manager(user):
 
 
 @login_required
+@checkin_admin_required
 def main_dashboard_view(request):
     """Render the modern dashboard page."""
     from django.apps import apps
@@ -371,6 +356,7 @@ def main_dashboard_view(request):
 
 @login_required
 @require_http_methods(["POST"])
+@checkin_admin_required
 def dismiss_setup_checklist(request):
     """
     HTMX endpoint — records per-user, per-company dismissal and returns empty
@@ -389,6 +375,7 @@ def dismiss_setup_checklist(request):
 
 
 @login_required
+@checkin_admin_required
 def dashboard_kpi_data(request):
     """Return KPI summary data as JSON."""
     from employee.models import Employee
@@ -487,6 +474,7 @@ def dashboard_kpi_data(request):
 
 
 @login_required
+@checkin_admin_required
 def dashboard_attendance_trend(request):
     """Weekly attendance trend.
 
@@ -543,6 +531,7 @@ def dashboard_attendance_trend(request):
 
 
 @login_required
+@checkin_admin_required
 def dashboard_leave_breakdown(request):
     """Leave type breakdown for the selected period.
 
@@ -587,6 +576,7 @@ def dashboard_leave_breakdown(request):
 
 
 @login_required
+@checkin_admin_required
 def dashboard_department_headcount(request):
     """Department-wise headcount."""
     departments = []
@@ -614,6 +604,7 @@ def dashboard_department_headcount(request):
 
 
 @login_required
+@checkin_admin_required
 def dashboard_gender_split(request):
     """Gender distribution."""
     genders = []
@@ -652,6 +643,7 @@ def dashboard_gender_split(request):
 
 
 @login_required
+@checkin_admin_required
 def dashboard_announcements(request):
     """Active announcements for the current user."""
     from base.models import Announcement
@@ -690,6 +682,7 @@ def dashboard_announcements(request):
 
 
 @login_required
+@checkin_admin_required
 def dashboard_announcement_detail(request, pk):
     """Return a single announcement's full details as JSON."""
     from base.models import Announcement, AnnouncementView
@@ -746,6 +739,7 @@ def dashboard_announcement_detail(request, pk):
 
 
 @login_required
+@checkin_admin_required
 def dashboard_todays_leave(request):
     """Employees on leave today.
 
@@ -801,6 +795,7 @@ def dashboard_todays_leave(request):
 
 
 @login_required
+@checkin_admin_required
 def dashboard_upcoming_holidays(request):
     """Upcoming holidays in the next 7 days for the current company."""
     today = date.today()
@@ -838,6 +833,7 @@ def dashboard_upcoming_holidays(request):
 
 
 @login_required
+@checkin_admin_required
 def dashboard_birthdays_anniversaries(request):
     """Upcoming birthdays and work anniversaries in the next 7 days."""
     today = date.today()
@@ -908,6 +904,7 @@ def dashboard_birthdays_anniversaries(request):
 
 
 @login_required
+@checkin_admin_required
 def dashboard_recruitment_pipeline(request):
     """Recruitment pipeline funnel — candidates aggregated by stage type.
 
@@ -990,6 +987,7 @@ def dashboard_recruitment_pipeline(request):
 
 
 @login_required
+@checkin_admin_required
 def dashboard_payroll_summary(request):
     """Payroll summary — selected period vs previous period."""
     if not (request.user.is_superuser or request.user.has_perm("payroll.view_payslip")):
@@ -1057,6 +1055,7 @@ def dashboard_payroll_summary(request):
 
 
 @login_required
+@checkin_admin_required
 def dashboard_pending_approvals(request):
     """Pending items awaiting the logged-in user's approval.
 
@@ -1248,6 +1247,7 @@ def load_dashboard_prefs(request):
 
 
 @login_required
+@checkin_admin_required
 def dashboard_turnover(request):
     """Employee turnover — new hires vs exits over the last 6 months ending at selected period.
 

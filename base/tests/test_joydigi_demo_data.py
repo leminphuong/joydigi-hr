@@ -96,6 +96,9 @@ class JoydigiDemoDataTests(TestCase):
         self.assertEqual(attendances.earliest("attendance_date").attendance_date, date(2026, 7, 1))
         self.assertEqual(attendances.latest("attendance_date").attendance_date, date(2026, 8, 20))
         self.assertTrue(JoydigiUser.objects.get(username="admin").check_password("demo-secret"))
+        self.assertTrue(
+            JoydigiUser.objects.get(username="lan.phuong").check_password("123456")
+        )
         self.assertEqual(CheckInLocation.objects.filter(company_id=company).count(), 1)
         self.assertEqual(OfficeWifi.objects.filter(company_id=company).count(), 1)
 

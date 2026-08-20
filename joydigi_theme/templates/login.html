@@ -7,10 +7,7 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="{% static 'joydigi_theme/assets/css/tailwind.css' %}" rel="stylesheet">
-        <title>
-            {% blocktrans with company_name=white_label_company_name %}Login - {{ company_name }}
-                Dashboard{% endblocktrans %}
-        </title>
+        <title>Đăng nhập - {{ white_label_company_name }}</title>
         <link
             rel="apple-touch-icon"
             sizes="180x180"
@@ -122,32 +119,30 @@
                     width="80"
                 >
                 <h1 class="text-3xl font-bold mb-2 text-center">
-                    {% trans "Welcome to" %}
-                    {{ white_label_company_name }}
-                    {% trans "HR" %}
+                    Chào mừng đến {{ white_label_company_name }}
                 </h1>
                 <p class="mb-5 text-center text-sm text-color-600">
-                    {% trans "Please login to access the dashboard." %}
+                    Đăng nhập để sử dụng hệ thống chấm công.
                 </p>
                 <form method="post" class="oh-form-group">
                     {% csrf_token %}
                     <div class="mb-3">
-                        <label for="username" class="text-sm text-color-600">{% trans "Username" %}</label>
+                        <label for="username" class="text-sm text-color-600">Tên đăng nhập hoặc email</label>
                         <input
                             type="text"
                             id="username"
                             name="username"
-                            placeholder="{% trans 'e.g. adam.luis@joydigi.com' %}"
+                            placeholder="Ví dụ: lan.phuong hoặc lan.phuong@joydigi.vn"
                             class="text-color-600 w-full border border-dark-50 rounded-md p-3 mt-1 focus-visible:outline-0 placeholder:text-[#00000041] placeholder:font-medium text-xs [transition:.3s] {% if theme_obj %} focus:border-[{{theme_obj.primary_700}}] {% else %} focus:border-primary-600 {% endif %}"
                         >
                     </div>
-                    <label for="password" class="text-sm text-color-600">{% trans "Password" %}</label>
+                    <label for="password" class="text-sm text-color-600">Mật khẩu</label>
                     <div class="oh-password-input-container relative">
                         <input
                             type="password"
                             id="password"
                             name="password"
-                            placeholder="{% trans 'Enter Password' %}"
+                            placeholder="Nhập mật khẩu"
                             class="oh-input--password text-color-600 p-3 pr-[40px] w-full border border-dark-50 rounded-md mt-1 focus-visible:outline-0 placeholder:text-[#00000041] placeholder:font-medium text-xs [transition:.3s] {% if theme_obj %} focus:border-[{{theme_obj.primary_700}}] {% else %} focus:border-primary-600 {% endif %}"
                         >
                         <span
@@ -172,7 +167,7 @@
                                 href="{% url 'forgot-password' %}"
                                 class="text-sm text-right font-medium text-[red] mb-3 mt-2 cursor-pointer"
                             >
-                                {% trans "Forgot Password ?" %}
+                                Quên mật khẩu?
                             </a>
                         </div>
                     {% endif %}
@@ -180,7 +175,7 @@
                         type="submit"
                         class="p-3 mt-3 bg-brand-600 hover:bg-brand-800 w-full flex gap-3 justify-center rounded-md text-[white] [transition:.3s]"
                     >
-                        <img src='{% static "joydigi_theme/assets/icons/sign.svg" %}' alt=""> {% trans "Sign In" %}
+                        <img src='{% static "joydigi_theme/assets/icons/sign.svg" %}' alt=""> Đăng nhập
                     </button>
                 </form>
                 {% if initialize_database %}
@@ -227,6 +222,22 @@
 
         <script type="module" src="{% static 'images/ionicons/ui_icons/ionicons/ionicons.esm.js' %}"></script>
         <script>
+            // Trình duyệt có thể khôi phục trang đăng nhập cũ từ bộ nhớ sau khi
+            // đăng xuất. Tải lại trang để lấy mã bảo vệ biểu mẫu mới.
+            window.addEventListener('pageshow', function (event) {
+                if (event.persisted) window.location.reload();
+            });
+
+            // Nếu người dùng đăng xuất/đăng nhập ở thẻ khác, cookie bảo vệ
+            // sẽ đổi. Luôn đồng bộ lại giá trị ngay trước khi gửi biểu mẫu.
+            document.querySelectorAll('form[method="post"]').forEach(function (form) {
+                form.addEventListener('submit', function () {
+                    const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+                    const input = form.querySelector('input[name="csrfmiddlewaretoken"]');
+                    if (match && input) input.value = decodeURIComponent(match[1]);
+                });
+            });
+
             document.querySelectorAll('.oh-password-input--toggle').forEach(toggle => {
                 toggle.addEventListener('click', function (e) {
                     console.log("ppppppppppppppp")

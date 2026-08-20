@@ -7,13 +7,13 @@ from datetime import date, timedelta
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from base.forms import CheckInLocationForm, CheckInPolicyForm, OfficeWifiForm
-from base.checkin_tokens import make_kiosk_token, valid_kiosk_token
+from base.checkin_tokens import kiosk_numeric_code, make_kiosk_token, valid_kiosk_token
 from base.models import CheckInLocation, CheckInPolicy, Company, OfficeWifi
 from base.roles import (
     checkin_admin_required,
@@ -78,7 +78,9 @@ def kiosk(request):
 def kiosk_qr(request):
     import qrcode
 
-    token = make_kiosk_token()
+    token = request.GET.get("token", "")
+    if not valid_kiosk_token(token):
+        token = make_kiosk_token()
     destination = request.build_absolute_uri(
         f"{reverse('qr-checkin')}?qr_token={token}"
     )
@@ -88,6 +90,17 @@ def kiosk_qr(request):
     response = HttpResponse(output.getvalue(), content_type="image/png")
     response["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return response
+
+
+def kiosk_data(request):
+    """Cấp cùng một lượt mã QR và mã số để hai giá trị luôn khớp nhau."""
+    token = make_kiosk_token()
+    return JsonResponse(
+        {
+            "qr_url": f"{reverse('checkin-kiosk-qr')}?token={token}",
+            "code": kiosk_numeric_code(token),
+        }
+    )
 
 
 @login_required

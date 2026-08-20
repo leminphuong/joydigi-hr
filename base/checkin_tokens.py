@@ -3,9 +3,11 @@
 import time
 
 from django.core import signing
+from django.utils.crypto import salted_hmac
 
 
 KIOSK_TOKEN_SALT = "joydigi-checkin-kiosk"
+KIOSK_CODE_SALT = "joydigi-checkin-kiosk-number"
 KIOSK_TOKEN_LIFETIME = 70
 
 
@@ -30,3 +32,11 @@ def valid_kiosk_token(token):
         return abs(current_slot - int(payload.get("time_slot", -100))) <= 2
     except (signing.BadSignature, TypeError, ValueError):
         return False
+
+
+def kiosk_numeric_code(token):
+    """Trả về mã 6 số gắn với đúng mã QR đang hiển thị."""
+    if not valid_kiosk_token(token):
+        return ""
+    digest = salted_hmac(KIOSK_CODE_SALT, token).hexdigest()
+    return f"{int(digest[:12], 16) % 1_000_000:06d}"

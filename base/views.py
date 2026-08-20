@@ -42,6 +42,8 @@ from django.utils.html import format_html, strip_tags
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 from django.views import View
+from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 from django.views.generic import RedirectView, TemplateView
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -813,12 +815,14 @@ def initialize_job_position_delete(request, obj_id):
     )
 
 
+@never_cache
+@ensure_csrf_cookie
 def login_user(request):
     """
     Handles user login and authentication.
     """
     if request.method == "POST":
-        username = request.POST.get("username")
+        username = (request.POST.get("username") or "").strip()
         password = request.POST.get("password")
         next_url = request.GET.get("next", "/")
         query_params = request.GET.dict()
@@ -827,8 +831,26 @@ def login_user(request):
 
         user = authenticate(request, username=username, password=password)
 
+        # Cho phép người dùng đăng nhập bằng tên tài khoản hoặc email.
+        # Dữ liệu mẫu hiển thị cả hai giá trị nên việc này tránh
+        # trường hợp mật khẩu đúng nhưng người dùng nhập email.
+        if not user and username:
+            matched_user = JoydigiUser.objects.filter(email__iexact=username).first()
+            if matched_user is None:
+                matched_user = JoydigiUser.objects.filter(
+                    username__iexact=username
+                ).first()
+            if matched_user is not None:
+                user = authenticate(
+                    request,
+                    username=matched_user.username,
+                    password=password,
+                )
+
         if not user:
-            user_object = JoydigiUser.objects.filter(username=username).first()
+            user_object = JoydigiUser.objects.filter(username__iexact=username).first()
+            if user_object is None:
+                user_object = JoydigiUser.objects.filter(email__iexact=username).first()
             if user_object and not user_object.is_active:
                 messages.warning(request, _("Access Denied: Your account is blocked."))
             else:
@@ -1146,14 +1168,10 @@ def logout_user(request):
     """
     if request.user:
         logout(request)
-    response = HttpResponse()
-    response.content = """
-        <script>
-            localStorage.clear();
-        </script>
-        <meta http-equiv="refresh" content="0;url=/login/">
-    """
-
+    response = redirect("login")
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    response["Clear-Site-Data"] = '"cache", "storage"'
     return response
 
 

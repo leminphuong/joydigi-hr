@@ -12,6 +12,8 @@
         h1 { margin: 0 0 10px; font-size: clamp(30px, 5vw, 52px); }
         p { margin: 0 0 26px; color: #5d6b82; font-size: clamp(16px, 2vw, 22px); }
         img { width: min(62vw, 420px); aspect-ratio: 1; border: 12px solid #f6f8fb; border-radius: 22px; }
+        .code-label { margin: 18px 0 6px; color: #5d6b82; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+        .numeric-code { min-height: 51px; color: #172033; font-size: clamp(32px, 6vw, 48px); font-weight: 800; letter-spacing: .22em; line-height: 1.05; font-variant-numeric: tabular-nums; }
         small { display: block; margin-top: 18px; color: #758197; }
     </style>
 </head>
@@ -19,13 +21,28 @@
 <main>
     <h1>Chấm công bằng mã QR</h1>
     <p>Mở máy ảnh điện thoại và quét mã bên dưới</p>
-    <img id="kioskQr" src="{% url 'checkin-kiosk-qr' %}" alt="Mã QR chấm công">
+    <img id="kioskQr" src="" alt="Mã QR chấm công">
+    <div class="code-label">Mã số</div>
+    <div id="kioskCode" class="numeric-code" aria-live="polite">------</div>
     <small>Mã tự đổi sau mỗi 30 giây để bảo đảm an toàn.</small>
 </main>
 <script>
-    setInterval(function () {
-        document.getElementById('kioskQr').src = '{% url "checkin-kiosk-qr" %}?v=' + Date.now();
-    }, 30000);
+    async function refreshKioskCode() {
+        try {
+            const response = await fetch('{% url "checkin-kiosk-data" %}?v=' + Date.now(), {
+                cache: 'no-store'
+            });
+            if (!response.ok) throw new Error('Không thể tải mã chấm công');
+            const data = await response.json();
+            document.getElementById('kioskQr').src = data.qr_url + '&v=' + Date.now();
+            document.getElementById('kioskCode').textContent = data.code;
+        } catch (error) {
+            document.getElementById('kioskCode').textContent = '------';
+        }
+    }
+
+    refreshKioskCode();
+    setInterval(refreshKioskCode, 30000);
 </script>
 </body>
 </html>

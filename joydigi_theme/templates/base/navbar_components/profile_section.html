@@ -1,4 +1,4 @@
-{% load static i18n i18n %}
+{% load static i18n basefilters %}
 <button>
     <div class="flex gap-3">
         <div class="relative flex items-center cursor-pointer w-max">
@@ -77,6 +77,25 @@
                         hx-swap="innerHTML show:window:top"
                         hx-push-url="true"
                     >{% trans "Change Password" %}</a>
+                </button>
+            </li>
+        {% endif %}
+
+        {% if request.user|is_checkin_admin %}
+            <li>
+                <button class="py-1.5 hover:text-primary-600 transition duration-300 text-sm gap-4 items-center flex w-full">
+                    <a
+                        class="text-[13px] flex items-center gap-2"
+                        href="{% url 'load-demo-database' %}"
+                        data-toggle="oh-modal-toggle"
+                        data-target="#genericModal"
+                        hx-get="{% url 'load-demo-database' %}"
+                        hx-target="#genericModalBody"
+                        hx-swap="innerHTML"
+                    >
+                        <ion-icon name="server-outline"></ion-icon>
+                        Nạp dữ liệu mẫu
+                    </a>
                 </button>
             </li>
         {% endif %}

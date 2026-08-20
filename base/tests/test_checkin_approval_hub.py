@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 
 from django.test import TestCase
+from django.template.loader import render_to_string
 from django.urls import reverse
 
 from base.dashboard import _get_setup_checklist_context
@@ -88,14 +89,13 @@ class CheckInApprovalHubTests(TestCase):
         )
         self.assertContains(response, "Đã duyệt")
 
-    def test_checkin_settings_links_keep_the_settings_target(self):
+    def test_checkin_and_holiday_pages_use_standalone_layout(self):
         self.client.force_login(self.admin_user)
 
         for url_name in (
             "checkin-settings",
             "holiday-view",
             "holidays-view",
-            "attendance-rule-view",
         ):
             with self.subTest(url_name=url_name):
                 response = self.client.get(
@@ -104,7 +104,15 @@ class CheckInApprovalHubTests(TestCase):
                     HTTP_HX_SIDEBAR_NAV="true",
                 )
                 self.assertEqual(response.status_code, 200)
-                self.assertContains(response, 'id="settingsContainer"')
+                self.assertTemplateUsed(response, "index.html")
+                self.assertTemplateNotUsed(response, "settings.html")
+
+        response = self.client.get(
+            reverse("attendance-rule-view"),
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_SIDEBAR_NAV="true",
+        )
+        self.assertContains(response, 'id="settingsContainer"')
 
         response = self.client.get(reverse("checkin-settings"))
         self.assertContains(response, reverse("holiday-view"))
@@ -116,6 +124,25 @@ class CheckInApprovalHubTests(TestCase):
         for url_name in ("holiday-view", "holidays-view"):
             response = self.client.get(reverse(url_name))
             self.assertTemplateUsed(response, "base/settings/holidays.html")
+
+    def test_checkin_location_and_holiday_are_separate_main_menu_buttons(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.get(reverse("dashboard"))
+        menu_html = render_to_string(
+            "joydigi_theme/components/sidebar/top_menu.html",
+            request=response.wsgi_request,
+        )
+
+        self.assertIn(
+            f'href="{reverse("checkin-settings")}"',
+            menu_html,
+        )
+        self.assertIn('data-menu="Địa điểm và Wifi"', menu_html)
+        self.assertIn(f'href="{reverse("holiday-view")}"', menu_html)
+        self.assertIn('data-menu="Ngày nghỉ lễ"', menu_html)
+        self.assertIn(f'href="{reverse("settings")}"', menu_html)
+        self.assertIn('data-menu="Cài đặt"', menu_html)
+        self.assertContains(response, reverse("load-demo-database"))
 
     def test_checkin_settings_create_location_and_multiple_wifi_networks(self):
         self.client.force_login(self.admin_user)

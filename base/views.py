@@ -167,7 +167,7 @@ from base.models import (
     WorkTypeRequest,
     WorkTypeRequestComment,
 )
-from base.roles import STANDARD_ROLE_NAMES, ensure_standard_roles
+from base.roles import STANDARD_ROLE_NAMES, ensure_standard_roles, is_checkin_admin
 from employee.filters import EmployeeFilter
 from employee.forms import ActiontypeForm, EmployeeGeneralSettingPrefixForm
 from employee.models import (
@@ -370,7 +370,44 @@ def normalize_demo_payslips():
 
 
 def load_demo_database(request):
-    if initialize_database_condition():
+    initializing_database = initialize_database_condition()
+
+    # Sau khi hệ thống đã khởi tạo, quản trị viên vẫn có thể chủ động nạp lại
+    # bộ dữ liệu JOYDIGI từ menu tài khoản. Nhánh này chỉ chạy bộ tạo dữ liệu
+    # chấm công có khả năng upsert, không nạp lại fixture hay xóa dữ liệu có sẵn.
+    if not initializing_database:
+        if not is_checkin_admin(request.user):
+            return redirect("/")
+        if request.method == "GET":
+            return render(request, "demo_database/auth_load_data.html")
+        if request.POST.get("load_data_password") != settings.DB_INIT_PASSWORD:
+            messages.error(request, _("Mật khẩu tạo dữ liệu mẫu không đúng."))
+            return redirect(home)
+
+        try:
+            from base.demo_data.modules.checkin import seed_joydigi_checkin_demo
+
+            result = seed_joydigi_checkin_demo()
+            messages.success(
+                request,
+                _(
+                    "Đã nạp dữ liệu mẫu JOYDIGI: %(employees)s nhân viên và "
+                    "dữ liệu chấm công từ %(start)s đến %(end)s."
+                )
+                % {
+                    "employees": result["employees"],
+                    "start": result["attendance_from"],
+                    "end": result["attendance_to"],
+                },
+            )
+        except Exception as error:
+            messages.error(
+                request,
+                _("Không thể nạp dữ liệu mẫu: %(error)s") % {"error": error},
+            )
+        return redirect(home)
+
+    if initializing_database:
         if request.method == "POST":
             if request.POST.get("load_data_password") == settings.DB_INIT_PASSWORD:
                 import tempfile

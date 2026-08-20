@@ -1189,8 +1189,10 @@ class BonusPoint(JoydigiModel):
                                 post-save signal.
             **_kwargs: Additional keyword arguments passed by the signal.
         """
-        if not BonusPoint.objects.filter(employee_id__id=instance.id).exists():
-            BonusPoint.objects.create(employee_id=instance)
+        # Signal có thể chạy khi chưa có công ty được chọn trong request. Dùng
+        # queryset không giới hạn công ty để không bỏ sót bản ghi hiện hữu rồi
+        # tạo trùng khóa OneToOne khi nạp lại dữ liệu mẫu.
+        BonusPoint.objects.entire().get_or_create(employee_id=instance)
 
 
 class Actiontype(JoydigiModel):

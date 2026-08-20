@@ -140,21 +140,6 @@ class AttendanceSettings:
     condition = lambda self, request: apps.is_installed("attendance")
     items = [
         {
-            "label": _("Địa điểm và Wifi chấm công"),
-            "url": reverse_lazy("checkin-settings"),
-            "accessibility": attendance_rule_accessibility,
-            "search_entries": [
-                {"text": _("Địa điểm chấm công"), "description": _("Vĩ độ, kinh độ và bán kính cho phép")},
-                {"text": _("Wifi văn phòng"), "description": _("Quản lý các mạng Wifi được phép chấm công")},
-                {"text": _("Ngưỡng đi muộn"), "description": _("Số phút được phép đi muộn")},
-            ],
-        },
-        {
-            "label": _("Ngày nghỉ lễ"),
-            "url": reverse_lazy("holiday-view"),
-            "accessibility": attendance_rule_accessibility,
-        },
-        {
             "label": _("Quy định chấm công"),
             "url": reverse_lazy("attendance-rule-view"),
             "accessibility": attendance_rule_accessibility,

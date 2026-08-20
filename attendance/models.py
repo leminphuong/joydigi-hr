@@ -758,7 +758,7 @@ class Attendance(JoydigiModel):
             )
 
         if not is_new:
-            old = Attendance.objects.only(
+            old = Attendance.objects.entire().only(
                 "at_work_second",
                 "approved_overtime_second",
                 "minimum_hour",
@@ -807,7 +807,10 @@ class Attendance(JoydigiModel):
         year = self.attendance_date.year
 
         with transaction.atomic():
-            ot, _ = AttendanceOverTime.objects.get_or_create(
+            # Khi chạy tác vụ nền/nạp dữ liệu mẫu không có công ty trong
+            # session, manager theo công ty có thể không nhìn thấy bản ghi đã
+            # tồn tại và gây trùng khóa tháng. Dùng toàn bộ queryset nội bộ.
+            ot, _ = AttendanceOverTime.objects.entire().get_or_create(
                 employee_id=self.employee_id,
                 month=month,
                 year=year,
@@ -818,7 +821,7 @@ class Attendance(JoydigiModel):
                 },
             )
 
-            AttendanceOverTime.objects.filter(pk=ot.pk).update(
+            AttendanceOverTime.objects.entire().filter(pk=ot.pk).update(
                 hour_account_second=F("hour_account_second") + diff_work,
                 overtime_second=F("overtime_second") + diff_approved_ot,
                 hour_pending_second=F("hour_pending_second") + diff_pending,
@@ -882,7 +885,7 @@ class Attendance(JoydigiModel):
             AttendanceOverTime: The created or fetched AttendanceOverTime instance.
         """
         # Create or fetch the AttendanceOverTime instance
-        employee_ot, created = AttendanceOverTime.objects.get_or_create(
+        employee_ot, created = AttendanceOverTime.objects.entire().get_or_create(
             employee_id=self.employee_id,
             month=self.attendance_date.strftime("%B").lower(),
             year=self.attendance_date.year,

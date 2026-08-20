@@ -31,17 +31,10 @@ if apps.is_installed("attendance"):
         if instance.status == "approved":
             for date in period_dates:
                 try:
-                    work_entry = (
-                        WorkRecords.objects.filter(
-                            date=date,
-                            employee_id=instance.employee_id,
-                        ).first()
-                        if WorkRecords.objects.filter(
-                            date=date,
-                            employee_id=instance.employee_id,
-                        ).exists()
-                        else WorkRecords()
-                    )
+                    work_entry = WorkRecords.objects.entire().filter(
+                        date=date,
+                        employee_id=instance.employee_id,
+                    ).first() or WorkRecords()
                     work_entry.employee_id = instance.employee_id
                     work_entry.is_leave_record = True
                     work_entry.leave_request_id = instance

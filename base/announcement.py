@@ -29,6 +29,34 @@ from notifications.signals import notify
 
 
 @login_required
+def bulletin(request):
+    """Trang Bản tin nội bộ đầy đủ, có ảnh đại diện và nội dung ngắn."""
+    today = datetime.today().date()
+    announcements = Announcement.objects.filter(
+        Q(expire_date__gte=today) | Q(expire_date__isnull=True), is_active=True
+    )
+    if not request.user.has_perm("base.view_announcement"):
+        employee = Employee.objects.filter(employee_user_id=request.user).first()
+        if employee:
+            announcements = announcements.filter(
+                Q(employees=employee) | Q(employees__isnull=True)
+            )
+        else:
+            announcements = announcements.none()
+    announcements = announcements.prefetch_related(
+        "attachments", "announcementview_set"
+    ).distinct().order_by("-is_pinned", "-created_at")
+    return render(
+        request,
+        "announcement/bulletin.html",
+        {
+            "announcements": announcements,
+            "instance_ids": json.dumps(list(announcements.values_list("id", flat=True))),
+        },
+    )
+
+
+@login_required
 @hx_request_required
 def announcement_list(request):
     """
@@ -65,7 +93,7 @@ def announcement_list(request):
 
     filtered_announcements = announcement_items.prefetch_related(
         "announcementview_set"
-    ).order_by("-created_at")
+    ).order_by("-is_pinned", "-created_at")
     for announcement in filtered_announcements:
         announcement.has_viewed = announcement.announcementview_set.filter(
             user=request.user, viewed=True

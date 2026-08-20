@@ -16,7 +16,7 @@
             data-target="#genericSidebar"
         ></ion-icon>
     </a>
-    <span class="oh-activity-sidebar__title">{% trans "Comments of - " %} {{ announcement.title|title }} </span>
+    <span class="oh-activity-sidebar__title">Bình luận về: {{ announcement.title|title }}</span>
 </div>
 
 {% if not announcement.disable_comments %}
@@ -34,7 +34,7 @@
                 id="commentInput"
                 hx-on:keyup="toggleCommentButton(this);"
                 class="oh-input w-100"
-                placeholder="{% trans 'Comment here' %}"
+                placeholder="Nhập bình luận"
             >
             <button
                 type="submit"
@@ -42,7 +42,7 @@
                 class="oh-btn oh-btn--secondary mt-2 mr-0 oh-btn--w-100-resp"
                 style="display: none"
             >
-                {% trans "Comment" %}
+                Gửi bình luận
             </button>
         </div>
 
@@ -56,7 +56,7 @@
                     <span
                         class="oh-timeoff-title fw-bold"
                         style="display: block"
-                    >{% trans "There are no comments to show." %}</span>
+                    >Chưa có bình luận.</span>
                     <img
                         style="display: block; width: 100px; margin: 20px auto"
                         src="{% static '/images/ui/comment.png' %}"
@@ -113,7 +113,7 @@
                         <form
                             method="POST"
                             hx-post="{% url 'announcement-delete-comment' comment.id %}"
-                            hx-confirm="{% trans 'Are you sure you want to delete this comment?' %}"
+                            hx-confirm="Bạn có chắc muốn xóa bình luận này không?"
                             hx-target="#announCommentCard{{comment.id}}"
                             hx-swap="delete"
                             class="inline-block"
@@ -123,7 +123,7 @@
                             <button
                                 type="submit"
                                 class="cursor-pointer bg-transparent border-0 p-0"
-                                title="{% trans 'Delete' %}"
+                                title="Xóa"
                             >
                                 <ion-icon name="trash-outline" class="text-danger"></ion-icon>
                             </button>
@@ -132,12 +132,12 @@
                 </div>
 
                 <p class="text-xs text-[#565E6C] mt-2">
-                    {% trans "By" %} <span class="text-primary-600">{{ comment.employee_id }}</span>
+                    Bởi <span class="text-primary-600">{{ comment.employee_id }}</span>
                 </p>
                 <p class="text-xs text-[#565E6C] mt-2">
-                    {% trans "on" %}
+                    vào ngày
                     <span class="dateformat_changer font-semibold"> {{ comment.created_at.date }} </span>
-                    {% trans "at" %}
+                    lúc
                     <span class="timeformat_changer font-semibold"> {{ comment.created_at|time:"g:i A" }} </span>
                 </p>
             </div>
@@ -148,8 +148,8 @@
         <img
             src="{% static 'images/ui/no_comments.png' %}"
             class="oh-404__image mb-4"
-            alt="{% trans 'Page not found. 404.' %}"
+            alt="Không có bình luận"
         >
-        <h5 class="oh-404__subtitle">{% trans "Comments have been disabled for this announcement." %}</h5>
+        <h5 class="oh-404__subtitle">Bản tin này đã tắt bình luận.</h5>
     </div>
 {% endif %}

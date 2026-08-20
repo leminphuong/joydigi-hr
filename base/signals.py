@@ -277,6 +277,24 @@ _DEFAULT_HRMS_GROUPS = {
     },
 }
 
+# Hệ thống chấm công chỉ dùng ba vai trò cố định. Cấu hình cũ ở trên được giữ
+# để các bản nâng cấp còn đọc được dữ liệu lịch sử, nhưng không tạo lại các vai
+# trò theo từng phân hệ đã loại bỏ.
+_CHECKIN_ROLE_GROUPS = {
+    "Quản trị viên": {
+        "apps": "__all__",
+        "actions": "__all__",
+    },
+    "Trưởng nhóm": {
+        "apps": (),
+        "actions": (),
+    },
+    "Nhân viên": {
+        "apps": (),
+        "actions": (),
+    },
+}
+
 _ALL_HRMS_APP_LABELS = (
     "auth",
     "base",
@@ -408,7 +426,7 @@ def _sync_default_hrms_groups():
     """
     from django.contrib.auth.models import Group
 
-    for name, config in _DEFAULT_HRMS_GROUPS.items():
+    for name, config in _CHECKIN_ROLE_GROUPS.items():
         group, _created = Group.objects.get_or_create(name=name)
         permissions = _resolve_group_permissions(config)
         if permissions.exists():

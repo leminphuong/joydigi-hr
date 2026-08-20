@@ -33,14 +33,14 @@
 
 <div class="col-span-12 lg:col-span-10">
     <div class="mb-4 rounded-md border border-primary-200 bg-white px-4 py-3">
-        <h2 class="text-base font-semibold text-dark-400 mb-1">{% trans "Roles" %}</h2>
+        <h2 class="text-base font-semibold text-dark-400 mb-1">Ba vai trò trong hệ thống</h2>
         <p class="text-xs text-dark-200 leading-relaxed max-w-3xl">
-            {% trans "A role is a named set of employees who share the same access. Create a role, add members, then turn permissions on or off." %}
+            Mỗi tài khoản thuộc một trong ba vai trò: Quản trị viên, Trưởng nhóm hoặc Nhân viên.
         </p>
         <ol class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-dark-300 list-decimal list-inside">
-            <li>{% trans "Create a role" %}</li>
-            <li>{% trans "Add employees (Members)" %}</li>
-            <li>{% trans "Set what they can do (Permissions)" %}</li>
+            <li>Chọn vai trò</li>
+            <li>Thêm nhân viên</li>
+            <li>Chọn quyền được sử dụng</li>
         </ol>
     </div>
 
@@ -52,30 +52,13 @@
                 hx-trigger="keyup changed delay:.2s"
                 type="text"
                 id="permissionSearch"
-                placeholder="{% trans 'Search roles...' %}"
+                placeholder="Tìm vai trò..."
                 name="search"
                 class="text-color-600 ps-8 p-1.5 pb-2 placeholder:text-xs w-full min-w-[220px] border border-dark-50 rounded-md focus-visible:outline-0 placeholder:text-dark-100 text-sm [transition:.3s] focus:border-primary-600"
-                aria-label="{% trans 'Search Input' %}"
+                aria-label="Tìm vai trò"
             >
             <i class="fas fa-search absolute left-3 top-[1px] bottom-0 m-auto flex items-center opacity-50 text-xs"></i>
         </div>
-        {% if request.user.is_superuser %}
-            <button
-                class="px-4 py-2 bg-brand-600 text-white rounded-md text-xs flex flex-wrap items-center gap-2 hover:bg-brand-800 transition duration-300"
-                data-toggle="oh-modal-toggle"
-                data-target="#Permissions"
-                hx-get="{% url 'user-group-create' %}"
-                hx-target="#permissionForm"
-            >
-                <img
-                    src="/static/joydigi_theme/assets/img/create.svg"
-                    alt=""
-                    width="13"
-                    class="filter brightness-0 invert"
-                >
-                {% trans "Create role" %}
-            </button>
-        {% endif %}
     </div>
     <div
         id="permissionContainer"
@@ -95,7 +78,7 @@
     <div class="oh-modal__dialog" style="max-width: 880px">
         <div class="oh-modal__dialog-header">
             <h2 class="oh-modal__dialog-title" id="createGroupModalLabel">
-                {% trans "Create role" %}
+                Tạo vai trò
             </h2>
             <button
                 class="oh-modal__close"
@@ -103,7 +86,7 @@
                         .closest('.oh-modal--show')
                         .removeClass('oh-modal--show');
                     event.preventDefault()"
-                aria-label="{% trans 'Close' %}"
+                    aria-label="Đóng"
             >
                 <ion-icon name="close-outline"></ion-icon>
             </button>
@@ -114,7 +97,7 @@
                 class="oh-profile-section perm-form"
                 id="permissionForm"
             >
-                <div class="text-xs text-dark-200 p-3">{% trans "Loading…" %}</div>
+                <div class="text-xs text-dark-200 p-3">Đang tải…</div>
             </form>
         </div>
     </div>
@@ -130,7 +113,7 @@
     <div class="oh-modal__dialog" style="max-width: 720px">
         <div class="oh-modal__dialog-header">
             <h2 class="oh-modal__dialog-title" id="groupAssignModalLabel">
-                {% trans "Role members" %}
+                Nhân viên trong vai trò
             </h2>
             <button
                 class="oh-modal__close"
@@ -138,7 +121,7 @@
                         .closest('.oh-modal--show')
                         .removeClass('oh-modal--show');
                     event.preventDefault()"
-                aria-label="{% trans 'Close' %}"
+                    aria-label="Đóng"
             >
                 <ion-icon name="close-outline"></ion-icon>
             </button>
@@ -223,7 +206,7 @@
                 $("#messages").html(
                     $(`
             <div class="oh-alert oh-alert--animated oh-alert--danger">
-              {% trans "Server error." %}
+              Máy chủ đang bận. Vui lòng thử lại.
             </div>
           `),
                 );
@@ -274,7 +257,7 @@
         if ($body.length && !$body.data("loaded") && $body.data("url")) {
             $body.data("loaded", true);
             $body.html(
-                '<div class="text-xs text-dark-200 py-4 text-center">{% trans "Loading…" %}</div>'
+                '<div class="text-xs text-dark-200 py-4 text-center">Đang tải…</div>'
             );
             if (typeof htmx !== "undefined") {
                 htmx

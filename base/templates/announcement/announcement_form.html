@@ -23,11 +23,11 @@
 {% endif %}
 <div class="oh-modal__dialog-header pb-0">
     <h2 class="oh-modal__dialog-title" id="createModalTitle">
-        {% trans "Create " %} {{ form.verbose_name }}
+        Đăng bản tin
     </h2>
     <button
         class="oh-modal__close"
-        aria-label="{% trans 'Close' %}"
+        aria-label="Đóng"
         onclick="setTimeout(function () { $('#objectCreateModalTarget').empty(); }, 200)"
     >
         <ion-icon name="close-outline"></ion-icon>
@@ -44,7 +44,7 @@
         {{ form.as_p }}
         <div class="d-flex flex-row-reverse">
             <button type="submit" class="oh-btn oh-btn--secondary mt-2 mr-0 oh-btn--w-100-resp">
-                {% trans "Save" %}
+                Đăng bài
             </button>
         </div>
     </form>

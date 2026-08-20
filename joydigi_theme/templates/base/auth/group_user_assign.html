@@ -7,18 +7,18 @@
     <div class="rounded-md border border-primary-200 bg-primary-50/60 px-4 py-3 text-sm">
         <p class="font-medium text-primary-700 mb-1">
             {% if assign_mode == "edit" %}
-                {% blocktrans with name=group.name %}Edit members of "{{ name }}"{% endblocktrans %}
+                Sửa nhân viên thuộc vai trò “{{ group.name }}”
             {% else %}
-                {% blocktrans with name=group.name %}Add members to "{{ name }}"{% endblocktrans %}
+                Thêm nhân viên vào vai trò “{{ group.name }}”
             {% endif %}
         </p>
         <p class="text-xs text-dark-300 leading-relaxed">
             {% if target_employee %}
-                {% blocktrans with name=target_employee.get_full_name %}Update which companies {{ name }} gets this role's permissions in. Other members of this role are not affected.{% endblocktrans %}
+                Chọn công ty mà {{ target_employee.get_full_name }} được dùng quyền của vai trò này. Các nhân viên khác không bị ảnh hưởng.
             {% elif assign_mode == "edit" %}
-                {% trans "Update employees or companies for this role. Unchecking an employee removes them from the role; the selected companies apply to everyone selected." %}
+                Chọn lại nhân viên hoặc công ty áp dụng vai trò. Bỏ chọn một nhân viên sẽ gỡ vai trò khỏi người đó.
             {% else %}
-                {% trans "Search and pick employees below. Saving adds the selected employees to this role for the selected companies." %}
+                Tìm và chọn nhân viên bên dưới, sau đó bấm Lưu.
             {% endif %}
             {% if member_count %}
                 <span class="font-medium text-primary-700">
@@ -32,7 +32,7 @@
     {% if target_employee %}
         <div>
             <label class="block text-sm font-medium text-dark-400 mb-1">
-                {% trans "Employee" %}
+                Nhân viên
             </label>
             <p class="text-sm text-dark-400">{{ target_employee.get_full_name }}</p>
         </div>
@@ -41,13 +41,13 @@
         <div>
             <label class="block text-sm font-medium text-dark-400 mb-1">
                 {% if assign_mode == "edit" %}
-                    {% trans "Employees in this role" %}
+                    Nhân viên đang có vai trò này
                 {% else %}
-                    {% trans "Employees to add" %}
+                    Nhân viên cần thêm
                 {% endif %}
             </label>
             <p class="text-xs text-dark-200 mb-2">
-                {% trans "Use search or filters to find people quickly." %}
+                Dùng ô tìm kiếm hoặc bộ lọc để tìm nhanh.
             </p>
             {{ form.employee.errors }}
             {{ form.employee }}
@@ -56,7 +56,7 @@
     {% if form.companies %}
         <div>
             <label class="block text-sm font-medium text-dark-400 mb-1">
-                {% trans "Companies" %}
+                Công ty
             </label>
             <p class="text-xs text-dark-200 mb-2">
                 {{ form.companies.help_text }}
@@ -79,16 +79,16 @@
             class="px-4 py-2 text-xs rounded-md border border-dark-50 text-dark-300 hover:bg-dark-50 transition"
             onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show'); event.preventDefault()"
         >
-            {% trans "Cancel" %}
+            Hủy
         </button>
         <button
             type="submit"
             class="px-4 py-2 bg-brand-600 text-white rounded-md text-xs hover:bg-brand-800 transition"
         >
             {% if assign_mode == "edit" %}
-                {% trans "Save changes" %}
+                Lưu thay đổi
             {% else %}
-                {% trans "Add members" %}
+                Thêm nhân viên
             {% endif %}
         </button>
     </div>

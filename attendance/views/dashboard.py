@@ -336,11 +336,7 @@ def dashboard_attendance(request):
     ):
         return JsonResponse({"no_permission": True})
 
-    labels = [
-        _("On Time"),
-        _("Late Arrival"),
-        _("Early Departure"),
-    ]
+    labels = ["Đúng giờ", "Đi muộn", "Về sớm"]
     # initializing values
     data_set = []
     start_date = date.today()
@@ -359,7 +355,7 @@ def dashboard_attendance(request):
     departments = Department.objects.all()
     for dept in departments:
         data_set.append(generate_data_set(request, start_date, type, end_date, dept))
-    message = _("No records available at the moment.")
+    message = "Hiện chưa có dữ liệu."
     data_set = list(filter(None, data_set))
     return JsonResponse({"dataSet": data_set, "labels": labels, "message": message})
 
@@ -463,7 +459,7 @@ def department_overtime_chart(request):
         "dataset": dataset,
         "labels": departments,
         "department_total": department_total,
-        "message": _("No validated Overtimes were found"),
+        "message": "Chưa có dữ liệu làm thêm đã được duyệt.",
         "emptyImageSrc": f"/{settings.STATIC_URL}images/ui/overtime-icon.png",
     }
 

@@ -3176,15 +3176,12 @@ def dashboard_employee(request):
     """
     Active and in-active employee dashboard
     """
-    labels = [
-        _("Active"),
-        _("In-Active"),
-    ]
+    labels = ["Đang làm việc", "Đã nghỉ việc"]
     employees = Employee.objects.filter()
     response = {
         "dataSet": [
             {
-                "label": _("Employees"),
+                "label": "Nhân viên",
                 "data": [
                     len(employees.filter(is_active=True)),
                     len(employees.filter(is_active=False)),
@@ -3201,13 +3198,13 @@ def dashboard_employee_gender(request):
     """
     This method is used to filter out gender vise employees
     """
-    labels = [_("Male"), _("Female"), _("Other")]
+    labels = ["Nam", "Nữ", "Khác"]
     employees = Employee.objects.filter(is_active=True)
 
     response = {
         "dataSet": [
             {
-                "label": _("Employees"),
+                "label": "Nhân viên",
                 "data": [
                     len(employees.filter(gender="male")),
                     len(employees.filter(gender="female")),

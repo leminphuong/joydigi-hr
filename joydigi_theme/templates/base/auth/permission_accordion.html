@@ -3,17 +3,17 @@
 
 <div class="col-span-12 mb-3">
     <h2 class="text-base font-semibold text-dark-400 mb-1">
-        {% trans "User Permissions" %}
+        Quyền riêng của nhân viên
     </h2>
     <p class="text-xs text-dark-200">
-        {% trans "Review or assign permissions directly to individual employees." %}
+        Xem hoặc cấp quyền riêng cho từng nhân viên.
     </p>
 </div>
 
 {% if company_scoped %}
     <div class="col-span-12 mb-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
         <i class="fa-solid fa-circle-info mr-1"></i>
-        {% trans "Permissions assigned directly to an employee here apply in all companies. Use Roles to grant company-specific permissions." %}
+        Quyền cấp trực tiếp tại đây được áp dụng ở mọi công ty. Hãy dùng Vai trò nếu cần phân quyền theo từng công ty.
     </div>
 {% endif %}
 
@@ -26,10 +26,10 @@
                 hx-trigger="keyup changed delay:.2s"
                 type="text"
                 id="permissionSearch"
-                placeholder="{% trans 'Search' %}"
+                placeholder="Tìm nhân viên"
                 name="search"
                 class="text-color-600 ps-8 p-1.5 pb-2 placeholder:text-xs w-full border border-dark-50 rounded-md focus-visible:outline-0 placeholder:text-dark-100 text-sm [transition:.3s] focus:border-primary-600"
-                aria-label="{% trans 'Search Input' %}"
+                aria-label="Ô tìm kiếm"
             >
             <i class="fas fa-search absolute left-3 top-[1px] bottom-0 m-auto flex items-center opacity-50 text-xs"></i>
         </div>
@@ -54,7 +54,7 @@
                         width="13"
                         class="filter brightness-0 invert"
                     >
-                    {% trans "Assign" %}
+                    Gán quyền
                 </button>
             {% endif %}
         {% endif %}
@@ -69,11 +69,11 @@
     <div class="oh-modal__dialog" style="max-width: 880px">
         <div class="oh-modal__dialog-header">
             <h2 class="oh-modal__dialog-title" id="editModal1ModalLabel">
-                {% trans "Permissions" %}
+                Quyền hạn
             </h2>
             <button
                 class="oh-modal__close"
-                aria-label="{% trans 'Close' %}"
+                aria-label="Đóng"
                 onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show'); event.preventDefault()"
             >
                 <ion-icon name="close-outline"></ion-icon>

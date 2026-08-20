@@ -1,26 +1,34 @@
-{% load i18n static %}
-{% comment %}
-  Dashboard (top-level icon, no submenu panel). We attach the same
-  htmx boost params used by submenu links so clicking Dashboard swaps
-  only the main content region instead of doing a full page reload.
-{% endcomment %}
-<a
-    href="{% url 'dashboard' %}"
-    class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300"
-    data-menu="Dashboard"
-    hx-get="{% url 'dashboard' %}"
-    hx-target="#ohMainContent"
-    hx-select="#ohMainContent > *"
-    hx-swap="innerHTML show:window:top"
-    hx-push-url="true"
->
-    <img
-        src="{% static 'images/ui/dashboard.svg' %}"
-        alt=""
-        class="w-4.5 h-4.5 flex-shrink-0 transition duration-300 filter brightness-1 invert"
-    >
-    <span
-        class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left"
-        aria-hidden="true"
-    >{% trans "Dashboard" %}</span>
+{% load static %}
+
+<a href="{% url 'dashboard' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Trang tổng quan" hx-get="{% url 'dashboard' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+    <img src="{% static 'images/ui/dashboard.svg' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
+    <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Trang tổng quan</span>
+</a>
+<a href="{% url 'today-attendance' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Chấm công hôm nay" hx-get="{% url 'today-attendance' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+    <img src="{% static 'images/ui/attendance-check.png' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
+    <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Chấm công hôm nay</span>
+</a>
+<a href="{% url 'approval-hub' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Duyệt đơn" hx-get="{% url 'approval-hub' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+    <img src="{% static 'images/ui/approve.png' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
+    <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Duyệt đơn</span>
+</a>
+<a href="{% url 'attendance-monthly-summary' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Bảng chấm công" hx-get="{% url 'attendance-monthly-summary' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+    <img src="{% static 'images/ui/attendance.png' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
+    <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Bảng chấm công</span>
+</a>
+<a href="{% url 'requests-view' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Thay đổi lịch làm việc" hx-get="{% url 'requests-view' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+    <img src="{% static 'images/ui/employee_shift.png' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
+    <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Thay đổi lịch làm việc</span>
+</a>
+<a href="{% url 'employee-view' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Nhân sự" hx-get="{% url 'employee-view' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+    <img src="{% static 'images/ui/employees.svg' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
+    <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Nhân sự</span>
+</a>
+<a href="{% url 'bulletin' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Bảng tin" hx-get="{% url 'bulletin' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+    <img src="{% static 'images/ui/announcement.svg' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
+    <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Bảng tin</span>
+</a>
+<a href="{% url 'settings' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Cài đặt" hx-get="{% url 'settings' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+    <img src="{% static 'images/ui/cog.svg' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
+    <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Cài đặt</span>
 </a>

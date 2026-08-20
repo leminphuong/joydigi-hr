@@ -51,54 +51,6 @@ urlpatterns = [
         name="api-employee-bulk-update",
     ),
     path(
-        "disciplinary-action/",
-        views.DisciplinaryActionAPIView.as_view(),
-        name="api-disciplinary-action-list",
-    ),
-    path(
-        "disciplinary-action/<int:pk>/",
-        views.DisciplinaryActionAPIView.as_view(),
-        name="api-disciplinary-action-detail",
-    ),
-    path(
-        "disciplinary-action-type/",
-        views.ActiontypeView.as_view(),
-        name="api-disciplinary-action-type",
-    ),
-    path(
-        "disciplinary-action-type/<int:pk>/",
-        views.ActiontypeView.as_view(),
-        name="api-disciplinary-action-type",
-    ),
-    path("policies/", views.PolicyAPIView.as_view(), name="api-policy-list"),
-    path("policies/<int:pk>/", views.PolicyAPIView.as_view(), name="api-policy-detail"),
-    path(
-        "document-request/",
-        views.DocumentRequestAPIView.as_view(),
-        name="api-document-request-list",
-    ),
-    path(
-        "document-request/<int:pk>/",
-        views.DocumentRequestAPIView.as_view(),
-        name="api-document-request-detail",
-    ),
-    path(
-        "document-bulk-approve-reject/",
-        views.DocumentBulkApproveRejectAPIView.as_view(),
-        name="api-document-bulk-approve-reject",
-    ),
-    path(
-        "document-request-approve-reject/<int:id>/<str:status>/",
-        views.DocumentRequestApproveRejectView.as_view(),
-        name="api-document-request-approve-reject",
-    ),
-    path("documents/", views.DocumentAPIView.as_view(), name="api-document-list"),
-    path(
-        "documents/<int:pk>/",
-        views.DocumentAPIView.as_view(),
-        name="api-document-detail",
-    ),
-    path(
         "employee-bulk- archive/<str:is_active>/",
         views.EmployeeBulkArchiveView.as_view(),
         name="api-employee-bulk-archive",

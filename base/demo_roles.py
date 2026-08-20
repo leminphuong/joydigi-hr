@@ -20,24 +20,16 @@ logger = logging.getLogger(__name__)
 # (user email, group name, company name)
 # Keep this small — enough to demo Roles & Permissions and company-scoped access.
 DEMO_ROLE_ASSIGNMENTS = (
-    ("huynh.duy.thu@joydigi.com", "Asset Manager", "Công ty của bạn"),
-    ("huynh.duy.thu@joydigi.com", "Asset Manager", "Công ty của bạn Inc."),
-
-    ("huynh.anh.hai@joydigi.com", "HR Manager", "Công ty của bạn"),
-
-    ("dinh.thanh.tu@joydigi.com", "Payroll Manager", "Công ty của bạn"),
-
-    ("ta.huu.diem@joydigi.com", "Leave Manager", "Công ty của bạn"),
-
-    ("vo.nhat.khang@joydigi.com", "Attendance Manager", "Công ty của bạn"),
-
-    ("huynh.gia.an@joydigi.com", "Recruiter", "Công ty của bạn Ltd."),
-
-    ("nguyen.anh.ngoc@joydigi.com", "Helpdesk Agent", "Công ty của bạn Inc."),
-
-    ("thai.huu.dung@joydigi.com", "Performance Manager", "Công ty của bạn"),
-
-    ("duong.anh.phong@joydigi.com", "Project Manager", "Công ty của bạn"),
+    ("huynh.duy.thu@joydigi.com", "Nhân viên", "Công ty của bạn"),
+    ("huynh.duy.thu@joydigi.com", "Nhân viên", "Công ty của bạn Inc."),
+    ("huynh.anh.hai@joydigi.com", "Trưởng nhóm", "Công ty của bạn"),
+    ("dinh.thanh.tu@joydigi.com", "Nhân viên", "Công ty của bạn"),
+    ("ta.huu.diem@joydigi.com", "Trưởng nhóm", "Công ty của bạn"),
+    ("vo.nhat.khang@joydigi.com", "Trưởng nhóm", "Công ty của bạn"),
+    ("huynh.gia.an@joydigi.com", "Nhân viên", "Công ty của bạn Ltd."),
+    ("nguyen.anh.ngoc@joydigi.com", "Nhân viên", "Công ty của bạn Inc."),
+    ("thai.huu.dung@joydigi.com", "Nhân viên", "Công ty của bạn"),
+    ("duong.anh.phong@joydigi.com", "Nhân viên", "Công ty của bạn"),
 )
 
 

@@ -11,22 +11,22 @@
     >
         {% csrf_token %}
         <div class="flex space-x-2 pb-1">
-            <label>{% trans "Default Expire Days" %}</label>
-            <span class="oh-info mr-2" title="{% trans 'Set default announcement expire days' %}"> </span>
+            <label>Số ngày hiển thị bản tin</label>
+            <span class="oh-info mr-2" title="Đặt số ngày hiển thị mặc định cho bản tin"> </span>
         </div>
         <p class="text-xs text-gray-500 mt-1 pb-2">
-            {% trans "Number of days after which an announcement automatically expires when no expiry date is set." %}
+            Bản tin không có ngày kết thúc sẽ tự ẩn sau số ngày này.
         </p>
         <div class="flex gap-2">
             <input
                 type="number"
                 name="days"
-                placeholder="{% trans 'Days' %}"
+                placeholder="Số ngày"
                 value="{{form.instance.days}}"
                 id="id_days"
             >
-            {% if perms.payroll.change_payrollsettings %}
-                <button class="btn" type="submit">{% trans "Save" %}</button>
+            {% if perms.base.change_announcementexpire or request.user.is_superuser %}
+                <button class="btn" type="submit">Lưu</button>
             {% endif %}
         </div>
     </form>

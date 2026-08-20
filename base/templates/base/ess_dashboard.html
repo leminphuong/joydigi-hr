@@ -182,7 +182,6 @@
   }
   .ess-chart-card[data-section="leave"]::before       { background: linear-gradient(90deg, #E54F38, #a855f7); }
   .ess-chart-card[data-section="attendance"]::before  { background: linear-gradient(90deg, #22c55e, #06b6d4); }
-  .ess-chart-card[data-section="payroll"]::before     { background: linear-gradient(90deg, #f59e0b, #ef4444); }
   .ess-chart-card[data-section="goals"]::before       { background: linear-gradient(90deg, #3b82f6, #E54F38); }
   .ess-chart-card[data-section="calendar"]::before    { background: linear-gradient(90deg, #22c55e, #06b6d4); }
 
@@ -428,31 +427,6 @@
         <div id="essCalSummary" class="ess-cal-summary"></div>
       </div>
 
-      <!-- Row 3: Payslips + Goals -->
-      <div class="ess-chart-grid">
-        <div class="ess-chart-card" data-section="payroll">
-          <div class="ess-chart-card__header">
-            <div>
-              <div class="ess-chart-card__title">{% trans "Recent Payslips" %}</div>
-              <div class="ess-chart-card__subtitle">{% trans "Net pay vs gross pay — click to view" %}</div>
-            </div>
-          </div>
-          <div class="ess-chart-card__body">
-            <div id="essPayslipChart"></div>
-          </div>
-        </div>
-
-        <div class="ess-chart-card" data-section="goals">
-          <div class="ess-chart-card__header">
-            <div>
-              <div class="ess-chart-card__title">{% trans "My Goals" %}</div>
-              <div class="ess-chart-card__subtitle">{% trans "Active objectives and progress" %}</div>
-            </div>
-          </div>
-          <div id="essGoalsContainer" class="ess-empty">{% trans "Loading..." %}</div>
-        </div>
-      </div>
-
     </div><!-- /ess-main -->
 
     <!-- Right sidebar -->
@@ -498,7 +472,6 @@
 
   var leaveBalanceChart = null;
   var workHoursChart    = null;
-  var payslipChart      = null;
 
   function isDark() {
     return document.documentElement.classList.contains('dark');
@@ -561,8 +534,6 @@
     loadLeaveBalance();
     loadWorkHours();
     loadAttendanceCalendar();
-    loadPayslips();
-    loadObjectives();
     loadLeaveRequests();
     loadAnnouncements();
     loadUpcoming();
@@ -617,22 +588,13 @@
       .then(function (d) {
         var iconLeave   = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
         var iconPresent = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>';
-        var iconGoals   = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>';
-        var iconPay     = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
         document.getElementById('essKpiGrid').innerHTML =
           kpiCard('indigo', iconLeave, '{% trans "Leave Available" %}',
                   d.total_available_leave, '{% trans "days remaining" %}',
                   '{% url "user-request-view" %}') +
           kpiCard('green',  iconPresent, '{% trans "Present This Month" %}',
                   d.present_this_month, d.late_this_month + ' {% trans "late" %}',
-                  '{% url "view-my-attendance" %}') +
-          kpiCard('amber',  iconGoals, '{% trans "Open Goals" %}',
-                  d.open_objectives, '{% trans "active objectives" %}',
-                  '{% url "dashboard-view" %}') +
-          kpiCard('purple', iconPay, '{% trans "Last Net Pay" %}',
-                  d.latest_net_pay !== null ? d.latest_net_pay : '—',
-                  d.latest_payslip_period || '',
-                  '{% url "view-payslip" %}');
+                  '{% url "view-my-attendance" %}');
       })
       .catch(function () {});
   }
@@ -811,7 +773,7 @@
             background: 'transparent', fontFamily: 'inherit',
             events: {
               dataPointSelection: function (e, ctx, cfg) {
-                window.location.href = '{% url "view-payslip" %}';
+                return;
               }
             }
           },
@@ -850,7 +812,7 @@
         }
         container.className = '';
         container.id = 'essGoalsContainer';
-        var goalsUrl = '{% url "dashboard-view" %}';
+        var goalsUrl = '#';
         container.innerHTML = d.objectives.map(function (obj) {
           return '<div class="ess-goal-row" onclick="window.location.href=\'' + goalsUrl + '\'">' +
             '<div class="ess-goal-row__header">' +
@@ -957,8 +919,6 @@
   loadLeaveBalance();
   loadWorkHours();
   loadAttendanceCalendar();
-  loadPayslips();
-  loadObjectives();
   loadLeaveRequests();
   loadAnnouncements();
   loadUpcoming();

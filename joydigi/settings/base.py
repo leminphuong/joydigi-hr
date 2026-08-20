@@ -62,38 +62,24 @@ INSTALLED_APPS = [
     "django_apscheduler",
     "rest_framework",
     "rest_framework_simplejwt",
-    "drf_yasg",
     # Core Joydigi apps
     "joydigi_auth",
     THEME_APP,
     "base",
     "employee",
-    "recruitment",
     "leave",
-    "pms",
-    "onboarding",
-    "asset",
     "attendance",
-    "payroll",
     "accessibility",
     "joydigi_audit",
     "joydigi_widgets",
     "joydigi_crumbs",
+    # Kept as a shared data dependency for existing employee records. The
+    # document-management routes and UI are disabled.
     "joydigi_documents",
     "joydigi_views",
-    "joydigi_automations",
     "joydigi_api",
-    "biometric",
-    "helpdesk",
-    "offboarding",
     "joydigi_backup",
-    "project",
-    "joydigi_meet",
-    "report",
-    "whatsapp",
-    "joydigi_ldap",
     "joydigi_dbtemplate",
-    "joydigi_tour",
 ]
 
 # ========================================
@@ -114,19 +100,6 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
-}
-
-SWAGGER_SETTINGS = {
-    "SECURITY_DEFINITIONS": {
-        "Bearer": {
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header",
-            "description": "Enter your Bearer token here",
-        },
-        "Basic": {"type": "basic", "description": "Basic authentication."},
-    },
-    "SECURITY": [{"Bearer": []}, {"Basic": []}],
 }
 
 APSCHEDULER_DATETIME_FORMAT = "N j, Y, f:s a"
@@ -273,18 +246,12 @@ TEMPLATES = [
                 "base.context_processors.get_companies",
                 "base.context_processors.white_labelling_company",
                 "base.context_processors.doc_base_url",
-                "base.context_processors.resignation_request_enabled",
                 "base.context_processors.timerunner_enabled",
-                "base.context_processors.intial_notice_period",
-                "base.context_processors.check_candidate_self_tracking",
-                "base.context_processors.check_candidate_self_tracking_rating",
                 "base.context_processors.get_initial_prefix",
-                "base.context_processors.biometric_app_exists",
                 "base.context_processors.enable_late_come_early_out_tracking",
                 "base.context_processors.enable_profile_edit",
                 "base.context_processors.export_access_enabled",
                 "base.context_processors.navbar_languages",
-                "joydigi_tour.context_processors.pending_tours_flag",
                 "joydigi_crumbs.context_processors.breadcrumbs",
             ],
             "loaders": (
@@ -344,18 +311,10 @@ NESTED_SUBORDINATE_VISIBILITY = False
 TWO_FACTORS_AUTHENTICATION = False
 
 SIDEBARS = [
+    "base",
     "employee",
     "attendance",
     "leave",
-    "payroll",
-    "recruitment",
-    "onboarding",
-    "offboarding",
-    "pms",
-    "project",
-    "asset",
-    "helpdesk",
-    "report",
 ]
 
 # Audit logging is opt-in: the joydigi_audit app registers models explicitly
@@ -478,39 +437,14 @@ APPS = [
     "base",
     "employee",
     "joydigi_documents",
-    "joydigi_automations",
 ]
-
-# ========================================
-# LDAP CONFIGURATION (Default)
-# ========================================
-AUTH_LDAP_SERVER_URI = env("AUTH_LDAP_SERVER_URI", default="ldap://127.0.0.1:389")
-AUTH_LDAP_BIND_DN = env("AUTH_LDAP_BIND_DN", default="cn=admin,dc=joydigi,dc=com")
-AUTH_LDAP_BIND_PASSWORD = env("AUTH_LDAP_BIND_PASSWORD", default="")
-
-AUTH_LDAP_USER_ATTR_MAP = {
-    "first_name": "givenName",
-    "last_name": "sn",
-    "email": "mail",
-}
-
-# Default LDAP settings
-DEFAULT_LDAP_CONFIG = {
-    "LDAP_SERVER": env("LDAP_SERVER", default="ldap://127.0.0.1:389"),
-    "BIND_DN": env("BIND_DN", default="cn=admin,dc=joydigi,dc=com"),
-    "BIND_PASSWORD": env("BIND_PASSWORD", default=""),
-    "BASE_DN": env("BASE_DN", default="ou=users,dc=joydigi,dc=com"),
-}
 
 # CompanyScopedBackend subclasses ModelBackend; it behaves identically while
 # COMPANY_SCOPED_PERMISSIONS is False. It must REPLACE ModelBackend (Django
 # unions grants across backends, so listing both would keep global perms).
 AUTHENTICATION_BACKENDS = [
     "base.auth_backends.CompanyScopedBackend",
-    # "django_auth_ldap.backend.LDAPBackend",
 ]
-
-AUTH_LDAP_ALWAYS_UPDATE_USER = True
 
 # ========================================
 # PRODUCTION SECURITY GATES

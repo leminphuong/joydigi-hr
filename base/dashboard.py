@@ -16,6 +16,31 @@ from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_http_methods
 
 
+VIETNAMESE_MONTHS = (
+    "",
+    "tháng 1",
+    "tháng 2",
+    "tháng 3",
+    "tháng 4",
+    "tháng 5",
+    "tháng 6",
+    "tháng 7",
+    "tháng 8",
+    "tháng 9",
+    "tháng 10",
+    "tháng 11",
+    "tháng 12",
+)
+
+
+def _vi_month_year(value):
+    return f"{VIETNAMESE_MONTHS[value.month]} năm {value.year}"
+
+
+def _vi_day_month(value):
+    return value.strftime("%d/%m")
+
+
 def _safe_url(url_name):
     """Reverse a URL name; return '#' if the URL is not registered."""
     try:
@@ -325,6 +350,21 @@ def main_dashboard_view(request):
         "get_forecasted_at_work": get_forecasted_at_work,
         "employee_chart_prefs": employee_chart_prefs,
     }
+    try:
+        from base.checkin_portal import get_attendance_overview
+
+        context.update(get_attendance_overview(request))
+    except Exception:
+        context.update(
+            {
+                "today_summary": {"total": 0, "attended": 0, "late": 0, "remote": 0, "absent": 0, "leave": 0},
+                "today_logs": [],
+                "today_groups": [],
+                "late_trend_labels": [],
+                "late_trend_rates": [],
+                "pending_leave_count": 0,
+            }
+        )
     context.update(_get_setup_checklist_context(request))
     return render(request, "dashboard.html", context)
 
@@ -432,16 +472,6 @@ def dashboard_kpi_data(request):
     except Exception:
         pass
 
-    open_recruitments = 0
-    try:
-        from recruitment.models import Recruitment
-
-        open_recruitments = Recruitment.objects.filter(
-            is_active=True, closed=False
-        ).count()
-    except Exception:
-        pass
-
     return JsonResponse(
         {
             "total_employees": total_employees,
@@ -451,7 +481,6 @@ def dashboard_kpi_data(request):
             "on_leave": on_leave,
             "pending_leaves": pending_leaves,
             "new_joiners": new_joiners,
-            "open_recruitments": open_recruitments,
             "date": today.isoformat(),
         }
     )
@@ -501,11 +530,14 @@ def dashboard_attendance_trend(request):
             rate = round((present / total * 100), 1) if total > 0 else 0
 
             is_current = bucket_start <= today <= bucket_start + timedelta(days=6)
-            label = bucket_start.strftime("%b %d") + (" (now)" if is_current else "")
+            label = _vi_day_month(bucket_start) + (" (hiện tại)" if is_current else "")
             weeks.append({"week": label, "rate": rate, "present": present})
             bucket_start += timedelta(weeks=1)
     except Exception:
-        weeks = [{"week": f"W{i+1}", "rate": 0, "present": 0} for i in range(12)]
+        weeks = [
+            {"week": f"Tuần {i + 1}", "rate": 0, "present": 0}
+            for i in range(12)
+        ]
 
     return JsonResponse({"weeks": weeks})
 
@@ -551,7 +583,7 @@ def dashboard_leave_breakdown(request):
     except Exception:
         pass
 
-    return JsonResponse({"breakdown": breakdown, "month": today.strftime("%B %Y")})
+    return JsonResponse({"breakdown": breakdown, "month": _vi_month_year(today)})
 
 
 @login_required
@@ -599,16 +631,16 @@ def dashboard_gender_split(request):
         )
 
         gender_map = {
-            "male": _("Male"),
-            "female": _("Female"),
-            "other": _("Other"),
-            "": _("Not Specified"),
+            "male": "Nam",
+            "female": "Nữ",
+            "other": "Khác",
+            "": "Chưa cập nhật",
         }
         for item in data:
             genders.append(
                 {
                     "gender": gender_map.get(
-                        item["gender"], item["gender"] or _("Not Specified")
+                        item["gender"], item["gender"] or "Chưa cập nhật"
                     ),
                     "count": item["count"],
                 }
@@ -632,20 +664,23 @@ def dashboard_announcements(request):
 
         qs = Announcement.objects.filter(
             Q(expire_date__gte=today) | Q(expire_date__isnull=True),
-        ).order_by("-created_at")[:20]
+        ).prefetch_related("attachments").order_by("-is_pinned", "-created_at")[:20]
 
         for ann in qs:
+            cover_image = ann.cover_image
             announcements.append(
                 {
                     "id": ann.id,
                     "title": ann.title,
                     "description": (ann.description or "")[:160],
                     "date": (
-                        ann.created_at.strftime("%b %d, %Y") if ann.created_at else ""
+                        ann.created_at.strftime("%d/%m/%Y") if ann.created_at else ""
                     ),
                     "expire_date": (
-                        ann.expire_date.strftime("%b %d") if ann.expire_date else None
+                        ann.expire_date.strftime("%d/%m") if ann.expire_date else None
                     ),
+                    "image_url": cover_image.url if cover_image else None,
+                    "is_pinned": ann.is_pinned,
                 }
             )
     except Exception:
@@ -694,12 +729,12 @@ def dashboard_announcement_detail(request, pk):
             "title": ann.title,
             "description": ann.description or "",
             "date": (
-                ann.created_at.strftime("%B %d, %Y at %I:%M %p")
+                ann.created_at.strftime("%d/%m/%Y lúc %H:%M")
                 if ann.created_at
                 else ""
             ),
             "expire_date": (
-                ann.expire_date.strftime("%b %d, %Y") if ann.expire_date else None
+                ann.expire_date.strftime("%d/%m/%Y") if ann.expire_date else None
             ),
             "attachments": attachments,
             "departments": departments,
@@ -752,8 +787,8 @@ def dashboard_todays_leave(request):
                     "badge_id": getattr(emp, "badge_id", "") or "",
                     "avatar": emp.get_avatar() if emp else None,
                     "leave_type": lr.leave_type_id.name if lr.leave_type_id else "—",
-                    "start": lr.start_date.strftime("%b %d"),
-                    "end": lr.end_date.strftime("%b %d"),
+                    "start": _vi_day_month(lr.start_date),
+                    "end": _vi_day_month(lr.end_date),
                     "days": float(lr.requested_days) if lr.requested_days else 1,
                 }
             )
@@ -791,8 +826,8 @@ def dashboard_upcoming_holidays(request):
                 {
                     "id": h.pk,
                     "name": h.name,
-                    "start_date": h.start_date.strftime("%b %d"),
-                    "end_date": h.end_date.strftime("%b %d") if h.end_date else None,
+                    "start_date": _vi_day_month(h.start_date),
+                    "end_date": _vi_day_month(h.end_date) if h.end_date else None,
                     "days_away": (h.start_date - today).days,
                 }
             )
@@ -825,7 +860,7 @@ def dashboard_birthdays_anniversaries(request):
                         "id": emp.id,
                         "name": emp.get_full_name(),
                         "avatar": emp.get_avatar(),
-                        "date": this_year_bday.strftime("%b %d"),
+                        "date": _vi_day_month(this_year_bday),
                         "days_away": (this_year_bday - today).days,
                     }
                 )
@@ -854,7 +889,7 @@ def dashboard_birthdays_anniversaries(request):
                         "id": emp.id,
                         "name": emp.get_full_name(),
                         "avatar": emp.get_avatar(),
-                        "date": this_year_ann.strftime("%b %d"),
+                        "date": _vi_day_month(this_year_ann),
                         "years": years,
                         "days_away": (this_year_ann - today).days,
                     }
@@ -1012,8 +1047,8 @@ def dashboard_payroll_summary(request):
 
     return JsonResponse(
         {
-            "current_month": today.strftime("%B %Y"),
-            "previous_month": prev_month_start.strftime("%B %Y"),
+            "current_month": _vi_month_year(today),
+            "previous_month": _vi_month_year(prev_month_start),
             "current": current,
             "previous": previous,
             "change_percent": change_pct,
@@ -1033,20 +1068,16 @@ def dashboard_pending_approvals(request):
 
     has_leave_perm = user.has_perm("leave.change_leaverequest")
     has_attendance_perm = user.has_perm("attendance.change_validateattendance")
-    has_asset_perm = user.has_perm("asset.change_assetrequest")
     has_shift_perm = user.has_perm("base.change_shiftrequest")
     has_wt_perm = user.has_perm("base.change_worktyperequest")
-    has_reimb_perm = user.has_perm("payroll.change_reimbursement")
     is_mgr = _is_manager(user)
 
     can_approve = any(
         [
             has_leave_perm,
             has_attendance_perm,
-            has_asset_perm,
             has_shift_perm,
             has_wt_perm,
-            has_reimb_perm,
             is_mgr,
         ]
     )
@@ -1113,27 +1144,6 @@ def dashboard_pending_approvals(request):
     except Exception:
         pending["attendance_requests"] = 0
 
-    # Asset requests
-    try:
-        from asset.models import AssetRequest
-
-        if can_approve and has_asset_perm:
-            asset_count = AssetRequest.objects.filter(
-                asset_request_status="Requested",
-            ).count()
-        else:
-            asset_count = (
-                AssetRequest.objects.filter(
-                    requested_employee_id=employee,
-                    asset_request_status="Requested",
-                ).count()
-                if employee
-                else 0
-            )
-        pending["asset_requests"] = asset_count
-    except Exception:
-        pending["asset_requests"] = 0
-
     # Shift requests
     try:
         from base.models import ShiftRequest
@@ -1195,24 +1205,6 @@ def dashboard_pending_approvals(request):
         pending["work_type_requests"] = wt_count
     except Exception:
         pending["work_type_requests"] = 0
-
-    # Reimbursement requests
-    try:
-        from payroll.models.models import Reimbursement
-
-        if can_approve and has_reimb_perm:
-            reimb_count = Reimbursement.objects.filter(status="requested").count()
-        else:
-            reimb_count = (
-                Reimbursement.objects.filter(
-                    employee_id=employee, status="requested"
-                ).count()
-                if employee
-                else 0
-            )
-        pending["reimbursements"] = reimb_count
-    except Exception:
-        pending["reimbursements"] = 0
 
     pending["total"] = sum(pending.values())
 
@@ -1316,7 +1308,7 @@ def dashboard_turnover(request):
 
             months.append(
                 {
-                    "month": month_start.strftime("%b %Y"),
+                    "month": _vi_month_year(month_start),
                     "hires": hires,
                     "exits": exits,
                     "net": hires - exits,

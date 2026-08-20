@@ -6,9 +6,9 @@
 
 {% if not announcements %}
     <div class="oh-empty h-100" style="padding-top: 50px">
-        <img src="{% static 'images/ui/search.svg' %}" class="oh-404__image" alt="{% trans '404' %}">
-        <h1 class="oh-empty__title">{% trans "No Records found." %}</h1>
-        <p class="oh-empty__subtitle">{% trans "There are no announcements at the moment." %}</p>
+        <img src="{% static 'images/ui/search.svg' %}" class="oh-404__image" alt="Không có bản tin">
+        <h1 class="oh-empty__title">Chưa có bản tin</h1>
+        <p class="oh-empty__subtitle">Bản tin mới sẽ xuất hiện tại đây.</p>
     </div>
 {% else %}
     <div class="oh-sticky-table" style="height: 300px; border: none">
@@ -26,12 +26,18 @@
                                 onclick="closeNew(this)"
                             >
                                 <div class="oh-profile__avatar mr-1">
-                                    <img
-                                        src="https://ui-avatars.com/api/?name={{announcement.title}}&background=random"
-                                        class="oh-profile__image"
-                                    >
+                                    {% if announcement.cover_image %}
+                                        <img src="{{ announcement.cover_image.url }}" class="oh-profile__image" alt="Ảnh bản tin">
+                                    {% else %}
+                                        <img
+                                            src="{% static 'images/ui/announcement.svg' %}"
+                                            class="oh-profile__image"
+                                            alt="Bản tin"
+                                        >
+                                    {% endif %}
                                 </div>
                                 <span class="oh-profile__name oh-text--dark fw-bold">
+                                    {% if announcement.is_pinned %}📌 {% endif %}
                                     {{ announcement.title }}
                                 </span>
                                 {% if announcement.created_at|date:"Y-m-d" == current_date and request.user not in announcement.viewed_by %}
@@ -46,7 +52,7 @@
                                             width:auto;
                                         "
                                     >
-                                        {% trans "NEW" %}
+                                        MỚI
                                     </span>
                                 {% endif %}
                             </a>

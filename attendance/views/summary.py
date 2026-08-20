@@ -40,6 +40,12 @@ from employee.filters import EmployeeFilter
 from employee.models import Employee
 from joydigi.decorators import hx_request_required, login_required, manager_can_enter
 
+VIETNAMESE_MONTHS = {
+    1: "Tháng 1", 2: "Tháng 2", 3: "Tháng 3", 4: "Tháng 4",
+    5: "Tháng 5", 6: "Tháng 6", 7: "Tháng 7", 8: "Tháng 8",
+    9: "Tháng 9", 10: "Tháng 10", 11: "Tháng 11", 12: "Tháng 12",
+}
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
@@ -54,9 +60,9 @@ def _iter_dates(start, end):
 
 
 def _secs_to_label(secs):
-    """Format a duration in seconds as 'Hh MMm'."""
+    """Đổi số giây thành cách ghi thời lượng dễ đọc bằng tiếng Việt."""
     secs = int(secs or 0)
-    return f"{secs // 3600}h {(secs % 3600) // 60:02d}m"
+    return f"{secs // 3600} giờ {(secs % 3600) // 60:02d} phút"
 
 
 def _count_leave_days_in_range(leave_qs, from_date, to_date, off_dates):
@@ -474,7 +480,7 @@ def build_monthly_summary(from_date, to_date, employee_qs):
             )
 
         _fh, _fm = final_hours // 3600, (final_hours % 3600) // 60
-        hours_label = f"{_fh}h {_fm:02d}m"
+        hours_label = f"{_fh} giờ {_fm:02d} phút"
 
         # Worked / Regular / Overtime breakdown for this employee over the
         # period — from raw attendance, independent of the credited
@@ -751,54 +757,54 @@ def attendance_monthly_summary_export(request):
         work_info = getattr(emp, "employee_work_info", None)
         data.append(
             {
-                str(_("Employee")): emp.get_full_name(),
-                str(_("Badge ID")): emp.badge_id or "",
-                str(_("Department")): getattr(
+                "Nhân viên": emp.get_full_name(),
+                "Mã nhân viên": emp.badge_id or "",
+                "Phòng ban": getattr(
                     getattr(work_info, "department_id", None), "department", ""
                 )
                 or "",
-                str(_("Designation")): getattr(
+                "Chức danh": getattr(
                     getattr(work_info, "job_position_id", None), "job_position", ""
                 )
                 or "",
-                str(_("Present Days")): row["present"],
-                str(_("Absent Days")): row["absent"],
-                str(_("Paid Leave Days")): row["paid_leave"],
-                str(_("Unpaid Leave Days")): row["unpaid_leave"],
-                str(_("Working Days")): total_working,
-                str(_("Week Off")): row["week_off"],
-                str(_("Holiday")): row["holiday"],
-                str(_("Hours")): row.get("hours_label", "0h 00m"),
+                "Ngày có mặt": row["present"],
+                "Ngày vắng mặt": row["absent"],
+                "Ngày nghỉ có lương": row["paid_leave"],
+                "Ngày nghỉ không lương": row["unpaid_leave"],
+                "Ngày làm việc": total_working,
+                "Ngày nghỉ hằng tuần": row["week_off"],
+                "Ngày nghỉ lễ": row["holiday"],
+                "Thời gian làm việc": row.get("hours_label", "0 giờ 00 phút"),
             }
         )
 
     columns = [
-        str(_("Employee")),
-        str(_("Badge ID")),
-        str(_("Department")),
-        str(_("Designation")),
-        str(_("Present Days")),
-        str(_("Absent Days")),
-        str(_("Paid Leave Days")),
-        str(_("Unpaid Leave Days")),
-        str(_("Working Days")),
-        str(_("Week Off")),
-        str(_("Holiday")),
-        str(_("Hours")),
+        "Nhân viên",
+        "Mã nhân viên",
+        "Phòng ban",
+        "Chức danh",
+        "Ngày có mặt",
+        "Ngày vắng mặt",
+        "Ngày nghỉ có lương",
+        "Ngày nghỉ không lương",
+        "Ngày làm việc",
+        "Ngày nghỉ hằng tuần",
+        "Ngày nghỉ lễ",
+        "Thời gian làm việc",
     ]
     df = pd.DataFrame(data, columns=columns) if data else pd.DataFrame(columns=columns)
 
     company = getattr(request, "selected_company_instance", None)
     company_title = getattr(company, "company", "") if company else ""
     company_logo = getattr(company, "icon", "") if company else ""
-    date_range_str = f"{from_date}  TO  {to_date}"
-    report_title = str(_("Monthly Attendance Summary"))
+    date_range_str = f"{from_date:%d/%m/%Y}  đến  {to_date:%d/%m/%Y}"
+    report_title = "Bảng chấm công tháng"
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        df.to_excel(writer, index=False, sheet_name="Summary", startrow=6)
+        df.to_excel(writer, index=False, sheet_name="Tổng hợp", startrow=6)
         workbook = writer.book
-        worksheet = writer.sheets["Summary"]
+        worksheet = writer.sheets["Tổng hợp"]
 
         # Header formats
         company_fmt = workbook.add_format(
@@ -853,10 +859,10 @@ def attendance_monthly_summary_export(request):
         )
 
         col_fmt_map = {
-            str(_("Present Days")): present_fmt,
-            str(_("Absent Days")): absent_fmt,
-            str(_("Paid Leave Days")): paid_fmt,
-            str(_("Unpaid Leave Days")): unpaid_fmt,
+            "Ngày có mặt": present_fmt,
+            "Ngày vắng mặt": absent_fmt,
+            "Ngày nghỉ có lương": paid_fmt,
+            "Ngày nghỉ không lương": unpaid_fmt,
         }
         for col_idx, col_name in enumerate(df.columns):
             fmt = col_fmt_map.get(col_name)
@@ -875,7 +881,7 @@ def attendance_monthly_summary_export(request):
             worksheet.set_column(col_idx, col_idx, min(max_len + 2, 40))
 
     output.seek(0)
-    filename = f"Attendance_Summary_{from_date}_{to_date}.xlsx"
+    filename = f"Bang_cham_cong_{from_date}_{to_date}.xlsx"
     response = HttpResponse(
         output.read(),
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -902,7 +908,7 @@ def attendance_monthly_summary_detail(request):
         emp = Employee.objects.get(pk=emp_id)
     except Employee.DoesNotExist:
         return HttpResponse(
-            "<p style='padding:12px;color:#6c757d;font-size:.8rem;'>Employee not found.</p>"
+            "<p style='padding:12px;color:#6c757d;font-size:.8rem;'>Không tìm thấy nhân viên.</p>"
         )
 
     context = {"metric": metric}
@@ -962,16 +968,21 @@ def attendance_monthly_summary_detail(request):
                 _r["day_type"] = "full"
             # human-readable worked / required / OT labels
             _wh, _wm = _worked // 3600, (_worked % 3600) // 60
-            _r["at_work_label"] = f"{_wh}h {_wm:02d}m" if _worked > 0 else ""
+            _r["at_work_label"] = (
+                f"{_wh} giờ {_wm:02d} phút" if _worked > 0 else ""
+            )
             if _min_secs > 0:
                 _mh, _mm = _min_secs // 3600, (_min_secs % 3600) // 60
-                _r["worked_label"] = f"{_wh}h{_wm:02d}m / {_mh}h{_mm:02d}m"
+                _r["worked_label"] = (
+                    f"{_wh} giờ {_wm:02d} phút / "
+                    f"{_mh} giờ {_mm:02d} phút"
+                )
             else:
                 _r["worked_label"] = ""
             _ot_secs = _r.get("overtime_second") or 0
             if _ot_secs > 0:
                 _oh, _om = _ot_secs // 3600, (_ot_secs % 3600) // 60
-                _r["ot_label"] = f"{_oh}h {_om:02d}m"
+                _r["ot_label"] = f"{_oh} giờ {_om:02d} phút"
                 _r["ot_approved"] = bool(_r.get("attendance_overtime_approve"))
             else:
                 _r["ot_label"] = ""
@@ -1603,7 +1614,7 @@ def _build_calendar_context(emp, from_date, to_date):
                                 elif d in att_map:
                                     _cell_sec = att_map[d].get("at_work_second") or 0
                         _ch, _cm = _cell_sec // 3600, (_cell_sec % 3600) // 60
-                        _hlabel = f"{_ch}h {_cm:02d}m" if _cell_sec > 0 else ""
+                        _hlabel = f"{_ch} giờ {_cm:02d} phút" if _cell_sec > 0 else ""
 
                         cells.append(
                             {
@@ -1621,7 +1632,7 @@ def _build_calendar_context(emp, from_date, to_date):
                             }
                         )
             weeks.append(cells)
-        months.append({"label": cur.strftime("%B %Y"), "weeks": weeks})
+        months.append({"label": f"{VIETNAMESE_MONTHS[mo]} năm {yr}", "weeks": weeks})
         mo += 1
         if mo > 12:
             mo, yr = 1, yr + 1
@@ -1691,7 +1702,7 @@ def attendance_monthly_summary_calendar(request):
     try:
         emp = Employee.objects.get(pk=emp_id)
     except Employee.DoesNotExist:
-        return HttpResponse("<p style='padding:20px;'>Employee not found.</p>")
+        return HttpResponse("<p style='padding:20px;'>Không tìm thấy nhân viên.</p>")
 
     context = _build_calendar_context(emp, from_date, to_date)
     return render(request, "attendance/monthly_summary/calendar_modal.html", context)
@@ -1729,11 +1740,11 @@ def attendance_monthly_summary_conflict_resolve(request):
         emp = Employee.objects.get(pk=emp_id)
     except Employee.DoesNotExist:
         return HttpResponse(
-            "<p style='padding:12px;color:#6c757d;'>Employee not found.</p>"
+            "<p style='padding:12px;color:#6c757d;'>Không tìm thấy nhân viên.</p>"
         )
 
     if date is None:
-        return HttpResponse("<p style='padding:12px;color:#6c757d;'>Invalid date.</p>")
+        return HttpResponse("<p style='padding:12px;color:#6c757d;'>Ngày không hợp lệ.</p>")
 
     if request.method == "POST":
         resolution = request.POST.get("resolution")
@@ -1885,21 +1896,21 @@ def attendance_monthly_summary_conflict_resolve(request):
         day_status = "absent"
 
     _STATUS_LABELS = {
-        "full": _("Full Present"),
-        "full_present": _("Full Present"),
-        "half": _("Half Day"),
-        "half_present": _("Half Day"),
-        "short": _("Short Hours"),
-        "mo": _("Missing Clock-out"),
-        "paid_leave": _("Paid Leave"),
-        "unpaid_leave": _("Unpaid Leave"),
-        "holiday": _("Holiday"),
-        "week_off": _("Week Off"),
-        "weekend": _("Weekend"),
-        "absent": _("Absent"),
-        "partial_hours": _("Partial Hours"),
-        "attendance": _("Attendance"),
-        "leave": _("Leave / Holiday"),
+        "full": "Có mặt đủ ngày",
+        "full_present": "Có mặt đủ ngày",
+        "half": "Nửa ngày",
+        "half_present": "Nửa ngày",
+        "short": "Thiếu giờ làm",
+        "mo": "Thiếu giờ ra",
+        "paid_leave": "Nghỉ có lương",
+        "unpaid_leave": "Nghỉ không lương",
+        "holiday": "Ngày nghỉ lễ",
+        "week_off": "Ngày nghỉ hằng tuần",
+        "weekend": "Cuối tuần",
+        "absent": "Vắng mặt",
+        "partial_hours": "Làm một phần giờ",
+        "attendance": "Chấm công",
+        "leave": "Nghỉ phép / nghỉ lễ",
     }
     # (background, text) pill colors — shared between the "from" (natural)
     # and "to" (override) sides of the "Changed: X → Y" banner.
@@ -1977,12 +1988,12 @@ def attendance_monthly_summary_conflict_resolve(request):
         panel_is_edited = False
 
     _ph, _pm = panel_hours_sec // 3600, (panel_hours_sec % 3600) // 60
-    panel_hours_label = f"{_ph}h {_pm:02d}m"
+    panel_hours_label = f"{_ph} giờ {_pm:02d} phút"
     panel_hours_input = f"{_ph}:{_pm:02d}"
 
     resolution_value = existing.resolution if existing else None
     if resolution_value == "partial_hours":
-        override_status_label = f"{_('Partial Hours')} ({panel_hours_label})"
+        override_status_label = f"Làm một phần giờ ({panel_hours_label})"
     else:
         override_status_label = _STATUS_LABELS.get(resolution_value, resolution_value)
     override_status_bg, override_status_fg = _STATUS_PILL_COLORS.get(
@@ -2298,7 +2309,7 @@ def attendance_monthly_summary_daily_hours_edit(request):
             "date": date,
             "from_date": from_date,
             "to_date": to_date,
-            "hours_label": f"{h}h {m:02d}m",
+            "hours_label": f"{h} giờ {m:02d} phút",
             "hours_second": total_sec,
             "computed_sec": total_sec,
             "panel": is_panel,
@@ -2323,7 +2334,7 @@ def attendance_monthly_summary_daily_hours_edit(request):
             "date": date,
             "from_date": from_date,
             "to_date": to_date,
-            "hours_label": f"{h}h {m:02d}m",
+            "hours_label": f"{h} giờ {m:02d} phút",
             "hours_second": display_sec,
             "computed_sec": computed_sec,
             "panel": is_panel,
@@ -2345,7 +2356,7 @@ def attendance_monthly_summary_daily_hours_edit(request):
         "from_date": from_date,
         "to_date": to_date,
         "hours_input": f"{h}:{m:02d}",
-        "hours_label": f"{h}h {m:02d}m",
+        "hours_label": f"{h} giờ {m:02d} phút",
         "hours_second": display_sec,
         "computed_sec": computed_sec,
         "panel": is_panel,

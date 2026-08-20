@@ -16,10 +16,6 @@ if (typeof i18nMessages === 'undefined') {
         confirmBulkReject: gettext("Do you really want to approve all the selected requests?"),
         confirmBulkApprove: gettext("Do you really want to approve all the selected requests?"),
         confirmBulkUnArchive: gettext("Do you really want to unarchive all the selected records?"),
-        totalVacancy: gettext("Total vacancy is %(vacancy)s."),
-        candidateStageChange: gettext(
-            "Are you sure to change the candidate from %(from)s stage to %(to)s stage"
-        ),
     }
 }
 
@@ -213,7 +209,7 @@ $(document).ready(function () {
 });
 
 // Row-title collapse toggle (the little count-span/oh-permission-table--collapsed
-// expander used by, e.g., recruitment/cbv/stages/title.html). This used to be
+// expander used by grouped list views. This used to be
 // registered inline via a <script> tag repeated on every single row - besides
 // re-binding the same document-level handler hundreds of times per page, that
 // row HTML is reused elsewhere to build each row's hover tooltip (title="...",
@@ -259,38 +255,6 @@ function attendanceDateChange(selectElement) {
     });
 }
 
-function getAssignedLeave(employeeElement) {
-    var employeeId = employeeElement.val();
-    $.ajax({
-        type: "get",
-        url: "/payroll/get-assigned-leaves",
-        data: { employeeId: employeeId },
-        dataType: "json",
-        success: function (response) {
-            let rows = "";
-            for (let index = 0; index < response.length; index++) {
-                const element = response[index];
-                rows =
-                    rows +
-                    `<tr class="toggle-highlight">
-                        <td class="text-sm p-3 text-[#666] rounded-lg">${element.leave_type_id__name}</td>
-                        <td class="text-sm p-3 text-[#666] rounded-lg">${element.available_days}</td>
-                        <td class="text-sm p-3 text-[#666] rounded-lg">${element.carryforward_days}</td>
-                    </tr>`;
-            }
-            $("#availableTableBody").html($(rows));
-            let newLeaves = "";
-            for (let index = 0; index < response.length; index++) {
-                const leave = response[index];
-                newLeaves =
-                    newLeaves +
-                    `<option value="${leave.leave_type_id__id}">${leave.leave_type_id__name}</option>`;
-            }
-            $("#id_leave_type_id").html(newLeaves);
-            removeHighlight();
-        },
-    });
-}
 // Keeps the header "select all" checkbox (.bulk-list-table-row) in sync with
 // the individual row checkboxes (.list-table-row) for the given table/view.
 // Used everywhere the "Select"/"Select All" quick action and per-row
@@ -675,105 +639,6 @@ function addId(element, storeKey = "selectedInstances") {
     }
     ensureSelectionStore(storeKey).attr("data-ids", JSON.stringify(ids));
     setStoredSelection(storeKey, ids);
-}
-function bulkStageUpdate(canIds, stageId, preStageId) {
-    $.ajax({
-        type: "POST",
-        url: "/recruitment/candidate-stage-change?bulk=True",
-        data: {
-            csrfmiddlewaretoken: getCookie("csrftoken"),
-            canIds: JSON.stringify(canIds),
-            stageId: stageId,
-        },
-        success: function (response, textStatus, jqXHR) {
-            if (jqXHR.status === 200) {
-                $(`#stageLoad` + preStageId).click();
-                $(`#stageLoad` + stageId).click();
-            }
-            if (response.message) {
-                Swal.fire({
-                    title: response.message,
-                    text: interpolate(
-                        i18nMessages.totalVacancy,
-                        { vacancy: response.vacancy },
-                        true
-                    ),
-                    icon: "info",
-                    confirmButtonText: i18nMessages.ok,
-                });
-            }
-        },
-    });
-}
-
-function updateCandStage(canIds, stageId, preStageId) {
-    $.ajax({
-        type: "POST",
-        url: "/recruitment/candidate-stage-change?bulk=false",
-        data: {
-            csrfmiddlewaretoken: getCookie("csrftoken"),
-            canIds: canIds,
-            stageId: stageId,
-        },
-        success: function (response, textStatus, jqXHR) {
-            if (jqXHR.status === 200) {
-                $(`#stageLoad` + preStageId).click();
-                $(`#stageLoad` + stageId).click();
-            }
-            if (response.message) {
-                Swal.fire({
-                    title: response.message,
-                    text: interpolate(
-                        i18nMessages.totalVacancy,
-                        { vacancy: response.vacancy },
-                        true
-                    ),
-                    icon: "info",
-                    confirmButtonText: i18nMessages.ok,
-                });
-            }
-        },
-    });
-}
-
-function checkSequence(element) {
-    var preStageId = $(element).data("stage_id");
-    var canIds = $(element).data("cand_id");
-    var stageOrderJson = $(element).attr("data-stage_order");
-    var stageId = $(element).val();
-
-    var parsedStageOrder = JSON.parse(stageOrderJson);
-
-    var stage = parsedStageOrder.find((stage) => stage.id == stageId);
-    var preStage = parsedStageOrder.find((stage) => stage.id == preStageId);
-    var stageOrder = parsedStageOrder.map((stage) => stage.id);
-
-    if (
-        stageOrder.indexOf(parseInt(stageId)) !=
-        stageOrder.indexOf(parseInt(preStageId)) + 1 &&
-        stage.type != "cancelled"
-    ) {
-        Swal.fire({
-            title: i18nMessages.confirm,
-            text: interpolate(
-                i18nMessages.candidateStageChange,
-                { from: preStage.stage, to: stage.stage },
-                true
-            ),
-            icon: "info",
-            showCancelButton: true,
-            confirmButtonColor: "#008000",
-            cancelButtonColor: "#6c757d",
-            confirmButtonText: i18nMessages.confirm,
-            cancelButtonText: i18nMessages.cancel,
-        }).then(function (result) {
-            if (result.isConfirmed) {
-                updateCandStage(canIds, stageId, preStageId);
-            }
-        });
-    } else {
-        updateCandStage(canIds, stageId, preStageId);
-    }
 }
 
 function reloadMessage(e) {
@@ -1364,72 +1229,6 @@ $(document).on("htmx:afterSwap", function () {
         });
     });
 });
-
-// Global "type '{' for sender/receiver data" mail-body hint, called by
-// send-mail forms (employee, recruitment candidate, etc.) after their own
-// searchWords-aware Summernote init. Previously lived only in the legacy
-// templates/sidebar.html, which the active theme's index.html no longer
-// includes -- every caller's `typeof initializeSummernote === 'function'`
-// check silently failed, so the hint dropdown never appeared even though
-// the base editor (initialized above) still worked.
-function preloadData(item, candId, preloadedData, callback) {
-    $.ajax({
-        type: "get",
-        url: `/recruitment/get-template-hint/`,
-        data: { "candidate_id": candId, 'word': item },
-        success: function (response) {
-            preloadedData[item] = response.body;
-            callback();
-            $('.note-hint-popover').hide()
-        }
-    });
-}
-
-function initializeSummernote(candId, searchWords) {
-    var preloadedData = {};
-    var mentions = Object.keys(searchWords);
-    var $body = $("[name='body']");
-    // A caller invoked more than once for the same open (e.g. a stale,
-    // re-accumulated event listener) would otherwise re-call .summernote()
-    // on an already-live editor, which can leave the source textarea
-    // visible again alongside the rich editor UI. Destroy any existing
-    // instance first so exactly one clean editor (with hint) results
-    // regardless of how many times this runs.
-    if ($body.next(".note-editor").length > 0) {
-        $body.summernote("destroy");
-    }
-    $body.summernote({
-        hint: {
-            mentions: mentions,
-            match: /\B\{(\w*)$/,
-            search: function (keyword, callback) {
-                var pattern = new RegExp(keyword, "i"); // Case-insensitive search
-                callback($.grep(this.mentions, function (item) {
-                    return pattern.test(item);
-                }));
-            },
-            content: function (item) {
-                var word = searchWords[item];
-                var insertText = `{{${word}}}`;
-
-                if (preloadedData[word]) {
-                    $("[name='body']").summernote('pasteHTML', insertText);
-                    $('.note-hint-popover').hide();
-                } else {
-                    preloadData(word, candId, preloadedData, function () {
-                        $("[name='body']").summernote('pasteHTML', insertText);
-                        $('.note-hint-popover').hide();
-                    });
-                }
-            }
-        }
-    });
-}
-
-function offboardingUpdateStage($element) {
-    submitButton = $element.closest("form").find("input[type=submit]")
-    submitButton.click()
-}
 
 const ChartTheme = {
     getColors() {

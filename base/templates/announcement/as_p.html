@@ -14,20 +14,29 @@
                 {{ field|add_class:"form-control" }}
                 {{ field.errors }}
 
-                {% if field.name == "attachments" and field.field.widget.input_type == "file" and field.field.widget.attrs.multiple %}
+                {% if field.name == "attachments" and field.field.widget.input_type == "file" %}
+                    <div id="announcementImagePreview" class="d-flex flex-wrap gap-2 mt-2"></div>
                     {% if form.instance.pk %}
-                        <div class="d-flex mt-2 mb-2">
+                        <div class="d-flex flex-wrap gap-2 mt-2 mb-2">
                             {% for file in form.instance.attachments.all %}
-                                <a href="{{ file.file.url }}" rel="noopener noreferrer" target="_blank" id="objectFileItem{{ file.id }}">
-                                    <span class="oh-file-icon oh-file-icon--pdf" onmouseover="enlargeImage('{{ file.file.url }}',$(this))"
-                                        style="width: 40px; height: 40px">
-                                        <img src="{% static 'images/ui/minus-icon.png' %}" style="display: block; width: 50%; height: 50%"
-                                            hx-confirm="{% trans 'Are you sure do you want to delete this file ?' %}"
-                                            hx-post="{% url 'remove-announcement-file' form.instance.pk file.id %}"
-                                            hx-target="#objectFileItem{{ file.id }}" hx-swap="outerHTML"
-                                            onclick="event.stopPropagation();event.preventDefault()" />
-                                    </span>
-                                </a>
+                                <div id="objectFileItem{{ file.id }}" class="position-relative" style="width: 84px">
+                                    <a href="{{ file.file.url }}" rel="noopener noreferrer" target="_blank">
+                                        {% if file.is_image %}
+                                            <img src="{{ file.file.url }}" alt="Ảnh bản tin" style="width:84px;height:64px;object-fit:cover;border-radius:8px">
+                                        {% else %}
+                                            <span class="oh-file-icon oh-file-icon--default" style="width: 40px; height: 40px"></span>
+                                        {% endif %}
+                                    </a>
+                                    <button
+                                        type="button"
+                                        class="position-absolute rounded-circle border-0 bg-danger text-white"
+                                        style="width:22px;height:22px;right:-6px;top:-6px;line-height:20px"
+                                        hx-confirm="Bạn có chắc muốn xóa tệp này không?"
+                                        hx-post="{% url 'remove-announcement-file' form.instance.pk file.id %}"
+                                        hx-target="#objectFileItem{{ file.id }}"
+                                        hx-swap="outerHTML"
+                                    >×</button>
+                                </div>
                             {% endfor %}
                         </div>
                     {% endif %}
@@ -35,7 +44,7 @@
             </div>
         {% endif %}
     {% endfor %}
-    <div class="col-12 d-flex mb-3">
+    <div class="col-12 d-flex flex-wrap mb-3">
         {% for field in form.visible_fields %}
             {% if field.field.widget.input_type == "checkbox" %}
                 <div class="col-6" id="id_{{ field.name }}_parent_div">
@@ -60,3 +69,24 @@
         {{ hidden }}
     {% endfor %}
 </div>
+
+<script>
+    (function () {
+        var input = document.getElementById("id_attachments");
+        var preview = document.getElementById("announcementImagePreview");
+        if (!input || !preview || input.dataset.previewReady === "1") return;
+        input.dataset.previewReady = "1";
+        input.addEventListener("change", function () {
+            preview.innerHTML = "";
+            Array.from(input.files || []).forEach(function (file) {
+                if (!file.type || !file.type.startsWith("image/")) return;
+                var image = document.createElement("img");
+                image.alt = "Ảnh xem trước";
+                image.style.cssText = "width:96px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb";
+                image.src = URL.createObjectURL(file);
+                image.onload = function () { URL.revokeObjectURL(image.src); };
+                preview.appendChild(image);
+            });
+        });
+    })();
+</script>

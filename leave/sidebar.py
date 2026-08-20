@@ -10,57 +10,52 @@ from base.templatetags.basefilters import is_leave_approval_manager, is_reportin
 from joydigi.menu import settings_menu
 from leave.templatetags.leavefilters import is_compensatory
 
-MENU = _("Leave")
+MENU = _("Nghỉ phép")
 IMG_SRC = "images/ui/leave.svg"
 
 SUBMENUS = [
     {
-        "menu": _("Dashboard"),
+        "menu": _("Tổng quan nghỉ phép"),
         "redirect": reverse_lazy("leave-dashboard"),
         "accessibility": "leave.sidebar.dashboard_accessibility",
     },
     {
-        "menu": _("My Leave Requests"),
+        "menu": _("Đơn nghỉ của tôi"),
         "redirect": reverse_lazy("user-request-view"),
     },
     {
-        "menu": _("Compensatory Leave Requests"),
+        "menu": _("Đơn nghỉ bù"),
         "redirect": reverse_lazy("view-compensatory-leave"),
         "accessibility": "leave.sidebar.componstory_accessibility",
     },
     {
-        "menu": _("Leave Requests"),
+        "menu": _("Duyệt đơn nghỉ"),
         "redirect": reverse_lazy("request-view"),
         "accessibility": "leave.sidebar.leave_request_accessibility",
     },
     {
-        "menu": _("Leave Allocation Request"),
+        "menu": _("Xin cấp ngày nghỉ"),
         "redirect": reverse_lazy("leave-allocation-request-view"),
     },
     {
-        "menu": _("Leave Balances"),
+        "menu": _("Số ngày nghỉ còn lại"),
         "redirect": reverse_lazy("assign-view"),
         "accessibility": "leave.sidebar.assign_accessibility",
     },
     {
-        "menu": _("Restricted Leave Periods"),
+        "menu": _("Thời gian hạn chế nghỉ"),
         "redirect": reverse_lazy("restrict-view"),
         "accessibility": "leave.sidebar.restrict_leave_accessibility",
     },
     {
-        "menu": _("Public Holidays"),
+        "menu": _("Ngày lễ"),
         "redirect": reverse_lazy("holiday-view"),
         # "accessibility": "leave.sidebar.holiday_accessibility",
     },
     {
-        "menu": _("Weekly Off Days"),
+        "menu": _("Ngày nghỉ hằng tuần"),
         "redirect": reverse_lazy("company-leave-view"),
         "accessibility": "leave.sidebar.company_leave_accessibility",
-    },
-    {
-        "menu": _("Configuration"),
-        "redirect": reverse_lazy("leave-settings-view"),
-        "accessibility": "leave.sidebar.leave_settings_accessibility",
     },
 ]
 
@@ -129,24 +124,22 @@ def leave_settings_accessibility(request, submenu, user_perms, *args, **kwargs):
 
 @settings_menu.register
 class LeaveSettings:
-    title = _("Leave")
+    title = _("Nghỉ phép")
     order = 6
     condition = lambda self, request: apps.is_installed("leave")
     items = [
         {
-            "label": _("Leave Rules"),
+            "label": _("Quy định nghỉ phép"),
             "url": reverse_lazy("leave-rules-view"),
             "accessibility": leave_rules_accessibility,
             "search_entries": [
                 {
-                    "text": _("Compensatory Leave"),
-                    "description": _("Enable compensatory leave requests"),
+                    "text": _("Nghỉ bù"),
+                    "description": _("Cho phép nhân viên gửi đơn nghỉ bù"),
                 },
                 {
-                    "text": _("Restrict Past Date Leave"),
-                    "description": _(
-                        "Only admins can create leave requests for past dates"
-                    ),
+                    "text": _("Giới hạn đơn nghỉ trong quá khứ"),
+                    "description": _("Chỉ quản trị viên được tạo đơn nghỉ cho ngày đã qua"),
                 },
             ],
         },

@@ -28,14 +28,14 @@
 <section class="rounded-md bg-white min-h-[calc(100vh_-_150px)]">
     <header class="px-4 pt-4">
         <h1 class="text-base font-semibold text-[#333]">
-            {% trans "Roles and Permissions" %}
+            Vai trò và quyền hạn
         </h1>
         <p class="mt-1 text-xs text-dark-200">
-            {% trans "Manage reusable roles and direct employee permissions from one place." %}
+            Hệ thống chỉ có ba vai trò: Quản trị viên, Trưởng nhóm và Nhân viên. Bạn có thể chọn quyền phù hợp cho từng vai trò.
         </p>
 
         <nav class="mt-4 flex border-b border-primary-200 bg-primary-100 px-2"
-             aria-label="{% trans 'Roles and Permissions' %}">
+             aria-label="Vai trò và quyền hạn">
             <a
                 href="{% url 'user-group-view' %}?tab=roles"
                 class="px-5 py-3 text-sm border-b-2 transition-colors
@@ -45,7 +45,7 @@
                         border-transparent text-dark-300 hover:text-brand-600
                     {% endif %}"
             >
-                {% trans "Roles" %}
+                Vai trò
             </a>
             <a
                 href="{% url 'user-group-view' %}?tab=permissions"
@@ -56,7 +56,7 @@
                         border-transparent text-dark-300 hover:text-brand-600
                     {% endif %}"
             >
-                {% trans "Permissions" %}
+                Quyền hạn
             </a>
         </nav>
     </header>

@@ -64,12 +64,9 @@ def readiness_check(request):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("django.contrib.auth.urls")),
-    path("accounts/", include("django.contrib.auth.urls")),
     path("", include("base.urls")),
-    path("", include("joydigi_automations.urls")),
     path("", include("joydigi_views.urls")),
     path("", include("joydigi_audit.urls")),
-    path("", include("joydigi_tour.urls")),
     path("employee/", include("employee.urls")),
     path("joydigi-widget/", include("joydigi_widgets.urls")),
     re_path(

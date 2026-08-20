@@ -6,17 +6,17 @@
     <div class="grid grid-cols-12 gap-4 items-center mb-3 pe-2">
         <!-- Left Column: 3/12 -->
         <div class="col-span-12 lg:col-span-3">
-            <h3 class="text-lg font-semibold mb-0">{% trans "Settings" %}</h3>
+            <h3 class="text-lg font-semibold mb-0">Cài đặt</h3>
         </div>
         <!-- Right Column: 9/12 -->
         <div class="col-span-12 lg:col-span-9">
             {% if request.session.selected_company and request.session.selected_company != "all" and request.session.selected_company_instance %}
                 <div class="bg-primary-100 border border-primary-500 rounded-md px-4 py-3">
                     <p class="mb-0 text-primary-600" style="font-size: 13.5px; line-height: 1.4">
-                        <strong class="text-primary-600">{% trans "Company-specific settings" %}</strong>
+                        <strong class="text-primary-600">Cài đặt riêng cho công ty</strong>
                         &nbsp;—
                         {% blocktrans with company_name=request.session.selected_company_instance.company %}
-                            You are currently setting these settings for the {{ company_name }} company specifically.
+                            Các thay đổi dưới đây chỉ áp dụng cho công ty {{ company_name }}.
                         {% endblocktrans %}
                     </p>
                 </div>
@@ -46,7 +46,7 @@
                     <input
                         type="text"
                         id="settings-content-search"
-                        placeholder="{% trans 'Search settings…' %}"
+                        placeholder="Tìm trong cài đặt…"
                         autocomplete="off"
                         class="w-full rounded border border-gray-200 bg-gray-50 pl-7 pr-7 py-1.5 text-[12.5px] text-gray-600 placeholder-gray-400 focus:outline-none focus:border-primary-400 focus:bg-white focus:ring-1 focus:ring-primary-100 transition-all"
                     />
@@ -68,11 +68,11 @@
                         <div id="settings-search-results"></div>
                         <div id="settings-search-dropdown-empty" class="hidden px-4 py-6 text-center">
                             <ion-icon name="search-outline" style="font-size:24px;" class="text-gray-300 mb-1 block mx-auto"></ion-icon>
-                            <p class="text-[12px] text-gray-400">{% trans "No settings found" %}</p>
+                            <p class="text-[12px] text-gray-400">Không tìm thấy cài đặt phù hợp</p>
                         </div>
                     </div>
                 </div>
-                <p id="settings-search-empty" class="hidden text-[11.5px] text-gray-400 text-center py-4">{% trans "No settings found" %}</p>
+                <p id="settings-search-empty" class="hidden text-[11.5px] text-gray-400 text-center py-4">Không tìm thấy cài đặt phù hợp</p>
 
                 <div class="accordion-wrapper space-y-2">
                     {% for section in settings_menu %}

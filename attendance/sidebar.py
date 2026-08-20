@@ -10,50 +10,50 @@ from base.context_processors import enable_late_come_early_out_tracking
 from base.templatetags.basefilters import is_reportingmanager
 from joydigi.menu import settings_menu
 
-MENU = _("Attendance")
+MENU = _("Chấm công")
 IMG_SRC = "images/ui/attendances.svg"
 
 
 SUBMENUS = [
     {
-        "menu": _("Dashboard"),
+        "menu": _("Tổng quan chấm công"),
         "redirect": reverse_lazy("attendance-dashboard"),
         "accessibility": "attendance.sidebar.dashboard_accessibility",
     },
     {
-        "menu": _("My Attendances"),
+        "menu": _("Công của tôi"),
         "redirect": reverse_lazy("view-my-attendance"),
     },
     {
-        "menu": _("Attendances"),
+        "menu": _("Chấm công nhân viên"),
         "redirect": reverse_lazy("attendance-view"),
         "accessibility": "attendance.sidebar.attendances_accessibility",
     },
     {
-        "menu": _("Attendance Requests"),
+        "menu": _("Yêu cầu chỉnh công"),
         "redirect": reverse_lazy("request-attendance-view"),
     },
     {
-        "menu": _("Daily Work Status"),
+        "menu": _("Tình trạng làm việc hôm nay"),
         "redirect": reverse_lazy("work-records"),
         "accessibility": "attendance.sidebar.work_record_accessibility",
     },
     {
-        "menu": _("Check-in / Check-out Log"),
+        "menu": _("Lịch sử vào và ra"),
         "redirect": reverse_lazy("attendance-activity-view"),
     },
     {
-        "menu": _("Late Arrival & Early Departure"),
+        "menu": _("Đi muộn và về sớm"),
         "redirect": reverse_lazy("late-come-early-out-view"),
         "accessibility": "attendance.sidebar.tracking_accessibility",
     },
     {
-        "menu": _("Monthly Summary"),
+        "menu": _("Bảng công tháng"),
         "redirect": reverse_lazy("attendance-monthly-summary"),
         "accessibility": "attendance.sidebar.monthly_summary_accessibility",
     },
     {
-        "menu": _("Time Policies"),
+        "menu": _("Quy định chấm công"),
         "redirect": reverse_lazy("grace-time-view"),
         "accessibility": "attendance.sidebar.validation_condition_accessibility",
     },
@@ -119,12 +119,6 @@ def validation_condition_accessibility(request, submenu, user_perms, *args, **kw
     return request.user.has_perm("attendance.view_attendancevalidationcondition")
 
 
-def biometric_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return apps.is_installed("biometric") and request.user.has_perm(
-        "base.view_biometricattendance"
-    )
-
-
 def ip_restriction_accessibility(request, submenu, user_perms, *args, **kwargs):
     return request.user.has_perm("attendance.add_attendance")
 
@@ -135,18 +129,10 @@ def attendance_rule_accessibility(request, submenu, user_perms, *args, **kwargs)
         user.has_perm("base.view_tracklatecomeearlyout")
         or user.has_perm("attendance.change_attendancegeneralsetting")
         or user.has_perm("attendance.view_attendancegeneralsetting")
-        or (
-            apps.is_installed("biometric")
-            and user.has_perm("base.view_biometricattendance")
-        )
         or user.has_perm("attendance.add_attendance")
         or (
             apps.is_installed("geofencing")
             and user.has_perm("geofencing.add_geofencing")
-        )
-        or (
-            apps.is_installed("facedetection")
-            and user.has_perm("facedetection.add_facedetection")
         )
     )
 
@@ -155,62 +141,54 @@ def geo_face_accessibility(request, submenu, user_perms, *args, **kwargs):
     has_geo = apps.is_installed("geofencing") and request.user.has_perm(
         "geofencing.add_geofencing"
     )
-    has_face = apps.is_installed("facedetection") and request.user.has_perm(
-        "facedetection.add_facedetection"
-    )
-    return has_geo or has_face
+    return has_geo
 
 
 @settings_menu.register
 class AttendanceSettings:
-    title = _("Attendance")
+    title = _("Chấm công")
     order = 5
     condition = lambda self, request: apps.is_installed("attendance")
     items = [
         {
-            "label": _("Attendance Rules"),
+            "label": _("Địa điểm và Wifi chấm công"),
+            "url": reverse_lazy("checkin-settings"),
+            "accessibility": attendance_rule_accessibility,
+            "search_entries": [
+                {"text": _("Địa điểm chấm công"), "description": _("Vĩ độ, kinh độ và bán kính cho phép")},
+                {"text": _("Wifi văn phòng"), "description": _("Quản lý các mạng Wifi được phép chấm công")},
+                {"text": _("Ngưỡng đi muộn"), "description": _("Số phút được phép đi muộn")},
+            ],
+        },
+        {
+            "label": _("Ngày nghỉ lễ"),
+            "url": reverse_lazy("holiday-view"),
+            "accessibility": attendance_rule_accessibility,
+        },
+        {
+            "label": _("Quy định chấm công"),
             "url": reverse_lazy("attendance-rule-view"),
             "accessibility": attendance_rule_accessibility,
             "search_entries": [
                 {
-                    "text": _("Enable Check In / Check Out"),
-                    "description": _(
-                        "Employees record attendance using the Check-In/Out button"
-                    ),
+                    "text": _("Bật nút chấm công vào và ra"),
+                    "description": _("Cho phép nhân viên chấm công bằng nút vào và ra"),
                 },
                 {
-                    "text": _("At-Work Tracker"),
-                    "description": _(
-                        "Show live at-work hours in the navbar inside the check-in button"
-                    ),
+                    "text": _("Theo dõi thời gian làm việc"),
+                    "description": _("Hiển thị thời gian đang làm việc ngay trên thanh menu"),
                 },
                 {
-                    "text": _("Track Late Arrival & Early Departure"),
-                    "description": _(
-                        "Track late arrivals and early departures of employees"
-                    ),
+                    "text": _("Theo dõi đi muộn và về sớm"),
+                    "description": _("Ghi nhận nhân viên đi muộn hoặc về sớm"),
                 },
                 {
-                    "text": _("IP Login Restriction"),
-                    "description": _(
-                        "Restrict attendance marking to specific IP addresses only"
-                    ),
+                    "text": _("Giới hạn mạng chấm công"),
+                    "description": _("Chỉ cho phép chấm công từ các mạng đã chọn"),
                 },
                 {
-                    "text": _("Biometric Attendance"),
-                    "description": _("Enable biometric devices for attendance marking"),
-                },
-                {
-                    "text": _("Face Detection"),
-                    "description": _(
-                        "Allow employees to mark attendance using face detection"
-                    ),
-                },
-                {
-                    "text": _("Geofencing"),
-                    "description": _(
-                        "Restrict attendance marking to a geographic area"
-                    ),
+                    "text": _("Giới hạn vị trí chấm công"),
+                    "description": _("Chỉ cho phép chấm công trong khu vực đã chọn"),
                 },
             ],
         },

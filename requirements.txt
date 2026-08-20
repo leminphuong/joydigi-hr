@@ -27,7 +27,6 @@ django-simple-history
 django-widget-tweaks
 djangorestframework==3.16.0
 djangorestframework-simplejwt==5.5.0
-drf-yasg
 et-xmlfile
 geopy
 google-api-python-client
@@ -54,7 +53,6 @@ python-bidi
 python-dateutil
 pytz
 PyYAML
-pyzk==0.9
 qrcode
 reportlab==4.0.9
 requests

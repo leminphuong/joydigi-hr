@@ -38,7 +38,7 @@
           hx-push-url="false">
 
       <div class="ms-page-header flex flex-wrap justify-between items-center mb-2">
-        <h3 class="text-lg font-semibold" style="margin:0;">{% trans "Monthly Attendance Summary" %}</h3>
+        <h3 class="text-lg font-semibold" style="margin:0;">Bảng chấm công tháng</h3>
 
         <div class="flex flex-wrap gap-1">
           <!-- Search -->
@@ -46,7 +46,7 @@
             <input type="text"
                    name="search"
                    id="ms-search-input"
-                   placeholder="{% trans 'Employee name…' %}"
+                   placeholder="Nhập tên nhân viên…"
                    autocomplete="off"
                    hx-get="{% url 'attendance-monthly-summary-table' %}"
                    hx-target="#summary-table-container"
@@ -61,7 +61,7 @@
                     style="position:absolute;top:50%;right:8px;transform:translateY(-50%);
                            background:none;border:none;cursor:pointer;color:#9ca3af;
                            padding:0;display:none;line-height:1;"
-                    title="{% trans 'Clear' %}">
+                    title="Xóa nội dung tìm kiếm">
               <ion-icon name="close-circle-outline" style="font-size:.9rem;"></ion-icon>
             </button>
           </div>
@@ -71,7 +71,7 @@
                  name="from_date"
                  id="ms-from-date"
                  value="{{ from_date }}"
-                 title="{% trans 'From' %}"
+                 title="Từ ngày"
                  hx-get="{% url 'attendance-monthly-summary-table' %}"
                  hx-target="#summary-table-container"
                  hx-trigger="change"
@@ -82,7 +82,7 @@
                  name="to_date"
                  id="ms-to-date"
                  value="{{ to_date }}"
-                 title="{% trans 'To' %}"
+                 title="Đến ngày"
                  hx-get="{% url 'attendance-monthly-summary-table' %}"
                  hx-target="#summary-table-container"
                  hx-trigger="change"
@@ -97,15 +97,15 @@
                closed via explicit JS click-toggle instead, see script below. -->
           <div class="relative">
             <span id="ms-filter-toggle" class="px-5 py-2 h-full bg-[white] rounded-md text-xs flex items-center gap-2 border border-primary-500 hover:border-primary-600 transition duration-300 cursor-pointer">
-              <ion-icon name="filter-outline"></ion-icon> {% trans "Filter" %}
+              <ion-icon name="filter-outline"></ion-icon> Bộ lọc
             </span>
             <div id="ms-filter-dropdown" class="oh-filter-dropdown absolute z-10 bg-white rounded-lg [box-shadow:0px_0px_20px_0px_rgb(0_0_0_/_8%)] min-w-[480px] p-3 right-0" style="display:none;">
               <div class="oh-accordion oh-accordion--show">
-                <div class="oh-accordion-header">{% trans "Work Info" %}</div>
+                <div class="oh-accordion-header">Thông tin công việc</div>
                 <div class="oh-accordion-body">
                   <div class="ms-filter-grid">
                     <div class="oh-input-group">
-                      <label class="oh-label">{% trans "Employee" %}</label>
+                      <label class="oh-label">Nhân viên</label>
                       <select name="employee_id" multiple class="oh-select oh-select-2 w-100">
                         {% for emp in employees %}
                           <option value="{{ emp.pk }}">{{ emp.get_full_name }}</option>
@@ -113,7 +113,7 @@
                       </select>
                     </div>
                     <div class="oh-input-group">
-                      <label class="oh-label">{% trans "Department" %}</label>
+                      <label class="oh-label">Phòng ban</label>
                       <select name="department_id" multiple class="oh-select oh-select-2 w-100">
                         {% for dept in departments %}
                           <option value="{{ dept.pk }}">{{ dept.department }}</option>
@@ -121,7 +121,7 @@
                       </select>
                     </div>
                     <div class="oh-input-group">
-                      <label class="oh-label">{% trans "Job Position" %}</label>
+                      <label class="oh-label">Chức danh</label>
                       <select name="job_position_id" multiple class="oh-select oh-select-2 w-100">
                         {% for jp in job_positions %}
                           <option value="{{ jp.pk }}">{{ jp.job_position }}</option>
@@ -129,7 +129,7 @@
                       </select>
                     </div>
                     <div class="oh-input-group">
-                      <label class="oh-label">{% trans "Shift" %}</label>
+                      <label class="oh-label">Ca làm việc</label>
                       <select name="shift_id" multiple class="oh-select oh-select-2 w-100">
                         {% for shift in shifts %}
                           <option value="{{ shift.pk }}">{{ shift.employee_shift }}</option>
@@ -137,7 +137,7 @@
                       </select>
                     </div>
                     <div class="oh-input-group">
-                      <label class="oh-label">{% trans "Work Type" %}</label>
+                      <label class="oh-label">Hình thức làm việc</label>
                       <select name="work_type_id" multiple class="oh-select oh-select-2 w-100">
                         {% for wt in work_types %}
                           <option value="{{ wt.pk }}">{{ wt.work_type }}</option>
@@ -149,7 +149,7 @@
               </div>
               <div class="flex justify-end" style="margin-top:10px;">
                 <button type="submit" id="ms-apply-filter" class="px-4 py-2 bg-primary-600 text-white rounded-md text-xs flex items-center gap-2 hover:bg-primary-800 transition duration-300">
-                  {% trans "Apply" %}
+                  Áp dụng
                 </button>
               </div>
             </div>
@@ -159,7 +159,7 @@
           <a id="export-btn"
              href="{% url 'attendance-monthly-summary-export' %}?{{ pd }}"
              class="px-4 py-2 bg-brand-600 text-white rounded-md text-xs flex items-center gap-2 hover:bg-brand-800 transition duration-300 cursor-pointer">
-            <ion-icon name="download-outline"></ion-icon> {% trans "Export XLSX" %}
+            <ion-icon name="download-outline"></ion-icon> Xuất Excel
           </a>
         </div>
       </div>
@@ -168,7 +168,7 @@
            Joydigi's .d-flex is display:flex !important, which would beat this
            inline display:none and keep the row visible even with no filters set). -->
       <div id="ms-filter-tags" class="flex-wrap align-items-center gap-2 mb-2" style="display:none;">
-        <span class="oh-titlebar__tag oh-titlebar__tag--custom">{% trans 'Filters' %}:</span>
+        <span class="oh-titlebar__tag oh-titlebar__tag--custom">Đang lọc:</span>
       </div>
     </form>
 
@@ -240,14 +240,14 @@ function msRenderFilterTags() {
 
   var searchVal = (document.getElementById('ms-search-input') || {}).value;
   if (searchVal) {
-    chips.push({ key: 'search', label: "{% trans 'Search' %}", value: searchVal });
+    chips.push({ key: 'search', label: "Tìm kiếm", value: searchVal });
   }
   var multiFields = [
-    { name: 'employee_id', label: "{% trans 'Employee' %}" },
-    { name: 'department_id', label: "{% trans 'Department' %}" },
-    { name: 'job_position_id', label: "{% trans 'Job Position' %}" },
-    { name: 'shift_id', label: "{% trans 'Shift' %}" },
-    { name: 'work_type_id', label: "{% trans 'Work Type' %}" },
+    { name: 'employee_id', label: "Nhân viên" },
+    { name: 'department_id', label: "Phòng ban" },
+    { name: 'job_position_id', label: "Chức danh" },
+    { name: 'shift_id', label: "Ca làm việc" },
+    { name: 'work_type_id', label: "Hình thức làm việc" },
   ];
   multiFields.forEach(function (f) {
     var select = document.querySelector('[name="' + f.name + '"]');
@@ -261,7 +261,7 @@ function msRenderFilterTags() {
     });
   });
 
-  wrap.innerHTML = '<span class="oh-titlebar__tag oh-titlebar__tag--custom">{% trans "Filters" %}:</span>';
+  wrap.innerHTML = '<span class="oh-titlebar__tag oh-titlebar__tag--custom">Đang lọc:</span>';
   if (!chips.length) {
     wrap.style.display = 'none';
     return;
@@ -277,7 +277,7 @@ function msRenderFilterTags() {
   var clearAll = document.createElement('span');
   clearAll.className = 'oh-titlebar__tag oh-titlebar__tag--custom';
   clearAll.style.cursor = 'pointer';
-  clearAll.title = "{% trans 'Clear All' %}";
+  clearAll.title = "Xóa tất cả bộ lọc";
   clearAll.onclick = function () { window.location.href = "{% url 'attendance-monthly-summary' %}"; };
   clearAll.innerHTML = '<ion-icon name="close-outline"></ion-icon>';
   wrap.appendChild(clearAll);
@@ -373,7 +373,7 @@ window.msCalHoursSave = function (empPk, dateStr, fromDate, toDate, computedSec)
       // Update calendar cell label
       var calCell = document.getElementById('cal-day-hours-' + empPk + '-' + dateStr);
       if (calCell) {
-        var label = h + 'h ' + (m < 10 ? '0' + m : m) + 'm';
+        var label = h + ' giờ ' + (m < 10 ? '0' + m : m) + ' phút';
         calCell.innerHTML = '<span class="cal-hours-label edited">' + label + '</span>'
           + '<span style="color:#7c3aed;font-size:.52rem;line-height:1;">&#9998;</span>';
       }
@@ -405,15 +405,15 @@ window.msCalHoursSave = function (empPk, dateStr, fromDate, toDate, computedSec)
         var hasOT = otSec > 0;
         var excessHtml = excessSec > 0
           ? '<span style="font-size:.68rem;color:#9ca3af;">+</span>' +
-            '<span style="font-size:.7rem;background:#fdf4ff;color:#7e22ce;border-radius:4px;padding:2px 7px;border:1px solid #e9d5ff;font-weight:600;" title="Hours beyond the OT cap">&#9663; ' + eH + 'h ' + eM + 'm</span>'
+            '<span style="font-size:.7rem;background:#fdf4ff;color:#7e22ce;border-radius:4px;padding:2px 7px;border:1px solid #e9d5ff;font-weight:600;" title="Số giờ vượt giới hạn làm thêm">&#9663; ' + eH + ' giờ ' + eM + ' phút</span>'
           : '';
         attEl.innerHTML =
-          '<span style="font-size:.7rem;background:#f0fdf4;color:#166534;border-radius:4px;padding:2px 7px;border:1px solid #bbf7d0;font-weight:600;">Reg ' + rH + 'h ' + rM + 'm</span>' +
+          '<span style="font-size:.7rem;background:#f0fdf4;color:#166534;border-radius:4px;padding:2px 7px;border:1px solid #bbf7d0;font-weight:600;">Giờ chính ' + rH + ' giờ ' + rM + ' phút</span>' +
           '<span style="font-size:.68rem;color:#9ca3af;">+</span>' +
-          '<span style="font-size:.7rem;background:' + (hasOT ? '#fef3c7' : '#f9fafb') + ';color:' + (hasOT ? '#92400e' : '#9ca3af') + ';border-radius:4px;padding:2px 7px;border:1px solid ' + (hasOT ? '#fde68a' : '#e5e7eb') + ';font-weight:600;">OT ' + oH + 'h ' + oM + 'm</span>' +
+          '<span style="font-size:.7rem;background:' + (hasOT ? '#fef3c7' : '#f9fafb') + ';color:' + (hasOT ? '#92400e' : '#9ca3af') + ';border-radius:4px;padding:2px 7px;border:1px solid ' + (hasOT ? '#fde68a' : '#e5e7eb') + ';font-weight:600;">Làm thêm ' + oH + ' giờ ' + oM + ' phút</span>' +
           excessHtml +
           '<span style="font-size:.68rem;color:#9ca3af;">=</span>' +
-          '<span style="font-size:.7rem;background:#eff6ff;color:#1e40af;border-radius:4px;padding:2px 7px;border:1px solid #bfdbfe;font-weight:700;">' + tH + 'h ' + tM + 'm total</span>';
+          '<span style="font-size:.7rem;background:#eff6ff;color:#1e40af;border-radius:4px;padding:2px 7px;border:1px solid #bfdbfe;font-weight:700;">Tổng ' + tH + ' giờ ' + tM + ' phút</span>';
       }
     });
 };

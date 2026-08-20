@@ -44,18 +44,5 @@
 </script>
 <script src="{% static 'joydigi_theme/assets/js/footerScripts.js' %}"></script>
 
-<!-- Product tour engine (joydigi_tour) -->
-{% if request.user.is_authenticated %}
-<script>
-  window.JOYDIGI_TOUR = {
-    page: "{{ request.resolver_match.url_name|default:'' }}",
-    path: "{{ request.path|escapejs }}",
-    activeUrl: "{% url 'tour-active' %}",
-    progressUrl: "{% url 'tour-progress' %}"
-  };
-</script>
-<script src="{% static 'build/js/tourController.js' %}?v=1"></script>
-{% endif %}
-
 {% block footer_scripts %}
 {% endblock %}

@@ -23,14 +23,14 @@
             <input
                 type="text"
                 class="perm-search w-full text-sm border border-dark-50 rounded-md ps-8 pe-3 py-1.5 focus:border-primary-600 focus-visible:outline-0"
-                placeholder="{% trans 'Search module or feature…' %}"
-                aria-label="{% trans 'Search permissions' %}"
+                placeholder="Tìm chức năng…"
+                aria-label="Tìm quyền hạn"
                 autocomplete="off"
             >
             <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-xs opacity-50"></i>
         </div>
         <span class="text-[11px] text-dark-200 whitespace-nowrap perm-total-selected">
-            <span class="font-semibold text-primary-600">0</span> {% trans "selected" %}
+            <span class="font-semibold text-primary-600">0</span> đã chọn
         </span>
     </div>
 
@@ -51,7 +51,7 @@
 
         <div class="flex-1 min-w-0 max-h-[420px] overflow-y-auto p-3">
             <p class="text-[11px] text-dark-200 mb-2 perm-empty-search hidden">
-                {% trans "No features match your search." %}
+                Không có chức năng phù hợp.
             </p>
 
             {% for perm in permissions %}
@@ -64,7 +64,7 @@
                         <div>
                             <p class="text-sm font-semibold text-dark-400">{{ perm.app }}</p>
                             <p class="text-[11px] text-dark-200">
-                                {% trans "Permissions from this employee's groups in the selected company (plus any direct permissions)." %}
+                                Gồm quyền từ vai trò và quyền riêng của nhân viên tại công ty đang chọn.
                             </p>
                         </div>
                         <div class="flex flex-wrap gap-1">
@@ -72,25 +72,25 @@
                                 type="button"
                                 class="perm-preset px-2 py-1 text-[11px] rounded border border-dark-50 text-dark-300 hover:bg-dark-50"
                                 data-preset="view"
-                                title="{% trans 'Only allow viewing' %}"
+                                title="Chỉ cho phép xem"
                             >
-                                {% trans "View only" %}
+                                Chỉ xem
                             </button>
                             <button
                                 type="button"
                                 class="perm-preset px-2 py-1 text-[11px] rounded border border-dark-50 text-dark-300 hover:bg-dark-50"
                                 data-preset="full"
-                                title="{% trans 'Allow create, view, edit, delete and other actions' %}"
+                                title="Cho phép toàn bộ thao tác"
                             >
-                                {% trans "Full access" %}
+                                Toàn quyền
                             </button>
                             <button
                                 type="button"
                                 class="perm-preset px-2 py-1 text-[11px] rounded border border-dark-50 text-dark-300 hover:bg-dark-50"
                                 data-preset="clear"
-                                title="{% trans 'Clear all in this module' %}"
+                                title="Bỏ toàn bộ quyền trong mục này"
                             >
-                                {% trans "Clear" %}
+                                Bỏ chọn
                             </button>
                         </div>
                     </div>
@@ -103,31 +103,31 @@
                                         type="checkbox"
                                         class="custom-checkbox w-4 h-4 bg-[#E9EDF7] rounded-sm text-primary-600 cursor-pointer row-permission__select-all"
                                         id="id{{ perm.app }}Permissions"
-                                        title="{% trans 'Select all for this module' %}"
+                                        title="Chọn toàn bộ quyền trong mục này"
                                         onchange="typeof selectAllPermissions === 'function' && selectAllPermissions(this)"
                                     >
                                 </th>
                                 <th class="text-xs font-medium p-2 text-dark-300 bg-white">
-                                    {% trans "Feature" %}
+                                    Chức năng
                                 </th>
-                                <th class="text-xs text-center font-medium p-2 text-dark-300 w-16 bg-white" title="{% trans 'Can create' %}">
-                                    {% trans "Create" %}
+                                <th class="text-xs text-center font-medium p-2 text-dark-300 w-16 bg-white" title="Được tạo">
+                                    Tạo
                                 </th>
-                                <th class="text-xs text-center font-medium p-2 text-dark-300 w-16 bg-white" title="{% trans 'Can view' %}">
-                                    {% trans "View" %}
+                                <th class="text-xs text-center font-medium p-2 text-dark-300 w-16 bg-white" title="Được xem">
+                                    Xem
                                 </th>
-                                <th class="text-xs text-center font-medium p-2 text-dark-300 w-16 bg-white" title="{% trans 'Can edit' %}">
-                                    {% trans "Edit" %}
+                                <th class="text-xs text-center font-medium p-2 text-dark-300 w-16 bg-white" title="Được sửa">
+                                    Sửa
                                 </th>
-                                <th class="text-xs text-center font-medium p-2 text-dark-300 w-16 bg-white" title="{% trans 'Can delete' %}">
-                                    {% trans "Delete" %}
+                                <th class="text-xs text-center font-medium p-2 text-dark-300 w-16 bg-white" title="Được xóa">
+                                    Xóa
                                 </th>
-                                <th class="text-xs text-center font-medium p-2 text-dark-300 w-16 bg-white" title="{% trans 'Can export' %}">
-                                    {% trans "Export" %}
+                                <th class="text-xs text-center font-medium p-2 text-dark-300 w-16 bg-white" title="Được xuất tệp">
+                                    Xuất tệp
                                 </th>
                                 {% if perm.has_custom_permissions %}
-                                    <th class="text-xs text-left font-medium p-2 text-dark-300 min-w-[7rem] bg-white" title="{% trans 'Extra actions defined for this feature' %}">
-                                        {% trans "Other" %}
+                                    <th class="text-xs text-left font-medium p-2 text-dark-300 min-w-[7rem] bg-white" title="Các thao tác khác của chức năng">
+                                        Khác
                                     </th>
                                 {% endif %}
                             </tr>
@@ -144,7 +144,7 @@
                                                 type="checkbox"
                                                 id="id_{{ perm.app }}{{ model.model_name }}"
                                                 class="custom-checkbox w-4 h-4 bg-[#E9EDF7] rounded-sm text-primary-600 cursor-pointer row-permission"
-                                                title="{% trans 'Select all for this feature' %}"
+                                                title="Chọn toàn bộ quyền của chức năng"
                                             >
                                         </td>
                                         <td class="text-sm p-2 text-[#666] align-middle">
@@ -156,7 +156,7 @@
                                                 class="custom-checkbox w-4 h-4 bg-[#E9EDF7] rounded-sm text-primary-600 cursor-pointer"
                                                 name="permissions"
                                                 value="add_{{ model.model_name }}"
-                                                title="{% trans 'Create' %}"
+                                                title="Tạo"
                                                 data-group-id="{{ group.id }}"
                                                 data-group-name="{{ group.name }}"
                                                 onchange="if (!$(this).is(':checked')) { $(this).closest('tr').find('.row-permission').prop('checked', false) }"
@@ -168,7 +168,7 @@
                                                 class="custom-checkbox w-4 h-4 bg-[#E9EDF7] rounded-sm text-primary-600 cursor-pointer view-permission"
                                                 name="permissions"
                                                 value="view_{{ model.model_name }}"
-                                                title="{% trans 'View' %}"
+                                                title="Xem"
                                                 data-group-id="{{ group.id }}"
                                                 data-group-name="{{ group.name }}"
                                                 onchange="if (!$(this).is(':checked')) { $(this).closest('tr').find('.row-permission').prop('checked', false) }"
@@ -180,7 +180,7 @@
                                                 class="custom-checkbox w-4 h-4 bg-[#E9EDF7] rounded-sm text-primary-600 cursor-pointer"
                                                 name="permissions"
                                                 value="change_{{ model.model_name }}"
-                                                title="{% trans 'Edit' %}"
+                                                title="Sửa"
                                                 data-group-id="{{ group.id }}"
                                                 data-group-name="{{ group.name }}"
                                                 onchange="if (!$(this).is(':checked')) { $(this).closest('tr').find('.row-permission').prop('checked', false) }"
@@ -192,7 +192,7 @@
                                                 class="custom-checkbox w-4 h-4 bg-[#E9EDF7] rounded-sm text-primary-600 cursor-pointer"
                                                 name="permissions"
                                                 value="delete_{{ model.model_name }}"
-                                                title="{% trans 'Delete' %}"
+                                                title="Xóa"
                                                 data-group-id="{{ group.id }}"
                                                 data-group-name="{{ group.name }}"
                                                 onchange="if (!$(this).is(':checked')) { $(this).closest('tr').find('.row-permission').prop('checked', false) }"
@@ -204,7 +204,7 @@
                                                 class="custom-checkbox w-4 h-4 bg-[#E9EDF7] rounded-sm text-primary-600 cursor-pointer"
                                                 name="permissions"
                                                 value="export_{{ model.model_name }}"
-                                                title="{% trans 'Export' %}"
+                                                title="Xuất tệp"
                                                 data-group-id="{{ group.id }}"
                                                 data-group-name="{{ group.name }}"
                                                 onchange="if (!$(this).is(':checked')) { $(this).closest('tr').find('.row-permission').prop('checked', false) }"

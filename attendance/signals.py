@@ -31,12 +31,12 @@ def attendance_post_save(sender, instance, **kwargs):
     else:
         status, message = "ABS", _("Incomplete half minimum hour")
     try:
-        work_record, created = WorkRecords.objects.get_or_create(
+        work_record, created = WorkRecords.objects.entire().get_or_create(
             date=instance.attendance_date,
             employee_id=instance.employee_id,
         )
     except WorkRecords.MultipleObjectsReturned:
-        work_records = WorkRecords.objects.filter(
+        work_records = WorkRecords.objects.entire().filter(
             date=instance.attendance_date,
             employee_id=instance.employee_id,
         ).order_by("id")
@@ -46,9 +46,6 @@ def attendance_post_save(sender, instance, **kwargs):
         if work_records.count() > 1:
             ids = work_records.exclude(id=work_record.id).values_list("id", flat=True)
             WorkRecords._base_manager.filter(id__in=ids).delete()
-
-    except Exception as e:
-        print(e)
 
     work_record.employee_id = instance.employee_id
     work_record.date = instance.attendance_date

@@ -1,6 +1,6 @@
-{% extends "settings.html" %}
+{% extends "index.html" %}
 
-{% block settings %}
+{% block content %}
 <style>
     .checkin-shell {
         --ci-surface: #ffffff;
@@ -11,6 +11,8 @@
         --ci-primary: #2563eb;
         --ci-primary-soft: #eff6ff;
         color: var(--ci-text);
+        padding-top: 24px;
+        padding-bottom: 32px;
     }
     .checkin-hero {
         position: relative;
@@ -86,11 +88,11 @@
     @media (max-width: 760px) { .checkin-hero { align-items: flex-start; flex-direction: column; padding: 19px; } .checkin-stats { justify-content: flex-start; } .checkin-stat { min-width: 96px; } .checkin-grid, .checkin-list-grid { grid-template-columns: 1fr; } .checkin-grid .checkin-card:first-child { grid-column: auto; } }
 </style>
 
-<section class="checkin-shell">
+<section class="checkin-shell oh-wrapper">
     <header class="checkin-hero">
         <div>
-            <div class="checkin-kicker"><ion-icon name="settings-outline"></ion-icon> Thiết lập hệ thống</div>
-            <h1 class="checkin-title">Cài đặt chấm công</h1>
+            <div class="checkin-kicker"><ion-icon name="location-outline"></ion-icon> Thiết lập chấm công</div>
+            <h1 class="checkin-title">Địa điểm và Wifi</h1>
             <p class="checkin-subtitle">Quản lý quy định, vị trí và mạng Wifi cho công ty <strong>{{ company }}</strong>.</p>
         </div>
         <div class="checkin-stats">

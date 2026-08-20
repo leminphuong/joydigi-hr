@@ -23,6 +23,52 @@ class JoydigiDemoDataTests(TestCase):
         self.assertEqual(response.status_code, 302)
         seeder.assert_called_once()
 
+    @patch("base.views.initialize_database_condition", return_value=False)
+    @patch("base.views.is_checkin_admin", return_value=True)
+    @patch("base.demo_data.modules.checkin.seed_joydigi_checkin_demo")
+    def test_admin_can_open_and_run_loader_after_initialization(
+        self, seeder, _admin_access, _initialization_condition
+    ):
+        admin_user = JoydigiUser.objects.create_superuser(
+            username="demo_loader_admin",
+            email="demo-loader-admin@test.joydigi",
+            password="test-password",
+        )
+        admin_user.is_staff = True
+        admin_user.is_superuser = True
+        admin_user.save(update_fields=["is_staff", "is_superuser"])
+        seeder.return_value = {
+            "employees": 15,
+            "attendance_from": "2026-07-01",
+            "attendance_to": "2026-08-20",
+        }
+        self.client.force_login(admin_user)
+
+        response = self.client.get(reverse("load-demo-database"))
+        self.assertEqual(response.status_code, 200, response.get("Location"))
+        self.assertContains(response, "Xác nhận tạo dữ liệu JOYDIGI")
+
+        response = self.client.post(
+            reverse("load-demo-database"),
+            {"load_data_password": "demo-secret"},
+        )
+        self.assertEqual(response.status_code, 302)
+        seeder.assert_called_once()
+
+    @patch("base.views.initialize_database_condition", return_value=False)
+    @patch("base.views.is_checkin_admin", return_value=False)
+    def test_non_admin_cannot_open_loader_after_initialization(
+        self, _admin_access, _initialization_condition
+    ):
+        regular_user = JoydigiUser.objects.create_user(
+            username="regular_demo_loader_user",
+            password="test-password",
+        )
+        self.client.force_login(regular_user)
+
+        response = self.client.get(reverse("load-demo-database"))
+        self.assertEqual(response.status_code, 302)
+
     def test_seeder_creates_15_people_and_two_months_of_checkin_data(self):
         result = seed_joydigi_checkin_demo(today=date(2026, 8, 20))
 

@@ -38,7 +38,15 @@
     <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Bảng tin</span>
 </a>
 {% if checkin_admin %}
-<a href="{% url 'checkin-settings' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Cài đặt" hx-get="{% url 'checkin-settings' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+<a href="{% url 'checkin-settings' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Địa điểm và Wifi" title="Địa điểm và Wifi" hx-get="{% url 'checkin-settings' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+    <ion-icon name="location-outline" class="w-4.5 h-4.5 flex-shrink-0 text-lg transition duration-300"></ion-icon>
+    <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Địa điểm và Wifi</span>
+</a>
+<a href="{% url 'holiday-view' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Ngày nghỉ lễ" title="Ngày nghỉ lễ" hx-get="{% url 'holiday-view' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+    <ion-icon name="calendar-outline" class="w-4.5 h-4.5 flex-shrink-0 text-lg transition duration-300"></ion-icon>
+    <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Ngày nghỉ lễ</span>
+</a>
+<a href="{% url 'settings' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Cài đặt" title="Cài đặt" hx-get="{% url 'settings' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
     <img src="{% static 'images/ui/cog.svg' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
     <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Cài đặt</span>
 </a>

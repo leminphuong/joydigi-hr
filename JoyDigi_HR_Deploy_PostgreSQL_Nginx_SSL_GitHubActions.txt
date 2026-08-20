@@ -1,0 +1,818 @@
+JOYDIGI HR - TÀI LIỆU TRIỂN KHAI CHUẨN
+PostgreSQL + Django + Gunicorn + systemd + aaPanel Nginx + SSL Let's Encrypt + GitHub Actions
+========================================================================================
+Cập nhật theo cấu hình thực tế ngày 20/08/2026
+
+
+1. Thông tin hệ thống chuẩn
+---------------------------
+Mục tiêu triển khai:
+- Domain ứng dụng: https://checkin.joydigi.net
+- Repository: git@github.com:leminphuong/joydigi-hr.git
+- Thư mục ứng dụng: /var/www/joydigi-hr
+- Linux user chạy service: root
+- Virtualenv: /var/www/joydigi-hr/venv
+- Django WSGI: joydigi.wsgi:application
+- Gunicorn bind: 127.0.0.1:8000
+- systemd service: joydigi-hr.service
+- Nginx thực tế: aaPanel Nginx tại /www/server/nginx/sbin/nginx
+- aaPanel vhost: /www/server/panel/vhost/nginx/checkin.joydigi.net.conf
+- PostgreSQL host: localhost:5432
+- PostgreSQL role: postgres
+- Database: joydigi_hr
+- Connection URL hiện tại: postgresql://postgres:admin123@localhost:5432/joydigi_hr
+- SSL certificate: /etc/letsencrypt/live/checkin.joydigi.net/fullchain.pem
+- SSL private key: /etc/letsencrypt/live/checkin.joydigi.net/privkey.pem
+
+NOTE BẢO MẬT: mật khẩu admin123 là thông tin nhạy cảm và khá yếu. Sau khi triển khai ổn định nên đổi sang mật khẩu mạnh, cập nhật .env và restart joydigi-hr. Không commit .env lên GitHub.
+
+2. Kiến trúc hoạt động
+----------------------
+Internet
+  -> checkin.joydigi.net
+  -> aaPanel Nginx :80 / :443
+  -> proxy_pass http://127.0.0.1:8000
+  -> Gunicorn
+  -> Django (joydigi.wsgi:application)
+  -> PostgreSQL localhost:5432
+  -> database joydigi_hr
+
+PostgreSQL không cần domain riêng và không cần mở port 5432 ra Internet khi Django và PostgreSQL chạy cùng VPS.
+
+3. Cài package từ đầu
+---------------------
+Chạy bằng root:
+
+apt update
+apt upgrade -y
+apt install -y git curl postgresql postgresql-contrib python3 python3-pip python3-venv python3-dev build-essential libpq-dev gettext nginx certbot
+
+Bật PostgreSQL:
+
+systemctl enable --now postgresql
+systemctl status postgresql --no-pager
+
+Kiểm tra:
+
+psql --version
+python3 --version
+
+4. Tạo PostgreSQL - không tạo user phụ
+--------------------------------------
+Đăng nhập PostgreSQL:
+
+sudo -u postgres psql
+
+Trong psql:
+
+ALTER USER postgres WITH PASSWORD 'admin123';
+CREATE DATABASE joydigi_hr OWNER postgres;
+\l
+\q
+
+Kiểm tra kết nối:
+
+PGPASSWORD='admin123' psql -h localhost -p 5432 -U postgres -d joydigi_hr -c "SELECT current_database(), current_user;"
+
+Kết quả mong đợi:
+joydigi_hr | postgres
+
+Chuỗi kết nối:
+postgresql://postgres:admin123@localhost:5432/joydigi_hr
+
+5. Clone source từ GitHub
+-------------------------
+Nếu /var/www/joydigi-hr chưa tồn tại:
+
+git clone git@github.com:leminphuong/joydigi-hr.git /var/www/joydigi-hr
+cd /var/www/joydigi-hr
+
+Nếu báo destination path already exists and is not an empty directory, KHÔNG xóa media ngay. Backup trước:
+
+cd /var/www
+mv /var/www/joydigi-hr/media /var/www/joydigi-hr-media-backup 2>/dev/null || true
+mv /var/www/joydigi-hr /var/www/joydigi-hr-old-$(date +%Y%m%d-%H%M%S)
+git clone git@github.com:leminphuong/joydigi-hr.git /var/www/joydigi-hr
+
+Nếu có media backup:
+
+rm -rf /var/www/joydigi-hr/media
+mv /var/www/joydigi-hr-media-backup /var/www/joydigi-hr/media
+
+Kiểm tra:
+
+cd /var/www/joydigi-hr
+find . -maxdepth 3 -name wsgi.py -print
+
+Project hiện tại phải thấy:
+./joydigi/wsgi.py
+
+6. Tạo virtualenv và cài dependency
+-----------------------------------
+cd /var/www/joydigi-hr
+python3 -m venv venv
+./venv/bin/python -m pip install --upgrade pip setuptools wheel
+./venv/bin/pip install -r requirements.txt
+./venv/bin/pip install gunicorn
+
+Kiểm tra:
+
+ls -la /var/www/joydigi-hr/venv/bin/gunicorn
+./venv/bin/python --version
+./venv/bin/gunicorn --version
+
+NOTE: service của hệ thống này dùng venv, KHÔNG phải .venv.
+
+7. Cấu hình .env
+----------------
+Tạo hoặc sửa:
+
+nano /var/www/joydigi-hr/.env
+
+Các giá trị tối thiểu cần kiểm tra:
+
+DEBUG=False
+TIME_ZONE=Asia/Ho_Chi_Minh
+
+DB_ENGINE=django.db.backends.postgresql
+DB_NAME=joydigi_hr
+DB_USER=postgres
+DB_PASSWORD=admin123
+DB_HOST=localhost
+DB_PORT=5432
+DATABASE_URL=postgresql://postgres:admin123@localhost:5432/joydigi_hr
+
+ALLOWED_HOSTS=checkin.joydigi.net,localhost,127.0.0.1
+CSRF_TRUSTED_ORIGINS=https://checkin.joydigi.net
+
+Tạo SECRET_KEY mới nếu cần:
+
+./venv/bin/python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+
+Tạo DB_INIT_PASSWORD nếu project dùng màn Initialize Database:
+
+openssl rand -hex 32
+
+.gitignore nên có:
+
+.env
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+Không đưa password hoặc private key vào repository.
+
+8. Kiểm tra Django, migration và static
+---------------------------------------
+cd /var/www/joydigi-hr
+
+./venv/bin/python manage.py check
+./venv/bin/python manage.py migrate
+./venv/bin/python manage.py collectstatic --noinput
+
+Kết quả manage.py check hiện tại hợp lệ:
+System check identified no issues (0 silenced).
+
+Nếu migrate báo:
+Your models in app(s): 'joydigi_meet' have changes that are not yet reflected in a migration
+
+KHÔNG tạo migration mù trên production. Kiểm tra trước:
+
+./venv/bin/python manage.py makemigrations --check --dry-run
+./venv/bin/python manage.py makemigrations joydigi_meet --dry-run --verbosity 3
+
+Chỉ khi thay đổi model là chủ ý:
+
+./venv/bin/python manage.py makemigrations joydigi_meet
+./venv/bin/python manage.py migrate
+
+git status
+# Commit file migration mới về repository nếu migration là hợp lệ.
+
+Các warning hiện tại không làm app chết:
+- fitz API deprecated -> sau này chuyển code sang pymupdf.
+- Accessing database during app initialization -> nên bỏ query DB khỏi AppConfig.ready()/import-time.
+- Python 3.10 Google API FutureWarning -> nên lên Python 3.11/3.12 khi có lịch bảo trì.
+- Static duplicate candidate.js / pipeline.js -> Django lấy file gặp đầu tiên; kiểm tra lại nếu UI có lỗi.
+
+9. Tạo systemd Gunicorn service
+-------------------------------
+Tạo file:
+
+nano /etc/systemd/system/joydigi-hr.service
+
+Nội dung chuẩn:
+
+[Unit]
+Description=JoyDigi HR Django Gunicorn
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/var/www/joydigi-hr
+Environment="PATH=/var/www/joydigi-hr/venv/bin"
+ExecStart=/var/www/joydigi-hr/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8000 --timeout 120 --access-logfile - --error-logfile - joydigi.wsgi:application
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
+Áp dụng:
+
+systemctl daemon-reload
+systemctl enable joydigi-hr
+systemctl restart joydigi-hr
+systemctl status joydigi-hr --no-pager -l
+
+Kiểm tra port:
+
+ss -lntp | grep 8000
+
+Test local:
+
+curl -I http://127.0.0.1:8000
+
+HTTP/1.1 302 Found + Location: /login/?next=/ là ĐÚNG vì trang chủ yêu cầu đăng nhập.
+
+10. aaPanel Nginx - lưu ý rất quan trọng
+----------------------------------------
+VPS này có Nginx Ubuntu và Nginx của aaPanel. Nginx thực sự đang chạy là:
+
+/www/server/nginx/sbin/nginx
+
+Cấu hình chính:
+
+/www/server/nginx/conf/nginx.conf
+
+Vhost:
+
+/www/server/panel/vhost/nginx/checkin.joydigi.net.conf
+
+Do đó KHÔNG dùng systemctl reload nginx cho reload vhost aaPanel, vì systemd ExecReload gọi /usr/sbin/nginx và từng báo:
+invalid PID number "" in "/run/nginx.pid"
+
+Lệnh chuẩn:
+
+/www/server/nginx/sbin/nginx -t -c /www/server/nginx/conf/nginx.conf
+/etc/init.d/nginx reload
+
+Hoặc:
+
+/www/server/nginx/sbin/nginx -s reload -c /www/server/nginx/conf/nginx.conf
+
+11. Vhost HTTP + HTTPS chuẩn
+----------------------------
+File:
+/www/server/panel/vhost/nginx/checkin.joydigi.net.conf
+
+Cấu hình:
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name checkin.joydigi.net;
+
+    location ^~ /.well-known/acme-challenge/ {
+        alias /var/www/letsencrypt/.well-known/acme-challenge/;
+        default_type text/plain;
+        allow all;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name checkin.joydigi.net;
+
+    ssl_certificate /etc/letsencrypt/live/checkin.joydigi.net/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/checkin.joydigi.net/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    client_max_body_size 100M;
+
+    location /static/ {
+        alias /var/www/joydigi-hr/staticfiles/;
+        expires 30d;
+        access_log off;
+    }
+
+    location /media/ {
+        alias /var/www/joydigi-hr/media/;
+        expires 30d;
+        access_log off;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 120s;
+        proxy_read_timeout 120s;
+    }
+
+    access_log /www/wwwlogs/checkin.joydigi.net.log;
+    error_log /www/wwwlogs/checkin.joydigi.net.error.log;
+}
+
+Test + reload:
+
+/www/server/nginx/sbin/nginx -t -c /www/server/nginx/conf/nginx.conf
+/etc/init.d/nginx reload
+
+12. DNS và SSL Let's Encrypt
+----------------------------
+DNS hiện tại:
+A checkin.joydigi.net -> 155.103.50.61
+AAAA -> không có
+
+Tạo thư mục ACME:
+
+mkdir -p /var/www/letsencrypt/.well-known/acme-challenge
+echo "ssl-test" > /var/www/letsencrypt/.well-known/acme-challenge/test.txt
+chmod -R 755 /var/www/letsencrypt
+
+Test bỏ qua DNS, ép vào Nginx local:
+
+curl --resolve checkin.joydigi.net:80:127.0.0.1 http://checkin.joydigi.net/.well-known/acme-challenge/test.txt
+
+Phải ra:
+ssl-test
+
+Test public:
+
+curl -I http://checkin.joydigi.net/.well-known/acme-challenge/test.txt
+
+Phải ra HTTP 200 trước khi xin cert.
+
+Xin certificate:
+
+certbot certonly --webroot -w /var/www/letsencrypt -d checkin.joydigi.net
+
+Certificate hiện tại:
+/etc/letsencrypt/live/checkin.joydigi.net/fullchain.pem
+/etc/letsencrypt/live/checkin.joydigi.net/privkey.pem
+
+Certificate đã cấp thành công ngày 20/08/2026 và lần cấp hiện tại hết hạn 18/11/2026. Certbot đã tạo scheduled task tự renew.
+
+Test:
+
+curl -I https://checkin.joydigi.net
+curl -I http://checkin.joydigi.net
+
+HTTPS mong đợi 302 tới /login/?next=/.
+HTTP mong đợi 301 tới https://checkin.joydigi.net/.
+
+13. Tự gia hạn SSL với aaPanel Nginx
+------------------------------------
+Test renew:
+
+certbot renew --dry-run
+
+Vì Nginx đang dùng aaPanel, nên sau khi certificate renew cần reload aaPanel Nginx. Có thể tạo deploy hook:
+
+mkdir -p /etc/letsencrypt/renewal-hooks/deploy
+nano /etc/letsencrypt/renewal-hooks/deploy/reload-aapanel-nginx.sh
+
+Nội dung:
+
+#!/bin/sh
+/etc/init.d/nginx reload
+
+Cho phép chạy:
+
+chmod +x /etc/letsencrypt/renewal-hooks/deploy/reload-aapanel-nginx.sh
+
+Test lại:
+
+certbot renew --dry-run
+
+14. GitHub SSH cho VPS pull source
+----------------------------------
+Tạo deploy key trên VPS:
+
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+ssh-keygen -t ed25519 -f /root/.ssh/joydigi_github -N "" -C "joydigi-hr-vps"
+cat /root/.ssh/joydigi_github.pub
+
+Copy public key vào GitHub repository:
+Settings -> Deploy keys -> Add deploy key
+Không cần Allow write access.
+
+Tạo /root/.ssh/config:
+
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile /root/.ssh/joydigi_github
+    IdentitiesOnly yes
+
+Sau đó:
+
+chmod 600 /root/.ssh/config
+ssh-keyscan github.com >> /root/.ssh/known_hosts
+chmod 600 /root/.ssh/known_hosts
+ssh -T git@github.com
+
+Kiểm tra remote:
+
+cd /var/www/joydigi-hr
+git remote -v
+
+15. GitHub Actions tự deploy lên VPS
+------------------------------------
+Mô hình:
+GitHub Actions -> SSH root@VPS -> /usr/local/bin/deploy-joydigi-hr -> git pull/reset -> pip -> migrate -> collectstatic -> restart service.
+
+Tạo SSH key cho GitHub Actions đăng nhập VPS:
+
+ssh-keygen -t ed25519 -f /root/.ssh/github_actions_vps -N "" -C "github-actions"
+cat /root/.ssh/github_actions_vps.pub >> /root/.ssh/authorized_keys
+chmod 600 /root/.ssh/authorized_keys
+cat /root/.ssh/github_actions_vps
+
+Trong GitHub repository -> Settings -> Secrets and variables -> Actions, tạo:
+VPS_HOST = 155.103.50.61
+VPS_USER = root
+VPS_SSH_KEY = nội dung private key /root/.ssh/github_actions_vps
+
+Tạo /usr/local/bin/deploy-joydigi-hr:
+
+#!/usr/bin/env bash
+set -euo pipefail
+APP_DIR="/var/www/joydigi-hr"
+cd "$APP_DIR"
+
+git fetch origin main
+git reset --hard origin/main
+
+if [ ! -d venv ]; then
+    python3 -m venv venv
+fi
+
+./venv/bin/python -m pip install --upgrade pip setuptools wheel
+./venv/bin/pip install -r requirements.txt
+./venv/bin/pip install gunicorn
+./venv/bin/python manage.py migrate --noinput
+./venv/bin/python manage.py collectstatic --noinput
+systemctl restart joydigi-hr
+
+# Test nhanh, fail deploy nếu service không lên
+sleep 2
+systemctl is-active --quiet joydigi-hr
+curl -fsS -o /dev/null http://127.0.0.1:8000/login/
+
+echo "Deploy OK"
+
+chmod +x /usr/local/bin/deploy-joydigi-hr
+
+Workflow .github/workflows/deploy.yml:
+
+name: Deploy JoyDigi HR
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: joydigi-hr-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "$VPS_USER@$VPS_HOST" "/usr/local/bin/deploy-joydigi-hr"
+
+NOTE: nếu branch chính là master thì thay main bằng master ở cả deploy script và workflow.
+
+16. Lệnh vận hành hằng ngày
+---------------------------
+Trạng thái app:
+systemctl status joydigi-hr --no-pager -l
+
+Restart app:
+systemctl restart joydigi-hr
+
+Stop/start:
+systemctl stop joydigi-hr
+systemctl start joydigi-hr
+
+Log 100 dòng:
+journalctl -u joydigi-hr -n 100 --no-pager -l
+
+Log realtime:
+journalctl -u joydigi-hr -f
+
+Port:
+ss -lntp | grep 8000
+
+Test local:
+curl -I http://127.0.0.1:8000
+
+Test public:
+curl -I https://checkin.joydigi.net
+
+Test Django:
+cd /var/www/joydigi-hr
+./venv/bin/python manage.py check
+
+Test PostgreSQL:
+PGPASSWORD='admin123' psql -h localhost -U postgres -d joydigi_hr -c "SELECT now(), current_database(), current_user;"
+
+Test aaPanel Nginx:
+/www/server/nginx/sbin/nginx -t -c /www/server/nginx/conf/nginx.conf
+
+Reload aaPanel Nginx:
+/etc/init.d/nginx reload
+
+17. Backup trước khi reset hoặc deploy lớn
+------------------------------------------
+Tạo thư mục backup:
+
+mkdir -p /root/backups/joydigi-hr
+
+Backup PostgreSQL:
+
+pg_dump -U postgres -h localhost -Fc joydigi_hr > /root/backups/joydigi-hr/joydigi_hr_$(date +%Y%m%d_%H%M%S).dump
+
+Backup .env:
+
+cp /var/www/joydigi-hr/.env /root/backups/joydigi-hr/env_$(date +%Y%m%d_%H%M%S).bak
+
+Backup media:
+
+tar -czf /root/backups/joydigi-hr/media_$(date +%Y%m%d_%H%M%S).tar.gz -C /var/www/joydigi-hr media
+
+Backup Nginx vhost:
+
+cp /www/server/panel/vhost/nginx/checkin.joydigi.net.conf /root/backups/joydigi-hr/nginx_$(date +%Y%m%d_%H%M%S).conf
+
+Kiểm tra backup:
+
+ls -lh /root/backups/joydigi-hr
+
+18. Các lệnh RESET - từ nhẹ đến mạnh
+------------------------------------
+A. Reset/restart ứng dụng - an toàn:
+
+systemctl restart joydigi-hr
+systemctl status joydigi-hr --no-pager -l
+
+B. Reset Gunicorn khi port/process lạ:
+
+systemctl stop joydigi-hr
+pkill -f '/var/www/joydigi-hr/venv/bin/gunicorn' || true
+ss -lntp | grep 8000 || true
+systemctl start joydigi-hr
+
+C. Reset virtualenv - không xóa database/media:
+
+cd /var/www/joydigi-hr
+systemctl stop joydigi-hr
+rm -rf venv
+python3 -m venv venv
+./venv/bin/python -m pip install --upgrade pip setuptools wheel
+./venv/bin/pip install -r requirements.txt
+./venv/bin/pip install gunicorn
+systemctl start joydigi-hr
+
+D. Reset staticfiles:
+
+cd /var/www/joydigi-hr
+rm -rf staticfiles
+./venv/bin/python manage.py collectstatic --noinput
+systemctl restart joydigi-hr
+
+E. Reset source về đúng GitHub - SẼ XÓA thay đổi code chưa commit:
+
+cd /var/www/joydigi-hr
+git fetch origin main
+git reset --hard origin/main
+git clean -fd -e .env -e media/ -e venv/
+
+CẢNH BÁO: git reset --hard và git clean có thể làm mất file chưa commit. Backup trước.
+
+F. Reset database hoàn toàn - CỰC KỲ NGUY HIỂM, XÓA TOÀN BỘ DỮ LIỆU HR:
+
+systemctl stop joydigi-hr
+pg_dump -U postgres -h localhost -Fc joydigi_hr > /root/backups/joydigi-hr/pre_reset_$(date +%Y%m%d_%H%M%S).dump
+sudo -u postgres psql -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='joydigi_hr' AND pid <> pg_backend_pid();"
+sudo -u postgres dropdb joydigi_hr
+sudo -u postgres createdb -O postgres joydigi_hr
+cd /var/www/joydigi-hr
+./venv/bin/python manage.py migrate
+systemctl start joydigi-hr
+
+Chỉ chạy reset database khi CHẮC CHẮN muốn xóa dữ liệu production.
+
+G. Restore database từ file .dump:
+
+systemctl stop joydigi-hr
+sudo -u postgres psql -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='joydigi_hr' AND pid <> pg_backend_pid();"
+sudo -u postgres dropdb --if-exists joydigi_hr
+sudo -u postgres createdb -O postgres joydigi_hr
+pg_restore -U postgres -h localhost -d joydigi_hr --clean --if-exists /root/backups/joydigi-hr/FILE.dump
+systemctl start joydigi-hr
+
+H. Reset/reload aaPanel Nginx:
+
+/www/server/nginx/sbin/nginx -t -c /www/server/nginx/conf/nginx.conf
+/etc/init.d/nginx reload
+
+Nếu thực sự cần restart aaPanel Nginx:
+
+/etc/init.d/nginx restart
+
+Không dùng systemctl reload nginx trên VPS này.
+
+19. Khi gặp lỗi - bảng xử lý nhanh
+----------------------------------
+KHI: systemd báo status=203/EXEC
+NGUYÊN NHÂN THƯỜNG GẶP: ExecStart trỏ sai virtualenv hoặc gunicorn không tồn tại.
+KIỂM TRA:
+ls -la /var/www/joydigi-hr/venv/bin/gunicorn
+cat /etc/systemd/system/joydigi-hr.service
+
+KHI: Gunicorn status=3
+NGUYÊN NHÂN: WSGI sai hoặc Django import lỗi.
+PROJECT NÀY PHẢI DÙNG:
+joydigi.wsgi:application
+KIỂM TRA:
+find /var/www/joydigi-hr -maxdepth 3 -name wsgi.py -print
+./venv/bin/python -c "import joydigi.wsgi; print('WSGI OK')"
+
+KHI: Address already in use 127.0.0.1:8000
+NGUYÊN NHÂN: systemd Gunicorn đã chạy; không cần chạy gunicorn thủ công.
+KIỂM TRA:
+ss -lntp | grep 8000
+systemctl status joydigi-hr
+
+KHI: curl 127.0.0.1:8000 trả 302
+ĐÂY LÀ BÌNH THƯỜNG nếu Location: /login/?next=/.
+
+KHI: gõ http://127.0.0.1:8000 trong Bash và báo No such file or directory
+URL không phải shell command. Dùng:
+curl -I http://127.0.0.1:8000
+
+KHI: systemctl reload nginx báo invalid PID /run/nginx.pid
+VPS chạy aaPanel Nginx. Dùng:
+/www/server/nginx/sbin/nginx -t -c /www/server/nginx/conf/nginx.conf
+/etc/init.d/nginx reload
+
+KHI: ACME challenge public 404 nhưng local --resolve ra ssl-test
+Vhost đúng, kiểm tra DNS/Cloudflare/AAAA. Test:
+dig +short A checkin.joydigi.net
+dig +short AAAA checkin.joydigi.net
+curl --resolve checkin.joydigi.net:80:127.0.0.1 http://checkin.joydigi.net/.well-known/acme-challenge/test.txt
+
+KHI: Nginx 502 Bad Gateway
+Kiểm tra Gunicorn:
+systemctl status joydigi-hr --no-pager -l
+ss -lntp | grep 8000
+journalctl -u joydigi-hr -n 100 --no-pager -l
+curl -I http://127.0.0.1:8000
+
+KHI: Django 400 Bad Request / DisallowedHost
+Kiểm tra .env:
+ALLOWED_HOSTS=checkin.joydigi.net,localhost,127.0.0.1
+Sau đó:
+systemctl restart joydigi-hr
+
+KHI: CSRF verification failed trên HTTPS
+Kiểm tra:
+CSRF_TRUSTED_ORIGINS=https://checkin.joydigi.net
+và Nginx gửi:
+proxy_set_header X-Forwarded-Proto https;
+Sau đó restart app.
+
+KHI: PostgreSQL connection refused
+Kiểm tra:
+systemctl status postgresql --no-pager
+ss -lntp | grep 5432
+PGPASSWORD='admin123' psql -h localhost -U postgres -d joydigi_hr
+
+KHI: password authentication failed for user postgres
+Đặt lại password:
+sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'admin123';"
+Sau đó kiểm tra .env và restart app.
+
+KHI: Git clone báo destination path already exists
+Backup media/.env, đổi tên thư mục cũ rồi clone lại. Không rm -rf ngay khi chưa biết dữ liệu trong thư mục.
+
+KHI: static CSS/JS cũ
+./venv/bin/python manage.py collectstatic --noinput
+systemctl restart joydigi-hr
+Hard refresh trình duyệt Ctrl+F5.
+
+KHI: SSL lỗi sau renew
+Kiểm tra file:
+ls -la /etc/letsencrypt/live/checkin.joydigi.net/
+certbot certificates
+/www/server/nginx/sbin/nginx -t -c /www/server/nginx/conf/nginx.conf
+/etc/init.d/nginx reload
+
+20. Checklist sau mỗi lần deploy
+--------------------------------
+1. git status sạch hoặc thay đổi đã được hiểu rõ.
+2. ./venv/bin/python manage.py check
+3. ./venv/bin/python manage.py migrate --noinput
+4. ./venv/bin/python manage.py collectstatic --noinput
+5. systemctl restart joydigi-hr
+6. systemctl is-active joydigi-hr -> active
+7. ss -lntp | grep 8000
+8. curl -I http://127.0.0.1:8000 -> 200/301/302 hợp lệ
+9. /www/server/nginx/sbin/nginx -t -c /www/server/nginx/conf/nginx.conf
+10. curl -I https://checkin.joydigi.net -> 200 hoặc 302 tới login
+11. Kiểm tra login thực tế trên trình duyệt.
+12. Xem journalctl nếu có lỗi JavaScript/backend bất thường.
+
+21. Lệnh chẩn đoán tổng hợp
+---------------------------
+Copy nguyên khối này khi cần kiểm tra nhanh:
+
+echo "===== APP ====="
+systemctl status joydigi-hr --no-pager -l | head -30
+
+echo "===== PORTS ====="
+ss -lntp | grep -E ':(8000|5432|80|443)' || true
+
+echo "===== LOCAL DJANGO ====="
+curl -I --max-time 10 http://127.0.0.1:8000 || true
+
+echo "===== PUBLIC HTTPS ====="
+curl -I --max-time 15 https://checkin.joydigi.net || true
+
+echo "===== POSTGRES ====="
+PGPASSWORD='admin123' psql -h localhost -U postgres -d joydigi_hr -c "SELECT now(), current_database(), current_user;" || true
+
+echo "===== NGINX CONFIG ====="
+/www/server/nginx/sbin/nginx -t -c /www/server/nginx/conf/nginx.conf
+
+echo "===== SSL ====="
+certbot certificates
+
+echo "===== LAST APP LOG ====="
+journalctl -u joydigi-hr -n 50 --no-pager -l
+
+22. Ghi chú nâng cấp Python
+---------------------------
+Môi trường hiện tại từng chạy Python 3.10.12 và google.api_core cảnh báo ngừng hỗ trợ Python 3.10 trong các bản mới sau 04/10/2026.
+
+Không nên đổi Python ngay giữa lúc production đang ổn định. Khi nâng cấp, tạo virtualenv mới riêng, cài requirements, chạy manage.py check/migrate trên staging hoặc maintenance window rồi mới đổi systemd PATH/ExecStart.
+
+Ví dụ quy trình an toàn khi đã cài python3.12:
+
+cd /var/www/joydigi-hr
+python3.12 -m venv venv-py312
+./venv-py312/bin/python -m pip install --upgrade pip setuptools wheel
+./venv-py312/bin/pip install -r requirements.txt
+./venv-py312/bin/pip install gunicorn
+./venv-py312/bin/python manage.py check
+
+Chỉ sau khi kiểm tra xong mới đổi service từ /venv/ sang /venv-py312/ rồi daemon-reload + restart. Giữ venv cũ để rollback nhanh.
+
+23. Thứ tự rollback khi deploy lỗi
+----------------------------------
+1. Không reset database ngay.
+2. Xem log: journalctl -u joydigi-hr -n 150 --no-pager -l
+3. Nếu lỗi code mới, rollback source về commit trước:
+   cd /var/www/joydigi-hr
+   git log --oneline -10
+   git reset --hard COMMIT_TOT
+4. Nếu requirements thay đổi, cài lại requirements của commit đó.
+5. Chạy manage.py check.
+6. Nếu migration mới đã chạy và migration hỗ trợ reverse, cân nhắc migrate app_name migration_previous. Phải hiểu rõ migration trước khi reverse.
+7. Restart joydigi-hr.
+8. Test local rồi test HTTPS.
+9. Chỉ restore database backup khi có bằng chứng database đã bị thay đổi hỏng và rollback migration không đủ.

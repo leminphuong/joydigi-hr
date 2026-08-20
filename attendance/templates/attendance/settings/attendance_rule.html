@@ -338,22 +338,4 @@
         {% endif %}
     </div>
 
-    {% if "geofencing"|app_installed and perms.geofencing.add_geofencing %}
-        <div class="border border-[#ebebeb] rounded-md overflow-hidden mb-5 mr-3">
-            <h5 class="text-sm font-semibold bg-[#f3f3f3] px-4 py-3 text-[#333] flex items-center justify-between">
-                <span class="flex items-center space-x-2">
-                    <span>{% trans "Geofencing" %}</span>
-                    <span
-                        class="oh-info mr-2"
-                        title="{% trans 'Configure the location and radius within which employees are allowed to mark their attendance.' %}"
-                        data-doc-url="{{ DOC_BASE_URL }}/blogs/how-to-set-up-geofencing-for-location-based-attendance-in-joydigi-hrms/"
-                    ></span>
-                </span>
-            </h5>
-            <div class="p-4">
-                <div hx-get="{% url 'geo-config' %}" hx-trigger="load" hx-target="#geo"></div>
-                <div id="geo"></div>
-            </div>
-        </div>
-    {% endif %}
 {% endblock settings %}

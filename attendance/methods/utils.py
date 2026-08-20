@@ -406,29 +406,29 @@ def attendance_day_checking(attendance_date, minimum_hour, employee=None):
             minimum_hour = "00:00"
             break
 
-    # Making a dictonary contains week day value and leave day pairs
-    company_leaves = {}
-    company_leave = CompanyLeaves.objects.all()
-    for com_leave in company_leave:
-        a = dict(WEEK_DAYS).get(com_leave.based_on_week_day)
-        b = com_leave.based_on_week
-        company_leaves[b] = a
+    company_leaves = CompanyLeaves.objects.all()
+    if employee is not None:
+        company = getattr(
+            getattr(employee, "employee_work_info", None), "company_id", None
+        )
+        if company is not None:
+            company_leaves = company_leaves.filter(company_id=company)
 
     # Checking the attendance date is in which week
     week_in_month = str(((attendance_datetime.day - 1) // 7 + 1) - 1)
 
-    # Checking the attendance date is in the company leave or not
-    for pairs in company_leaves.items():
-        # For all weeks based_on_week is None
-        if str(pairs[0]) == "None":
-            if str(pairs[1]) == str(attendance_day):
-                minimum_hour = "00:00"
-                break
-        # Checking with based_on_week and attendance_date week
-        if str(pairs[0]) == week_in_month:
-            if str(pairs[1]) == str(attendance_day):
-                minimum_hour = "00:00"
-                break
+    # Compare numeric weekdays instead of translated labels. This also keeps
+    # multiple weekly-off days from overwriting each other.
+    for company_leave in company_leaves:
+        if str(company_leave.based_on_week_day) != str(
+            attendance_datetime.weekday()
+        ):
+            continue
+        if company_leave.based_on_week is None or str(
+            company_leave.based_on_week
+        ) == week_in_month:
+            minimum_hour = "00:00"
+            break
     return minimum_hour
 
 

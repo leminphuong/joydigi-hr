@@ -6,10 +6,54 @@ from django.template.defaultfilters import register
 
 from base.methods import get_pagination
 from base.models import MultipleApprovalManagers
+from base.roles import is_checkin_admin as user_is_checkin_admin
+from base.roles import is_checkin_leader as user_is_checkin_leader
 from employee.models import Employee, EmployeeWorkInformation
 from joydigi.menu.settings_menu import get_settings_menu
 
 register = template.Library()
+
+
+@register.filter(name="is_checkin_admin")
+def is_checkin_admin(user):
+    return user_is_checkin_admin(user)
+
+
+@register.filter(name="is_checkin_leader")
+def is_checkin_leader(user):
+    return user_is_checkin_leader(user)
+
+
+@register.simple_tag
+def pending_checkin_approvals(user):
+    """Số đơn đang chờ trong phạm vi mà quản trị viên/trưởng nhóm được duyệt."""
+    if not user_is_checkin_leader(user):
+        return 0
+    try:
+        from attendance.models import Attendance
+        from leave.models import LeaveRequest
+
+        employee = _get_employee_of_user(user)
+        if user_is_checkin_admin(user):
+            employee_ids = Employee.objects.filter(is_active=True).values_list(
+                "pk", flat=True
+            )
+        elif employee:
+            employee_ids = Employee.objects.filter(
+                is_active=True,
+                employee_work_info__reporting_manager_id=employee,
+            ).values_list("pk", flat=True)
+        else:
+            return 0
+        return LeaveRequest.objects.filter(
+            employee_id_id__in=employee_ids, status="requested"
+        ).count() + Attendance.objects.filter(
+            employee_id_id__in=employee_ids,
+            is_validate_request=True,
+            is_validate_request_approved=False,
+        ).count()
+    except (DatabaseError, AttributeError):
+        return 0
 
 
 @register.filter
@@ -267,7 +311,6 @@ def attendance_section(context):
             user.has_perm("attendance.view_attendancevalidationcondition"),
             user.has_perm("base.view_biometricattendance"),
             user.has_perm("attendance.add_attendance"),
-            user.has_perm("geofencing.add_geofencing"),
             user.has_perm("facedetection.add_facedetection"),
         ]
     )
@@ -291,7 +334,6 @@ def show_section(context):
             user.has_perm("leave.add_restrictleave"),
             user.has_perm("base.view_biometricattendance"),
             user.has_perm("attendance.add_attendance"),
-            user.has_perm("geofencing.add_geofencing"),
             user.has_perm("facedetection.add_facedetection"),
             user.has_perm("recruitment.view_recruitment"),
             user.has_perm("recruitment.view_rejectreason"),

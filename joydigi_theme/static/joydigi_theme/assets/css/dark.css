@@ -416,6 +416,68 @@ body.dark .hover\:bg-primary-50:hover {
   background-color: #2a2a2a !important;
 }
 
+/* Bộ màu chữ/nền dùng chung cho các màn hình CMS viết bằng Tailwind.
+   Tránh trường hợp nền đã tối nhưng chữ vẫn giữ màu xám đậm. */
+body.dark .text-gray-950,
+body.dark .text-gray-900,
+body.dark .text-gray-800,
+body.dark .text-\[\#111827\],
+body.dark .text-\[\#1f2937\],
+body.dark .text-\[\#374151\],
+body.dark .text-\[\#4a5173\],
+body.dark .text-\[\#444\],
+body.dark .text-\[\#555\] {
+  color: #f3f4f6 !important;
+}
+
+body.dark .text-gray-500,
+body.dark .text-gray-400,
+body.dark .text-\[\#7b82a6\],
+body.dark .text-\[\#8b91b0\] {
+  color: #c4c9d1 !important;
+}
+
+body.dark .oh-modal__dialog-title,
+body.dark h1,
+body.dark h2,
+body.dark h3,
+body.dark h4,
+body.dark h5,
+body.dark h6 {
+  color: #f3f4f6 !important;
+}
+
+body.dark input::placeholder,
+body.dark textarea::placeholder,
+body.dark .select2-search__field::placeholder {
+  color: #9ca3af !important;
+  opacity: 1;
+}
+
+body.dark .bg-gray-50,
+body.dark .bg-gray-100,
+body.dark .bg-\[\#f0f2f8\],
+body.dark .bg-\[\#f4f5fb\],
+body.dark .bg-\[\#f5f6fc\] {
+  background-color: #1a1d24 !important;
+}
+
+body.dark .border-gray-100,
+body.dark .border-gray-200,
+body.dark .border-\[\#d6dae8\],
+body.dark .border-\[\#eef0f6\] {
+  border-color: #3b3f48 !important;
+}
+
+body.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #343840 !important;
+}
+
+body.dark .hover\:\!bg-\[\#eef0fb\]:hover,
+body.dark .group:hover .group-hover\:bg-\[\#f5f6fc\] {
+  background-color: #282d36 !important;
+}
+
 /* Report pivot builder labels/hints added in v1_styles.css — the light
    backgrounds/borders there need dark equivalents so they stay readable
    instead of showing up as stray light patches on the dark theme. */

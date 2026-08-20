@@ -75,8 +75,8 @@
                     class="col-12 col-sm-12 col-md-12 col-lg-3"
                     hx-boost="true"
                     hx-target="#settingsContainer"
-                    hx-select="#settingsContainer"
-                    hx-swap="outerHTML show:none"
+                    hx-select="#settingsContainer > *"
+                    hx-swap="innerHTML show:none"
                     hx-push-url="true"
                 >
                     <button
@@ -456,16 +456,6 @@
                                                         </div>
                                                     {% endif %}
 
-                                                    {% if perms.geofencing.add_geofencing %}
-                                                        <div class="oh-input-group">
-                                                            <a
-                                                                id="geo_face_conf"
-                                                                href='{% url "geo-face-config" %}'
-                                                                class="oh-inner-sidebar__link oh-dropdown__link"
-                                                            >Vị trí chấm công
-                                                            </a>
-                                                        </div>
-                                                    {% endif %}
                                                 </div>
                                             </div>
                                         </div>
@@ -655,8 +645,8 @@
         	if (typeof htmx === "undefined") return;
         	htmx.ajax("GET", window.location.pathname + window.location.search, {
         		target: "#settingsContainer",
-        		select: "#settingsContainer",
-        		swap: "outerHTML show:none",
+                select: "#settingsContainer > *",
+                swap: "innerHTML show:none",
         	});
         	var msgBtn = document.getElementById("reloadMessagesButton");
         	if (msgBtn) msgBtn.click();
@@ -693,8 +683,8 @@
                        form.setAttribute("hx-post", form.getAttribute("action") || window.location.href);
                    }
                    if (!form.hasAttribute("hx-target")) form.setAttribute("hx-target", "#settingsContainer");
-                   if (!form.hasAttribute("hx-select")) form.setAttribute("hx-select", "#settingsContainer");
-                   if (!form.hasAttribute("hx-swap")) form.setAttribute("hx-swap", "outerHTML show:none");
+                   if (!form.hasAttribute("hx-select")) form.setAttribute("hx-select", "#settingsContainer > *");
+                   if (!form.hasAttribute("hx-swap")) form.setAttribute("hx-swap", "innerHTML show:none");
                });
            }
 

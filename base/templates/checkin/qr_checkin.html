@@ -1,0 +1,19 @@
+{% extends "index.html" %}
+{% load static attendancefilters %}
+{% block content %}
+<main style="max-width:520px;margin:80px auto;padding:32px;border-radius:20px;background:var(--oh-card-bg, #fff);text-align:center;box-shadow:0 14px 40px rgba(24,38,61,.12)">
+    <h1 style="font-size:26px;margin:0 0 12px">Chấm công bằng mã QR</h1>
+    {% if token_expired %}
+        <p>Mã QR đã hết hạn. Vui lòng quét mã mới trên màn hình văn phòng.</p>
+    {% else %}
+        <p id="qrActionMessage">Xác nhận thao tác chấm công của bạn.</p>
+        <div id="qr-action">
+            {% if request.user|is_clocked_in %}
+                <button class="oh-btn oh-btn--danger" hx-get="{% url 'clock-out' %}" hx-vals='{"qr_token":"{{ qr_token|escapejs }}"}' hx-target="#qr-action" hx-swap="innerHTML">Chấm công ra</button>
+            {% else %}
+                <button class="oh-btn oh-btn--secondary" hx-get="{% url 'clock-in' %}" hx-vals='{"qr_token":"{{ qr_token|escapejs }}"}' hx-target="#qr-action" hx-swap="innerHTML">Chấm công vào</button>
+            {% endif %}
+        </div>
+    {% endif %}
+</main>
+{% endblock content %}

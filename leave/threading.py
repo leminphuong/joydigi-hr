@@ -3,6 +3,7 @@ import os
 from email.mime.image import MIMEImage
 from threading import Thread
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.staticfiles import finders
 from django.core.mail import EmailMessage, EmailMultiAlternatives
@@ -24,6 +25,12 @@ class LeaveMailSendThread(Thread):
         self.type = type
         self.host = request.get_host()
         self.protocol = "https" if request.is_secure() else "http"
+
+    def start(self):
+        """Hệ thống hiện chỉ dùng thông báo trong ứng dụng, không gửi thư."""
+        if not getattr(settings, "EMAIL_NOTIFICATIONS_ENABLED", False):
+            return None
+        return super().start()
 
     # def send_email(self, subject, content, recipients, leave_request_id="#"):
     #     email_backend = ConfiguredEmailBackend()

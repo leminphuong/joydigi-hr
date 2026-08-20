@@ -20,6 +20,7 @@ from django.db.models import ProtectedError, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.encoding import force_str
 from django.utils.translation import gettext as __
 from django.utils.translation import gettext_lazy as _
@@ -42,6 +43,7 @@ from base.methods import (
     sortby,
 )
 from base.models import CompanyLeaves, Holidays, PenaltyAccounts
+from base.roles import is_checkin_admin
 from employee.models import Employee
 from joydigi.decorators import (
     hx_request_required,
@@ -500,7 +502,7 @@ def leave_request_creation(request, type_id=None, emp_id=None):
                         notify.send(
                             request.user.employee_get,
                             recipient=managers[0],
-                            verb="You have a new leave request to validate.",
+                            verb="Có đơn nghỉ phép mới đang chờ bạn duyệt.",
                             verb_ar="لديك طلب إجازة جديد يجب التحقق منه.",
                             verb_de="Sie haben eine neue Urlaubsanfrage zur Validierung.",
                             verb_es="Tiene una nueva solicitud de permiso que debe validar.",
@@ -518,7 +520,7 @@ def leave_request_creation(request, type_id=None, emp_id=None):
                     notify.send(
                         request.user.employee_get,
                         recipient=leave_request.employee_id.employee_work_info.reporting_manager_id.employee_user_id,
-                        verb=f"New leave request created for {leave_request.employee_id}.",
+                        verb=f"Đã tạo đơn nghỉ phép mới cho {leave_request.employee_id}.",
                         verb_ar=f"تم إنشاء طلب إجازة جديد لـ {leave_request.employee_id}.",
                         verb_de=f"Neuer Urlaubsantrag erstellt für {leave_request.employee_id}.",
                         verb_es=f"Nueva solicitud de permiso creada para {leave_request.employee_id}.",
@@ -938,7 +940,7 @@ def leave_request_update(request, id):
                     notify.send(
                         request.user.employee_get,
                         recipient=leave_request.employee_id.employee_work_info.reporting_manager_id.employee_user_id,
-                        verb=f"Leave request updated for {leave_request.employee_id}.",
+                        verb=f"Đơn nghỉ phép của {leave_request.employee_id} đã được cập nhật.",
                         verb_ar=f"تم تحديث طلب الإجازة لـ {leave_request.employee_id}.",
                         verb_de=f"Urlaubsantrag aktualisiert für {leave_request.employee_id}.",
                         verb_es=f"Solicitud de permiso actualizada para {leave_request.employee_id}.",
@@ -1016,6 +1018,11 @@ def leave_request_approve(request, id, emp_id=None):
             request, message=_("No leave rquest found matching the query.")
         )
     employee_id = leave_request.employee_id
+    actor = getattr(request.user, "employee_get", None)
+    if not leave_request.multiple_approvals() and not is_checkin_admin(request.user):
+        if employee_id.get_reporting_manager() != actor:
+            messages.error(request, "Bạn chỉ được duyệt đơn của thành viên trong nhóm mình.")
+            return JoydigiRedirect(request)
     if not request.user.is_superuser:
         if employee_id == request.user.employee_get:
             messages.error(request, _("You cannot approve your own leave request."))
@@ -1078,56 +1085,58 @@ def leave_request_approve(request, id, emp_id=None):
                 send_notification = True
                 approved = True
             else:
-                if request.user.is_superuser:
+                conditional_requests = leave_request.multiple_approvals()
+                condition_approval = (
                     LeaveRequestConditionApproval.objects.filter(
-                        leave_request_id=leave_request
-                    ).update(is_approved=True)
-                    leave_request.save()
-                    available_leave.save()
-                    send_notification = True
-                    approved = True
-                else:
-                    conditional_requests = leave_request.multiple_approvals()
-                    approver = next(
-                        (
-                            manager
-                            for manager in conditional_requests["managers"]
-                            if manager == request.user.employee_get
-                        ),
-                        None,
+                        manager_id=actor,
+                        leave_request_id=leave_request,
+                        is_approved=False,
+                        is_rejected=False,
                     )
-                    condition_approval = LeaveRequestConditionApproval.objects.filter(
-                        manager_id=approver, leave_request_id=leave_request
-                    ).first()
-                    if condition_approval is None:
-                        error_message = str(
-                            _("You are not an approver for this leave request.")
+                    .order_by("sequence")
+                    .first()
+                )
+                if condition_approval is None:
+                    error_message = "Bạn không phải người duyệt ở bước hiện tại."
+                    messages.error(request, error_message)
+                elif LeaveRequestConditionApproval.objects.filter(
+                    leave_request_id=leave_request,
+                    sequence__lt=condition_approval.sequence,
+                    is_approved=False,
+                ).exists():
+                    error_message = "Đơn này chưa được duyệt ở bước trước."
+                    messages.error(request, error_message)
+                else:
+                    condition_approval.is_approved = True
+                    condition_approval.acted_at = timezone.now()
+                    condition_approval.acted_by = actor
+                    condition_approval.save(
+                        update_fields=["is_approved", "acted_at", "acted_by"]
+                    )
+                    approved = True
+                    next_approval = (
+                        LeaveRequestConditionApproval.objects.filter(
+                            leave_request_id=leave_request,
+                            is_approved=False,
+                            is_rejected=False,
                         )
-                        messages.error(request, error_message)
+                        .order_by("sequence")
+                        .select_related("manager_id__employee_user_id")
+                        .first()
+                    )
+                    if next_approval:
+                        with contextlib.suppress(Exception):
+                            notify.send(
+                                actor,
+                                recipient=next_approval.manager_id.employee_user_id,
+                                verb="Có đơn nghỉ phép đang chờ bạn duyệt.",
+                                icon="people-circle",
+                                redirect=f"/leave/request-view?id={leave_request.id}",
+                            )
                     else:
-                        condition_approval.is_approved = True
-                        managers = []
-                        for manager in conditional_requests["managers"]:
-                            managers.append(manager.employee_user_id)
-                        if len(managers) > condition_approval.sequence:
-                            with contextlib.suppress(Exception):
-                                notify.send(
-                                    request.user.employee_get,
-                                    recipient=managers[condition_approval.sequence],
-                                    verb="You have a new leave request to validate.",
-                                    verb_ar="لديك طلب إجازة جديد يجب التحقق منه.",
-                                    verb_de="Sie haben eine neue Urlaubsanfrage zur Validierung.",
-                                    verb_es="Tiene una nueva solicitud de permiso que debe validar.",
-                                    verb_fr="Vous avez une nouvelle demande de congé à valider.",
-                                    icon="people-circle",
-                                    redirect=f"/leave/request-view?id={leave_request.id}",
-                                )
-                        condition_approval.save()
-                        approved = True
-                        if approver == conditional_requests["managers"][-1]:
-                            leave_request.save()
-                            available_leave.save()
-                            send_notification = True
+                        leave_request.save()
+                        available_leave.save()
+                        send_notification = True
             if approved:
                 messages.success(request, _("Leave request approved successfully.."))
                 if send_notification:
@@ -1135,7 +1144,7 @@ def leave_request_approve(request, id, emp_id=None):
                         notify.send(
                             request.user.employee_get,
                             recipient=leave_request.employee_id.employee_user_id,
-                            verb="Your Leave request has been approved",
+                            verb="Đơn nghỉ phép của bạn đã được duyệt.",
                             verb_ar="تمت الموافقة على طلب الإجازة الخاص بك",
                             verb_de="Ihr Urlaubsantrag wurde genehmigt",
                             verb_es="Se ha aprobado su solicitud de permiso",
@@ -1264,6 +1273,25 @@ def leave_request_cancel(request, id, emp_id=None):
         form = RejectForm(request.POST)
         if form.is_valid():
             leave_request = LeaveRequest.objects.get(id=id)
+            current_approval = (
+                LeaveRequestConditionApproval.objects.filter(
+                    leave_request_id=leave_request,
+                    is_approved=False,
+                    is_rejected=False,
+                )
+                .order_by("sequence")
+                .first()
+            )
+            actor = getattr(request.user, "employee_get", None)
+            if not current_approval and not is_checkin_admin(request.user):
+                if leave_request.employee_id.get_reporting_manager() != actor:
+                    messages.error(
+                        request, "Bạn chỉ được từ chối đơn của thành viên trong nhóm mình."
+                    )
+                    return JoydigiRedirect(request)
+            if current_approval and current_approval.manager_id != actor:
+                messages.error(request, "Bạn không phải người duyệt ở bước hiện tại.")
+                return JoydigiRedirect(request)
             employee_id = leave_request.employee_id
             leave_type_id = leave_request.leave_type_id
             available_leave = AvailableLeave.objects.get(
@@ -1279,19 +1307,19 @@ def leave_request_cancel(request, id, emp_id=None):
                 leave_request.status = "rejected"
                 leave_request.leave_clashes_count = 0
 
-                if leave_request.multiple_approvals() and not request.user.is_superuser:
-                    conditional_requests = leave_request.multiple_approvals()
-                    approver = [
-                        manager
-                        for manager in conditional_requests["managers"]
-                        if manager.employee_user_id == request.user
-                    ]
-                    condition_approval = LeaveRequestConditionApproval.objects.filter(
-                        manager_id=approver[0], leave_request_id=leave_request
-                    ).first()
-                    condition_approval.is_approved = False
-                    condition_approval.is_rejected = True
-                    condition_approval.save()
+                if current_approval:
+                    current_approval.is_approved = False
+                    current_approval.is_rejected = True
+                    current_approval.acted_at = timezone.now()
+                    current_approval.acted_by = actor
+                    current_approval.save(
+                        update_fields=[
+                            "is_approved",
+                            "is_rejected",
+                            "acted_at",
+                            "acted_by",
+                        ]
+                    )
 
                 leave_request.reject_reason = form.cleaned_data["reason"]
                 leave_request.save()
@@ -1307,7 +1335,7 @@ def leave_request_cancel(request, id, emp_id=None):
                     notify.send(
                         request.user.employee_get,
                         recipient=leave_request.employee_id.employee_user_id,
-                        verb="Your leave request has been rejected.",
+                        verb="Đơn nghỉ phép của bạn đã bị từ chối.",
                         verb_ar="تم رفض طلب الإجازة الخاص بك",
                         verb_de="Ihr Urlaubsantrag wurde abgelehnt",
                         verb_es="Tu solicitud de permiso ha sido rechazada",

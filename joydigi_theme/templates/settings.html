@@ -30,9 +30,9 @@
             class="col-span-12 lg:col-span-3 border-r border-dark-50 pe-4"
             hx-boost="true"
             hx-target="#settingsContainer"
-            hx-select="#settingsContainer"
+            hx-select="#settingsContainer > *"
             hx-select-oob="#breadcrumbs-container"
-            hx-swap="outerHTML show:none"
+            hx-swap="innerHTML show:none"
             hx-push-url="true"
             hx-headers='{"HX-Sidebar-Nav": "true"}'
         >
@@ -189,15 +189,15 @@
         });
 
         function reloadSettingsContainer() {
-        	if (typeof htmx === "undefined") return;
-        	htmx.ajax("GET", window.location.pathname + window.location.search, {
-        		target: "#settingsContainer",
-        		select: "#settingsContainer",
-        		swap: "outerHTML show:none",
-        		headers: { "HX-Sidebar-Nav": "true" },
-        	});
-        	var msgBtn = document.getElementById("reloadMessagesButton");
-        	if (msgBtn) msgBtn.click();
+            if (typeof htmx === "undefined") return;
+            htmx.ajax("GET", window.location.pathname + window.location.search, {
+                target: "#settingsContainer",
+                select: "#settingsContainer > *",
+                swap: "innerHTML show:none",
+                headers: { "HX-Sidebar-Nav": "true" },
+            });
+            var msgBtn = document.getElementById("reloadMessagesButton");
+            if (msgBtn) msgBtn.click();
         }
 
         function normalizePath(path) {
@@ -218,9 +218,9 @@
         		if (!form.hasAttribute("hx-post")) {
         			form.setAttribute("hx-post", form.getAttribute("action") || window.location.href);
         		}
-        		if (!form.hasAttribute("hx-target")) form.setAttribute("hx-target", "#settingsContainer");
-        		if (!form.hasAttribute("hx-select")) form.setAttribute("hx-select", "#settingsContainer");
-        		if (!form.hasAttribute("hx-swap")) form.setAttribute("hx-swap", "outerHTML show:none");
+                if (!form.hasAttribute("hx-target")) form.setAttribute("hx-target", "#settingsContainer");
+                if (!form.hasAttribute("hx-select")) form.setAttribute("hx-select", "#settingsContainer > *");
+                if (!form.hasAttribute("hx-swap")) form.setAttribute("hx-swap", "innerHTML show:none");
         		if (!form.hasAttribute("hx-headers")) {
         			form.setAttribute("hx-headers", '{"HX-Sidebar-Nav": "true"}');
         		}

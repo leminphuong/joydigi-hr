@@ -32,7 +32,7 @@ from django.db import models
 from django.db.models import F, ProtectedError, Q
 from django.db.models.query import QuerySet
 from django.forms import DateInput, HiddenInput, Select
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -1616,7 +1616,7 @@ def employee_view_new(request):
 
 
 @login_required
-@manager_can_enter("employee.change_employee")
+@permission_required("employee.change_employee")
 def employee_view_update(request, obj_id, **kwargs):
     """
     This method is used to render update form for employee.
@@ -1882,12 +1882,22 @@ def remove_own_profile_image(request):
 
 
 @login_required
-@manager_can_enter("employee.change_employee")
+@permission_required("employee.change_employee")
 @require_http_methods(["POST"])
 def employee_create_update_personal_info(request, obj_id=None):
     """
     This method is used to update employee's personal info.
     """
+    if obj_id is None and not request.user.has_perm("employee.add_employee"):
+        return HttpResponseForbidden("Chỉ quản trị viên được thêm nhân viên.")
+    if obj_id is not None and not request.user.has_perm("employee.change_employee"):
+        manager = getattr(request.user, "employee_get", None)
+        if not EmployeeWorkInformation.objects.filter(
+            employee_id_id=obj_id, reporting_manager_id=manager
+        ).exists():
+            return HttpResponseForbidden(
+                "Bạn chỉ được sửa thông tin nhân viên thuộc nhóm mình quản lý."
+            )
     employee = Employee.objects.filter(id=obj_id).first()
     form = EmployeeForm(request.POST, request.FILES, instance=employee)
     if form.is_valid():
@@ -1937,7 +1947,7 @@ def employee_create_update_personal_info(request, obj_id=None):
 
 
 @login_required
-@manager_can_enter("employee.change_employeeworkinformation")
+@permission_required("employee.change_employeeworkinformation")
 @require_http_methods(["POST"])
 def employee_update_work_info(request, obj_id=None):
     """

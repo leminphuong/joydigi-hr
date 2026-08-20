@@ -6,6 +6,7 @@ This module is used register endpoints to the check-in check-out functionalities
 
 import ipaddress
 import logging
+import math
 
 from django.shortcuts import render
 
@@ -40,9 +41,152 @@ from base.context_processors import (
     enable_late_come_early_out_tracking,
     timerunner_enabled,
 )
-from base.models import AttendanceAllowedIP, Company, EmployeeShiftDay
+from base.models import (
+    AttendanceAllowedIP,
+    CheckInLocation,
+    CheckInPolicy,
+    Company,
+    EmployeeShiftDay,
+    OfficeWifi,
+)
+from base.checkin_tokens import valid_kiosk_token
 from joydigi.decorators import hx_request_required, login_required
 from joydigi.joydigi_middlewares import _thread_locals
+
+
+def _resolve_checkin_company(request):
+    selected_company = request.session.get("selected_company")
+    if selected_company and selected_company != "all":
+        company = Company.objects.filter(pk=selected_company).first()
+        if company:
+            return company
+    employee = getattr(request.user, "employee_get", None)
+    try:
+        return employee.employee_work_info.company_id
+    except AttributeError:
+        return None
+
+
+def _distance_meters(lat1, lon1, lat2, lon2):
+    """Khoảng cách đường chim bay theo công thức Haversine."""
+    radius = 6371000
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+    value = (
+        math.sin(delta_phi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+    )
+    return radius * 2 * math.atan2(math.sqrt(value), math.sqrt(1 - value))
+
+
+def _validate_checkin_source(request, company):
+    """Kiểm tra GPS/Wifi; thiết bị chấm công chuyên dụng vẫn dùng luồng cũ."""
+    if request.__dict__.get("datetime") or company is None:
+        return {"allowed": True, "method": "Thiết bị chấm công"}
+
+    qr_token = request.GET.get("qr_token") or request.POST.get("qr_token")
+    if valid_kiosk_token(qr_token):
+        return {"allowed": True, "method": "Mã QR văn phòng"}
+
+    locations = list(CheckInLocation.objects.filter(company_id=company, is_active=True))
+    wifi_networks = OfficeWifi.objects.filter(company_id=company, is_active=True)
+    wifi_ssid = (request.GET.get("wifi_ssid") or request.POST.get("wifi_ssid") or "").strip()
+    wifi_bssid = (request.GET.get("wifi_bssid") or request.POST.get("wifi_bssid") or "").strip()
+    if wifi_ssid and wifi_networks.filter(
+        Q(ssid__iexact=wifi_ssid)
+        & (Q(bssid="") | Q(bssid__iexact=wifi_bssid))
+    ).exists():
+        return {"allowed": True, "method": "Wifi văn phòng", "wifi": wifi_ssid}
+
+    latitude = request.GET.get("latitude") or request.POST.get("latitude")
+    longitude = request.GET.get("longitude") or request.POST.get("longitude")
+    if latitude not in (None, "") and longitude not in (None, ""):
+        try:
+            latitude, longitude = float(latitude), float(longitude)
+        except (TypeError, ValueError):
+            return {"allowed": False, "message": "Tọa độ chấm công không hợp lệ."}
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+            return {"allowed": False, "message": "Tọa độ chấm công không hợp lệ."}
+        if not locations:
+            return {
+                "allowed": True,
+                "method": "Vị trí GPS",
+                "latitude": latitude,
+                "longitude": longitude,
+            }
+        nearest = min(
+            locations,
+            key=lambda item: _distance_meters(
+                latitude,
+                longitude,
+                float(item.latitude),
+                float(item.longitude),
+            ),
+        )
+        distance = round(
+            _distance_meters(
+                latitude,
+                longitude,
+                float(nearest.latitude),
+                float(nearest.longitude),
+            )
+        )
+        result = {
+            "allowed": distance <= nearest.radius_meters,
+            "outside_radius": distance > nearest.radius_meters,
+            "method": "Vị trí GPS",
+            "latitude": latitude,
+            "longitude": longitude,
+            "distance": distance,
+            "radius": nearest.radius_meters,
+            "location": nearest.name,
+        }
+        if result["outside_radius"]:
+            policy = CheckInPolicy.objects.filter(company_id=company).first()
+            result["allowed"] = bool(
+                policy is None or policy.allow_outside_radius_request
+            )
+            result["message"] = (
+                f"Bạn đang cách {nearest.name} khoảng {distance} m, "
+                f"ngoài bán kính {nearest.radius_meters} m."
+            )
+        return result
+
+    if locations:
+        return {
+            "allowed": False,
+            "message": "Vui lòng bật quyền vị trí để chấm công.",
+        }
+    # Chưa cấu hình địa điểm/Wifi thì giữ tương thích với hệ thống cũ.
+    return {"allowed": True, "method": "Trình duyệt"}
+
+
+def _mark_outside_radius_request(attendance, source):
+    if not attendance or not source.get("outside_radius"):
+        return
+    attendance.is_validate_request = True
+    attendance.is_validate_request_approved = False
+    attendance.request_type = "update_request"
+    attendance.request_description = source.get("message")
+    attendance.requested_data = {
+        "outside_radius": True,
+        "latitude": source.get("latitude"),
+        "longitude": source.get("longitude"),
+        "distance": source.get("distance"),
+        "radius": source.get("radius"),
+        "location": source.get("location"),
+        "method": source.get("method"),
+    }
+    attendance.save(
+        update_fields=[
+            "is_validate_request",
+            "is_validate_request_approved",
+            "request_type",
+            "request_description",
+            "requested_data",
+        ]
+    )
 
 
 def late_come_create(attendance):
@@ -94,17 +238,19 @@ def late_come(attendance, start_time, end_time, shift):
         ):
             # Setting allowance for the check in time
             now_sec -= shift.grace_time_id.allowed_time_in_secs
-    # checking default grace time
-    elif GraceTime.objects.filter(is_default=True, is_active=True).exists():
-        grace_time = GraceTime.objects.filter(
-            is_default=True,
-            is_active=True,
-        ).first()
-        # Setting allowance for the check in time if grace allocate for clock in event
-        if grace_time.allowed_clock_in:
-            now_sec -= grace_time.allowed_time_in_secs
     else:
-        pass
+        work_info = getattr(attendance.employee_id, "employee_work_info", None)
+        company = getattr(work_info, "company_id", None)
+        policy = CheckInPolicy.objects.filter(company_id=company).first()
+        if policy:
+            now_sec -= policy.late_threshold_minutes * 60
+        elif GraceTime.objects.filter(is_default=True, is_active=True).exists():
+            grace_time = GraceTime.objects.filter(
+                is_default=True,
+                is_active=True,
+            ).first()
+            if grace_time.allowed_clock_in:
+                now_sec -= grace_time.allowed_time_in_secs
     if start_time > end_time and start_time != end_time:
         # night shift
         if now_sec < mid_day_sec:
@@ -206,17 +352,10 @@ def clock_in(request):
     This method is used to mark the attendance once per a day and multiple attendance activities.
     """
     # check wether check in/check out feature is enabled
-    selected_company = request.session.get("selected_company")
-    if selected_company == "all":
-        company = None
-        attendance_general_settings = AttendanceGeneralSetting.objects.filter(
-            company_id=None
-        ).first()
-    else:
-        company = Company.objects.filter(id=selected_company).first()
-        attendance_general_settings = AttendanceGeneralSetting.objects.filter(
-            company_id=company
-        ).first()
+    company = _resolve_checkin_company(request)
+    attendance_general_settings = AttendanceGeneralSetting.objects.filter(
+        company_id=company
+    ).first() or AttendanceGeneralSetting.objects.filter(company_id=None).first()
     # request.__dict__.get("datetime")' used to check if the request is from a biometric device
     if (
         attendance_general_settings
@@ -257,6 +396,11 @@ def clock_in(request):
                     _("Check-In Restricted: Your current network is not authorized "),
                 )
                 return JoydigiRedirect(request)
+
+        checkin_source = _validate_checkin_source(request, company)
+        if not checkin_source["allowed"]:
+            messages.error(request, checkin_source["message"])
+            return JoydigiRedirect(request)
 
         employee, work_info = employee_exists(request)
         datetime_now = timezone.localtime()
@@ -307,6 +451,12 @@ def clock_in(request):
                 end_time=end_time_sec,
                 in_datetime=datetime_now,
             )
+            _mark_outside_radius_request(attendance, checkin_source)
+            if checkin_source.get("outside_radius"):
+                messages.warning(
+                    request,
+                    checkin_source["message"] + " Bản ghi đã được chuyển sang chờ duyệt.",
+                )
             # Refresh employee from DB so template re-evaluates is_clocked_in correctly
             employee.refresh_from_db()
             return render(
@@ -464,17 +614,10 @@ def clock_out(request):
     This method is used to set the out date and time for attendance and attendance activity
     """
     # check wether check in/check out feature is enabled
-    selected_company = request.session.get("selected_company")
-    if selected_company == "all":
-        company = None
-        attendance_general_settings = AttendanceGeneralSetting.objects.filter(
-            company_id=None
-        ).first()
-    else:
-        company = Company.objects.filter(id=selected_company).first()
-        attendance_general_settings = AttendanceGeneralSetting.objects.filter(
-            company_id=company
-        ).first()
+    company = _resolve_checkin_company(request)
+    attendance_general_settings = AttendanceGeneralSetting.objects.filter(
+        company_id=company
+    ).first() or AttendanceGeneralSetting.objects.filter(company_id=None).first()
     if (
         attendance_general_settings
         and attendance_general_settings.enable_check_in
@@ -515,6 +658,11 @@ def clock_out(request):
                 )
                 return JoydigiRedirect(request)
 
+        checkin_source = _validate_checkin_source(request, company)
+        if not checkin_source["allowed"]:
+            messages.error(request, checkin_source["message"])
+            return JoydigiRedirect(request)
+
         datetime_now = timezone.localtime()
         if request.__dict__.get("datetime"):
             datetime_now = request.datetime
@@ -545,6 +693,7 @@ def clock_out(request):
         attendance = clock_out_attendance_and_activity(
             employee=employee, date_today=date_today, now=now, out_datetime=datetime_now
         )
+        _mark_outside_radius_request(attendance, checkin_source)
         if attendance:
             early_out_instance = attendance.late_come_early_out.filter(type="early_out")
             is_night_shift = attendance.is_night_shift()

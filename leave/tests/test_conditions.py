@@ -16,13 +16,13 @@ class LeaveTypeConditionModelTest(TestCase):
         cond.condition_type = "gender"
         cond.value = "female"
         self.assertIn("female", str(cond))
-        self.assertIn("Gender", str(cond))
+        self.assertIn("Giới tính", str(cond))
 
     def test_str_without_value(self):
         cond = LeaveTypeCondition.__new__(LeaveTypeCondition)
         cond.condition_type = "once_per_employment"
         cond.value = None
-        self.assertIn("Once Per Employment", str(cond))
+        self.assertIn("Một lần cho mỗi việc làm", str(cond))
 
     def test_clean_raises_when_value_missing_for_gender(self):
         cond = LeaveTypeCondition.__new__(LeaveTypeCondition)
@@ -115,7 +115,7 @@ class OncePerEmploymentConditionTest(TestCase):
         employee = _make_employee()
         is_eligible, msg = evaluate_leave_type_conditions(lt, employee)
         self.assertFalse(is_eligible)
-        self.assertIn("once", str(msg).lower())
+        self.assertIn("một lần", str(msg).lower())
 
 
 class MaritalStatusConditionTest(TestCase):

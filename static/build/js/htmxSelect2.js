@@ -3999,13 +3999,29 @@
 });
 staticUrl = $("#statiUrl").attr("data-url");
 
-$(document).ready(function () {
-    $(".oh-select").each(function () {
-        if ($(this).hasClass("select2-hidden-accessible")) {
-            $(this).select2("destroy");
+function initSelect2Safely(elements) {
+    if (typeof $.fn.select2 !== "function") {
+        return;
+    }
+    elements.each(function () {
+        var element = $(this);
+        var instance = element.data("select2");
+        if (instance) {
+            return;
         }
-        $(this).select2({ width: '100%' });
+
+        // A swapped HTMX fragment can retain Select2's marker class after its
+        // internal instance has been removed. Clean that stale markup without
+        // calling destroy on an undefined instance.
+        element.removeClass("select2-hidden-accessible")
+            .removeAttr("data-select2-id aria-hidden tabindex");
+        element.next(".select2-container").remove();
+        element.select2({ width: "100%" });
     });
+}
+
+$(document).ready(function () {
+    initSelect2Safely($(".oh-select"));
 
     $("select").on("select2:select", function (e) {
         $(this)[0].dispatchEvent(new Event("change"));
@@ -4015,7 +4031,7 @@ $(document).ready(function () {
 
 $(document).on("htmx:afterSettle", function (event) {
     var target = $(event.target);
-    target.find(".oh-select").select2({ width: '100%' });
+    initSelect2Safely(target.find(".oh-select").add(target.filter(".oh-select")));
 
     target.find("select").off("select2:select").on("select2:select", function (e) {
         this.dispatchEvent(new Event("change"));

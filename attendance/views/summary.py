@@ -20,7 +20,12 @@ from django.shortcuts import render
 from django.utils.translation import gettext_lazy as _
 from xlsxwriter.utility import xl_range
 
-from attendance.models import Attendance, AttendanceDailyHours, AttendanceSummaryHours
+from attendance.models import (
+    Attendance,
+    AttendanceDailyHours,
+    AttendanceLateComeEarlyOut,
+    AttendanceSummaryHours,
+)
 from base.methods import (
     filtersubordinatesemployeemodel,
     get_company_leave_dates,
@@ -36,6 +41,7 @@ from base.models import (
     Roster,
     WorkType,
 )
+from base.roles import checkin_admin_required, checkin_leader_required, is_checkin_admin
 from employee.filters import EmployeeFilter
 from employee.models import Employee
 from joydigi.decorators import hx_request_required, login_required, manager_can_enter
@@ -576,8 +582,20 @@ def _parse_date(value, fallback):
         return fallback
 
 
+def _summary_employees(request):
+    queryset = Employee.objects.filter(is_active=True)
+    if is_checkin_admin(request.user):
+        return queryset
+    manager = getattr(request.user, "employee_get", None)
+    if manager is None:
+        return queryset.none()
+    return queryset.filter(
+        Q(pk=manager.pk) | Q(employee_work_info__reporting_manager_id=manager)
+    ).distinct()
+
+
 @login_required
-@manager_can_enter("attendance.view_attendance")
+@checkin_leader_required
 def attendance_monthly_summary(request):
     """
     Full-page view for the monthly attendance summary.
@@ -591,8 +609,10 @@ def attendance_monthly_summary(request):
     context = {
         "from_date": request.GET.get("from_date", from_date_default.isoformat()),
         "to_date": request.GET.get("to_date", to_date_default.isoformat()),
-        "employees": Employee.objects.filter(is_active=True),
-        "departments": Department.objects.all(),
+        "employees": _summary_employees(request),
+        "departments": Department.objects.filter(
+            employeeworkinformation__employee_id__in=_summary_employees(request)
+        ).distinct(),
         "job_positions": JobPosition.objects.all(),
         "shifts": EmployeeShift.objects.all(),
         "work_types": WorkType.objects.all(),
@@ -602,7 +622,7 @@ def attendance_monthly_summary(request):
 
 
 @login_required
-@manager_can_enter("attendance.view_attendance")
+@checkin_leader_required
 @hx_request_required
 def attendance_monthly_summary_table(request):
     """
@@ -619,10 +639,8 @@ def attendance_monthly_summary_table(request):
     if from_date > to_date:
         from_date, to_date = to_date, from_date
 
-    employee_filter = EmployeeFilter(request.GET)
-    employee_qs = filtersubordinatesemployeemodel(
-        request, employee_filter.qs, "attendance.view_attendance"
-    )
+    employee_filter = EmployeeFilter(request.GET, queryset=_summary_employees(request))
+    employee_qs = employee_filter.qs
 
     # Multi-select filters — handled explicitly here (getlist + __in) rather
     # than through EmployeeFilter's own auto-generated single-value fields,
@@ -724,7 +742,7 @@ def attendance_monthly_summary_table(request):
 
 
 @login_required
-@manager_can_enter("attendance.view_attendance")
+@checkin_admin_required
 def attendance_monthly_summary_export(request):
     """
     HR-190 — Download the current summary as an XLSX file.
@@ -740,10 +758,8 @@ def attendance_monthly_summary_export(request):
     if from_date > to_date:
         from_date, to_date = to_date, from_date
 
-    employee_filter = EmployeeFilter(request.GET)
-    employee_qs = filtersubordinatesemployeemodel(
-        request, employee_filter.qs, "attendance.view_attendance"
-    )
+    employee_filter = EmployeeFilter(request.GET, queryset=_summary_employees(request))
+    employee_qs = employee_filter.qs
     emp_id = request.GET.get("employee_id")
     if emp_id:
         employee_qs = employee_qs.filter(pk=emp_id)
@@ -794,6 +810,62 @@ def attendance_monthly_summary_export(request):
     ]
     df = pd.DataFrame(data, columns=columns) if data else pd.DataFrame(columns=columns)
 
+    # Lưới ký hiệu từng ngày để kế toán có thể đối soát trực tiếp.
+    dates = list(_iter_dates(from_date, to_date))
+    attendance_rows = Attendance.objects.filter(
+        employee_id__in=employee_qs,
+        attendance_date__range=(from_date, to_date),
+    ).select_related("work_type_id")
+    attendance_map = {
+        (item.employee_id_id, item.attendance_date): item for item in attendance_rows
+    }
+    late_ids = set(
+        AttendanceLateComeEarlyOut.objects.filter(
+            attendance_id_id__in=[item.pk for item in attendance_rows],
+            type="late_come",
+        ).values_list("attendance_id_id", flat=True)
+    )
+    detail_data = []
+    for row in rows:
+        employee = row["employee"]
+        calendar_context = _build_calendar_context(employee, from_date, to_date)
+        status_by_date = {}
+        for month in calendar_context["months"]:
+            for week in month["weeks"]:
+                for cell in week:
+                    if cell and cell["status"] != "out_of_range":
+                        status_by_date[cell["date"]] = cell["status"]
+        detail = {
+            "Nhân viên": employee.get_full_name(),
+            "Mã nhân viên": employee.badge_id or "",
+        }
+        for current_date in dates:
+            attendance = attendance_map.get((employee.pk, current_date))
+            status = status_by_date.get(current_date, "absent")
+            if attendance:
+                work_type = str(attendance.work_type_id or "").lower()
+                if any(word in work_type for word in ("remote", "từ xa", "tại nhà", "home")):
+                    symbol = "R"
+                elif attendance.pk in late_ids:
+                    symbol = "M"
+                elif status in ("half_present", "short", "partial_hours", "absent"):
+                    symbol = "T"
+                else:
+                    symbol = "X"
+            else:
+                symbol = {
+                    "paid_leave": "P",
+                    "unpaid_leave": "K",
+                    "holiday": "L",
+                    "week_off": "-",
+                }.get(status, "K")
+            detail[current_date.strftime("%d/%m")] = symbol
+        detail_data.append(detail)
+    daily_columns = ["Nhân viên", "Mã nhân viên"] + [
+        current_date.strftime("%d/%m") for current_date in dates
+    ]
+    daily_df = pd.DataFrame(detail_data, columns=daily_columns)
+
     company = getattr(request, "selected_company_instance", None)
     company_title = getattr(company, "company", "") if company else ""
     company_logo = getattr(company, "icon", "") if company else ""
@@ -803,6 +875,20 @@ def attendance_monthly_summary_export(request):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         df.to_excel(writer, index=False, sheet_name="Tổng hợp", startrow=6)
+        daily_df.to_excel(writer, index=False, sheet_name="Chi tiết từng ngày")
+        pd.DataFrame(
+            [
+                ("X", "Đủ công"),
+                ("M", "Đi muộn"),
+                ("P", "Nghỉ có phép"),
+                ("K", "Vắng hoặc nghỉ không phép"),
+                ("R", "Làm việc từ xa"),
+                ("L", "Ngày nghỉ lễ"),
+                ("T", "Thiếu giờ công"),
+                ("-", "Ngày nghỉ hằng tuần"),
+            ],
+            columns=["Ký hiệu", "Ý nghĩa"],
+        ).to_excel(writer, index=False, sheet_name="Chú thích")
         workbook = writer.book
         worksheet = writer.sheets["Tổng hợp"]
 
@@ -880,8 +966,19 @@ def attendance_monthly_summary_export(request):
                 max_len = len(col)
             worksheet.set_column(col_idx, col_idx, min(max_len + 2, 40))
 
+        detail_sheet = writer.sheets["Chi tiết từng ngày"]
+        detail_sheet.freeze_panes(1, 2)
+        detail_sheet.set_column(0, 0, 28)
+        detail_sheet.set_column(1, 1, 14)
+        if len(daily_columns) > 2:
+            detail_sheet.set_column(2, len(daily_columns) - 1, 7)
+
     output.seek(0)
-    filename = f"Bang_cham_cong_{from_date}_{to_date}.xlsx"
+    filename = (
+        f"bang-cong-{from_date:%Y-%m}.xlsx"
+        if from_date.year == to_date.year and from_date.month == to_date.month
+        else f"bang-cong-{from_date}-{to_date}.xlsx"
+    )
     response = HttpResponse(
         output.read(),
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -891,6 +988,7 @@ def attendance_monthly_summary_export(request):
 
 
 @login_required
+@checkin_leader_required
 @hx_request_required
 def attendance_monthly_summary_detail(request):
     """
@@ -905,7 +1003,7 @@ def attendance_monthly_summary_detail(request):
     metric = request.GET.get("metric", "present")
 
     try:
-        emp = Employee.objects.get(pk=emp_id)
+        emp = _summary_employees(request).get(pk=emp_id)
     except Employee.DoesNotExist:
         return HttpResponse(
             "<p style='padding:12px;color:#6c757d;font-size:.8rem;'>Không tìm thấy nhân viên.</p>"
@@ -1687,6 +1785,7 @@ def _build_calendar_context(emp, from_date, to_date):
 
 
 @login_required
+@checkin_leader_required
 @hx_request_required
 def attendance_monthly_summary_calendar(request):
     """
@@ -1700,7 +1799,7 @@ def attendance_monthly_summary_calendar(request):
     to_date = _parse_date(request.GET.get("to_date"), datetime.date.today())
 
     try:
-        emp = Employee.objects.get(pk=emp_id)
+        emp = _summary_employees(request).get(pk=emp_id)
     except Employee.DoesNotExist:
         return HttpResponse("<p style='padding:20px;'>Không tìm thấy nhân viên.</p>")
 
@@ -1709,6 +1808,7 @@ def attendance_monthly_summary_calendar(request):
 
 
 @login_required
+@checkin_leader_required
 @manager_can_enter("attendance.change_attendance")
 @hx_request_required
 def attendance_monthly_summary_conflict_resolve(request):
@@ -1737,7 +1837,7 @@ def attendance_monthly_summary_conflict_resolve(request):
     date = _parse_date(date_str, None)
 
     try:
-        emp = Employee.objects.get(pk=emp_id)
+        emp = _summary_employees(request).get(pk=emp_id)
     except Employee.DoesNotExist:
         return HttpResponse(
             "<p style='padding:12px;color:#6c757d;'>Không tìm thấy nhân viên.</p>"
@@ -2107,6 +2207,7 @@ def attendance_monthly_summary_conflict_resolve(request):
 
 
 @login_required
+@checkin_leader_required
 @manager_can_enter("attendance.change_attendance")
 def attendance_monthly_summary_bulk_override(request):
     """
@@ -2141,12 +2242,12 @@ def attendance_monthly_summary_bulk_override(request):
     }
 
     if not emp_ids or not from_date or not to_date or resolution not in _valid:
-        return JsonResponse({"error": "Invalid parameters"}, status=400)
+        return JsonResponse({"error": "Dữ liệu gửi lên không hợp lệ."}, status=400)
 
     if from_date > to_date:
         from_date, to_date = to_date, from_date
 
-    employees = list(Employee.objects.filter(pk__in=emp_ids))
+    employees = list(_summary_employees(request).filter(pk__in=emp_ids))
     dates = list(_iter_dates(from_date, to_date))
 
     # Batch-fetch existing resolutions to skip same-value records (avoids N+1)
@@ -2176,6 +2277,7 @@ def attendance_monthly_summary_bulk_override(request):
 
 
 @login_required
+@checkin_leader_required
 @manager_can_enter("attendance.change_attendance")
 def attendance_monthly_summary_undo_bulk(request):
     """
@@ -2194,12 +2296,13 @@ def attendance_monthly_summary_undo_bulk(request):
 
     pks = request.POST.getlist("pks")
     if not pks:
-        return JsonResponse({"error": "No records specified"}, status=400)
+        return JsonResponse({"error": "Chưa chọn bản ghi cần hoàn tác."}, status=400)
 
     # Security: only touch records that the current user created or last modified
     deleted_count, _ = (
         AttendanceConflictResolution.objects.filter(
             pk__in=pks,
+            employee_id__in=_summary_employees(request),
         )
         .filter(Q(modified_by=request.user) | Q(created_by=request.user))
         .delete()
@@ -2209,6 +2312,7 @@ def attendance_monthly_summary_undo_bulk(request):
 
 
 @login_required
+@checkin_leader_required
 @manager_can_enter("attendance.change_attendance")
 def attendance_monthly_summary_daily_hours_edit(request):
     """
@@ -2231,7 +2335,7 @@ def attendance_monthly_summary_daily_hours_edit(request):
     date = _parse_date(date_str, None)
 
     try:
-        emp = Employee.objects.get(pk=emp_id)
+        emp = _summary_employees(request).get(pk=emp_id)
     except Employee.DoesNotExist:
         return HttpResponse("—")
 

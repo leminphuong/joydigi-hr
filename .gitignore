@@ -139,6 +139,9 @@ dmypy.json
 # media file
 media/
 
+# database backups
+backup/
+
 #collected static files
 staticfiles/
 

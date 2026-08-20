@@ -21,6 +21,7 @@ from accessibility.cbv_decorators import enter_if_accessible
 from accessibility.models import DefaultAccessibility
 from base.context_processors import enable_profile_edit
 from base.methods import has_export_access, is_reportingmanager
+from base.roles import checkin_admin_required
 from employee.filters import EmployeeFilter
 from employee.forms import BulkUpdateFieldForm, EmployeeExportExcelForm
 from employee.models import Employee, EmployeeBankDetails, EmployeeWorkInformation
@@ -68,6 +69,7 @@ Employee.toggle_profile_edit_access_url = toggle_profile_edit_access_url
 
 
 @method_decorator(login_required, name="dispatch")
+@method_decorator(checkin_admin_required, name="dispatch")
 @method_decorator(
     enter_if_accessible(
         feature="employee_view",
@@ -101,6 +103,7 @@ from base import models as base_models
 
 
 @method_decorator(login_required, name="dispatch")
+@method_decorator(checkin_admin_required, name="dispatch")
 @method_decorator(
     enter_if_accessible(
         feature="employee_view",
@@ -506,6 +509,7 @@ class WorkTab(JoydigiTabView):
     ),
     name="dispatch",
 )
+@method_decorator(checkin_admin_required, name="dispatch")
 class EmployeeNav(JoydigiNavView):
     """
     For nav bar
@@ -690,6 +694,7 @@ def user_generic_import_or_update(sender, **kwargs):
     ),
     name="dispatch",
 )
+@method_decorator(checkin_admin_required, name="dispatch")
 class ExportView(TemplateView):
     """
     For candidate export
@@ -717,6 +722,7 @@ class ExportView(TemplateView):
     ),
     name="dispatch",
 )
+@method_decorator(checkin_admin_required, name="dispatch")
 class EmployeeCard(JoydigiCardView):
     """
     For card view

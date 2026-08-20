@@ -1355,7 +1355,9 @@ class Roster(JoydigiModel):
     )
     department = models.ForeignKey(
         "base.Department",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="roster_entries",
         verbose_name=_("Department"),
     )
@@ -2755,7 +2757,7 @@ class CheckInPolicy(JoydigiModel):
         Company, on_delete=models.CASCADE, related_name="check_in_policy", verbose_name="Công ty"
     )
     late_threshold_minutes = models.PositiveSmallIntegerField(
-        default=15, verbose_name="Ngưỡng đi muộn (phút)"
+        default=10, verbose_name="Ngưỡng đi muộn (phút)"
     )
     annual_leave_days = models.PositiveSmallIntegerField(
         default=12, verbose_name="Số ngày phép mỗi năm"

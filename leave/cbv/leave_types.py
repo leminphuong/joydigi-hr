@@ -169,6 +169,7 @@ class LeaveTypeDetailView(JoydigiDetailedView):
     """
 
     model = LeaveType
+    template_name = "cbv/leave_types/leave_type_detail.html"
     detail_view_url_name = "leave-type-detail-view"
     detail_view_permission = "leave.view_leavetype"
     title = _("Details")

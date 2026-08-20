@@ -1,17 +1,25 @@
 """Các màn hình chấm công tinh gọn dùng cho menu chính."""
 
 import json
+import io
 from datetime import date, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.http import HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from base.forms import CheckInLocationForm, CheckInPolicyForm, OfficeWifiForm
+from base.checkin_tokens import make_kiosk_token, valid_kiosk_token
 from base.models import CheckInLocation, CheckInPolicy, Company, OfficeWifi
+from base.roles import (
+    checkin_admin_required,
+    checkin_leader_required,
+    is_checkin_admin,
+)
 
 
 def _current_company(request):
@@ -20,14 +28,100 @@ def _current_company(request):
     return company or Company.objects.filter(hq=True).first() or Company.objects.first()
 
 
+def _sync_annual_leave(company, days):
+    """Đồng bộ tham số phép năm với loại phép và quỹ phép của nhân viên."""
+    from employee.models import Employee
+    from leave.models import AvailableLeave, LeaveType
+
+    leave_type = LeaveType.objects.filter(
+        company_id=company, name="Nghỉ phép năm"
+    ).first()
+    previous_total = float(leave_type.total_days or 0) if leave_type else 0
+    if leave_type is None:
+        leave_type = LeaveType.objects.create(
+            company_id=company,
+            name="Nghỉ phép năm",
+            payment="paid",
+            payment_type="paid",
+            limit_leave=True,
+            total_days=days,
+            require_approval="yes",
+            exclude_company_leave="yes",
+            exclude_holiday="yes",
+        )
+    elif previous_total != float(days):
+        leave_type.total_days = days
+        leave_type.save(update_fields=["total_days"])
+
+    difference = float(days) - previous_total
+    employees = Employee.objects.filter(
+        is_active=True, employee_work_info__company_id=company
+    )
+    for employee in employees:
+        balance, created = AvailableLeave.objects.get_or_create(
+            employee_id=employee,
+            leave_type_id=leave_type,
+            defaults={"available_days": days},
+        )
+        if not created and difference:
+            balance.available_days = max(float(balance.available_days) + difference, 0)
+            balance.save(update_fields=["available_days", "total_leave_days"])
+
+
+def kiosk(request):
+    """Màn hình QR động tại văn phòng; không chứa dữ liệu nhân viên."""
+    response = render(request, "checkin/kiosk.html")
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response
+
+
+def kiosk_qr(request):
+    import qrcode
+
+    token = make_kiosk_token()
+    destination = request.build_absolute_uri(
+        f"{reverse('qr-checkin')}?qr_token={token}"
+    )
+    image = qrcode.make(destination)
+    output = io.BytesIO()
+    image.save(output, format="PNG")
+    response = HttpResponse(output.getvalue(), content_type="image/png")
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response
+
+
+@login_required
+def qr_checkin(request):
+    token = request.GET.get("qr_token", "")
+    if not valid_kiosk_token(token):
+        return render(request, "checkin/qr_checkin.html", {"token_expired": True})
+    return render(request, "checkin/qr_checkin.html", {"qr_token": token})
+
+
 def _visible_employees(request):
     from employee.models import Employee
 
-    employees = Employee.objects.filter(is_active=True).select_related(
+    # Lấy danh sách gốc rồi tự giới hạn theo công ty đang chọn. Cách này tránh
+    # việc bộ lọc công ty của manager được áp dụng hai lần và làm danh sách
+    # Duyệt đơn rỗng trong khi trang quản trị đầy đủ vẫn có dữ liệu.
+    employees = Employee.objects.entire().filter(is_active=True)
+    selected_company = request.session.get("selected_company")
+    if selected_company and selected_company != "all":
+        employees = employees.filter(
+            employee_work_info__company_id_id=selected_company
+        )
+    elif selected_company == "all" and not is_checkin_admin(request.user):
+        allowed_company_ids = getattr(request, "all_my_company_ids", None)
+        if allowed_company_ids is not None:
+            employees = employees.filter(
+                employee_work_info__company_id_id__in=allowed_company_ids
+            )
+
+    employees = employees.select_related(
         "employee_work_info__department_id", "employee_work_info__company_id"
     )
     employee = getattr(request.user, "employee_get", None)
-    if request.user.is_superuser or request.user.has_perm("attendance.view_attendance"):
+    if is_checkin_admin(request.user):
         return employees
     if employee and Employee.objects.filter(
         employee_work_info__reporting_manager_id=employee, is_active=True
@@ -158,6 +252,7 @@ def get_attendance_overview(request):
 
 
 @login_required
+@checkin_leader_required
 def today_attendance(request):
     return render(request, "checkin/today_attendance.html", get_attendance_overview(request))
 
@@ -186,15 +281,53 @@ def _outside_radius(attendance):
 
 
 @login_required
+@checkin_leader_required
 def approval_hub(request):
     from attendance.models import Attendance
     from leave.models import LeaveRequest
 
     employee_ids = list(_visible_employees(request).values_list("pk", flat=True))
-    leave_requests = LeaveRequest.objects.filter(
-        employee_id_id__in=employee_ids, status="requested"
-    ).select_related("employee_id", "leave_type_id").order_by("requested_date")
-    attendance_requests = Attendance.objects.filter(
+    # employee_ids đã chứa đúng phạm vi Admin/Trưởng nhóm, vì vậy dùng
+    # queryset gốc để kết quả tại đây khớp với trang duyệt đầy đủ.
+    leave_queryset = LeaveRequest.objects.entire().filter(
+        employee_id_id__in=employee_ids
+    ).select_related("employee_id", "leave_type_id").prefetch_related(
+        "leaverequestconditionapproval_set__manager_id"
+    ).order_by("-requested_date", "-id")[:100]
+    actor = getattr(request.user, "employee_get", None)
+    admin_view = is_checkin_admin(request.user)
+    leave_requests = []
+    for item in leave_queryset:
+        approvals = list(item.leaverequestconditionapproval_set.all())
+        item.approval_steps = approvals
+        pending_step = next(
+            (
+                step
+                for step in approvals
+                if not step.is_approved and not step.is_rejected
+            ),
+            None,
+        )
+        item.current_approval = pending_step
+        item.is_own_request = item.employee_id_id == getattr(actor, "id", None)
+        item.can_act = False
+        if item.status != "requested":
+            item.current_approval = None
+        elif approvals:
+            item.can_act = bool(
+                pending_step
+                and pending_step.manager_id_id == getattr(actor, "id", None)
+            )
+        else:
+            item.can_act = bool(
+                not item.is_own_request
+                and (
+                    admin_view
+                    or item.employee_id.get_reporting_manager() == actor
+                )
+            )
+        leave_requests.append(item)
+    attendance_requests = Attendance.objects.entire().filter(
         employee_id_id__in=employee_ids,
         is_validate_request=True,
         is_validate_request_approved=False,
@@ -205,18 +338,34 @@ def approval_hub(request):
             data = _request_data(item)
             item.distance = data.get("distance") or data.get("distance_meters")
             outside_requests.append(item)
-    return render(
+    response = render(
         request,
         "checkin/approval_hub.html",
         {"leave_requests": leave_requests, "outside_requests": outside_requests},
     )
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response
 
 
 def _can_manage_settings(request):
-    return request.user.is_superuser or request.user.has_perm("attendance.change_attendancegeneralsetting") or request.user.has_perm("base.change_company")
+    return is_checkin_admin(request.user)
+
+
+def _settings_instance(model, raw_id, company):
+    """Trả về bản ghi cần sửa; mã rỗng có nghĩa là tạo mới."""
+    if not raw_id:
+        return None
+    try:
+        object_id = int(raw_id)
+    except (TypeError, ValueError):
+        return None
+    if object_id <= 0:
+        return None
+    return model.objects.filter(pk=object_id, company_id=company).first()
 
 
 @login_required
+@checkin_admin_required
 def checkin_settings(request):
     if not _can_manage_settings(request):
         return HttpResponseForbidden("Bạn không có quyền thay đổi cài đặt chấm công.")
@@ -225,25 +374,26 @@ def checkin_settings(request):
         messages.error(request, "Cần tạo công ty trước khi cài đặt chấm công.")
         return redirect("settings")
     policy, _ = CheckInPolicy.objects.get_or_create(company_id=company)
-    location_instance = CheckInLocation.objects.filter(
-        pk=request.GET.get("edit_location"), company_id=company
-    ).first()
-    wifi_instance = OfficeWifi.objects.filter(
-        pk=request.GET.get("edit_wifi"), company_id=company
-    ).first()
+    location_instance = _settings_instance(
+        CheckInLocation, request.GET.get("edit_location"), company
+    )
+    wifi_instance = _settings_instance(
+        OfficeWifi, request.GET.get("edit_wifi"), company
+    )
 
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "policy":
             form = CheckInPolicyForm(request.POST, instance=policy)
             if form.is_valid():
-                form.save()
+                saved_policy = form.save()
+                _sync_annual_leave(company, saved_policy.annual_leave_days)
                 messages.success(request, "Đã lưu quy định chấm công.")
                 return redirect("checkin-settings")
         elif action == "location":
-            instance = CheckInLocation.objects.filter(
-                pk=request.POST.get("object_id"), company_id=company
-            ).first()
+            instance = _settings_instance(
+                CheckInLocation, request.POST.get("object_id"), company
+            )
             form = CheckInLocationForm(request.POST, instance=instance)
             if form.is_valid():
                 obj = form.save(commit=False)
@@ -253,9 +403,9 @@ def checkin_settings(request):
                 return redirect("checkin-settings")
             location_instance = instance
         elif action == "wifi":
-            instance = OfficeWifi.objects.filter(
-                pk=request.POST.get("object_id"), company_id=company
-            ).first()
+            instance = _settings_instance(
+                OfficeWifi, request.POST.get("object_id"), company
+            )
             form = OfficeWifiForm(request.POST, instance=instance)
             if form.is_valid():
                 obj = form.save(commit=False)
@@ -286,6 +436,7 @@ def checkin_settings(request):
 
 
 @login_required
+@checkin_admin_required
 @require_POST
 def delete_checkin_location(request, pk):
     if not _can_manage_settings(request):
@@ -296,6 +447,7 @@ def delete_checkin_location(request, pk):
 
 
 @login_required
+@checkin_admin_required
 @require_POST
 def delete_office_wifi(request, pk):
     if not _can_manage_settings(request):

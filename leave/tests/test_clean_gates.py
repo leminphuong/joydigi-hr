@@ -33,7 +33,7 @@ class LeaveRequestCleanGateTests(TestCase):
         )
         with self.assertRaises(ValidationError) as ctx:
             req.clean()
-        self.assertIn("not assigned", str(ctx.exception).lower())
+        self.assertIn("không được chỉ định", str(ctx.exception).lower())
 
     def test_end_before_start_rejected(self):
         from leave.models import AvailableLeave, LeaveRequest
@@ -57,4 +57,4 @@ class LeaveRequestCleanGateTests(TestCase):
         )
         with self.assertRaises(ValidationError) as ctx:
             req.clean()
-        self.assertIn("end date", str(ctx.exception).lower())
+        self.assertIn("ngày kết thúc", str(ctx.exception).lower())

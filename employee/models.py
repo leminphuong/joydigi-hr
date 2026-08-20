@@ -872,6 +872,11 @@ class EmployeeWorkInformation(models.Model):
         blank=True,
         verbose_name=_("Work Type"),
     )
+    allow_remote = models.BooleanField(
+        default=False,
+        verbose_name="Được phép làm việc từ xa",
+        help_text="Chỉ bật cho vị trí được công ty cho phép làm việc từ xa.",
+    )
 
     employee_type_id = models.ForeignKey(
         EmployeeType,

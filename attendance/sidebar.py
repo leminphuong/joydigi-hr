@@ -130,18 +130,7 @@ def attendance_rule_accessibility(request, submenu, user_perms, *args, **kwargs)
         or user.has_perm("attendance.change_attendancegeneralsetting")
         or user.has_perm("attendance.view_attendancegeneralsetting")
         or user.has_perm("attendance.add_attendance")
-        or (
-            apps.is_installed("geofencing")
-            and user.has_perm("geofencing.add_geofencing")
-        )
     )
-
-
-def geo_face_accessibility(request, submenu, user_perms, *args, **kwargs):
-    has_geo = apps.is_installed("geofencing") and request.user.has_perm(
-        "geofencing.add_geofencing"
-    )
-    return has_geo
 
 
 @settings_menu.register
@@ -185,10 +174,6 @@ class AttendanceSettings:
                 {
                     "text": _("Giới hạn mạng chấm công"),
                     "description": _("Chỉ cho phép chấm công từ các mạng đã chọn"),
-                },
-                {
-                    "text": _("Giới hạn vị trí chấm công"),
-                    "description": _("Chỉ cho phép chấm công trong khu vực đã chọn"),
                 },
             ],
         },

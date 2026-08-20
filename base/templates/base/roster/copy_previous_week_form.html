@@ -1,0 +1,23 @@
+<div class="oh-modal__dialog-header">
+    <h2 class="text-md font-semibold">Sao chép lịch tuần trước</h2>
+    <button type="button" class="oh-modal__close--custom" onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')" aria-label="Đóng">×</button>
+</div>
+<div class="oh-modal__dialog-body">
+    <form hx-post="{% url 'roster-copy-previous-week' %}" hx-target="#genericModalBody" hx-swap="innerHTML">
+        {% csrf_token %}
+        <div class="oh-input-wrapper mb-3">
+            <label class="oh-label">Phòng ban</label>
+            <select name="department" class="oh-select w-100">
+                <option value="">Tất cả phòng ban được quản lý</option>
+                {% for department in departments %}<option value="{{ department.pk }}">{{ department.department }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="oh-input-wrapper mb-3">
+            <label class="oh-label oh-label--mandatory">Tuần cần xếp lịch</label>
+            <input type="date" name="target_start" value="{{ target_start|date:'Y-m-d' }}" class="oh-input w-100" required>
+            <small class="text-muted">Hệ thống lấy ngày này làm tuần tương ứng và sao chép đủ lịch từ tuần liền trước.</small>
+        </div>
+        <div class="oh-alert oh-alert--info mb-3">Các ô đã có trong tuần mới sẽ được cập nhật theo tuần trước và chuyển về trạng thái chưa công bố.</div>
+        <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow">Sao chép lịch</button>
+    </form>
+</div>

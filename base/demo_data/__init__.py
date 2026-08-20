@@ -1,8 +1,7 @@
 """
 Enterprise demo-data seeder for Joydigi HR.
 
-Keeps the people layer (users/employees/avatars) from fixtures and
-standardizes org taxonomy, module catalogs, media, and dynamic copy.
+Standardizes legacy fixtures and creates the JOYDIGI check-in demo dataset.
 """
 
 from base.demo_data.runner import run_enterprise_demo_seeder

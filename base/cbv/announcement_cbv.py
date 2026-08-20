@@ -2,8 +2,6 @@
 Announcement page
 """
 
-import os
-
 from django.contrib import messages
 from django.http import HttpResponse
 from django.urls import resolve, reverse
@@ -12,7 +10,7 @@ from django.utils.translation import gettext_lazy as _
 
 from base.forms import AnnouncementForm
 from base.methods import closest_numbers
-from base.models import Announcement, AnnouncementView, Attachment
+from base.models import Announcement, AnnouncementView
 from employee.models import Employee
 from joydigi.http.response import JoydigiRedirect
 from joydigi_auth.models import JoydigiUser
@@ -24,19 +22,6 @@ from joydigi_views.generic.cbv.views import (
 )
 from notifications.signals import notify
 
-BLOCKED_EXTENSIONS = {
-    ".html",
-    ".htm",
-    ".js",
-    ".svg",
-    ".xml",
-    ".php",
-    ".py",
-    ".sh",
-    ".exe",
-}
-
-
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="base.add_announcement"), name="dispatch")
 class AnnouncementFormView(JoydigiFormView):
@@ -46,23 +31,23 @@ class AnnouncementFormView(JoydigiFormView):
 
     form_class = AnnouncementForm
     model = Announcement
-    new_display_title = _("Create Announcements.")
+    new_display_title = _("Đăng bản tin")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if self.form.instance.pk:
-            self.form_class.verbose_name = _("Edit Announcement.")
+            self.form_class.verbose_name = _("Sửa bản tin")
 
         return context
 
     def form_valid(self, form: AnnouncementForm) -> HttpResponse:
         if form.is_valid():
             if form.instance.pk:
-                message = _("Announcement updated successfully.")
+                message = _("Đã cập nhật bản tin.")
             else:
-                message = _("Announcement created successfully.")
+                message = _("Đã đăng bản tin.")
 
-            anou, unused_attachment_ids = form.save(commit=False)
+            anou, attachment_ids = form.save(commit=False)
 
             employees = form.cleaned_data["employees"]
             departments = form.cleaned_data["department"]
@@ -76,39 +61,15 @@ class AnnouncementFormView(JoydigiFormView):
                     employee_work_info__company_id__in=company, is_active=True
                 )
                 message = _(
-                    f"Announcement created successfully to all employees in "
+                    f"Đã đăng bản tin cho toàn bộ nhân viên tại "
                     f"{', '.join(company.values_list('company', flat=True))}."
                 )
 
-            # Attachment validation
-            files = self.request.FILES.getlist("attachments")
-            safe_attachment_ids = []
-
-            for file in files:
-                ext = os.path.splitext(file.name)[1].lower()
-
-                if ext in BLOCKED_EXTENSIONS:
-                    messages.error(
-                        self.request,
-                        _("File type %(ext)s is not allowed for security reasons.")
-                        % {"ext": ext},
-                    )
-                    continue
-
-                attachment = Attachment.objects.create(file=file)
-                safe_attachment_ids.append(attachment.id)
-
             anou.save()
-            anou.attachments.set(safe_attachment_ids)  # IMPORTANT FIX
+            anou.attachments.add(*attachment_ids)
             anou.department.set(departments)
             anou.job_position.set(job_positions)
-
-            emp_dep = JoydigiUser.objects.filter(
-                employee_get__employee_work_info__department_id__in=departments
-            )
-            emp_jobs = JoydigiUser.objects.filter(
-                employee_get__employee_work_info__job_position_id__in=job_positions
-            )
+            anou.company_id.set(company)
 
             employees = employees | Employee.objects.filter(
                 employee_work_info__department_id__in=departments
@@ -118,30 +79,18 @@ class AnnouncementFormView(JoydigiFormView):
             )
 
             anou.employees.add(*employees)
-
-            notify.send(
-                self.request.user.employee_get,
-                recipient=emp_dep,
-                verb="Your department was mentioned in a post.",
-                verb_ar="تم ذكر قسمك في منشور.",
-                verb_de="Ihr Abteilung wurde in einem Beitrag erwähnt.",
-                verb_es="Tu departamento fue mencionado en una publicación.",
-                verb_fr="Votre département a été mentionné dans un post.",
-                redirect="/",
-                icon="chatbox-ellipses",
-            )
-
-            notify.send(
-                self.request.user.employee_get,
-                recipient=emp_jobs,
-                verb="Your job position was mentioned in a post.",
-                verb_ar="تم ذكر وظيفتك في منشور.",
-                verb_de="Ihre Arbeitsposition wurde in einem Beitrag erwähnt.",
-                verb_es="Tu puesto de trabajo fue mencionado en una publicación.",
-                verb_fr="Votre poste de travail a été mentionné dans un post.",
-                redirect="/",
-                icon="chatbox-ellipses",
-            )
+            if anou.send_notification:
+                recipients = JoydigiUser.objects.filter(
+                    employee_get__in=employees
+                ).distinct()
+                if recipients.exists():
+                    notify.send(
+                        self.request.user.employee_get,
+                        recipient=recipients,
+                        verb=f"Có bản tin mới: {anou.title}",
+                        redirect=reverse("bulletin"),
+                        icon="chatbox-ellipses",
+                    )
 
             messages.success(self.request, message)
             return JoydigiRedirect(self.request)

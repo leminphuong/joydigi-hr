@@ -2,7 +2,7 @@ from django.contrib.auth.models import Group
 from django.urls import path, re_path
 from django.utils.translation import gettext_lazy as _
 
-from base import announcement
+from base import announcement, checkin_portal
 from base import dashboard as dashboard_module
 from base import ess_dashboard, request_and_approve, views
 from base.cbv import (
@@ -67,6 +67,19 @@ from joydigi_audit.models import AuditTag
 urlpatterns = [
     path("", views.home, name="home-page"),
     path("dashboard/", dashboard_module.main_dashboard_view, name="dashboard"),
+    path("cham-cong-hom-nay/", checkin_portal.today_attendance, name="today-attendance"),
+    path("duyet-don/", checkin_portal.approval_hub, name="approval-hub"),
+    path("settings/cham-cong/", checkin_portal.checkin_settings, name="checkin-settings"),
+    path(
+        "settings/cham-cong/dia-diem/<int:pk>/xoa/",
+        checkin_portal.delete_checkin_location,
+        name="delete-checkin-location",
+    ),
+    path(
+        "settings/cham-cong/wifi/<int:pk>/xoa/",
+        checkin_portal.delete_office_wifi,
+        name="delete-office-wifi",
+    ),
     path(
         "dashboard/api/kpi/",
         dashboard_module.dashboard_kpi_data,
@@ -118,16 +131,6 @@ urlpatterns = [
         name="dashboard-birthdays-anniversaries",
     ),
     path(
-        "dashboard/api/recruitment-pipeline/",
-        dashboard_module.dashboard_recruitment_pipeline,
-        name="dashboard-recruitment-pipeline",
-    ),
-    path(
-        "dashboard/api/payroll-summary/",
-        dashboard_module.dashboard_payroll_summary,
-        name="dashboard-payroll-summary",
-    ),
-    path(
         "dashboard/api/pending-approvals/",
         dashboard_module.dashboard_pending_approvals,
         name="dashboard-pending-approvals",
@@ -175,8 +178,6 @@ urlpatterns = [
         ess_dashboard.ess_work_hours_week,
         name="ess-work-hours-week",
     ),
-    path("ess/api/payslips/", ess_dashboard.ess_payslips, name="ess-payslips"),
-    path("ess/api/objectives/", ess_dashboard.ess_objectives, name="ess-objectives"),
     path(
         "ess/api/announcements/",
         ess_dashboard.ess_announcements,
@@ -1385,9 +1386,6 @@ urlpatterns = [
         name="r-work-type-select-filter",
     ),
     path("settings/tag-view/", views.tag_view, name="tag-view"),
-    path(
-        "settings/helpdesk-tag-view/", views.helpdesk_tag_view, name="helpdesk-tag-view"
-    ),
     path("tag-create/", views.tag_create, name="tag-create"),
     path("tag-update/<int:tag_id>/", views.tag_update, name="tag-update"),
     path(
@@ -1567,6 +1565,9 @@ urlpatterns = [
     #     name="create-announcement",
     # ),
     path(
+        "bulletin/", announcement.bulletin, name="bulletin"
+    ),
+    path(
         "announcement-list/", announcement.announcement_list, name="announcement-list"
     ),
     path(
@@ -1649,11 +1650,6 @@ urlpatterns = [
         name="reorder-dashboard-charts",
     ),
     path("employee-chart-show/", views.employee_chart_show, name="employee-chart-show"),
-    path(
-        "settings/activate-biometric-attendance/",
-        views.activate_biometric_attendance,
-        name="activate-biometric-attendance",
-    ),
     path(
         "employee/shift-request-view/",
         shift_request.ShiftRequestView.as_view(),

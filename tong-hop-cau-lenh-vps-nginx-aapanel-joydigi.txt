@@ -1,0 +1,371 @@
+TỔNG HỢP CÁC CÂU LỆNH VPS / NGINX / AAPANEL / JOYDIGI-HR
+Ngày tổng hợp: 2026-08-20
+
+============================================================
+1. KIỂM TRA TÀI NGUYÊN VPS
+============================================================
+
+# Xem RAM
+free -h
+
+# Xem dung lượng ổ đĩa
+df -h
+
+# Xem thời gian uptime và load average
+uptime
+
+
+============================================================
+2. KIỂM TRA PORT 80 / 443 / 8000
+============================================================
+
+# Xem tiến trình đang lắng nghe port 80, 443
+ss -lntp | grep -E ':(80|443)\b'
+
+# Xem port 8000 đang bị process nào chiếm
+ss -lntp | grep ':8000'
+
+# Xem đồng thời 80, 443, 8000
+ss -lntp | grep -E ':(80|443|8000)\b'
+
+# Xem tiến trình theo PID, ví dụ PID 770
+ps -fp 770
+
+# Xem command đầy đủ của PID 770
+tr '\0' ' ' < /proc/770/cmdline
+echo
+
+
+============================================================
+3. KIỂM TRA NGINX UBUNTU
+============================================================
+
+# Kiểm tra trạng thái nginx systemd
+systemctl status nginx --no-pager -l
+
+# Test cấu hình nginx Ubuntu
+nginx -t
+
+# Reload nginx Ubuntu
+systemctl reload nginx
+
+# Restart nginx Ubuntu
+systemctl restart nginx
+
+# Start nginx Ubuntu
+systemctl start nginx
+
+# Stop nginx Ubuntu
+systemctl stop nginx
+
+# Tắt tự khởi động nginx Ubuntu
+systemctl disable nginx
+
+# Bật tự khởi động nginx Ubuntu
+systemctl enable nginx
+
+# Xem PID nginx
+cat /run/nginx.pid
+
+# Xem toàn bộ process nginx
+ps -eo pid,ppid,user,lstart,args | grep '[n]ginx'
+
+# Xem binary thực tế của PID nginx
+readlink -f /proc/894/exe
+
+# Xem command line của PID nginx
+tr '\0' ' ' < /proc/894/cmdline
+echo
+
+# Xem log nginx systemd
+journalctl -u nginx -n 100 --no-pager -l
+
+# Xem log lỗi nginx
+tail -n 100 /var/log/nginx/error.log
+
+
+============================================================
+4. NGINX AAPANEL
+============================================================
+
+# Test cấu hình nginx aaPanel
+/www/server/nginx/sbin/nginx -t -c /www/server/nginx/conf/nginx.conf
+
+# Khởi động nginx aaPanel thủ công
+/www/server/nginx/sbin/nginx -c /www/server/nginx/conf/nginx.conf
+
+# Reload nginx aaPanel
+/www/server/nginx/sbin/nginx -s reload
+
+# Test rồi mới reload nginx aaPanel
+/www/server/nginx/sbin/nginx -t -c /www/server/nginx/conf/nginx.conf && /www/server/nginx/sbin/nginx -s reload
+
+# Kiểm tra file nginx aaPanel
+ls -lah /www/server/nginx/sbin/nginx
+ls -lah /www/server/nginx/conf/nginx.conf
+
+# Kiểm tra nginx aaPanel có include vhost không
+grep -n "vhost/nginx" /www/server/nginx/conf/nginx.conf
+
+
+============================================================
+5. KIỂM TRA VHOST WEBSITE AAPANEL
+============================================================
+
+# Liệt kê các vhost
+ls -lah /www/server/panel/vhost/nginx/
+
+# Xem cấu hình modbibi.com
+sed -n '1,240p' /www/server/panel/vhost/nginx/modbibi.com.conf
+
+# Xem cấu hình modpuro.com
+sed -n '1,240p' /www/server/panel/vhost/nginx/modpuro.com.conf
+
+# Tìm server_name modbibi.com
+grep -Rni "server_name.*modbibi.com" /etc/nginx /www/server/panel/vhost/nginx /www/server/nginx/conf 2>/dev/null
+
+# Kiểm tra nginx Ubuntu có load modbibi.com không
+nginx -T 2>/dev/null | grep -n -B5 -A30 "modbibi.com"
+
+# Xem include trong nginx Ubuntu
+grep -n "include" /etc/nginx/nginx.conf
+
+# Xem sites-enabled
+ls -lah /etc/nginx/sites-enabled/
+
+# Xem conf.d
+ls -lah /etc/nginx/conf.d/
+
+
+============================================================
+6. KIỂM TRA SOURCE WORDPRESS
+============================================================
+
+# Tìm wp-config.php
+find /www/wwwroot -maxdepth 2 -type f -name wp-config.php -print
+
+# Xem thư mục modbibi.com
+ls -lah /www/wwwroot/modbibi.com
+
+# Xem thư mục modpuro.com
+ls -lah /www/wwwroot/modpuro.com
+
+
+============================================================
+7. KIỂM TRA SSL
+============================================================
+
+# Tìm fullchain.pem và privkey.pem
+find /www/server/panel/vhost/cert -maxdepth 3 -type f \( -name "fullchain.pem" -o -name "privkey.pem" \) 2>/dev/null
+
+# Xem SSL modbibi.com
+ls -lah /www/server/panel/vhost/cert/modbibi.com/
+
+# Xem SSL modpuro.com
+ls -lah /www/server/panel/vhost/cert/modpuro.com/
+
+
+============================================================
+8. TEST WEBSITE TRỰC TIẾP TỪ VPS
+============================================================
+
+# Test HTTP origin modbibi.com
+curl -I -H "Host: modbibi.com" http://127.0.0.1/
+
+# Test HTTPS origin modbibi.com
+curl -kI --resolve modbibi.com:443:127.0.0.1 https://modbibi.com/
+
+# Test website qua Cloudflare
+curl -I --max-time 15 https://modbibi.com
+
+# Test trực tiếp localhost HTTPS với Host header
+curl -kI --max-time 15 https://127.0.0.1 -H "Host: modbibi.com"
+
+
+============================================================
+9. FIREWALL
+============================================================
+
+# Xem UFW
+ufw status verbose
+
+# Mở HTTP
+ufw allow 80/tcp
+
+# Mở HTTPS
+ufw allow 443/tcp
+
+# Mở port 8000
+ufw allow 8000/tcp
+
+# Reload UFW
+ufw reload
+
+# Xem iptables
+iptables -L INPUT -n -v --line-numbers
+
+# Xem nftables
+nft list ruleset
+
+
+============================================================
+10. POSTGRESQL
+============================================================
+
+# Start PostgreSQL
+systemctl start postgresql
+
+# Restart PostgreSQL
+systemctl restart postgresql
+
+# Kiểm tra PostgreSQL
+systemctl status postgresql --no-pager -l
+
+# Bật tự chạy cùng hệ thống
+systemctl enable postgresql
+
+
+============================================================
+11. JOYDIGI-HR / GUNICORN
+============================================================
+
+# Reload cấu hình systemd sau khi sửa file service
+systemctl daemon-reload
+
+# Restart JoyDigi HR
+systemctl restart joydigi-hr
+
+# Start JoyDigi HR
+systemctl start joydigi-hr
+
+# Stop JoyDigi HR
+systemctl stop joydigi-hr
+
+# Kiểm tra trạng thái
+systemctl status joydigi-hr --no-pager -l
+
+# Xem log lỗi gần nhất
+journalctl -u joydigi-hr -n 100 --no-pager -l
+
+# Theo dõi log realtime
+journalctl -u joydigi-hr -f
+
+# Kiểm tra port 8000
+ss -lntp | grep ':8000'
+
+# Test service trực tiếp
+curl -I http://127.0.0.1:8000
+
+
+============================================================
+12. XỬ LÝ PORT 8000 BỊ CHIẾM
+============================================================
+
+# Xác định process
+ss -lntp | grep ':8000'
+
+# Xem process, thay 770 bằng PID thực tế
+ps -fp 770
+
+# Xem command process
+tr '\0' ' ' < /proc/770/cmdline
+echo
+
+# Dừng process mềm
+kill 770
+
+# Nếu không dừng được
+kill -9 770
+
+# Cách khác: kill process đang giữ port 8000
+fuser -k 8000/tcp
+
+# Sau khi port trống, restart JoyDigi
+systemctl restart joydigi-hr
+systemctl status joydigi-hr --no-pager -l
+
+
+============================================================
+13. CÁC LỆNH CHỈ KIỂM TRA - KHÔNG THAY ĐỔI HỆ THỐNG
+============================================================
+
+free -h
+df -h
+uptime
+ss -lntp
+ps
+readlink
+cat
+grep
+find
+nginx -t
+curl
+journalctl
+tail
+systemctl status
+
+
+============================================================
+14. CÁC LỆNH CÓ THỂ THAY ĐỔI HỆ THỐNG
+============================================================
+
+systemctl start ...
+systemctl stop ...
+systemctl restart ...
+systemctl reload ...
+systemctl enable ...
+systemctl disable ...
+systemctl daemon-reload
+
+kill PID
+kill -9 PID
+fuser -k PORT/tcp
+
+ufw allow ...
+ufw reload
+
+/www/server/nginx/sbin/nginx -c /www/server/nginx/conf/nginx.conf
+/www/server/nginx/sbin/nginx -s reload
+
+
+============================================================
+15. TRẠNG THÁI ĐÃ XÁC ĐỊNH TRONG LOG
+============================================================
+
+- Nginx Ubuntu /usr/sbin/nginx từng chiếm port 80.
+- Nginx Ubuntu không load vhost modbibi.com.
+- Port 443 từng không listen nên Cloudflare báo 521.
+- Source WordPress modbibi.com và modpuro.com vẫn tồn tại.
+- SSL fullchain.pem và privkey.pem của cả hai domain vẫn tồn tại.
+- Nginx aaPanel test cấu hình thành công.
+- Lệnh "systemctl stop nginx" đã dừng Nginx Ubuntu.
+- Lệnh "/www/server/nginx/sbin/nginx -c /www/server/nginx/conf/nginx.conf" dùng để chạy Nginx aaPanel.
+- "systemctl reload nginx" không reload được Nginx aaPanel nếu nginx.service đang inactive.
+- JoyDigi HR Gunicorn đang bind 127.0.0.1:8000.
+- Có process Python khác từng chiếm 0.0.0.0:8000.
+- Vì port 8000 bị chiếm nên JoyDigi HR báo "Address already in use".
+
+
+============================================================
+16. CỤM LỆNH KIỂM TRA NHANH SAU REBOOT
+============================================================
+
+free -h
+df -h
+systemctl status postgresql --no-pager -l
+ps -eo pid,ppid,user,args | grep '[n]ginx'
+ss -lntp | grep -E ':(80|443|8000)\b'
+systemctl status joydigi-hr --no-pager -l
+curl -I -H "Host: modbibi.com" http://127.0.0.1/
+curl -kI --resolve modbibi.com:443:127.0.0.1 https://modbibi.com/
+
+
+============================================================
+17. LƯU Ý
+============================================================
+
+1. Luôn chạy nginx -t trước khi reload/restart Nginx.
+2. Không kill PID khi chưa kiểm tra process bằng ps -fp PID.
+3. Không chạy đồng thời Nginx Ubuntu và Nginx aaPanel nếu cả hai cùng muốn dùng port 80/443.
+4. Nếu dùng Nginx aaPanel cho website, nên tránh để Nginx Ubuntu tự động chiếm port sau reboot.
+5. Với JoyDigi HR, chỉ một process/service nên giữ port 8000.

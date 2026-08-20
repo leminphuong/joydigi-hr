@@ -522,17 +522,6 @@
 							</li>
 							{% endif %}
 
-							<li data-cell-index="11" data-cell-title="{% trans 'Documents' %}" class="oh-general__tab">
-								<a
-								hx-get="{% url 'document-tab' employee.id %}?employee_view=true"
-								hx-target="#document_target"
-								data-action="general-tab"
-								data-target="#document_target"
-								class="oh-general__tab-link"
-								role="button"
-								>{% trans "Documents" %}</a
-								>
-							</li>
 
 							{% if "payroll"|app_installed %}
 							<li data-cell-index="10" data-cell-title="{% trans 'Bonus Points' %}" class="oh-general__tab">
@@ -624,8 +613,6 @@
 						{% if "asset"|app_installed %}
 							<div class="oh-general__tab-target oh-profile__info-tab mb-4 d-none" id="asset_target"></div>
 						{% endif %}
-
-						<div class="oh-general__tab-target oh-profile__info-tab mb-4 d-none" id="document_target" ></div>
 
 						{% if "pms"|app_installed %}
 							<div class="oh-general__tab-target oh-profile__info-tab mb-4 d-none" id="performance_target"></div>

@@ -1,0 +1,126 @@
+{% extends "index.html" %}
+{% load static %}
+
+{% block styles %}
+<style>
+    .bulletin-page {
+        min-height: calc(100vh - 6rem);
+    }
+    .bulletin-card {
+        background: #fff;
+        border-color: #f1f5f9;
+    }
+    body.dark .bulletin-page {
+        min-height: calc(100vh - 4.5rem);
+        margin: -1.5rem;
+        padding: 1.5rem;
+        background: #111318;
+    }
+    body.dark .bulletin-title {
+        color: #f8fafc !important;
+    }
+    body.dark .bulletin-subtitle {
+        color: #aeb8c7 !important;
+    }
+    body.dark .bulletin-card {
+        background: #1b1f27 !important;
+        border-color: #343b48 !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    }
+    body.dark .bulletin-card:hover {
+        border-color: #596273 !important;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.34);
+        transform: translateY(-2px);
+    }
+    body.dark .bulletin-card__body {
+        border-top: 1px solid #2e3541;
+    }
+    body.dark .bulletin-card__date,
+    body.dark .bulletin-card__expiry {
+        color: #94a3b8 !important;
+    }
+    body.dark .bulletin-card__title {
+        color: #f1f5f9 !important;
+    }
+    body.dark .bulletin-card__description {
+        color: #cbd5e1 !important;
+    }
+    body.dark .bulletin-empty {
+        background: #1b1f27 !important;
+        border-color: #3a4351 !important;
+    }
+    body.dark .bulletin-empty__title {
+        color: #e5e7eb !important;
+    }
+    body.dark .bulletin-empty__description {
+        color: #94a3b8 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="bulletin-page space-y-5">
+    <header class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h1 class="bulletin-title text-xl font-semibold text-gray-900">Bản tin nội bộ</h1>
+            <p class="bulletin-subtitle mt-1 text-sm text-gray-500">Thông báo và tin mới dành cho nhân viên.</p>
+        </div>
+        {% if perms.base.add_announcement %}
+            <button
+                type="button"
+                class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm font-medium hover:bg-brand-800 transition"
+                hx-get="{% url 'create-announcement' %}"
+                hx-target="#objectCreateModalTarget"
+                hx-swap="innerHTML"
+                data-toggle="oh-modal-toggle"
+                data-target="#objectCreateModal"
+            >
+                + Đăng bản tin
+            </button>
+        {% endif %}
+    </header>
+
+    {% if announcements %}
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {% for announcement in announcements %}
+                <article
+                    class="bulletin-card rounded-xl border shadow-sm overflow-hidden hover:shadow-md transition cursor-pointer"
+                    hx-get="{% url 'announcement-single-view' announcement.id %}?instance_ids={{ instance_ids|urlencode }}"
+                    hx-target="#objectDetailsModalTarget"
+                    hx-swap="innerHTML"
+                    onclick="document.getElementById('objectDetailsModal').classList.add('oh-modal--show')"
+                >
+                    {% if announcement.cover_image %}
+                        <img
+                            src="{{ announcement.cover_image.url }}"
+                            alt="Ảnh bản tin {{ announcement.title }}"
+                            class="w-full h-44 object-cover"
+                        >
+                    {% else %}
+                        <div class="h-28 bg-primary-100 flex items-center justify-center">
+                            <img src="{% static 'images/ui/announcement.svg' %}" alt="" class="w-12 h-12 opacity-70">
+                        </div>
+                    {% endif %}
+                    <div class="bulletin-card__body p-4">
+                        {% if announcement.is_pinned %}<p class="text-xs font-semibold text-amber-600 mb-2">📌 Ghim đầu bảng tin</p>{% endif %}
+                        <p class="bulletin-card__date text-xs text-gray-400 mb-2">{{ announcement.created_at|date:"d/m/Y" }}</p>
+                        <h2 class="bulletin-card__title text-base font-semibold text-gray-900 line-clamp-2">{{ announcement.title }}</h2>
+                        <p class="bulletin-card__description mt-2 text-sm text-gray-600 line-clamp-3">
+                            {{ announcement.description|striptags|truncatechars:180 }}
+                        </p>
+                        {% if announcement.expire_date %}
+                            <p class="bulletin-card__expiry mt-3 text-xs text-gray-400">Hiển thị đến {{ announcement.expire_date|date:"d/m/Y" }}</p>
+                        {% endif %}
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bulletin-empty bg-white rounded-xl border border-dashed border-gray-200 py-16 text-center">
+            <img src="{% static 'images/ui/no-announcement.svg' %}" alt="" class="w-36 mx-auto mb-4">
+            <p class="bulletin-empty__title text-gray-700 font-medium">Chưa có bản tin</p>
+            <p class="bulletin-empty__description text-sm text-gray-400 mt-1">Bản tin mới sẽ xuất hiện tại đây.</p>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

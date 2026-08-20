@@ -7,30 +7,23 @@ This module is used to map url path with view methods.
 from django.urls import path
 
 from base.templatetags.joydigifilters import app_installed
-from base.views import object_delete, object_duplicate
+from base.views import object_delete
 from employee import dashboard as emp_dashboard
 from employee import (
     employee_settings,
     not_in_out_dashboard,
-    policies,
     requests,
     views,
     work_schedules,
 )
 from employee.cbv import (
-    action_type,
     allocations,
-    disciplinary_actions,
-    document_request,
     employee_profile,
     employee_tags,
     employees,
-    policy_cbv,
     requests_nav,
 )
-from employee.forms import DisciplinaryActionForm
-from employee.models import DisciplinaryAction, Employee, EmployeeTag
-from joydigi_documents.models import DocumentRequest
+from employee.models import Employee, EmployeeTag
 
 urlpatterns = [
     path(
@@ -373,12 +366,6 @@ urlpatterns = [
         name="about-tab",
         kwargs={"model": Employee},
     ),
-    path("document-tab/<int:pk>/", views.document_tab, name="document-tab"),
-    path(
-        "employee-document-tab-list/<int:pk>/",
-        document_request.DocumentIndividualTabList.as_view(),
-        name="employee-document-tab-list",
-    ),
     path("bonus-points-tab/<int:pk>/", views.bonus_points_tab, name="bonus-points-tab"),
     path(
         "add-bonus-points/<int:emp_id>/",
@@ -432,27 +419,6 @@ urlpatterns = [
         "get-employee-mail-preview/",
         not_in_out_dashboard.get_mail_preview,
         name="get-employee-mail-preview",
-    ),
-    path("view-policies/", policies.view_policies, name="view-policies"),
-    path(
-        "policies-discipline/",
-        policies.policies_discipline_view,
-        name="policies-discipline-view",
-    ),
-    path(
-        "policies-discipline/disciplinary-tab/",
-        policies.policies_discipline_disciplinary_tab,
-        name="policies-discipline-disciplinary-tab",
-    ),
-    path(
-        "policies-discipline/policies-tab/",
-        policies.policies_discipline_policies_tab,
-        name="policies-discipline-policies-tab",
-    ),
-    path(
-        "policies-discipline/action-type-tab/",
-        policies.policies_discipline_action_type_tab,
-        name="policies-discipline-action-type-tab",
     ),
     path(
         "employee-settings-view/",
@@ -531,11 +497,6 @@ urlpatterns = [
         name="requests-work-type-tab",
     ),
     path(
-        "requests/document-tab/",
-        requests.requests_document_tab,
-        name="requests-document-tab",
-    ),
-    path(
         "requests/shift-nav/",
         requests_nav.RequestsShiftNav.as_view(),
         name="requests-shift-nav",
@@ -545,218 +506,7 @@ urlpatterns = [
         requests_nav.RequestsShiftInboxNav.as_view(),
         name="requests-shift-inbox-nav",
     ),
-    path("search-policies/", policies.search_policies, name="search-policies"),
-    # path("create-policy/", policies.create_policy, name="create-policy"),
-    path("create-policy/", policy_cbv.PolicyFormView.as_view(), name="create-policy"),
-    path(
-        "create-policy/<int:pk>/",
-        policy_cbv.PolicyFormView.as_view(),
-        name="create-policy",
-    ),
-    path("policy-nav/", policy_cbv.PoliciesNav.as_view(), name="policy-nav"),
-    path("view-policy/", policies.view_policy, name="view-policy"),
-    path(
-        "add-attachment-policy/", policies.add_attachment, name="add-attachment-policy"
-    ),
-    path(
-        "remove-attachment-policy/",
-        policies.remove_attachment,
-        name="remove-attachment-policy",
-    ),
-    path(
-        "get-attachments-policy/",
-        policies.get_attachments,
-        name="get-attachments-policy",
-    ),
-    path(
-        "file-upload/<int:pk>/",
-        document_request.DocumentUploadForm.as_view(),
-        name="file-upload",
-    ),
-    # path("file-upload/<int:id>", views.file_upload, name="file-upload"),
-    path("view-file/<int:id>/", views.view_file, name="view-file"),
-    path("document-create/", views.document_create, name="document-create"),
-    path(
-        "get-notify-field/",
-        views.get_notify_field,
-        name="get-notify-field",
-    ),
-    path(
-        "document-create/<int:emp_id>",
-        document_request.DocumentCreateForm.as_view(),
-        name="document-create",
-    ),
-    # path("document-create/<int:emp_id>", views.document_create, name="document-create"),
-    path(
-        "update-document-title/<int:id>/",
-        views.update_document_title,
-        name="update-document-title",
-    ),
-    path("document-approve/<int:id>/", views.document_approve, name="document-approve"),
-    path(
-        "document-bulk-approve/",
-        views.document_bulk_approve,
-        name="document-bulk-approve",
-    ),
-    path(
-        "document-bulk-reject/", views.document_bulk_reject, name="document-bulk-reject"
-    ),
-    path(
-        "document-reject/<int:pk>/",
-        document_request.DocumentRejectCbvForm.as_view(),
-        name="document-reject",
-    ),
-    # path("document-reject/<int:id>", views.document_reject, name="document-reject"),
-    path(
-        "document-request-view/",
-        views.document_request_view,
-        name="document-request-view",
-    ),
-    # path(
-    #     "document-request-filter-view",
-    #     views.document_filter_view,
-    #     name="document-request-filter-view",
-    # ),
-    path(
-        "document-request-create",
-        document_request.DocumentRequestCreateForm.as_view(),
-        name="document-request-create",
-    ),
-    # path(
-    #     "document-request-create",
-    #     views.document_request_create,
-    #     name="document-request-create",
-    # ),
-    path(
-        "document-request-nav-cbv/",
-        document_request.DocumentRequestNav.as_view(),
-        name="document-request-nav-cbv",
-    ),
-    path(
-        "document-request-filter-view",
-        document_request.DocumentRequestPipelineView.as_view(),
-        name="document-request-filter-view",
-    ),
-    path(
-        "document-request-list",
-        document_request.DocumentListView.as_view(),
-        name="document-request-list",
-    ),
-    path(
-        "document-request-update/<int:pk>/",
-        document_request.DocumentRequestCreateForm.as_view(),
-        name="document-request-update",
-    ),
-    # path(
-    #     "document-request-update/<int:id>",
-    #     views.document_request_update,
-    #     name="document-request-update",
-    # ),
-    path(
-        "document-request-delete/<int:obj_id>/",
-        object_delete,
-        name="document-request-delete",
-        kwargs={
-            "model": DocumentRequest,
-            "redirect_path": "/employee/document-request-view/",
-        },
-    ),
-    path(
-        "document-delete/<int:id>/",
-        views.document_delete,
-        name="document-delete",
-    ),
     path("organisation-chart/", views.organisation_chart, name="organisation-chart"),
-    path("delete-policies/", policies.delete_policies, name="delete-policies"),
-    # path(
-    #     "disciplinary-actions/",
-    #     policies.disciplinary_actions,
-    #     name="disciplinary-actions",
-    # ),
-    # path(
-    #     "duplicate-disciplinary-actions/<int:obj_id>/",
-    #     object_duplicate,
-    #     name="duplicate-disciplinary-actions",
-    #     kwargs={
-    #         "model": DisciplinaryAction,
-    #         "form": DisciplinaryActionForm,
-    #         "template": "disciplinary_actions/form.html",
-    #     },
-    # ),
-    path(
-        "duplicate-disciplinary-actions/<int:pk>/",
-        disciplinary_actions.DisciplinaryActionsFormDuplicate.as_view(),
-        name="duplicate-disciplinary-actions",
-    ),
-    # path("create-actions", policies.create_actions, name="create-actions"),
-    path(
-        "create-actions",
-        disciplinary_actions.DisciplinaryActionsFormView.as_view(),
-        name="create-actions",
-    ),
-    path(
-        "action-type-list",
-        action_type.ActionTypeListView.as_view(),
-        name="action-type-list",
-    ),
-    path(
-        "action-type-nav",
-        action_type.ActionTypeNav.as_view(),
-        name="action-type-nav",
-    ),
-    path(
-        "create-action-type",
-        action_type.ActionTypeFormView.as_view(),
-        name="create-action-type",
-    ),
-    path(
-        "update-action-type/<int:pk>/",
-        action_type.ActionTypeFormView.as_view(),
-        name="update-action-type",
-    ),
-    # path(
-    #     "update-actions/<int:action_id>/",
-    #     policies.update_actions,
-    #     name="update-actions",
-    # ),
-    path(
-        "update-actions/<int:pk>/",
-        disciplinary_actions.DisciplinaryActionsFormView.as_view(),
-        name="update-actions",
-    ),
-    path(
-        "remove-employee-disciplinary-action/<int:action_id>/<int:emp_id>/",
-        policies.remove_employee_disciplinary_action,
-        name="remove-employee-disciplinary-action",
-    ),
-    path(
-        "delete-actions/<int:action_id>/",
-        policies.delete_actions,
-        name="delete-actions",
-    ),
-    path(
-        "action-type-details/",
-        policies.action_type_details,
-        name="action-type-details",
-    ),
-    path(
-        "action-type-name/",
-        policies.action_type_name,
-        name="action-type-name",
-    ),
-    path(
-        "disciplinary-filter-view/",
-        policies.disciplinary_filter_view,
-        name="disciplinary-filter-view",
-    ),
-    path(
-        "search-disciplinary/", policies.search_disciplinary, name="search-disciplinary"
-    ),
-    path(
-        "encashment-condition-create/",
-        views.encashment_condition_create,
-        name="encashment-condition-create",
-    ),
     path("initial-prefix/", views.initial_prefix, name="initial-prefix"),
     path(
         "get-first-last-badge-id/",
@@ -778,26 +528,6 @@ urlpatterns = [
     path("employees-nav/", employees.EmployeeNav.as_view(), name="employees-nav"),
     path("employees-export/", employees.ExportView.as_view(), name="employees-export"),
     path("employees-card/", employees.EmployeeCard.as_view(), name="employees-card"),
-    path(
-        "disciplinary-actions/",
-        disciplinary_actions.DisciplinaryActionsView.as_view(),
-        name="disciplinary-actions",
-    ),
-    path(
-        "disciplinary-actions-list/",
-        disciplinary_actions.DisciplinaryActionsList.as_view(),
-        name="disciplinary-actions-list",
-    ),
-    path(
-        "disciplinary-actions-nav/",
-        disciplinary_actions.DisciplinaryActionsNav.as_view(),
-        name="disciplinary-actions-nav",
-    ),
-    path(
-        "disciplinary-actions-detail-view/<int:pk>/",
-        disciplinary_actions.DisciplinaryActionsDetailView.as_view(),
-        name="disciplinary-actions-detail-view",
-    ),
     path("get-job-positions/", views.get_job_positions, name="get-job-positions"),
     path(
         "get-job-positions-hx/", views.get_job_positions_hx, name="get-job-positions-hx"

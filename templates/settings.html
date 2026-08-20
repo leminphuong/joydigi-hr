@@ -64,7 +64,7 @@
 
     <section class="oh-wrapper oh-main__topbar">
         <div class="oh-main__titlebar oh-main__titlebar--left oh-d-flex-column--resp oh-mb-3--small">
-            <h1 class="oh-main__titlebar-title fw-bold">{% trans "Settings" %}</h1>
+            <h1 class="oh-main__titlebar-title fw-bold">Cài đặt</h1>
         </div>
         <div class="oh-main__titlebar oh-main__titlebar--right"></div>
     </section>
@@ -85,7 +85,7 @@
                         data-target="#mobileMenu"
                         data-class="oh-resp-hidden--lg"
                     >
-                        <ion-icon class="me-2" name="menu-outline"></ion-icon>{% trans "All	Settings" %}
+                        <ion-icon class="me-2" name="menu-outline"></ion-icon>Tất cả cài đặt
                     </button>
                     <div
                         class="oh-inner-sidebar oh-resp-hidden--lg"
@@ -98,7 +98,7 @@
                                     {% if general_section_main %}
                                         <div class="oh-accordion-header" style="font-size: 16px">
                                             <ion-icon name="settings-outline" class="me-2"></ion-icon>
-                                            {% trans "General" %}
+                                            Cài đặt chung
                                         </div>
                                     {% endif %}
                                     <div class="oh-accordion-body">
@@ -110,7 +110,7 @@
                                                             id="generalSettings"
                                                             href="{% url 'general-settings' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "General Settings" %}
+                                                        >Thiết lập chung
                                                         </a>
                                                     {% endif %}
                                                 </div>
@@ -120,7 +120,7 @@
                                                             id="rolesAndPermissions"
                                                             href="{% url 'user-group-view' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Employee Permissions" %}</a>
+                                                        >Vai trò và quyền hạn</a>
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
@@ -129,7 +129,7 @@
                                                             id="defaultAccessibility"
                                                             href="{% url 'user-accessibility' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Menu Access Restrictions" %}</a>
+                                                        >Quyền xem menu</a>
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
@@ -138,7 +138,7 @@
                                                             id="userGroup"
                                                             href="{% url 'user-group-view' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "User Group" %}</a>
+                                                        >Vai trò người dùng</a>
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
@@ -147,7 +147,7 @@
                                                             id="date"
                                                             href="{% url 'date-settings' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Date & Time Format" %}</a>
+                                                        >Cách hiển thị ngày giờ</a>
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
@@ -156,7 +156,7 @@
                                                             id="ticket_type"
                                                             href="{% url 'tag-view' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "History Tags" %}</a>
+                                                        >Nhãn nhật ký</a>
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
@@ -165,33 +165,7 @@
                                                             id="auditTracking"
                                                             href="{% url 'audit-model-settings' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Audit Tracking" %}</a>
-                                                    {% endif %}
-                                                </div>
-                                                {% if perms.base.view_dynamicemailconfiguration and not "outlook_auth"|app_installed %}
-                                                    <div class="oh-input-group">
-                                                        <a
-                                                            id="date"
-                                                            href="{% url 'mail-server-conf' %}"
-                                                            class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Email Servers" %}</a>
-                                                    </div>
-                                                {% elif perms.base.view_dynamicemailconfiguration and "outlook_auth"|app_installed %}
-                                                    <div class="oh-input-group">
-                                                        <a
-                                                            id="date"
-                                                            href="{% url 'outlook_view_records' %}"
-                                                            class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Outlook Mail" %}</a>
-                                                    </div>
-                                                {% endif %}
-                                                <div class="oh-input-group">
-                                                    {% if perms.joydigi_backup.view_googledrivebackup %}
-                                                        <a
-                                                            id="date"
-                                                            href="{% url 'gdrive' %}"
-                                                            class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Google Drive Backup" %}</a>
+                                                        >Theo dõi thay đổi</a>
                                                     {% endif %}
                                                 </div>
                                                 {% if "joydigi_ldap"|app_installed %}
@@ -220,7 +194,7 @@
                                     {% if perms.base.view_department or perms.base.view_jobposition or perms.base.view_jobrole or perms.base.view_company %}
                                         <div class="oh-accordion-header" style="font-size: 16px">
                                             <ion-icon name="apps" class="me-2"></ion-icon>
-                                            {% trans "Base" %}
+                                            Tổ chức
                                         </div>
                                     {% endif %}
                                     <div class="oh-accordion-body">
@@ -232,7 +206,7 @@
                                                             id="department"
                                                             href="{% url 'department-view' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Departments" %}</a>
+                                                        >Phòng ban</a>
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
@@ -241,7 +215,7 @@
                                                             id="jobPosition"
                                                             href="{% url 'job-position-view' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Job Positions" %}</a>
+                                                        >Chức danh</a>
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
@@ -250,7 +224,7 @@
                                                             id="jobRole"
                                                             href="{% url 'job-role-view' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Job Roles" %}</a>
+                                                        >Vai trò công việc</a>
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
@@ -259,7 +233,7 @@
                                                             id="company"
                                                             href="{% url 'company-view' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Companies" %}</a>
+                                                        >Công ty</a>
                                                     {% endif %}
                                                 </div>
                                             </div>
@@ -333,7 +307,7 @@
                                     {% if employee_section %}
                                         <div class="oh-accordion-header" style="font-size: 16px">
                                             <ion-icon name="people" class="me-2"></ion-icon>
-                                            {% trans "Employee" %}
+                                            Nhân sự
                                         </div>
                                     {% endif %}
                                     <div class="oh-accordion-body">
@@ -345,7 +319,7 @@
                                                             id="workType"
                                                             href="{% url 'work-type-view' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Work Type" %}</a>
+                                                        >Hình thức làm việc</a>
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
@@ -354,7 +328,7 @@
                                                             id="rotatingWorkType"
                                                             href="{% url 'rotating-work-type-view' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Rotating Work Type" %}</a>
+                                                        >Luân phiên hình thức làm việc</a>
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
@@ -363,7 +337,7 @@
                                                             id="employeeShift"
                                                             href="{% url 'employee-shift-view' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Employee Shift" %}</a>
+                                                        >Ca làm việc</a>
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
@@ -372,7 +346,7 @@
                                                             id="rotatingShift"
                                                             href="{% url 'rotating-shift-view' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Rotating Shift" %}</a>
+                                                        >Ca luân phiên</a>
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
@@ -381,7 +355,7 @@
                                                             id="employeeShiftSchedule"
                                                             href="{% url 'employee-shift-schedule-view' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Employee Shift Schedule" %}</a>
+                                                        >Lịch xếp ca</a>
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
@@ -390,16 +364,7 @@
                                                             id="employeeType"
                                                             href="{% url 'employee-type-view' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Employee Type" %}</a>
-                                                    {% endif %}
-                                                </div>
-                                                <div class="oh-input-group">
-                                                    {% if perms.employee.view_actiontype %}
-                                                        <a
-                                                            id="date"
-                                                            href="{% url 'action-type' %}"
-                                                            class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Disciplinary Action Type" %}</a>
+                                                        >Loại nhân viên</a>
                                                     {% endif %}
                                                 </div>
                                                 <div class="oh-input-group">
@@ -408,7 +373,7 @@
                                                             id="ticket_type"
                                                             href="{% url 'employee-tag-view' %}"
                                                             class="oh-inner-sidebar__link oh-dropdown__link"
-                                                        >{% trans "Employee Tags" %}</a>
+                                                        >Nhãn nhân viên</a>
                                                     {% endif %}
                                                 </div>
                                             </div>
@@ -425,7 +390,7 @@
                                         {% if attendance_section %}
                                             <div class="oh-accordion-header" style="font-size: 16px">
                                                 <ion-icon name="checkmark-done-circle-outline" class="me-2"></ion-icon>
-                                                {% trans "Attendance" %}
+                                                Chấm công
                                             </div>
                                         {% endif %}
                                         <div class="oh-accordion-body">
@@ -437,7 +402,7 @@
                                                                 id="trackLateComeEalryOut"
                                                                 href="{% url 'track-late-come-early-out' %}"
                                                                 class="oh-inner-sidebar__link oh-dropdown__link"
-                                                            >{% trans "Track Late Arrival & Early Departure" %}</a>
+                                                            >Theo dõi đi muộn và về sớm</a>
                                                         {% endif %}
                                                     </div>
                                                     <div class="oh-input-group">
@@ -446,7 +411,7 @@
                                                                 id="condition"
                                                                 href="{% url 'attendance-settings-view' %}"
                                                                 class="oh-inner-sidebar__link oh-dropdown__link"
-                                                            >{% trans "Attendance Break Point" %}</a>
+                                                            >Mốc tính công</a>
                                                         {% endif %}
                                                     </div>
                                                     <div class="oh-input-group">
@@ -455,7 +420,7 @@
                                                                 id="condition"
                                                                 href="{% url 'check-in-check-out-setting' %}"
                                                                 class="oh-inner-sidebar__link oh-dropdown__link"
-                                                            >{% trans "Check In/Check Out" %}</a>
+                                                            >Thiết lập vào và ra</a>
                                                         {% endif %}
                                                     </div>
                                                     <div class="oh-input-group">
@@ -464,7 +429,7 @@
                                                                 id="condition"
                                                                 href="{% url 'grace-settings-view' %}"
                                                                 class="oh-inner-sidebar__link oh-dropdown__link"
-                                                            >{% trans "Grace Time" %}</a>
+                                                            >Thời gian cho phép</a>
                                                         {% endif %}
                                                     </div>
                                                     {% if biometric_app_exists %}
@@ -486,18 +451,18 @@
                                                                 id="ip_resriction"
                                                                 href='{% url "allowed-ips" %}'
                                                                 class="oh-inner-sidebar__link oh-dropdown__link"
-                                                            >{% trans "IP Restriction" %}
+                                                            >Giới hạn địa chỉ mạng
                                                             </a>
                                                         </div>
                                                     {% endif %}
 
-                                                    {% if perms.geofencing.add_geofencing or perms.facedetection.add_facedetection %}
+                                                    {% if perms.geofencing.add_geofencing %}
                                                         <div class="oh-input-group">
                                                             <a
                                                                 id="geo_face_conf"
                                                                 href='{% url "geo-face-config" %}'
                                                                 class="oh-inner-sidebar__link oh-dropdown__link"
-                                                            >{% trans "Geo & Face Config" %}
+                                                            >Vị trí chấm công
                                                             </a>
                                                         </div>
                                                     {% endif %}
@@ -516,7 +481,7 @@
                                         {% if perms.leave.add_restrictleave or perms.attendance.view_attendancevalidationcondition %}
                                             <div class="oh-accordion-header" style="font-size: 16px">
                                                 <ion-icon name="close-circle-outline" class="me-2"></ion-icon>
-                                                {% trans "Leave" %}
+                                                Nghỉ phép
                                             </div>
                                         {% endif %}
                                         <div class="oh-accordion-body">
@@ -528,7 +493,7 @@
                                                                 id="condition"
                                                                 href="{% url 'leave-rules-view' %}"
                                                                 class="oh-inner-sidebar__link oh-dropdown__link"
-                                                            >{% trans "Leave Rules" %}</a>
+                                                            >Quy định nghỉ phép</a>
                                                         {% endif %}
                                                     </div>
                                                 </div>

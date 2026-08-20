@@ -268,7 +268,7 @@
     <span class="cal-emp-name">{{ employee.employee_first_name }} {{ employee.employee_last_name }}</span>
     {% if employee.badge_id %}<span class="cal-emp-badge">#{{ employee.badge_id }}</span>{% endif %}
     <div style="font-size:.72rem;color:#6c757d;margin-top:1px;">
-      {{ from_date|date:"d M Y" }} — {{ to_date|date:"d M Y" }}
+      {{ from_date|date:"d/m/Y" }} — {{ to_date|date:"d/m/Y" }}
     </div>
   </div>
 </div>
@@ -277,68 +277,68 @@
 <div class="cal-summary">
   <div class="cal-summary-item">
     <span class="cal-summary-val" style="color:#28a745;">{{ cal_summary.full_present }}</span>
-    <span class="cal-summary-lbl">{% trans "Full Present" %}</span>
+    <span class="cal-summary-lbl">Có mặt đủ ngày</span>
   </div>
   <div class="cal-summary-item">
     <span class="cal-summary-val" style="color:#e85d04;">{{ cal_summary.half_present }}</span>
-    <span class="cal-summary-lbl">{% trans "Half Day" %}</span>
+    <span class="cal-summary-lbl">Nửa ngày</span>
   </div>
   <div class="cal-summary-item">
     <span class="cal-summary-val" style="color:#6366f1;">{{ cal_summary.short }}</span>
-    <span class="cal-summary-lbl">{% trans "Short Hours" %}</span>
+    <span class="cal-summary-lbl">Thiếu giờ làm</span>
   </div>
   <div class="cal-summary-item">
     <span class="cal-summary-val" style="color:#dc3545;">{{ cal_summary.absent }}</span>
-    <span class="cal-summary-lbl">{% trans "Absent / MO" %}</span>
+    <span class="cal-summary-lbl">Vắng / thiếu giờ ra</span>
   </div>
   <div class="cal-summary-item">
     <span class="cal-summary-val" style="color:#0d6efd;">{{ cal_summary.paid_leave }}</span>
-    <span class="cal-summary-lbl">{% trans "Paid Leave" %}</span>
+    <span class="cal-summary-lbl">Nghỉ có lương</span>
   </div>
   <div class="cal-summary-item">
     <span class="cal-summary-val" style="color:#a16207;">{{ cal_summary.unpaid_leave }}</span>
-    <span class="cal-summary-lbl">{% trans "Unpaid Leave" %}</span>
+    <span class="cal-summary-lbl">Nghỉ không lương</span>
   </div>
   <div class="cal-summary-item">
     <span class="cal-summary-val" style="color:#6610f2;">{{ cal_summary.week_off }}</span>
-    <span class="cal-summary-lbl">{% trans "Week Off" %}</span>
+    <span class="cal-summary-lbl">Nghỉ hằng tuần</span>
   </div>
   <div class="cal-summary-item">
     <span class="cal-summary-val" style="color:#20c997;">{{ cal_summary.holiday }}</span>
-    <span class="cal-summary-lbl">{% trans "Holiday" %}</span>
+    <span class="cal-summary-lbl">Ngày nghỉ lễ</span>
   </div>
   {% if cal_summary.conflict %}
   <div class="cal-summary-item" style="background:#fff4ed;">
     <span class="cal-summary-val" style="color:#e85d04;">{{ cal_summary.conflict }}</span>
-    <span class="cal-summary-lbl" style="color:#92400e;">{% trans "Conflicts" %}</span>
+    <span class="cal-summary-lbl" style="color:#92400e;">Dữ liệu trùng</span>
   </div>
   {% endif %}
   <div class="cal-summary-item" style="background:#f8f9fa;border-left:2px solid #dee2e6;">
     <span class="cal-summary-val" style="color:#374151;">{{ total_days }}</span>
-    <span class="cal-summary-lbl" style="color:#374151;">{% trans "Total Days" %}</span>
+    <span class="cal-summary-lbl" style="color:#374151;">Tổng số ngày</span>
   </div>
 </div>
 
 <!-- ── Hours breakdown — separate from the day-count strip above ──────────── -->
 <div class="cal-hours-strip">
   <div class="cal-hours-item">
-    <span class="cal-hours-lbl">{% trans "Worked" %}</span>
+    <span class="cal-hours-lbl">Đã làm việc</span>
     <span class="cal-hours-val" style="color:#1e40af;">{{ cal_summary.worked_label }}</span>
   </div>
   <div class="cal-hours-item">
-    <span class="cal-hours-lbl">{% trans "Regular" %}</span>
+    <span class="cal-hours-lbl">Giờ làm chính</span>
     <span class="cal-hours-val" style="color:#059669;">{{ cal_summary.regular_label }}</span>
   </div>
   <div class="cal-hours-item" style="flex-direction:column;gap:2px;"
-       title="{% trans 'Regular' %}: {{ cal_summary.ot_regular_label }} &#183; {% trans 'Week Off' %}: {{ cal_summary.ot_week_off_label }} &#183; {% trans 'Holiday' %}: {{ cal_summary.ot_holiday_label }}">
+       title="Ngày thường: {{ cal_summary.ot_regular_label }} &#183; Ngày nghỉ hằng tuần: {{ cal_summary.ot_week_off_label }} &#183; Ngày nghỉ lễ: {{ cal_summary.ot_holiday_label }}">
     <div style="display:flex;align-items:center;gap:7px;">
-      <span class="cal-hours-lbl">{% trans "Overtime" %}</span>
+      <span class="cal-hours-lbl">Làm thêm giờ</span>
       <span class="cal-hours-val" style="color:#b45309;">{{ cal_summary.overtime_label }}</span>
     </div>
     <div style="font-size:.62rem;color:#9ca3af;font-weight:500;white-space:nowrap;">
-      {% if cal_summary.ot_regular_seconds %}<span>R {{ cal_summary.ot_regular_label }}</span>{% endif %}
-      {% if cal_summary.ot_week_off_seconds %}<span>{% if cal_summary.ot_regular_seconds %} &#183; {% endif %}WO {{ cal_summary.ot_week_off_label }}</span>{% endif %}
-      {% if cal_summary.ot_holiday_seconds %}<span>{% if cal_summary.ot_regular_seconds or cal_summary.ot_week_off_seconds %} &#183; {% endif %}HO {{ cal_summary.ot_holiday_label }}</span>{% endif %}
+      {% if cal_summary.ot_regular_seconds %}<span>NT {{ cal_summary.ot_regular_label }}</span>{% endif %}
+      {% if cal_summary.ot_week_off_seconds %}<span>{% if cal_summary.ot_regular_seconds %} &#183; {% endif %}HN {{ cal_summary.ot_week_off_label }}</span>{% endif %}
+      {% if cal_summary.ot_holiday_seconds %}<span>{% if cal_summary.ot_regular_seconds or cal_summary.ot_week_off_seconds %} &#183; {% endif %}LỄ {{ cal_summary.ot_holiday_label }}</span>{% endif %}
     </div>
   </div>
 </div>
@@ -348,13 +348,13 @@
   {% for month in months %}
   <div class="cal-month-label">{{ month.label }}</div>
   <div class="cal-grid">
-    <div class="cal-dow">{% trans "Mon" %}</div>
-    <div class="cal-dow">{% trans "Tue" %}</div>
-    <div class="cal-dow">{% trans "Wed" %}</div>
-    <div class="cal-dow">{% trans "Thu" %}</div>
-    <div class="cal-dow">{% trans "Fri" %}</div>
-    <div class="cal-dow">{% trans "Sat" %}</div>
-    <div class="cal-dow">{% trans "Sun" %}</div>
+    <div class="cal-dow">Thứ 2</div>
+    <div class="cal-dow">Thứ 3</div>
+    <div class="cal-dow">Thứ 4</div>
+    <div class="cal-dow">Thứ 5</div>
+    <div class="cal-dow">Thứ 6</div>
+    <div class="cal-dow">Thứ 7</div>
+    <div class="cal-dow">Chủ nhật</div>
 
     {% for week in month.weeks %}
       {% for cell in week %}
@@ -366,20 +366,20 @@
           </div>
         {% else %}
           <div class="cal-cell cal-{{ cell.status }}{% if cell.is_conflict %} cal-has-conflict{% elif cell.resolution %} cal-resolved-conflict{% endif %}"
-               title="{{ cell.date|date:'d M Y' }}{% if cell.detail %} — {{ cell.detail }}{% endif %}{% if cell.conflict_with == 'paid_leave' or cell.conflict_with == 'unpaid_leave' %} ⚠ conflicts with {{ cell.conflict_with }}{% elif cell.conflict_with == 'holiday_ot' %} HO — Holiday Overtime{% elif cell.conflict_with == 'week_off_ot' %} WO — Week Off Overtime{% elif cell.conflict_with == 'regular_ot' %} OT — Overtime{% elif cell.resolution %} ✓ resolved{% endif %}"
+               title="{{ cell.date|date:'d/m/Y' }}{% if cell.detail %} — {{ cell.detail }}{% endif %}{% if cell.conflict_with == 'paid_leave' or cell.conflict_with == 'unpaid_leave' %} ⚠ trùng với đơn nghỉ phép{% elif cell.conflict_with == 'holiday_ot' %} Làm thêm ngày nghỉ lễ{% elif cell.conflict_with == 'week_off_ot' %} Làm thêm ngày nghỉ hằng tuần{% elif cell.conflict_with == 'regular_ot' %} Làm thêm ngày thường{% elif cell.resolution %} ✓ đã xử lý{% endif %}"
                onclick="msCalLoadResolve('{{ cell.date|date:'Y-m-d' }}', '{{ cell.conflict_with|default:'' }}', '{{ cell.detail|default:''|escapejs }}')">
             <div class="cal-day-num">{{ cell.day }}</div>
             {% if cell.detail %}<div class="cal-day-detail">{{ cell.detail }}</div>{% endif %}
             {% if cell.conflict_with == "paid_leave" or cell.conflict_with == "unpaid_leave" %}
-              <div class="cal-conflict-dot" title="{% trans 'Leave conflict — click to regularize' %}"></div>
+              <div class="cal-conflict-dot" title="Trùng đơn nghỉ phép — bấm để xử lý"></div>
             {% elif cell.conflict_with == "holiday_ot" %}
-              <div class="cal-ot-badge" title="{% trans 'Holiday Overtime' %}">HO</div>
+              <div class="cal-ot-badge" title="Làm thêm ngày nghỉ lễ">LỄ</div>
             {% elif cell.conflict_with == "week_off_ot" %}
-              <div class="cal-ot-badge wo" title="{% trans 'Week Off Overtime' %}">WO</div>
+              <div class="cal-ot-badge wo" title="Làm thêm ngày nghỉ hằng tuần">HN</div>
             {% elif cell.conflict_with == "regular_ot" %}
-              <div class="cal-ot-badge reg" title="{% trans 'Overtime' %}">OT</div>
+              <div class="cal-ot-badge reg" title="Làm thêm ngày thường">NT</div>
             {% elif cell.resolution %}
-              <div class="cal-resolved-dot" title="{% trans 'Resolved — click to undo or change' %}"></div>
+              <div class="cal-resolved-dot" title="Đã xử lý — bấm để hoàn tác hoặc thay đổi"></div>
             {% endif %}
             {% if cell.show_hours %}
             <div id="cal-day-hours-{{ employee.pk }}-{{ cell.date|date:'Y-m-d' }}" class="cal-day-hours">
@@ -400,29 +400,29 @@
 
 <!-- ── Legend ────────────────────────────────────────────────────────────── -->
 <div class="cal-legend">
-  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#d1fae5;border:1px solid #6ee7b7;"></div> {% trans "Present (Full)" %}</div>
-  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:linear-gradient(135deg,#d1fae5 50%,#fee2e2 50%);border:1px solid #9ca3af;"></div> {% trans "Half Day" %}</div>
-  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:linear-gradient(135deg,#cffafe 60%,#f0fdf4 100%);border:1px solid #67e8f9;"></div> {% trans "Partial Hours" %}</div>
-  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#ede9fe;border:1px solid #c4b5fd;"></div> {% trans "Short Hours" %}</div>
-  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#fee2e2;border:1px solid #fca5a5;"></div> {% trans "Absent / Missing Out" %}</div>
-  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#dbeafe;border:1px solid #93c5fd;"></div> {% trans "Paid Leave" %}</div>
-  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#fef08a;border:1px solid #facc15;"></div> {% trans "Unpaid Leave" %}</div>
-  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#f3e8ff;border:1px solid #d8b4fe;"></div> {% trans "Week Off" %}</div>
-  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#a5f3fc;border:1px solid #22d3ee;"></div> {% trans "Holiday" %}</div>
+  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#d1fae5;border:1px solid #6ee7b7;"></div> Có mặt đủ ngày</div>
+  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:linear-gradient(135deg,#d1fae5 50%,#fee2e2 50%);border:1px solid #9ca3af;"></div> Nửa ngày</div>
+  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:linear-gradient(135deg,#cffafe 60%,#f0fdf4 100%);border:1px solid #67e8f9;"></div> Làm một phần giờ</div>
+  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#ede9fe;border:1px solid #c4b5fd;"></div> Thiếu giờ làm</div>
+  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#fee2e2;border:1px solid #fca5a5;"></div> Vắng / thiếu giờ ra</div>
+  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#dbeafe;border:1px solid #93c5fd;"></div> Nghỉ có lương</div>
+  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#fef08a;border:1px solid #facc15;"></div> Nghỉ không lương</div>
+  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#f3e8ff;border:1px solid #d8b4fe;"></div> Nghỉ hằng tuần</div>
+  <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#a5f3fc;border:1px solid #22d3ee;"></div> Ngày nghỉ lễ</div>
   <div class="cal-legend-item">
-    <span style="font-size:.62rem;font-weight:800;padding:1px 4px;border-radius:3px;background:#0f766e;color:#fff;line-height:1.4;">HO</span>
-    {% trans "Holiday Overtime" %}
+    <span style="font-size:.62rem;font-weight:800;padding:1px 4px;border-radius:3px;background:#0f766e;color:#fff;line-height:1.4;">LỄ</span>
+    Làm thêm ngày nghỉ lễ
   </div>
   <div class="cal-legend-item">
-    <span style="font-size:.62rem;font-weight:800;padding:1px 4px;border-radius:3px;background:#7c3aed;color:#fff;line-height:1.4;">WO</span>
-    {% trans "Week Off Overtime" %}
+    <span style="font-size:.62rem;font-weight:800;padding:1px 4px;border-radius:3px;background:#7c3aed;color:#fff;line-height:1.4;">HN</span>
+    Làm thêm ngày nghỉ hằng tuần
   </div>
   <div class="cal-legend-item">
     <div style="width:9px;height:9px;border-radius:50%;background:#e85d04;border:1.5px solid #fff;box-shadow:0 0 0 1px #e85d04;flex-shrink:0;"></div>
-    {% trans "Leave Conflict (click to regularize)" %}
+    Trùng đơn nghỉ phép (bấm để xử lý)
   </div>
   <div class="cal-legend-item">
     <div style="width:9px;height:9px;border-radius:50%;background:#10b981;border:1.5px solid #fff;box-shadow:0 0 0 1px #10b981;flex-shrink:0;"></div>
-    {% trans "Resolved (click to undo)" %}
+    Đã xử lý (bấm để hoàn tác)
   </div>
 </div>

@@ -1,0 +1,52 @@
+{% extends "index.html" %}
+
+{% block content %}
+<section
+    id="today-attendance-content"
+    class="space-y-5"
+    hx-get="{% url 'today-attendance' %}"
+    hx-trigger="every 60s"
+    hx-target="#today-attendance-content"
+    hx-select="#today-attendance-content"
+    hx-swap="outerHTML"
+>
+    <header>
+        <h1 class="text-xl font-semibold text-gray-900">Chấm công hôm nay</h1>
+        <p class="mt-1 text-sm text-gray-500">Theo dõi giờ vào, giờ ra và tình trạng làm việc trong ngày.</p>
+    </header>
+
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div class="bg-white border border-gray-100 rounded-xl p-4"><p class="text-sm text-gray-500">Đã chấm công</p><p class="mt-2 text-2xl font-semibold text-gray-900">{{ today_summary.attended }}/{{ today_summary.total }}</p></div>
+        <div class="bg-white border border-gray-100 rounded-xl p-4"><p class="text-sm text-gray-500">Đi muộn</p><p class="mt-2 text-2xl font-semibold text-amber-600">{{ today_summary.late }}</p></div>
+        <div class="bg-white border border-gray-100 rounded-xl p-4"><p class="text-sm text-gray-500">Làm từ xa</p><p class="mt-2 text-2xl font-semibold text-blue-600">{{ today_summary.remote }}</p></div>
+        <div class="bg-white border border-gray-100 rounded-xl p-4"><p class="text-sm text-gray-500">Vắng</p><p class="mt-2 text-2xl font-semibold text-red-600">{{ today_summary.absent }}</p></div>
+        <div class="bg-white border border-gray-100 rounded-xl p-4"><p class="text-sm text-gray-500">Nghỉ phép</p><p class="mt-2 text-2xl font-semibold text-green-600">{{ today_summary.leave }}</p></div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h2 class="font-semibold text-gray-900">Nhật ký chấm công hôm nay</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-left text-gray-500">
+                    <tr><th class="px-5 py-3">Nhân viên</th><th class="px-5 py-3">Vào</th><th class="px-5 py-3">Ra</th><th class="px-5 py-3">Hình thức</th><th class="px-5 py-3">Trạng thái</th></tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for row in today_logs %}
+                    <tr>
+                        <td class="px-5 py-3 font-medium text-gray-900">{{ row.employee.get_full_name }}</td>
+                        <td class="px-5 py-3">{{ row.clock_in|time:"H:i"|default:"—" }}</td>
+                        <td class="px-5 py-3">{{ row.clock_out|time:"H:i"|default:"—" }}</td>
+                        <td class="px-5 py-3">{{ row.method }}</td>
+                        <td class="px-5 py-3"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {% if row.status_color == 'amber' %}bg-amber-50 text-amber-700{% elif row.status_color == 'green' %}bg-green-50 text-green-700{% else %}bg-blue-50 text-blue-700{% endif %}">{{ row.status }}</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="px-5 py-10 text-center text-gray-400">Hôm nay chưa có lượt chấm công nào.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

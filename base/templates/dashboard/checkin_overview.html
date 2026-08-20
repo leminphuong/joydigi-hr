@@ -1,0 +1,56 @@
+<style>
+    .checkin-overview { margin-bottom:20px; display:grid; grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr); gap:14px; }
+    .checkin-panel { border:1px solid rgba(128,128,128,.14); border-radius:14px; padding:18px; background:#fff; box-shadow:0 1px 3px rgba(15,23,42,.04); }
+    .dark .checkin-panel { background:#111; border-color:#262626; }
+    .checkin-panel__head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+    .checkin-panel__head h2 { font-size:15px; font-weight:700; }
+    .checkin-summary { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+    .checkin-number { padding:12px; border-radius:10px; background:#f8fafc; }
+    .dark .checkin-number { background:#191919; }
+    .checkin-number span { display:block; color:#64748b; font-size:11px; margin-bottom:5px; }
+    .checkin-number strong { font-size:20px; }
+    .checkin-link { display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding:10px 12px; border-radius:9px; background:#fff7ed; color:#c2410c; font-size:13px; font-weight:600; }
+    .checkin-group-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .checkin-group-table th,.checkin-group-table td { padding:8px 9px; border-bottom:1px solid #f1f5f9; text-align:right; white-space:nowrap; }
+    .checkin-group-table th:first-child,.checkin-group-table td:first-child { text-align:left; }
+    .checkin-chart { height:210px; }
+    @media(max-width:1100px){.checkin-overview{grid-template-columns:1fr}.checkin-summary{grid-template-columns:repeat(2,1fr)}}
+</style>
+<section class="checkin-overview">
+    <div class="checkin-panel">
+        <div class="checkin-panel__head"><h2>Chấm công hôm nay</h2><a href="{% url 'today-attendance' %}" class="md-link-subtle">Xem nhật ký</a></div>
+        <div class="checkin-summary">
+            <div class="checkin-number"><span>Đã chấm công</span><strong>{{ today_summary.attended }}/{{ today_summary.total }}</strong></div>
+            <div class="checkin-number"><span>Đi muộn</span><strong style="color:#d97706">{{ today_summary.late }}</strong></div>
+            <div class="checkin-number"><span>Làm từ xa</span><strong style="color:#2563eb">{{ today_summary.remote }}</strong></div>
+            <div class="checkin-number"><span>Vắng / nghỉ phép</span><strong style="color:#dc2626">{{ today_summary.absent }} / {{ today_summary.leave }}</strong></div>
+        </div>
+        <a class="checkin-link" href="{% url 'approval-hub' %}"><span>Đơn xin phép chờ duyệt</span><span>{{ pending_leave_count }} →</span></a>
+        <div style="overflow:auto;margin-top:16px">
+            <div class="checkin-panel__head" style="margin-bottom:5px"><h2>Bảng chấm công hôm nay theo nhóm</h2></div>
+            <table class="checkin-group-table"><thead><tr><th>Nhóm</th><th>Có mặt</th><th>Muộn</th><th>Từ xa</th><th>Vắng</th><th>Phép</th></tr></thead><tbody>
+                {% for row in today_groups %}<tr><td>{{ row.name }}</td><td>{{ row.attended }}/{{ row.total }}</td><td>{{ row.late }}</td><td>{{ row.remote }}</td><td>{{ row.absent }}</td><td>{{ row.leave }}</td></tr>{% empty %}<tr><td colspan="6">Chưa có dữ liệu.</td></tr>{% endfor %}
+            </tbody></table>
+        </div>
+    </div>
+    <div class="checkin-panel">
+        <div class="checkin-panel__head"><div><h2>Tỷ lệ đi muộn</h2><p style="font-size:12px;color:#64748b;margin-top:3px">7 ngày làm việc gần nhất</p></div></div>
+        <div id="checkin-late-chart" class="checkin-chart"></div>
+    </div>
+</section>
+{{ late_trend_labels|json_script:"checkin-late-labels" }}
+{{ late_trend_rates|json_script:"checkin-late-rates" }}
+<script>
+    (() => {
+        const drawLateChart = () => {
+            const target = document.getElementById('checkin-late-chart');
+            if (!target || typeof ApexCharts === 'undefined' || target.dataset.ready) return;
+            target.dataset.ready = '1';
+            const labels = JSON.parse(document.getElementById('checkin-late-labels').textContent);
+            const rates = JSON.parse(document.getElementById('checkin-late-rates').textContent);
+            new ApexCharts(target, {chart:{type:'area',height:205,toolbar:{show:false}},series:[{name:'Đi muộn',data:rates}],xaxis:{categories:labels},yaxis:{min:0,max:100,labels:{formatter:v=>Math.round(v)+'%'}},stroke:{curve:'smooth',width:3},colors:['#f59e0b'],fill:{type:'gradient',gradient:{opacityFrom:.35,opacityTo:.04}},dataLabels:{enabled:false},tooltip:{y:{formatter:v=>v+'%'}},grid:{borderColor:'#e5e7eb'}}).render();
+        };
+        drawLateChart();
+        document.addEventListener('htmx:afterSwap', drawLateChart, {once:true});
+    })();
+</script>

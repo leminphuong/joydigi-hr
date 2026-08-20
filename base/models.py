@@ -3,6 +3,7 @@ This module is used to register django models
 """
 
 import ipaddress
+import os
 from datetime import date, datetime
 
 from django.apps import apps
@@ -2435,6 +2436,12 @@ class Attachment(models.Model):
     def __str__(self):
         return self.file.name
 
+    @property
+    def is_image(self):
+        """Cho biết tệp đính kèm có phải ảnh có thể hiển thị trên Bản tin."""
+        extension = os.path.splitext((self.file.name or "").lower())[1]
+        return extension in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
+
 
 class AnnouncementExpire(models.Model):
     """
@@ -2483,6 +2490,10 @@ class Announcement(JoydigiModel):
         verbose_name=_("Show Comments to All"),
         help_text=_("If enabled, all employees can view each other's comments."),
     )
+    is_pinned = models.BooleanField(default=False, verbose_name="Ghim đầu bảng tin")
+    send_notification = models.BooleanField(
+        default=True, verbose_name="Gửi thông báo trên ứng dụng"
+    )
 
     filtered_employees = models.ManyToManyField(
         Employee, related_name="announcement_filtered_employees", editable=False
@@ -2522,6 +2533,14 @@ class Announcement(JoydigiModel):
 
     def __str__(self):
         return self.title
+
+    @property
+    def cover_image(self):
+        """Ảnh đầu tiên dùng làm ảnh đại diện của bài viết."""
+        for attachment in self.attachments.all():
+            if attachment.is_image:
+                return attachment.file
+        return None
 
     def announcement_custom_col(self):
         """
@@ -2727,6 +2746,77 @@ class AttendanceAllowedIP(models.Model):
     def __str__(self):
         company = self.company_id.company if self.company_id else "Global"
         return f"AttendanceAllowedIP ({company}) - {'enabled' if self.is_enabled else 'disabled'}"
+
+
+class CheckInPolicy(JoydigiModel):
+    """Quy định chấm công dùng chung cho một công ty."""
+
+    company_id = models.OneToOneField(
+        Company, on_delete=models.CASCADE, related_name="check_in_policy", verbose_name="Công ty"
+    )
+    late_threshold_minutes = models.PositiveSmallIntegerField(
+        default=15, verbose_name="Ngưỡng đi muộn (phút)"
+    )
+    annual_leave_days = models.PositiveSmallIntegerField(
+        default=12, verbose_name="Số ngày phép mỗi năm"
+    )
+    allow_remote = models.BooleanField(default=True, verbose_name="Cho phép làm từ xa")
+    allow_outside_radius_request = models.BooleanField(
+        default=True, verbose_name="Cho phép gửi đơn khi ở ngoài bán kính"
+    )
+
+    class Meta:
+        verbose_name = "Quy định chấm công"
+        verbose_name_plural = "Quy định chấm công"
+
+    def __str__(self):
+        return f"Quy định chấm công - {self.company_id}"
+
+
+class CheckInLocation(JoydigiModel):
+    """Một địa điểm được phép chấm công bằng vị trí."""
+
+    company_id = models.ForeignKey(
+        Company, on_delete=models.CASCADE, related_name="check_in_locations", verbose_name="Công ty"
+    )
+    name = models.CharField(max_length=100, verbose_name="Tên địa điểm")
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, verbose_name="Vĩ độ")
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, verbose_name="Kinh độ")
+    radius_meters = models.PositiveIntegerField(default=200, verbose_name="Bán kính cho phép (mét)")
+    is_active = models.BooleanField(default=True, verbose_name="Đang sử dụng")
+
+    class Meta:
+        ordering = ("name",)
+        verbose_name = "Địa điểm chấm công"
+        verbose_name_plural = "Địa điểm chấm công"
+
+    def __str__(self):
+        return self.name
+
+
+class OfficeWifi(JoydigiModel):
+    """Mạng Wifi văn phòng được phép dùng để chấm công."""
+
+    company_id = models.ForeignKey(
+        Company, on_delete=models.CASCADE, related_name="office_wifi_networks", verbose_name="Công ty"
+    )
+    name = models.CharField(max_length=100, verbose_name="Tên mạng Wifi")
+    ssid = models.CharField(max_length=100, verbose_name="Tên Wifi hiển thị")
+    bssid = models.CharField(
+        max_length=17,
+        blank=True,
+        verbose_name="Mã thiết bị phát Wifi",
+        help_text="Có thể để trống nếu không cần giới hạn đúng thiết bị phát.",
+    )
+    is_active = models.BooleanField(default=True, verbose_name="Đang sử dụng")
+
+    class Meta:
+        ordering = ("name",)
+        verbose_name = "Wifi văn phòng"
+        verbose_name_plural = "Wifi văn phòng"
+
+    def __str__(self):
+        return self.name
 
 
 class TrackLateComeEarlyOut(JoydigiModel):

@@ -12,17 +12,17 @@ from base.templatetags.basefilters import is_reportingmanager
 from joydigi.joydigi_middlewares import _thread_locals
 
 request = getattr(_thread_locals, "request", None)
-MENU = _("Employee")
+MENU = _("Nhân sự")
 IMG_SRC = "images/ui/employees.svg"
 
 
 SUBMENUS = [
     {
-        "menu": _("My Dashboard"),
+        "menu": _("Tổng quan cá nhân"),
         "redirect": reverse_lazy("ess-dashboard"),
     },
     {
-        "menu": _("Employees"),
+        "menu": _("Danh sách nhân viên"),
         "redirect": reverse_lazy("employee-view"),
         "accessibility": "employee.sidebar.employee_accessibility",
         # The "Create" button on the employee list navigates to the standalone
@@ -32,35 +32,20 @@ SUBMENUS = [
         "match_prefixes": ["/employee/employee-view-new/"],
     },
     {
-        "menu": _("Organization Chart"),
+        "menu": _("Sơ đồ tổ chức"),
         "redirect": reverse_lazy("organisation-chart"),
     },
     {
-        "menu": _("Requests"),
+        "menu": _("Đơn và yêu cầu"),
         "redirect": reverse_lazy("requests-view"),
         "accessibility": "employee.sidebar.requests_accessibility",
     },
     {
-        "menu": _("Work Schedules"),
+        "menu": _("Xếp ca làm việc"),
         "redirect": reverse_lazy("work-schedules-view"),
         "accessibility": "employee.sidebar.work_schedules_accessibility",
     },
-    {
-        "menu": _("Policies & Discipline"),
-        "redirect": reverse_lazy("policies-discipline-view"),
-    },
-    {
-        "menu": _("Configuration"),
-        "redirect": reverse_lazy("employee-settings-view"),
-        "accessibility": "employee.sidebar.employee_settings_accessibility",
-    },
 ]
-
-
-def document_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return request.user.has_perm(
-        "joydigi_documents.view_documentrequest"
-    ) or is_reportingmanager(request.user)
 
 
 def requests_accessibility(request, submenu, user_perms, *args, **kwargs):

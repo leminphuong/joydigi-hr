@@ -4,10 +4,10 @@ base/sidebar.py
 Settings menu registrations for the base app.
 
 Sections registered:
-  - General       : general settings, permissions, tags, mail
+  - General       : general settings, permissions, tags
   - Base          : department, job position, job role, company
   - Appearance : color theme (only when joydigi_theme is installed)
-  - Integrations  : gdrive, linkedin, ldap, google meet, whatsapp
+  - Integrations  : linkedin, ldap, google meet, whatsapp
 """
 
 from django.apps import apps
@@ -15,6 +15,15 @@ from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
 from joydigi.menu import settings_menu
+
+MENU = _("Bảng tin")
+IMG_SRC = "images/ui/announcement.svg"
+SUBMENUS = [
+    {
+        "menu": _("Bản tin nội bộ"),
+        "redirect": reverse_lazy("bulletin"),
+    },
+]
 
 # ---------------------------------------------------------------------------
 # Accessibility functions
@@ -87,28 +96,6 @@ def audit_history_accessibility(request, submenu, user_perms, *args, **kwargs):
     )
 
 
-def mail_server_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return request.user.has_perm(
-        "base.view_dynamicemailconfiguration"
-    ) and not apps.is_installed("outlook_auth")
-
-
-def mail_template_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return request.user.has_perm("base.view_joydigimailtemplate")
-
-
-def mail_automation_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return apps.is_installed("joydigi_automations") and request.user.has_perm(
-        "joydigi_automations.view_mailautomation"
-    )
-
-
-def outlook_mail_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return request.user.has_perm(
-        "base.view_dynamicemailconfiguration"
-    ) and apps.is_installed("outlook_auth")
-
-
 def department_accessibility(request, submenu, user_perms, *args, **kwargs):
     return request.user.has_perm("base.view_department")
 
@@ -139,12 +126,10 @@ def color_theme_accessibility(request, submenu, user_perms, *args, **kwargs):
     return request.user.has_perm("joydigi_theme.view_joydigicolortheme")
 
 
-def gdrive_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return request.user.has_perm("joydigi_backup.view_googledrivebackup")
-
-
 def linkedin_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return request.user.has_perm("recruitment.view_linkedinaccount")
+    return apps.is_installed("recruitment") and request.user.has_perm(
+        "recruitment.view_linkedinaccount"
+    )
 
 
 def ldap_accessibility(request, submenu, user_perms, *args, **kwargs):
@@ -177,163 +162,126 @@ def default_export_accessibility(request, submenu, user_perms, *args, **kwargs):
 
 @settings_menu.register
 class GeneralSettings:
-    title = _("General")
+    title = _("Cài đặt chung")
     order = 1
     items = [
         {
-            "label": _("System Preferences"),
+            "label": _("Thiết lập chung"),
             "url": reverse_lazy("system-preferences-view"),
             "accessibility": system_preferences_accessibility,
             "search_entries": [
                 {
-                    "text": _("Default Expire Days"),
-                    "description": _("Auto-expiry days for announcements"),
+                    "text": _("Số ngày hiển thị bản tin"),
+                    "description": _("Tự ẩn bản tin sau số ngày đã chọn"),
                     "anchor": "setting-default-expire-days",
                 },
                 {
-                    "text": _("Default Records Per Page"),
-                    "description": _("Rows shown per page"),
+                    "text": _("Số dòng mỗi trang"),
+                    "description": _("Số dòng được hiển thị trên một trang"),
                     "anchor": "setting-default-records-per-page",
                 },
                 {
-                    "text": _("Badge ID Prefix"),
-                    "description": _("Prefix added to employee badge IDs e.g. EMP0001"),
+                    "text": _("Tiền tố mã nhân viên"),
+                    "description": _("Phần chữ đứng trước mã nhân viên, ví dụ NV0001"),
                     "anchor": "setting-badge-id-prefix",
                 },
                 {
-                    "text": _("Currency Symbol"),
-                    "description": _("Symbol shown for monetary values e.g. $ €"),
+                    "text": _("Ký hiệu tiền tệ"),
+                    "description": _("Ký hiệu dùng khi hiển thị số tiền"),
                     "anchor": "setting-currency-symbol",
                 },
                 {
-                    "text": _("Currency Position"),
-                    "description": _(
-                        "Whether symbol appears before or after the amount"
-                    ),
+                    "text": _("Vị trí ký hiệu tiền tệ"),
+                    "description": _("Đặt ký hiệu trước hoặc sau số tiền"),
                     "anchor": "setting-currency-position",
                 },
                 {
-                    "text": _("Date Format"),
-                    "description": _("How dates are displayed across the system"),
+                    "text": _("Cách hiển thị ngày"),
+                    "description": _("Cách ngày tháng được hiển thị trong hệ thống"),
                     "anchor": "setting-date-format",
                 },
                 {
-                    "text": _("Time Format"),
-                    "description": _("12-hour or 24-hour display format"),
+                    "text": _("Cách hiển thị giờ"),
+                    "description": _("Hiển thị giờ theo kiểu 12 giờ hoặc 24 giờ"),
                     "anchor": "setting-time-format",
                 },
                 {
-                    "text": _("Restrict Login Account"),
-                    "description": _("Allow admins to block or unblock employee login"),
+                    "text": _("Giới hạn đăng nhập"),
+                    "description": _("Cho phép quản trị viên khóa hoặc mở đăng nhập của nhân viên"),
                     "anchor": "setting-restrict-login-account",
                 },
                 {
-                    "text": _("Restrict Profile Edit"),
-                    "description": _(
-                        "Prevent employees from editing their own profile"
-                    ),
+                    "text": _("Giới hạn sửa hồ sơ"),
+                    "description": _("Không cho nhân viên tự sửa hồ sơ của mình"),
                     "anchor": "setting-restrict-profile-edit",
                 },
                 {
-                    "text": _("Work Information Tracking"),
-                    "description": _(
-                        "Enable tracking of changes to employee work information fields for the selected company"
-                    ),
+                    "text": _("Theo dõi thông tin công việc"),
+                    "description": _("Lưu lại các thay đổi về thông tin công việc của nhân viên"),
                     "anchor": "setting-work-info-tracking",
                 },
                 {
-                    "text": _("Tracking Fields"),
-                    "description": _(
-                        "Select which work information fields are recorded in change history"
-                    ),
+                    "text": _("Thông tin cần theo dõi"),
+                    "description": _("Chọn thông tin sẽ được lưu trong lịch sử thay đổi"),
                     "anchor": "setting-tracking-fields",
                 },
                 {
-                    "text": _("Enable Languages"),
-                    "description": _(
-                        "Restrict which languages appear in the navbar language switcher for this company"
-                    ),
+                    "text": _("Ngôn ngữ sử dụng"),
+                    "description": _("Chọn ngôn ngữ được phép hiển thị cho công ty"),
                     "anchor": "companyLanguageSettings",
                 },
             ],
         },
         {
-            "label": _("Menu Access Restrictions"),
+            "label": _("Quyền xem menu"),
             "url": reverse_lazy("user-accessibility"),
             "accessibility": accessibility_restriction_accessibility,
             "search_entries": [
                 {
-                    "text": _("Menu Access Restrictions"),
-                    "description": _(
-                        "Control which user roles can see which menu items"
-                    ),
+                    "text": _("Quyền xem menu"),
+                    "description": _("Chọn vai trò được xem từng mục trong menu"),
                 },
             ],
         },
         {
-            "label": _("Roles and Permissions"),
+            "label": _("Vai trò và quyền hạn"),
             "url": reverse_lazy("user-group-view"),
             "accessibility": user_group_accessibility,
             "search_entries": [
                 {
-                    "text": _("Roles and Permissions"),
-                    "description": _(
-                        "Create reusable roles and assign direct employee permissions"
-                    ),
+                    "text": _("Vai trò và quyền hạn"),
+                    "description": _("Phân quyền cho quản trị viên, trưởng nhóm và nhân viên"),
                 },
                 {
-                    "text": _("Roles"),
-                    "description": _("Create and manage reusable permission roles"),
+                    "text": _("Vai trò"),
+                    "description": _("Quản lý ba vai trò có sẵn trong hệ thống"),
                 },
                 {
-                    "text": _("Employee Permissions"),
-                    "description": _(
-                        "Grant or revoke specific access rights per employee"
-                    ),
+                    "text": _("Quyền của nhân viên"),
+                    "description": _("Cấp hoặc thu hồi quyền riêng cho từng nhân viên"),
                 },
             ],
         },
         {
-            "label": _("Audit & History"),
+            "label": _("Nhật ký thay đổi"),
             "url": reverse_lazy("audit-history-view"),
             "accessibility": audit_history_accessibility,
             "search_entries": [
                 {
-                    "text": _("Audit & History"),
-                    "description": _(
-                        "View and configure audit logs and change history"
-                    ),
+                    "text": _("Nhật ký thay đổi"),
+                    "description": _("Xem lịch sử thay đổi dữ liệu trong hệ thống"),
                 },
                 {
-                    "text": _("Audit Tags"),
-                    "description": _("Create tags to categorise audit log records"),
+                    "text": _("Nhãn nhật ký"),
+                    "description": _("Dùng nhãn để phân loại các thay đổi"),
                 },
                 {
-                    "text": _("Audit Tracking"),
-                    "description": _(
-                        "Choose which models are recorded in the audit log"
-                    ),
+                    "text": _("Theo dõi thay đổi"),
+                    "description": _("Chọn loại dữ liệu cần lưu lịch sử thay đổi"),
                 },
                 {
-                    "text": _("Tracked Models"),
-                    "description": _(
-                        "Model paths whose changes are tracked in audit history"
-                    ),
-                },
-            ],
-        },
-        {
-            "label": _("Outlook Mail"),
-            "url": reverse_lazy("outlook_view_records"),
-            "accessibility": outlook_mail_accessibility,
-            "search_entries": [
-                {
-                    "text": _("Outlook Mail"),
-                    "description": _("Configure Microsoft 365 or Outlook email server"),
-                },
-                {
-                    "text": _("Outlook Mail Server"),
-                    "description": _("Microsoft Exchange or Outlook SMTP integration"),
+                    "text": _("Dữ liệu được theo dõi"),
+                    "description": _("Các loại dữ liệu đang được lưu lịch sử thay đổi"),
                 },
             ],
         },
@@ -347,79 +295,79 @@ class GeneralSettings:
 
 @settings_menu.register
 class BaseSettings:
-    title = _("Organization")
+    title = _("Tổ chức")
     order = 2
     items = [
         {
-            "label": _("Companies"),
+            "label": _("Công ty"),
             "url": reverse_lazy("company-view"),
             "accessibility": company_accessibility,
             "search_entries": [
                 {
-                    "text": _("Company Name"),
-                    "description": _("Legal name of the company"),
+                    "text": _("Tên công ty"),
+                    "description": _("Tên đầy đủ của công ty"),
                 },
-                {"text": _("Company Address"), "description": _("Street address")},
+                {"text": _("Địa chỉ công ty"), "description": _("Địa chỉ làm việc")},
                 {
-                    "text": _("Company Country"),
-                    "description": _("Country where the company is registered"),
+                    "text": _("Quốc gia"),
+                    "description": _("Quốc gia nơi công ty đăng ký"),
                 },
-                {"text": _("Company State"), "description": _("State or province")},
-                {"text": _("Company City"), "description": _("City")},
-                {"text": _("Company Zip"), "description": _("Postal or ZIP code")},
+                {"text": _("Tỉnh hoặc thành phố"), "description": _("Tỉnh hoặc thành phố")},
+                {"text": _("Quận hoặc huyện"), "description": _("Quận, huyện hoặc khu vực")},
+                {"text": _("Mã bưu chính"), "description": _("Mã bưu chính của địa chỉ")},
                 {
-                    "text": _("Company Logo"),
-                    "description": _("Logo or icon for the company"),
+                    "text": _("Biểu trưng công ty"),
+                    "description": _("Hình đại diện của công ty"),
                 },
             ],
         },
         {
-            "label": _("Departments"),
+            "label": _("Phòng ban"),
             "url": reverse_lazy("department-view"),
             "accessibility": department_accessibility,
             "search_entries": [
-                {"text": _("Departments"), "description": _("Name of the department")},
+                {"text": _("Phòng ban"), "description": _("Tên phòng ban")},
                 {
-                    "text": _("Department Manager"),
-                    "description": _("Manager assigned to the department"),
+                    "text": _("Người quản lý phòng ban"),
+                    "description": _("Người phụ trách phòng ban"),
                 },
             ],
         },
         {
-            "label": _("Job Positions"),
+            "label": _("Chức danh"),
             "url": reverse_lazy("job-position-view"),
             "accessibility": job_position_accessibility,
             "search_entries": [
                 {
-                    "text": _("Job Position"),
-                    "description": _("Name of the job position"),
+                    "text": _("Chức danh"),
+                    "description": _("Tên chức danh công việc"),
                 },
             ],
         },
         {
-            "label": _("Job Roles"),
+            "label": _("Vai trò công việc"),
             "url": reverse_lazy("job-role-view"),
             "accessibility": job_role_accessibility,
             "search_entries": [
-                {"text": _("Job Roles"), "description": _("Name of the job role")},
+                {"text": _("Vai trò công việc"), "description": _("Tên vai trò công việc")},
             ],
         },
         {
-            "label": _("Weekly Off Days"),
+            "label": _("Ngày nghỉ hằng tuần"),
             "url": reverse_lazy("company-leaves-view"),
             "accessibility": company_leaves_settings_accessibility,
             "search_entries": [
                 {
-                    "text": _("Weekly Off Days"),
-                    "description": _("Configure recurring weekly off days"),
+                    "text": _("Ngày nghỉ hằng tuần"),
+                    "description": _("Thiết lập ngày nghỉ lặp lại hằng tuần"),
                 },
                 {
-                    "text": _("Based On Week"),
-                    "description": _("Which week of the month the off day applies"),
+                    "text": _("Tuần áp dụng"),
+                    "description": _("Chọn tuần trong tháng được áp dụng ngày nghỉ"),
                 },
                 {
-                    "text": _("Based On Week Day"),
-                    "description": _("Which day of the week is the off day"),
+                    "text": _("Thứ được nghỉ"),
+                    "description": _("Chọn ngày trong tuần được nghỉ"),
                 },
             ],
         },
@@ -438,137 +386,28 @@ class BaseSettings:
 
 
 # ---------------------------------------------------------------------------
-# 3. Mail section
-# ---------------------------------------------------------------------------
-
-
-@settings_menu.register
-class MailSettings:
-    title = _("Email")
-    order = 3
-    items = [
-        {
-            "label": _("Email Servers"),
-            "url": reverse_lazy("mail-server-conf"),
-            "accessibility": mail_server_accessibility,
-            "search_entries": [
-                {"text": _("Email Host"), "description": _("SMTP server hostname")},
-                {"text": _("Email Port"), "description": _("SMTP server port number")},
-                {
-                    "text": _("Default From Email"),
-                    "description": _("Sender email address for outgoing mail"),
-                },
-                {
-                    "text": _("Email Host Username"),
-                    "description": _("Username for SMTP authentication"),
-                },
-                {
-                    "text": _("Display Name"),
-                    "description": _("Name shown in From field of outgoing emails"),
-                },
-                {
-                    "text": _("Email Authentication Password"),
-                    "description": _("Password for SMTP authentication"),
-                },
-                {
-                    "text": _("Use TLS"),
-                    "description": _("Enable TLS encryption for SMTP"),
-                },
-                {
-                    "text": _("Use SSL"),
-                    "description": _("Enable SSL encryption for SMTP"),
-                },
-                {
-                    "text": _("Fail Silently"),
-                    "description": _("Suppress errors when email sending fails"),
-                },
-                {
-                    "text": _("Primary Mail Server"),
-                    "description": _("Mark as the primary outgoing mail server"),
-                },
-                {
-                    "text": _("Email Send Timeout"),
-                    "description": _("Timeout in seconds for SMTP connections"),
-                },
-                {
-                    "text": _("Use Dynamic Display Name"),
-                    "description": _(
-                        "Use the triggering user's name as the sender display name"
-                    ),
-                },
-            ],
-        },
-        {
-            "label": _("Email Templates"),
-            "url": reverse_lazy("mail-templates-view"),
-            "accessibility": mail_template_accessibility,
-            "search_entries": [
-                {
-                    "text": _("Email Templates"),
-                    "description": _("Create reusable email body templates"),
-                },
-                {"text": _("Template Title"), "description": _("Name of the template")},
-                {
-                    "text": _("Template Body"),
-                    "description": _("Rich-text body content of the template"),
-                },
-            ],
-        },
-        {
-            "label": _("Email Automations"),
-            "url": reverse_lazy("mail-automations-view"),
-            "accessibility": mail_automation_accessibility,
-            "search_entries": [
-                {
-                    "text": _("Email Automations"),
-                    "description": _("Trigger automated emails on model events"),
-                },
-                {
-                    "text": _("Automation Title"),
-                    "description": _("Name of the automation rule"),
-                },
-                {
-                    "text": _("Trigger Condition"),
-                    "description": _(
-                        "When the automation fires: On Create Update or Delete"
-                    ),
-                },
-                {
-                    "text": _("Delivery Channel"),
-                    "description": _("Send via Email Notification or Both"),
-                },
-            ],
-        },
-    ]
-
-
-# ---------------------------------------------------------------------------
 # 5. Appearance section (only when joydigi_theme is installed)
 # ---------------------------------------------------------------------------
 
 
 @settings_menu.register
 class ThemeManagerSettings:
-    title = _("Appearance")
+    title = _("Giao diện")
     order = 10
     condition = lambda self, request: apps.is_installed("joydigi_theme")
     items = [
         {
-            "label": _("Color Theme"),
+            "label": _("Màu giao diện"),
             "url": reverse_lazy("joydigi_theme:color_theme_view"),
             "accessibility": color_theme_accessibility,
             "search_entries": [
                 {
-                    "text": _("Color Theme"),
-                    "description": _(
-                        "Select and apply a visual color theme for the application"
-                    ),
+                    "text": _("Màu giao diện"),
+                    "description": _("Chọn màu hiển thị cho hệ thống"),
                 },
                 {
-                    "text": _("Theme Management"),
-                    "description": _(
-                        "Customise the UI appearance with preset color palettes"
-                    ),
+                    "text": _("Quản lý giao diện"),
+                    "description": _("Thay đổi giao diện bằng các bộ màu có sẵn"),
                 },
             ],
         },
@@ -582,48 +421,9 @@ class ThemeManagerSettings:
 
 @settings_menu.register
 class IntegrationsSettings:
-    title = _("Integrations")
+    title = _("Kết nối và sao lưu")
     order = 11
     items = [
-        {
-            "label": _("Google Drive Backup"),
-            "url": reverse_lazy("gdrive"),
-            "accessibility": gdrive_accessibility,
-            "search_entries": [
-                {
-                    "text": _("Google Drive Backup"),
-                    "description": _("Back up the database and media to Google Drive"),
-                },
-                {
-                    "text": _("OAuth Credentials File"),
-                    "description": _("Google OAuth 2.0 credentials JSON"),
-                },
-                {
-                    "text": _("Google Drive Folder ID"),
-                    "description": _("Google Drive folder where backups are stored"),
-                },
-                {
-                    "text": _("Backup DB"),
-                    "description": _("Include the database in the backup"),
-                },
-                {
-                    "text": _("Backup Media"),
-                    "description": _("Include media files in the backup"),
-                },
-                {
-                    "text": _("Interval Backup"),
-                    "description": _(
-                        "Enable automatic backup at regular time intervals"
-                    ),
-                },
-                {
-                    "text": _("Fixed Time Backup"),
-                    "description": _(
-                        "Schedule an automatic backup at a fixed time each day"
-                    ),
-                },
-            ],
-        },
         {
             "label": _("LinkedIn"),
             "url": reverse_lazy("linkedin-integration-setting"),

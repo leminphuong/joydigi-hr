@@ -116,47 +116,11 @@ def ess_kpi_data(request):
     except Exception:
         pass
 
-    # Open objectives
-    open_objectives = 0
-    try:
-        from pms.models import EmployeeObjective
-
-        open_objectives = EmployeeObjective.objects.filter(
-            employee_id=employee,
-            archive=False,
-            status__in=["Not Started", "On Track", "Behind", "At Risk"],
-        ).count()
-    except Exception:
-        pass
-
-    # Latest payslip
-    latest_net_pay = None
-    latest_payslip_period = ""
-    try:
-        from payroll.models.models import Payslip
-
-        ps = (
-            Payslip.objects.filter(
-                employee_id=employee,
-                status__in=["confirmed", "paid"],
-            )
-            .order_by("-end_date")
-            .first()
-        )
-        if ps:
-            latest_net_pay = round(float(ps.net_pay or 0), 2)
-            latest_payslip_period = ps.start_date.strftime("%b %Y")
-    except Exception:
-        pass
-
     return JsonResponse(
         {
             "total_available_leave": round(total_available, 1),
             "present_this_month": present_count,
             "late_this_month": late_count,
-            "open_objectives": open_objectives,
-            "latest_net_pay": latest_net_pay,
-            "latest_payslip_period": latest_payslip_period,
         }
     )
 

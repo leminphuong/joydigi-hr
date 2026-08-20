@@ -264,40 +264,40 @@
 <!-- Stat cards -->
 <div class="ms-stat-row">
   <div class="ms-stat-card" style="border-top: 3px solid #6c757d;">
-    <div class="ms-stat-card__label">{% trans "Employees" %}</div>
+    <div class="ms-stat-card__label">Nhân viên</div>
     <p class="ms-stat-card__value" style="color:#6c757d;">{{ summary_totals.total_employees }}</p>
   </div>
   <div class="ms-stat-card" style="border-top: 3px solid #28a745;">
-    <div class="ms-stat-card__label">{% trans "Total Present" %}</div>
+    <div class="ms-stat-card__label">Tổng ngày có mặt</div>
     <p class="ms-stat-card__value" style="color:#28a745;">{{ summary_totals.total_present|floatformat:"-1" }}</p>
   </div>
   <div class="ms-stat-card" style="border-top: 3px solid #dc3545;">
-    <div class="ms-stat-card__label">{% trans "Total Absent / Missing Out" %}</div>
+    <div class="ms-stat-card__label">Tổng ngày vắng / thiếu giờ ra</div>
     <p class="ms-stat-card__value" style="color:#dc3545;">{{ summary_totals.total_absent|floatformat:"-1" }}</p>
   </div>
   <div class="ms-stat-card" style="border-top: 3px solid #0d6efd;">
-    <div class="ms-stat-card__label">{% trans "Paid Leave" %}</div>
+    <div class="ms-stat-card__label">Nghỉ có lương</div>
     <p class="ms-stat-card__value" style="color:#0d6efd;">{{ summary_totals.total_paid_leave }}</p>
   </div>
   <div class="ms-stat-card" style="border-top: 3px solid #fd7e14;">
-    <div class="ms-stat-card__label">{% trans "Unpaid Leave" %}</div>
+    <div class="ms-stat-card__label">Nghỉ không lương</div>
     <p class="ms-stat-card__value" style="color:#fd7e14;">{{ summary_totals.total_unpaid_leave }}</p>
   </div>
   <div class="ms-stat-card" style="border-top: 3px solid #495057;">
-    <div class="ms-stat-card__label">{% trans "Working Days" %}</div>
+    <div class="ms-stat-card__label">Ngày làm việc</div>
     <p class="ms-stat-card__value ms-working-days-val">{{ total_working }}</p>
   </div>
   <div class="ms-stat-card" style="border-top: 3px solid #6610f2;">
-    <div class="ms-stat-card__label">{% trans "Week Off" %}</div>
+    <div class="ms-stat-card__label">Ngày nghỉ hằng tuần</div>
     <p class="ms-stat-card__value" style="color:#6610f2;">{{ summary_totals.week_off }}</p>
   </div>
   <div class="ms-stat-card" style="border-top: 3px solid #20c997;">
-    <div class="ms-stat-card__label">{% trans "Holidays" %}</div>
+    <div class="ms-stat-card__label">Ngày nghỉ lễ</div>
     <p class="ms-stat-card__value" style="color:#20c997;">{{ summary_totals.holiday }}</p>
   </div>
   {% if summary_totals.total_conflicts %}
   <div class="ms-stat-card" style="border-top: 3px solid #e85d04;">
-    <div class="ms-stat-card__label">{% trans "Conflicts" %}</div>
+    <div class="ms-stat-card__label">Dữ liệu trùng</div>
     <p class="ms-stat-card__value" style="color:#e85d04;">{{ summary_totals.total_conflicts }}</p>
   </div>
   {% endif %}
@@ -326,7 +326,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');
 $('#msAttendanceTable .list-table-row').prop('checked',false);
 $('#msAttendanceTable .highlight-selected').removeClass('highlight-selected');
 $('#msAttendanceTable .bulk-list-table-row').prop('checked',false);">
-      <span class="label">{% trans 'Unselect' %}</span>
+      <span class="label">Bỏ chọn</span>
       (<span id="count_msAttendance">0</span>)
     </button>
     <button
@@ -337,14 +337,14 @@ $('#msAttendanceTable .bulk-list-table-row').prop('checked',false);">
 selectSelected('#msAttendanceTable','selectedInstances');
 reloadSelectedCount($('#count_msAttendance'),'selectedInstances');
 reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
-      <span class="label">{% trans 'Select' %}</span>
+      <span class="label">Lựa chọn</span>
       (<span>{{ total_employee_count|default:0 }}</span>)
     </button>
     <button
         id="bulk_udate_msAttendance"
         class="d-none quick-bulk-action px-4 py-2 bg-transparent border border-success text-success rounded-md text-xs hover:bg-success hover:text-white transition duration-300"
         onclick="msOpenUpdateModal()">
-      <span class="label">{% trans 'Update' %}</span>
+      <span class="label">Cập nhật</span>
       (<span class="count_msAttendance">0</span>)
     </button>
   </div>
@@ -380,7 +380,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
               min="1"
               max="{{ rows.paginator.num_pages }}"
               value="{{ rows.number }}"
-              title="{% trans 'Enter a page number and press Enter' %}"
+              title="Nhập số trang rồi nhấn Enter"
               class="w-10 h-6 text-center text-xs border border-[#e6e6e6] rounded outline-none focus:border-primary-600 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               hx-target="#summary-table-container"
               hx-swap="innerHTML"
@@ -415,8 +415,8 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
 
     <p style="font-size:.82rem;color:#6c757d;margin:0;white-space:nowrap;">
       <ion-icon name="calendar-outline"></ion-icon>
-      {% trans "Period" %}: <strong>{{ from_date }}</strong> &mdash; <strong>{{ to_date }}</strong>
-      &nbsp;|&nbsp; {% trans "Working days" %}: <strong>{{ total_working }}</strong>
+      Giai đoạn: <strong>{{ from_date }}</strong> &mdash; <strong>{{ to_date }}</strong>
+      &nbsp;|&nbsp; Số ngày làm việc: <strong>{{ total_working }}</strong>
     </p>
   </div>
 </div>
@@ -425,7 +425,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
 <div class="oh-modal" id="msUpdateModal">
   <div class="oh-modal__dialog" style="max-width:640px;">
     <div class="oh-modal__dialog-header" style="display:flex;justify-content:space-between;align-items:center;">
-      <h5 style="margin:0;">{% trans "Update Attendance" %}</h5>
+      <h5 style="margin:0;">Cập nhật chấm công</h5>
       <button type="button" onclick="document.getElementById('msUpdateModal').classList.remove('oh-modal--show')"
               style="background:none;border:none;cursor:pointer;font-size:1.4rem;line-height:1;color:#6c757d;">
         &times;
@@ -433,63 +433,63 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
     </div>
     <div class="oh-modal__dialog-body">
       <p style="font-size:.85rem;color:#6c757d;margin-bottom:14px;">
-        <span id="ms-modal-selected-count">0</span> {% trans "employee(s) selected" %}
+        Đã chọn <span id="ms-modal-selected-count">0</span> nhân viên
       </p>
 
       <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
         <div style="flex:1 1 160px;">
-          <label class="oh-label">{% trans "From" %}</label>
+          <label class="oh-label">Từ ngày</label>
           <input type="date" id="ms-bulk-from" value="{% now 'Y-m-d' %}" class="oh-input w-100">
         </div>
         <div style="flex:1 1 160px;">
-          <label class="oh-label">{% trans "To" %}</label>
+          <label class="oh-label">Đến ngày</label>
           <input type="date" id="ms-bulk-to" value="{% now 'Y-m-d' %}" class="oh-input w-100">
         </div>
       </div>
 
-      <label class="oh-label" style="display:block;margin-bottom:8px;">{% trans "Mark as" %}</label>
+      <label class="oh-label" style="display:block;margin-bottom:8px;">Đánh dấu là</label>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <button class="ms-bulk-btn" onclick="msBulkApply('full_present')"
                 style="background:#d1fae5;color:#065f46;border:1.5px solid #6ee7b7;border-radius:7px;
                        padding:6px 12px;font-size:.78rem;font-weight:600;cursor:pointer;
                        display:flex;align-items:center;gap:4px;white-space:nowrap;">
-          <ion-icon name="checkmark-circle-outline"></ion-icon> {% trans "Full Present" %}
+          <ion-icon name="checkmark-circle-outline"></ion-icon> Có mặt đủ ngày
         </button>
         <button class="ms-bulk-btn" onclick="msBulkApply('half_present')"
                 style="background:#fef9c3;color:#854d0e;border:1.5px solid #fb923c;border-radius:7px;
                        padding:6px 12px;font-size:.78rem;font-weight:600;cursor:pointer;
                        display:flex;align-items:center;gap:4px;white-space:nowrap;">
-          <ion-icon name="remove-circle-outline"></ion-icon> {% trans "Half Day" %}
+          <ion-icon name="remove-circle-outline"></ion-icon> Nửa ngày
         </button>
         <button class="ms-bulk-btn" onclick="msBulkApply('absent')"
                 style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5;border-radius:7px;
                        padding:6px 12px;font-size:.78rem;font-weight:600;cursor:pointer;
                        display:flex;align-items:center;gap:4px;white-space:nowrap;">
-          <ion-icon name="close-circle-outline"></ion-icon> {% trans "Absent" %}
+          <ion-icon name="close-circle-outline"></ion-icon> Vắng mặt
         </button>
         <button class="ms-bulk-btn" onclick="msBulkApply('paid_leave')"
                 style="background:#dbeafe;color:#1e40af;border:1.5px solid #93c5fd;border-radius:7px;
                        padding:6px 12px;font-size:.78rem;font-weight:600;cursor:pointer;
                        display:flex;align-items:center;gap:4px;white-space:nowrap;">
-          <ion-icon name="calendar-outline"></ion-icon> {% trans "Paid Leave" %}
+          <ion-icon name="calendar-outline"></ion-icon> Nghỉ có lương
         </button>
         <button class="ms-bulk-btn" onclick="msBulkApply('unpaid_leave')"
                 style="background:#ffedd5;color:#9a3412;border:1.5px solid #fdba74;border-radius:7px;
                        padding:6px 12px;font-size:.78rem;font-weight:600;cursor:pointer;
                        display:flex;align-items:center;gap:4px;white-space:nowrap;">
-          <ion-icon name="calendar-clear-outline"></ion-icon> {% trans "Unpaid Leave" %}
+          <ion-icon name="calendar-clear-outline"></ion-icon> Nghỉ không lương
         </button>
         <button class="ms-bulk-btn" onclick="msBulkApply('holiday')"
                 style="background:#ccfbf1;color:#134e4a;border:1.5px solid #5eead4;border-radius:7px;
                        padding:6px 12px;font-size:.78rem;font-weight:600;cursor:pointer;
                        display:flex;align-items:center;gap:4px;white-space:nowrap;">
-          <ion-icon name="sunny-outline"></ion-icon> {% trans "Holiday" %}
+          <ion-icon name="sunny-outline"></ion-icon> Ngày nghỉ lễ
         </button>
         <button class="ms-bulk-btn" onclick="msBulkApply('week_off')"
                 style="background:#ede9fe;color:#4c1d95;border:1.5px solid #c4b5fd;border-radius:7px;
                        padding:6px 12px;font-size:.78rem;font-weight:600;cursor:pointer;
                        display:flex;align-items:center;gap:4px;white-space:nowrap;">
-          <ion-icon name="moon-outline"></ion-icon> {% trans "Week Off" %}
+          <ion-icon name="moon-outline"></ion-icon> Ngày nghỉ hằng tuần
         </button>
       </div>
     </div>
@@ -515,8 +515,8 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
   <div style="position:absolute; top:6px; right:24px; z-index:7;">
     <button type="button" id="ms-columns-toggle"
             class="oh-sticky-dropdown_btn is-column-config-trigger"
-            title="{% trans 'Customize columns' %}"
-            aria-label="{% trans 'Customize columns' %}"
+            title="Chọn cột hiển thị"
+            aria-label="Chọn cột hiển thị"
             aria-haspopup="true" aria-expanded="false">
       <ion-icon name="options-outline"></ion-icon>
     </button>
@@ -525,100 +525,100 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
       <div class="oh-column-config">
         <div class="oh-column-config__header">
           <div class="oh-column-config__title-wrap">
-            <span class="oh-column-config__title">{% trans "Columns" %}</span>
-            <span class="oh-column-config__subtitle">{% trans "Show or hide columns" %}</span>
+            <span class="oh-column-config__title">Các cột</span>
+            <span class="oh-column-config__subtitle">Hiện hoặc ẩn cột</span>
           </div>
           <span class="oh-column-config__count" id="ms-columns-count" aria-live="polite"></span>
         </div>
         <div class="oh-column-config__search">
           <ion-icon name="search-outline"></ion-icon>
           <input type="search" class="oh-column-config__search-input" id="ms-columns-search"
-                 placeholder="{% trans 'Search columns…' %}" autocomplete="off">
+                 placeholder="Tìm tên cột…" autocomplete="off">
         </div>
         <label class="oh-column-config__select-all">
-          <span class="oh-column-config__label">{% trans "Select All" %}</span>
+          <span class="oh-column-config__label">Chọn tất cả</span>
           <span class="oh-table__checkbox">
             <input type="checkbox" class="custom-checkbox" id="ms-columns-select-all">
           </span>
         </label>
         <ul class="oh-dropdown__items oh-column-config__list" id="ms-columns-list">
-          <li class="oh-column-config__item is-fixed" data-label="{% trans 'Employee' %}">
+          <li class="oh-column-config__item is-fixed" data-label="Nhân viên">
             <span class="oh-column-config__handle" aria-hidden="true">
-              <ion-icon name="lock-closed-outline" title="{% trans 'Primary column' %}"></ion-icon>
+              <ion-icon name="lock-closed-outline" title="Cột chính"></ion-icon>
             </span>
-            <span class="oh-column-config__label">{% trans "Employee" %}</span>
+            <span class="oh-column-config__label">Nhân viên</span>
             <span class="oh-table__checkbox">
               <input type="checkbox" class="custom-checkbox" checked disabled
-                     title="{% trans 'Primary column is always visible' %}">
+                     title="Cột chính luôn được hiển thị">
             </span>
           </li>
-          <li class="oh-column-config__item is-draggable" data-label="{% trans 'Badge ID' %}">
+          <li class="oh-column-config__item is-draggable" data-label="Mã nhân viên">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">{% trans "Badge ID" %}</span>
+            <span class="oh-column-config__label">Mã nhân viên</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="badge_id" checked></span>
           </li>
-          <li class="oh-column-config__item is-draggable" data-label="{% trans 'Department' %}">
+          <li class="oh-column-config__item is-draggable" data-label="Phòng ban">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">{% trans "Department" %}</span>
+            <span class="oh-column-config__label">Phòng ban</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="department" checked></span>
           </li>
-          <li class="oh-column-config__item is-draggable" data-label="{% trans 'Present' %}">
+          <li class="oh-column-config__item is-draggable" data-label="Có mặt">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">{% trans "Present" %}</span>
+            <span class="oh-column-config__label">Có mặt</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="present" checked></span>
           </li>
-          <li class="oh-column-config__item is-draggable" data-label="{% trans 'Absent' %}">
+          <li class="oh-column-config__item is-draggable" data-label="Vắng mặt">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">{% trans "Absent" %}</span>
+            <span class="oh-column-config__label">Vắng mặt</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="absent" checked></span>
           </li>
-          <li class="oh-column-config__item is-draggable" data-label="{% trans 'Paid Leave' %}">
+          <li class="oh-column-config__item is-draggable" data-label="Nghỉ có lương">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">{% trans "Paid Leave" %}</span>
+            <span class="oh-column-config__label">Nghỉ có lương</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="paid_leave" checked></span>
           </li>
-          <li class="oh-column-config__item is-draggable" data-label="{% trans 'Unpaid Leave' %}">
+          <li class="oh-column-config__item is-draggable" data-label="Nghỉ không lương">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">{% trans "Unpaid Leave" %}</span>
+            <span class="oh-column-config__label">Nghỉ không lương</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="unpaid_leave" checked></span>
           </li>
-          <li class="oh-column-config__item is-draggable" data-label="{% trans 'Working Days' %}">
+          <li class="oh-column-config__item is-draggable" data-label="Ngày làm việc">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">{% trans "Working Days" %}</span>
+            <span class="oh-column-config__label">Ngày làm việc</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="working_days" checked></span>
           </li>
-          <li class="oh-column-config__item is-draggable" data-label="{% trans 'Week Off' %}">
+          <li class="oh-column-config__item is-draggable" data-label="Ngày nghỉ hằng tuần">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">{% trans "Week Off" %}</span>
+            <span class="oh-column-config__label">Ngày nghỉ hằng tuần</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="week_off" checked></span>
           </li>
-          <li class="oh-column-config__item is-draggable" data-label="{% trans 'Holiday' %}">
+          <li class="oh-column-config__item is-draggable" data-label="Ngày nghỉ lễ">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">{% trans "Holiday" %}</span>
+            <span class="oh-column-config__label">Ngày nghỉ lễ</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="holiday" checked></span>
           </li>
-          <li class="oh-column-config__item is-draggable" data-label="{% trans 'Conflicts' %}">
+          <li class="oh-column-config__item is-draggable" data-label="Dữ liệu trùng">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">{% trans "Conflicts" %}</span>
+            <span class="oh-column-config__label">Dữ liệu trùng</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="conflicts" checked></span>
           </li>
-          <li class="oh-column-config__item is-draggable" data-label="{% trans 'Worked' %}">
+          <li class="oh-column-config__item is-draggable" data-label="Đã làm việc">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">{% trans "Worked" %}</span>
+            <span class="oh-column-config__label">Đã làm việc</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="worked" checked></span>
           </li>
-          <li class="oh-column-config__item is-draggable" data-label="{% trans 'Regular' %}">
+          <li class="oh-column-config__item is-draggable" data-label="Giờ làm chính">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">{% trans "Regular" %}</span>
+            <span class="oh-column-config__label">Giờ làm chính</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="regular" checked></span>
           </li>
-          <li class="oh-column-config__item is-draggable" data-label="{% trans 'Overtime' %}">
+          <li class="oh-column-config__item is-draggable" data-label="Làm thêm giờ">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">{% trans "Overtime" %}</span>
+            <span class="oh-column-config__label">Làm thêm giờ</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="overtime" checked></span>
           </li>
         </ul>
-        <p class="oh-column-config__empty" id="ms-columns-empty">{% trans "No columns match your search" %}</p>
+        <p class="oh-column-config__empty" id="ms-columns-empty">Không tìm thấy cột phù hợp</p>
       </div>
     </div>
   </div>
@@ -631,7 +631,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
               <input
                   type="checkbox"
                   class="bulk-list-table-row custom-checkbox w-4 h-4 bg-[#E9EDF7] rounded-sm text-primary-600 cursor-pointer"
-                  title="{% trans 'Select All' %}"
+                  title="Chọn tất cả"
                   onchange="
                       $(this).closest('.fixed-table').find('.list-table-row').prop('checked',$(this).is(':checked')).change();
                       $(document).ready(function () {
@@ -658,7 +658,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                   {% elif sort_key == "employee" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
                   {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
                 </span>
-                <span>{% trans "Employee" %}</span>
+                <span>Nhân viên</span>
               </div>
             </th>
             <th data-col="badge_id">
@@ -670,7 +670,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                   {% elif sort_key == "badge_id" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
                   {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
                 </span>
-                <span>{% trans "Badge ID" %}</span>
+                <span>Mã nhân viên</span>
               </div>
             </th>
             <th data-col="department">
@@ -682,7 +682,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                   {% elif sort_key == "department" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
                   {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
                 </span>
-                <span>{% trans "Department" %}</span>
+                <span>Phòng ban</span>
               </div>
             </th>
             <th data-col="present" style="text-align:center;">
@@ -694,10 +694,10 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                   {% elif sort_key == "present" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
                   {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
                 </span>
-                <span>{% trans "Present" %}</span>
+                <span>Có mặt</span>
               </div>
             </th>
-            <th data-col="absent" style="text-align:center;" title="{% trans 'Absent / Missing Out' %}">
+            <th data-col="absent" style="text-align:center;" title="Vắng mặt hoặc thiếu giờ ra">
               <div class="flex gap-1.5 items-center justify-center cursor-pointer"
                    hx-get="{% url 'attendance-monthly-summary-table' %}?{{ pd }}&sort=absent&dir={% if sort_key == 'absent' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
                    hx-target="#summary-table-container" hx-swap="innerHTML">
@@ -706,7 +706,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                   {% elif sort_key == "absent" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
                   {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
                 </span>
-                <span>{% trans "Absent" %}</span>
+                <span>Vắng mặt</span>
               </div>
             </th>
             <th data-col="paid_leave" style="text-align:center;">
@@ -718,7 +718,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                   {% elif sort_key == "paid_leave" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
                   {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
                 </span>
-                <span>{% trans "Paid Leave" %}</span>
+                <span>Nghỉ có lương</span>
               </div>
             </th>
             <th data-col="unpaid_leave" style="text-align:center;">
@@ -730,10 +730,10 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                   {% elif sort_key == "unpaid_leave" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
                   {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
                 </span>
-                <span>{% trans "Unpaid Leave" %}</span>
+                <span>Nghỉ không lương</span>
               </div>
             </th>
-            <th data-col="working_days" style="text-align:center;">{% trans "Working Days" %}</th>
+            <th data-col="working_days" style="text-align:center;">Ngày làm việc</th>
             <th data-col="week_off" style="text-align:center;">
               <div class="flex gap-1.5 items-center justify-center cursor-pointer"
                    hx-get="{% url 'attendance-monthly-summary-table' %}?{{ pd }}&sort=week_off&dir={% if sort_key == 'week_off' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
@@ -743,7 +743,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                   {% elif sort_key == "week_off" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
                   {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
                 </span>
-                <span>{% trans "Week Off" %}</span>
+                <span>Nghỉ hằng tuần</span>
               </div>
             </th>
             <th data-col="holiday" style="text-align:center;">
@@ -755,7 +755,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                   {% elif sort_key == "holiday" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
                   {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
                 </span>
-                <span>{% trans "Holiday" %}</span>
+                <span>Ngày nghỉ lễ</span>
               </div>
             </th>
             <th data-col="conflicts" style="text-align:center;">
@@ -767,7 +767,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                   {% elif sort_key == "conflicts" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
                   {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
                 </span>
-                <span>{% trans "Conflicts" %}</span>
+                <span>Dữ liệu trùng</span>
                 {% if summary_totals.total_conflicts %}
                   <span style="display:inline-flex;align-items:center;justify-content:center;
                                min-width:16px;height:16px;padding:0 4px;margin-left:2px;
@@ -785,7 +785,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                   {% elif sort_key == "worked" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
                   {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
                 </span>
-                <span>{% trans "Worked" %}</span>
+                <span>Đã làm việc</span>
               </div>
             </th>
             <th data-col="regular" style="text-align:center;">
@@ -797,7 +797,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                   {% elif sort_key == "regular" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
                   {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
                 </span>
-                <span>{% trans "Regular" %}</span>
+                <span>Giờ làm chính</span>
               </div>
             </th>
             <th data-col="overtime" style="text-align:center;">
@@ -809,7 +809,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                   {% elif sort_key == "overtime" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
                   {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
                 </span>
-                <span>{% trans "Overtime" %}</span>
+                <span>Làm thêm giờ</span>
               </div>
             </th>
           </tr>
@@ -831,7 +831,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
               <input
                   type="checkbox"
                   class="list-table-row custom-checkbox w-4 h-4 bg-[#E9EDF7] rounded-sm text-primary-600 cursor-pointer"
-                  title="{% trans 'Select Row' %}"
+                  title="Chọn dòng này"
                   value="{{ row.employee.pk }}"
                   onclick="event.stopPropagation();"
                   onchange="
@@ -875,18 +875,18 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                 data-url="{% url 'attendance-monthly-summary-detail' %}?employee_id={{ row.employee.pk }}&from_date={{ from_date }}&to_date={{ to_date }}&metric=conflict">
               {% if row.resolved_conflicts == row.conflict_days %}
                 {# All resolved: green number + âœ" #}
-                <span style="color:#30a180;" title="All {{ row.conflict_days }} conflict{{ row.conflict_days|pluralize }} resolved">
+                <span style="color:#30a180;" title="Đã xử lý toàn bộ {{ row.conflict_days }} dữ liệu trùng">
                   {{ row.conflict_days }} <span style="font-size:.7rem;">&#10003;</span>
                 </span>
               {% elif row.resolved_conflicts %}
                 {# Partial: amber total + green fraction #}
-                <span title="{{ row.conflict_days }} conflict{{ row.conflict_days|pluralize }}, {{ row.resolved_conflicts }} resolved">
+                <span title="{{ row.conflict_days }} dữ liệu trùng, đã xử lý {{ row.resolved_conflicts }}">
                   <span style="color:#bd652e;">{{ row.conflict_days }}</span>
                   <span style="color:#30a180;font-size:.72rem;margin-left:2px;">({{ row.resolved_conflicts }}&#10003;)</span>
                 </span>
               {% else %}
                 {# None resolved: amber number #}
-                <span style="color:#bd652e;" title="{{ row.conflict_days }} unresolved conflict{{ row.conflict_days|pluralize }}">
+                <span style="color:#bd652e;" title="{{ row.conflict_days }} dữ liệu trùng chưa xử lý">
                   {{ row.conflict_days }}
                 </span>
               {% endif %}
@@ -897,12 +897,12 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
             <td style="text-align:center;font-weight:600;font-size:.82rem;">{{ row.worked_label }}</td>
             <td style="text-align:center;font-weight:600;font-size:.82rem;">{{ row.regular_label }}</td>
             <td style="text-align:center;font-size:.82rem;height:auto !important;padding:6px 16px !important;"
-                title="{% trans 'Regular' %}: {{ row.ot_regular_label }} &#183; {% trans 'Week Off' %}: {{ row.ot_week_off_label }} &#183; {% trans 'Holiday' %}: {{ row.ot_holiday_label }}">
+                title="Ngày thường: {{ row.ot_regular_label }} &#183; Ngày nghỉ hằng tuần: {{ row.ot_week_off_label }} &#183; Ngày nghỉ lễ: {{ row.ot_holiday_label }}">
               <div style="font-weight:600;">{{ row.overtime_label }}</div>
               <div style="font-size:.66rem;color:#9ca3af;font-weight:500;white-space:nowrap;">
-                {% if row.ot_regular_seconds %}<span title="{% trans 'Regular OT' %}">R {{ row.ot_regular_label }}</span>{% endif %}
-                {% if row.ot_week_off_seconds %}<span title="{% trans 'Week Off OT' %}">{% if row.ot_regular_seconds %} &#183; {% endif %}WO {{ row.ot_week_off_label }}</span>{% endif %}
-                {% if row.ot_holiday_seconds %}<span title="{% trans 'Holiday OT' %}">{% if row.ot_regular_seconds or row.ot_week_off_seconds %} &#183; {% endif %}HO {{ row.ot_holiday_label }}</span>{% endif %}
+                {% if row.ot_regular_seconds %}<span title="Làm thêm ngày thường">NT {{ row.ot_regular_label }}</span>{% endif %}
+                {% if row.ot_week_off_seconds %}<span title="Làm thêm ngày nghỉ hằng tuần">{% if row.ot_regular_seconds %} &#183; {% endif %}HN {{ row.ot_week_off_label }}</span>{% endif %}
+                {% if row.ot_holiday_seconds %}<span title="Làm thêm ngày nghỉ lễ">{% if row.ot_regular_seconds or row.ot_week_off_seconds %} &#183; {% endif %}LỄ {{ row.ot_holiday_label }}</span>{% endif %}
               </div>
             </td>
           </tr>
@@ -975,12 +975,12 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
     if (loadedUrl === url) return;
     loadedUrl = url;
 
-    pop.innerHTML = '<div style="padding:14px 16px;color:#6c757d;font-size:.8rem;display:flex;align-items:center;gap:8px;"><span style="width:14px;height:14px;border:2px solid #dee2e6;border-top-color:#0d6efd;border-radius:50%;display:inline-block;animation:ms-spin .6s linear infinite;"></span> Loading...</div>';
+    pop.innerHTML = '<div style="padding:14px 16px;color:#6c757d;font-size:.8rem;display:flex;align-items:center;gap:8px;"><span style="width:14px;height:14px;border:2px solid #dee2e6;border-top-color:#0d6efd;border-radius:50%;display:inline-block;animation:ms-spin .6s linear infinite;"></span> Đang tải...</div>';
 
     fetch(url, { headers: { 'HX-Request': 'true', 'X-Requested-With': 'XMLHttpRequest' } })
       .then(r => r.text())
       .then(html => { pop.innerHTML = html; })
-      .catch(() => { pop.innerHTML = '<p class="ms-pop-empty">Failed to load.</p>'; });
+      .catch(() => { pop.innerHTML = '<p class="ms-pop-empty">Không thể tải dữ liệu.</p>'; });
   }
 
   function scheduleHide() {
@@ -1114,13 +1114,13 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
     bar.dataset.undoUrl = MS_UNDO_URL;
     bar.innerHTML =
       '<ion-icon name="checkmark-circle" style="font-size:1.2rem;color:#10b981;flex-shrink:0;"></ion-icon>' +
-      '<span style="flex:1;"><strong>' + count + '</strong> record' + (count !== 1 ? 's' : '') + ' updated</span>' +
+      '<span style="flex:1;">Đã cập nhật <strong>' + count + '</strong> mục</span>' +
       '<button id="ms-undo-btn" style="background:#6366f1;color:#fff;border:none;border-radius:6px;' +
               'padding:4px 13px;font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;">' +
-        '{% trans "Undo" %}' +
+        'Hoàn tác' +
       '</button>' +
       '<button onclick="document.getElementById(\'ms-undo-bar\').remove()" ' +
-              'style="background:none;color:#64748b;border:none;cursor:pointer;font-size:1.05rem;padding:0 3px;line-height:1;">âœ•</button>';
+              'style="background:none;color:#64748b;border:none;cursor:pointer;font-size:1.05rem;padding:0 3px;line-height:1;">✕</button>';
     document.body.appendChild(bar);
 
     // Use window.msUndoBulk indirectly so post-refresh IIFE version is called
@@ -1173,7 +1173,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
     })
     .catch(function () {
       var btn = document.getElementById('ms-undo-btn');
-      if (btn) { btn.disabled = false; btn.textContent = '{% trans "Undo" %}'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Hoàn tác'; }
     });
   };
 
@@ -1228,7 +1228,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
 
     content.innerHTML = '<div style="padding:28px 24px;color:#6c757d;font-size:.85rem;display:flex;align-items:center;gap:10px;">'
       + '<span style="width:16px;height:16px;border:2px solid #dee2e6;border-top-color:#6366f1;border-radius:50%;display:inline-block;animation:ms-spin .6s linear infinite;flex-shrink:0;"></span>'
-      + ' Loading calendar...</div>';
+      + ' Đang tải lịch chấm công...</div>';
 
     overlay.style.display = 'flex';
 
@@ -1236,7 +1236,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
       .then(function (r) { return r.text(); })
       .then(function (html) { content.innerHTML = html; })
       .catch(function () {
-        content.innerHTML = '<p style="padding:24px;color:#dc3545;">Failed to load calendar.</p>';
+        content.innerHTML = '<p style="padding:24px;color:#dc3545;">Không thể tải lịch chấm công.</p>';
       });
   }
 
@@ -1266,7 +1266,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
   function _calSpinner(msg) {
     return '<div style="padding:14px 20px;font-size:.8rem;color:#92400e;display:flex;align-items:center;gap:8px;">'
       + '<span style="width:14px;height:14px;border:2px solid #fb923c;border-top-color:#92400e;border-radius:50%;display:inline-block;animation:ms-spin .6s linear infinite;flex-shrink:0;"></span>'
-      + ' ' + (msg || 'Loading...') + '</div>';
+      + ' ' + (msg || 'Đang tải...') + '</div>';
   }
 
   window.msCalLoadResolve = function (date, conflictType, detail) {
@@ -1284,7 +1284,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
     }
 
     panel.style.display = 'block';
-    panel.innerHTML = _calSpinner('Loading...');
+    panel.innerHTML = _calSpinner('Đang tải...');
     panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
     var params = new URLSearchParams({
@@ -1306,7 +1306,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
           panel.className = 'panel-resolved';
         }
       })
-      .catch(function () { panel.innerHTML = '<p style="padding:12px;color:#dc3545;">Failed to load.</p>'; });
+      .catch(function () { panel.innerHTML = '<p style="padding:12px;color:#dc3545;">Không thể tải dữ liệu.</p>'; });
   };
 
   window.msCalResolvePost = function (resolution, conflictType) {
@@ -1318,7 +1318,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
 
     content.innerHTML = '<div style="padding:28px 24px;color:#6c757d;font-size:.85rem;display:flex;align-items:center;gap:10px;">'
       + '<span style="width:16px;height:16px;border:2px solid #dee2e6;border-top-color:#6366f1;border-radius:50%;display:inline-block;animation:ms-spin .6s linear infinite;flex-shrink:0;"></span>'
-      + ' Saving and refreshing...</div>';
+      + ' Đang lưu và cập nhật...</div>';
 
     fetch(ctx.resolveUrl, {
       method: 'POST',
@@ -1339,7 +1339,7 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
     }).then(function (r) { return r.text(); })
       .then(function (html) { content.innerHTML = html; })
       .catch(function () {
-        content.innerHTML = '<p style="padding:24px;color:#dc3545;">Failed to save resolution.</p>';
+        content.innerHTML = '<p style="padding:24px;color:#dc3545;">Không thể lưu điều chỉnh.</p>';
       });
   };
 })();
@@ -1468,6 +1468,6 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
 {% else %}
 <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:300px;">
   <img style="width:150px;height:150px;" src="{% static 'images/ui/no-results.png' %}" alt="">
-  <h5 style="margin-top:1rem;">{% trans "No attendance data found for the selected period." %}</h5>
+  <h5 style="margin-top:1rem;">Không có dữ liệu chấm công trong giai đoạn đã chọn.</h5>
 </div>
 {% endif %}

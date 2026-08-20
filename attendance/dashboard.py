@@ -867,9 +867,9 @@ def attendance_overview(request):
         pass
 
     data_set = [
-        {"label": _("On Time"), "data": on_time_series},
-        {"label": _("Late Arrival"), "data": late_series},
-        {"label": _("Early Departure"), "data": early_series},
+        {"label": "Đúng giờ", "data": on_time_series},
+        {"label": "Đi muộn", "data": late_series},
+        {"label": "Về sớm", "data": early_series},
     ]
     return JsonResponse(
         {

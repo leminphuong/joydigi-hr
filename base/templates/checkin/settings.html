@@ -1,0 +1,40 @@
+{% extends "settings.html" %}
+
+{% block settings %}
+<style>
+    .checkin-form p { margin-bottom: 14px; }
+    .checkin-form label { display:block; margin-bottom:6px; color:#374151; font-size:13px; font-weight:600; }
+    .checkin-form input[type=text], .checkin-form input[type=number] { width:100%; border:1px solid #d1d5db; border-radius:8px; padding:9px 11px; }
+    .checkin-form .errorlist { color:#dc2626; font-size:12px; margin:4px 0; }
+</style>
+<section class="space-y-5">
+    <header class="flex flex-wrap items-center justify-between gap-3">
+        <div><h1 class="text-xl font-semibold text-gray-900">Cài đặt chấm công</h1><p class="mt-1 text-sm text-gray-500">Áp dụng cho {{ company }}.</p></div>
+        <a href="{% url 'holiday-view' %}" class="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50">Quản lý ngày nghỉ lễ</a>
+    </header>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+        <div class="bg-white rounded-xl border border-gray-100 p-5">
+            <h2 class="font-semibold text-gray-900 mb-4">Quy định chung</h2>
+            <form method="post" class="checkin-form">{% csrf_token %}<input type="hidden" name="action" value="policy">{{ policy_form.as_p }}<button class="w-full px-4 py-2 rounded-lg bg-primary-600 text-white font-medium">Lưu quy định</button></form>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-100 p-5">
+            <h2 class="font-semibold text-gray-900 mb-4">{% if location_instance %}Sửa địa điểm{% else %}Thêm địa điểm chấm công{% endif %}</h2>
+            <form method="post" class="checkin-form">{% csrf_token %}<input type="hidden" name="action" value="location"><input type="hidden" name="object_id" value="{{ location_instance.pk|default:'' }}">{{ location_form.as_p }}<button class="w-full px-4 py-2 rounded-lg bg-primary-600 text-white font-medium">Lưu địa điểm</button></form>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-100 p-5">
+            <h2 class="font-semibold text-gray-900 mb-4">{% if wifi_instance %}Sửa Wifi{% else %}Thêm Wifi văn phòng{% endif %}</h2>
+            <form method="post" class="checkin-form">{% csrf_token %}<input type="hidden" name="action" value="wifi"><input type="hidden" name="object_id" value="{{ wifi_instance.pk|default:'' }}">{{ wifi_form.as_p }}<button class="w-full px-4 py-2 rounded-lg bg-primary-600 text-white font-medium">Lưu Wifi</button></form>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <div class="bg-white rounded-xl border border-gray-100 overflow-hidden"><div class="px-5 py-4 border-b border-gray-100 font-semibold">Địa điểm chấm công</div><div class="divide-y divide-gray-100">
+            {% for item in locations %}<div class="p-4 flex items-start justify-between gap-3"><div><p class="font-medium text-gray-900">{{ item.name }}</p><p class="mt-1 text-sm text-gray-500">Vĩ độ {{ item.latitude }} · Kinh độ {{ item.longitude }} · Bán kính {{ item.radius_meters }} mét</p></div><div class="flex gap-2"><a href="?edit_location={{ item.pk }}" class="text-sm text-primary-600">Sửa</a><form method="post" action="{% url 'delete-checkin-location' item.pk %}" onsubmit="return confirm('Xóa địa điểm này?')">{% csrf_token %}<button class="text-sm text-red-600">Xóa</button></form></div></div>{% empty %}<p class="p-5 text-sm text-gray-400">Chưa có địa điểm.</p>{% endfor %}
+        </div></div>
+        <div class="bg-white rounded-xl border border-gray-100 overflow-hidden"><div class="px-5 py-4 border-b border-gray-100 font-semibold">Wifi văn phòng</div><div class="divide-y divide-gray-100">
+            {% for item in wifi_networks %}<div class="p-4 flex items-start justify-between gap-3"><div><p class="font-medium text-gray-900">{{ item.name }}</p><p class="mt-1 text-sm text-gray-500">Tên Wifi: {{ item.ssid }}{% if item.bssid %} · Mã thiết bị: {{ item.bssid }}{% endif %}</p></div><div class="flex gap-2"><a href="?edit_wifi={{ item.pk }}" class="text-sm text-primary-600">Sửa</a><form method="post" action="{% url 'delete-office-wifi' item.pk %}" onsubmit="return confirm('Xóa Wifi này?')">{% csrf_token %}<button class="text-sm text-red-600">Xóa</button></form></div></div>{% empty %}<p class="p-5 text-sm text-gray-400">Chưa có Wifi văn phòng.</p>{% endfor %}
+        </div></div>
+    </div>
+</section>
+{% endblock %}

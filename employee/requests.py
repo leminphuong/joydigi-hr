@@ -1,7 +1,7 @@
 """
 employee/requests.py
 
-Requests landing page with tabbed shift, inbox, work type, and document sections.
+Requests landing page with tabbed shift, inbox, and work type sections.
 """
 
 from django.contrib.auth.decorators import login_required
@@ -11,7 +11,7 @@ from django.shortcuts import render
 @login_required
 def requests_view(request):
     """
-    Requests landing page with tabbed shift, inbox, work type, and document sections.
+    Requests landing page with tabbed shift, inbox, and work type sections.
     """
     return render(request, "requests/requests.html")
 
@@ -38,11 +38,3 @@ def requests_work_type_tab(request):
     HTMX tab body for work type requests under requests.
     """
     return render(request, "requests/requests_work_type_tab.html")
-
-
-@login_required
-def requests_document_tab(request):
-    """
-    HTMX tab body for document requests under requests.
-    """
-    return render(request, "requests/requests_document_tab.html")

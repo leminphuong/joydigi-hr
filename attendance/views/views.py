@@ -3309,8 +3309,6 @@ def attendance_rule_settings_view(request):
     Biometric Attendance and IP Restriction. Each section reuses its existing
     toggle endpoint; this view only gathers the current state of each.
     """
-    from base.models import BiometricAttendance
-
     company = _get_session_company(request)
 
     tracking = TrackLateComeEarlyOut.objects.filter(company_id=company).first()
@@ -3324,17 +3322,7 @@ def attendance_rule_settings_view(request):
         attendance_general_settings = [setting]
     show_company = len(attendance_general_settings) > 1
 
-    biometric = BiometricAttendance.objects.filter(company_id=company).first()
-
     allowed_ips = AttendanceAllowedIP.objects.filter(company_id=company).first()
-
-    facedetection = None
-    from django.apps import apps
-
-    if apps.is_installed("facedetection"):
-        from facedetection.models import FaceDetection
-
-        facedetection = FaceDetection.objects.filter(company_id=company).first()
 
     return render(
         request,
@@ -3343,9 +3331,7 @@ def attendance_rule_settings_view(request):
             "tracking": tracking,
             "attendance_general_settings": attendance_general_settings,
             "show_company": show_company,
-            "biometric": biometric,
             "allowed_ips": allowed_ips,
-            "facedetection": facedetection,
         },
     )
 

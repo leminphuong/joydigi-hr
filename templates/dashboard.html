@@ -612,6 +612,22 @@
         .md-ann-item:hover {
             background: rgba(99, 102, 241, 0.04);
         }
+        .md-ann-item__row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .md-ann-item__image {
+            flex: 0 0 54px;
+            width: 54px;
+            height: 42px;
+            border-radius: 7px;
+            object-fit: cover;
+            background: rgba(128, 128, 128, 0.08);
+        }
+        .md-ann-item__content {
+            min-width: 0;
+        }
         .dark .md-ann-item:hover {
             background: rgba(99, 102, 241, 0.08);
         }
@@ -1220,15 +1236,14 @@
         <!-- Header -->
         <div class="md-header">
             <div>
-                <h1>{% trans "Dashboard" %}</h1>
-                <div class="md-header__date" id="md-date"></div>
+                <h1>Tổng quan</h1>
                 <div class="md-refresh">
                     <span class="md-refresh__dot" id="md-refresh-dot"></span><span
                         id="md-refresh-text"
-                    >{% trans "Just now" %}</span><button
+                    >Vừa cập nhật</span><button
                         class="md-refresh__toggle"
                         id="md-refresh-toggle"
-                        title="{% trans 'Toggle auto-refresh' %}"
+                        title="Bật hoặc tắt tự động cập nhật"
                     >
                         ⟳
                     </button>
@@ -1236,17 +1251,17 @@
             </div>
             <div class="md-header__actions">
                 <div class="md-period-picker">
-                    <button class="md-period-preset" data-preset="this_month">{% trans "This Month" %}</button>
-                    <button class="md-period-preset" data-preset="last_month">{% trans "Last Month" %}</button>
-                    <button class="md-period-preset" data-preset="this_quarter">{% trans "Quarter" %}</button>
-                    <input type="date" id="md-from-date" title="{% trans 'From' %}">
+                    <button class="md-period-preset" data-preset="this_month">Tháng này</button>
+                    <button class="md-period-preset" data-preset="last_month">Tháng trước</button>
+                    <button class="md-period-preset" data-preset="this_quarter">Quý này</button>
+                    <input type="date" id="md-from-date" title="Từ ngày">
                     <span class="md-period-picker__sep">→</span>
-                    <input type="date" id="md-to-date" title="{% trans 'To' %}">
+                    <input type="date" id="md-to-date" title="Đến ngày">
                 </div>
                 <button
                     class="oh-btn oh-btn--secondary"
                     id="md-open-customize"
-                    title="{% trans 'Customize dashboard' %}"
+                    title="Sắp xếp màn hình Tổng quan"
                     style="display: flex; align-items: center; gap: 5px; font-size: 13px"
                 >
                     <svg
@@ -1262,7 +1277,7 @@
                         <circle cx="12" cy="12" r="3" />
                         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                     </svg>
-                    {% trans "Customize" %}
+                    Sắp xếp
                 </button>
             </div>
         </div>
@@ -1280,6 +1295,8 @@
             <div class="md-kpi-card md-kpi-card--skeleton"><div class="md-skeleton md-skeleton--icon"></div><div class="md-skeleton md-skeleton--label"></div><div class="md-skeleton md-skeleton--value"></div><div class="md-skeleton md-skeleton--sub"></div></div>
         </div>
 
+        {% include "dashboard/checkin_overview.html" %}
+
         <!-- Main layout -->
         <div class="md-layout">
             <!-- Left: Charts (single flat grid for reordering) -->
@@ -1290,12 +1307,12 @@
                         class="md-chart-card"
                         data-chart-id="department_headcount"
                         data-chart-section="overview"
-                        data-chart-label="{% trans 'Department Headcount' %}"
+                        data-chart-label="Nhân sự theo phòng ban"
                     >
                         <div class="md-chart-card__header">
                             <div>
-                                <div class="md-chart-card__title">{% trans "Department Headcount" %}</div>
-                                <div class="md-chart-card__subtitle">{% trans "Top 10 departments" %}</div>
+                                <div class="md-chart-card__title">Nhân sự theo phòng ban</div>
+                                <div class="md-chart-card__subtitle">10 phòng ban đông nhất</div>
                             </div>
                         </div>
                         <div class="md-chart-card__body"><div id="chart-departments"></div></div>
@@ -1307,12 +1324,12 @@
                             class="md-chart-card"
                             data-chart-id="leave_trends"
                             data-chart-section="overview"
-                            data-chart-label="{% trans 'Leave Trends' %}"
+                            data-chart-label="Xu hướng nghỉ phép"
                         >
                             <div class="md-chart-card__header">
                                 <div>
-                                    <div class="md-chart-card__title">{% trans "Leave Trends" %}</div>
-                                    <div class="md-chart-card__subtitle">{% trans "Daily leaves — current week" %}</div>
+                                    <div class="md-chart-card__title">Xu hướng nghỉ phép</div>
+                                    <div class="md-chart-card__subtitle">Số người nghỉ từng ngày trong tuần này</div>
                                 </div>
                             </div>
                             <div class="md-chart-card__body"><div id="chart-leave-trend"></div></div>
@@ -1324,12 +1341,12 @@
                         class="md-chart-card"
                         data-chart-id="employee_status"
                         data-chart-section="overview"
-                        data-chart-label="{% trans 'Employee Status' %}"
+                        data-chart-label="Trạng thái nhân viên"
                     >
                         <div class="md-chart-card__header">
                             <div>
-                                <div class="md-chart-card__title">{% trans "Employee Status" %}</div>
-                                <div class="md-chart-card__subtitle">{% trans "Active vs Inactive" %}</div>
+                                <div class="md-chart-card__title">Trạng thái nhân viên</div>
+                                <div class="md-chart-card__subtitle">Đang làm việc và đã nghỉ</div>
                             </div>
                         </div>
                         <div class="md-chart-card__body"><div id="chart-employee-status"></div></div>
@@ -1340,12 +1357,12 @@
                         class="md-chart-card"
                         data-chart-id="gender_distribution"
                         data-chart-section="overview"
-                        data-chart-label="{% trans 'Gender Distribution' %}"
+                        data-chart-label="Nhân sự theo giới tính"
                     >
                         <div class="md-chart-card__header">
                             <div>
-                                <div class="md-chart-card__title">{% trans "Gender Distribution" %}</div>
-                                <div class="md-chart-card__subtitle">{% trans "Active employees" %}</div>
+                                <div class="md-chart-card__title">Nhân sự theo giới tính</div>
+                                <div class="md-chart-card__subtitle">Nhân viên đang làm việc</div>
                             </div>
                         </div>
                         <div class="md-chart-card__body"><div id="chart-gender"></div></div>
@@ -1357,12 +1374,12 @@
                             class="md-chart-card"
                             data-chart-id="leave_breakdown"
                             data-chart-section="overview"
-                            data-chart-label="{% trans 'Leave Breakdown' %}"
+                            data-chart-label="Các loại nghỉ phép"
                         >
                             <div class="md-chart-card__header">
                                 <div>
-                                    <div class="md-chart-card__title">{% trans "Leave Breakdown" %}</div>
-                                    <div class="md-chart-card__subtitle" id="leave-month">{% trans "This month" %}</div>
+                                    <div class="md-chart-card__title">Các loại nghỉ phép</div>
+                                    <div class="md-chart-card__subtitle" id="leave-month">Tháng này</div>
                                 </div>
                             </div>
                             <div class="md-chart-card__body"><div id="chart-leave"></div></div>
@@ -1375,14 +1392,14 @@
                             class="md-chart-card md-chart-card--wide"
                             data-chart-id="attendance_overview"
                             data-chart-section="attendance"
-                            data-chart-label="{% trans 'Attendance Overview' %}"
+                            data-chart-label="Tổng quan chấm công"
                             data-chart-wide="1"
                         >
                             <div class="md-chart-card__header">
                                 <div>
-                                    <div class="md-chart-card__title">{% trans "Attendance Overview" %}</div>
+                                    <div class="md-chart-card__title">Tổng quan chấm công</div>
                                     <div class="md-chart-card__subtitle">
-                                        {% trans "On-time, late arrivals & early departures by department" %}
+                                        Đúng giờ, đi muộn và về sớm theo phòng ban
                                     </div>
                                 </div>
                             </div>
@@ -1394,12 +1411,12 @@
                             class="md-chart-card"
                             data-chart-id="department_overtime"
                             data-chart-section="attendance"
-                            data-chart-label="{% trans 'Department Overtime' %}"
+                            data-chart-label="Làm thêm theo phòng ban"
                         >
                             <div class="md-chart-card__header">
                                 <div>
-                                    <div class="md-chart-card__title">{% trans "Department Overtime" %}</div>
-                                    <div class="md-chart-card__subtitle">{% trans "Overtime hours distribution" %}</div>
+                                    <div class="md-chart-card__title">Làm thêm theo phòng ban</div>
+                                    <div class="md-chart-card__subtitle">Số giờ làm thêm của từng phòng ban</div>
                                 </div>
                             </div>
                             <div class="md-chart-card__body"><div id="chart-overtime"></div></div>
@@ -1410,14 +1427,14 @@
                             class="md-chart-card md-chart-card--wide"
                             data-chart-id="attendance_trend"
                             data-chart-section="attendance"
-                            data-chart-label="{% trans 'Attendance Trend' %}"
+                            data-chart-label="Xu hướng chấm công"
                             data-chart-wide="1"
                         >
                             <div class="md-chart-card__header">
                                 <div>
-                                    <div class="md-chart-card__title">{% trans "Attendance Trend" %}</div>
+                                    <div class="md-chart-card__title">Xu hướng chấm công</div>
                                     <div class="md-chart-card__subtitle" id="md-attendance-trend-subtitle">
-                                        {% trans "Weekly rate — last 12 weeks" %}
+                                        Tỷ lệ chấm công trong 12 tuần gần nhất
                                     </div>
                                 </div>
                             </div>
@@ -1425,7 +1442,7 @@
                         </div>
                     {% endif %}
 
-                    {% if perms.recruitment.view_recruitment or request.user.is_superuser %}
+                    {% if False %}
                         <!-- Recruitment Pipeline -->
                         <div
                             class="md-chart-card md-chart-card--wide"
@@ -1469,13 +1486,13 @@
                             class="md-chart-card"
                             data-chart-id="leave_by_department"
                             data-chart-section="leave"
-                            data-chart-label="{% trans 'Leave by Department' %}"
+                            data-chart-label="Nghỉ phép theo phòng ban"
                         >
                             <div class="md-chart-card__header">
                                 <div>
-                                    <div class="md-chart-card__title">{% trans "Leave by Department" %}</div>
+                                    <div class="md-chart-card__title">Nghỉ phép theo phòng ban</div>
                                     <div class="md-chart-card__subtitle">
-                                        {% trans "Department-wise leave requests" %}
+                                        Số đơn nghỉ của từng phòng ban
                                     </div>
                                 </div>
                             </div>
@@ -1487,13 +1504,13 @@
                             class="md-chart-card"
                             data-chart-id="department_leave_days"
                             data-chart-section="leave"
-                            data-chart-label="{% trans 'Department Leave Days' %}"
+                            data-chart-label="Số ngày nghỉ theo phòng ban"
                         >
                             <div class="md-chart-card__header">
                                 <div>
-                                    <div class="md-chart-card__title">{% trans "Department Leave Days" %}</div>
+                                    <div class="md-chart-card__title">Số ngày nghỉ theo phòng ban</div>
                                     <div class="md-chart-card__subtitle">
-                                        {% trans "Total leave days by department" %}
+                                        Tổng số ngày nghỉ của từng phòng ban
                                     </div>
                                 </div>
                             </div>
@@ -1501,7 +1518,7 @@
                         </div>
                     {% endif %}
 
-                    {% if perms.recruitment.view_recruitment or request.user.is_superuser %}
+                    {% if False %}
                         <!-- Recruitment Funnel (NEW) -->
                         <div
                             class="md-chart-card md-chart-card--wide"
@@ -1528,14 +1545,14 @@
                             class="md-chart-card md-chart-card--wide"
                             data-chart-id="employee_turnover"
                             data-chart-section="overview"
-                            data-chart-label="{% trans 'Employee Turnover' %}"
+                            data-chart-label="Nhân viên vào và nghỉ việc"
                             data-chart-wide="1"
                         >
                             <div class="md-chart-card__header">
                                 <div>
-                                    <div class="md-chart-card__title">{% trans "Employee Turnover" %}</div>
+                                    <div class="md-chart-card__title">Nhân viên vào và nghỉ việc</div>
                                     <div class="md-chart-card__subtitle" id="turnover-rate">
-                                        {% trans "New hires vs exits — last 6 months" %}
+                                        Nhân viên mới và nhân viên nghỉ trong 6 tháng gần nhất
                                     </div>
                                 </div>
                             </div>
@@ -1543,7 +1560,7 @@
                         </div>
                     {% endif %}
 
-                    {% if perms.payroll.view_payslip or request.user.is_superuser %}
+                    {% if False %}
                         <!-- Payroll Summary (NEW) -->
                         <div
                             class="md-chart-card"
@@ -1569,12 +1586,12 @@
             <div class="md-sidebar">
                 <div class="md-info-panel">
                     <div class="md-info-panel__header">
-                        <div class="md-info-panel__title">{% trans "Announcements" %}</div>
+                        <div class="md-info-panel__title">Bản tin</div>
                         {% if perms.base.add_announcement %}
                             <button
                                 class="md-btn-add"
                                 id="md-add-announcement"
-                                title="{% trans 'New Announcement' %}"
+                                title="Đăng bản tin mới"
                                 hx-get="{% url 'create-announcement' %}"
                                 hx-target="#objectCreateModalTarget"
                                 hx-swap="innerHTML"
@@ -1586,41 +1603,33 @@
                         {% endif %}
                     </div>
                     <div class="md-info-panel__body" id="md-announcements">
-                        <div class="md-info-panel__empty">{% trans "Loading..." %}</div>
+                        <div class="md-info-panel__empty">Đang tải...</div>
                     </div>
                 </div>
                 <div class="md-info-panel">
                     <div class="md-info-panel__header">
-                        <div class="md-info-panel__title">{% trans "On Leave Today" %}</div>
+                        <div class="md-info-panel__title">Nghỉ hôm nay</div>
                         <a
                             id="md-leave-viewall"
                             href="{% url 'request-view' %}"
                             class="md-link-subtle"
-                        >{% trans "View all" %}</a>
+                        >Xem tất cả</a>
                     </div>
                     <div class="md-info-panel__body" id="md-todays-leave">
-                        <div class="md-info-panel__empty">{% trans "Loading..." %}</div>
+                        <div class="md-info-panel__empty">Đang tải...</div>
                     </div>
                 </div>
                 <div class="md-info-panel">
                     <div class="md-info-panel__header">
-                        <div class="md-info-panel__title">{% trans "Upcoming Holidays" %}</div>
+                        <div class="md-info-panel__title">Ngày lễ sắp tới</div>
                         <a
                             id="md-holidays-viewall"
                             href="{% url 'holiday-view' %}"
                             class="md-link-subtle"
-                        >{% trans "View all" %}</a>
+                        >Xem tất cả</a>
                     </div>
                     <div class="md-info-panel__body" id="md-birthdays">
-                        <div class="md-info-panel__empty">{% trans "Loading..." %}</div>
-                    </div>
-                </div>
-                <div class="md-info-panel">
-                    <div class="md-info-panel__header">
-                        <div class="md-info-panel__title">{% trans "Pending Approvals" %}</div>
-                    </div>
-                    <div class="md-info-panel__body" id="md-pending-approvals">
-                        <div class="md-info-panel__empty">{% trans "Loading..." %}</div>
+                        <div class="md-info-panel__empty">Đang tải...</div>
                     </div>
                 </div>
             </div>
@@ -1631,13 +1640,13 @@
     <div class="md-customize-overlay" id="md-customize-overlay"></div>
     <div class="md-customize-panel" id="md-customize-panel">
         <div class="md-customize-panel__header">
-            <h3>{% trans "Customize Dashboard" %}</h3>
+            <h3>Sắp xếp màn hình Tổng quan</h3>
             <button class="md-customize-panel__close" id="md-close-customize">&times;</button>
         </div>
         <div class="md-customize-panel__body" id="md-customize-list"></div>
         <div class="md-customize-panel__footer">
-            <button class="oh-btn oh-btn--light-bkg" id="md-reset-customize">{% trans "Reset to default" %}</button>
-            <button class="oh-btn oh-btn--secondary" id="md-save-customize">{% trans "Save" %}</button>
+            <button class="oh-btn oh-btn--light-bkg" id="md-reset-customize">Về mặc định</button>
+            <button class="oh-btn oh-btn--secondary" id="md-save-customize">Lưu</button>
         </div>
     </div>
 
@@ -1661,11 +1670,9 @@
             const STORAGE_KEY = 'md_dashboard_prefs_v2';
 
             const SECTION_LABELS = {
-                overview: "{% trans 'Overview' %}",
-                attendance: "{% trans 'Attendance & Overtime' %}",
-                recruitment: "{% trans 'Recruitment' %}",
-                leave: "{% trans 'Leave Analytics' %}",
-                payroll: "{% trans 'Payroll' %}"
+                overview: "Tổng quan",
+                attendance: "Chấm công và làm thêm",
+                leave: "Nghỉ phép",
             };
 
             // Permission flags — server-rendered; control chart click/drill-down behaviour
@@ -1673,8 +1680,6 @@
                 employee:    {% if perms.employee.view_employee    or request.user.is_superuser %}true{% else %}false{% endif %},
                 attendance:  {% if perms.attendance.view_attendance or request.user.is_superuser %}true{% else %}false{% endif %},
                 leave:       {% if perms.leave.view_leaverequest   or request.user.is_superuser %}true{% else %}false{% endif %},
-                candidate:   {% if perms.recruitment.view_candidate or request.user.is_superuser %}true{% else %}false{% endif %},
-                recruitment: {% if perms.recruitment.view_recruitment or request.user.is_superuser %}true{% else %}false{% endif %},
             };
 
             const emptyHtml = (msg) => `<div class="md-empty"><img src="/static/images/ui/no_records.svg" alt="">${msg}</div>`;
@@ -1683,10 +1688,6 @@
                 const inner = `<div class="md-kpi-card__icon ${colorClass}">${svg}</div><div class="md-kpi-card__label">${label}</div><div class="md-kpi-card__value">${value}</div><div class="md-kpi-card__sub">${sub}</div>`;
                 return perm ? `<a href="${href}" class="md-kpi-card">${inner}</a>` : `<div class="md-kpi-card">${inner}</div>`;
             };
-
-            document.getElementById('md-date').textContent = new Date().toLocaleDateString('en-US', {
-                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-            });
 
             // ═══════════════════════════════════════════
             //  PERIOD PICKER
@@ -2076,7 +2077,7 @@
 
             function updateRefreshText() {
                 const mins = Math.floor((Date.now() - lastRefresh) / 60000);
-                refreshText.textContent = mins < 1 ? '{% trans "Just now" %}' : mins + '{% trans "m ago" %}';
+                refreshText.textContent = mins < 1 ? 'Vừa cập nhật' : mins + ' phút trước';
             }
             registerAutoRefresh(setInterval(updateRefreshText, 30000));
 
@@ -2089,7 +2090,7 @@
                 localStorage.setItem(REFRESH_KEY, 'on');
                 refreshDot.classList.add('md-refresh__dot--pulse');
                 refreshToggle.textContent = '⟳';
-                refreshToggle.title = '{% trans "Auto-refresh ON (5 min)" %}';
+                refreshToggle.title = 'Đang tự cập nhật sau mỗi 5 phút';
                 refreshTimer = setInterval(() => {
                     lastRefresh = Date.now();
                     updateRefreshText();
@@ -2102,7 +2103,7 @@
                 localStorage.setItem(REFRESH_KEY, 'off');
                 refreshDot.classList.remove('md-refresh__dot--pulse');
                 refreshToggle.textContent = '⏸';
-                refreshToggle.title = '{% trans "Auto-refresh OFF" %}';
+                refreshToggle.title = 'Đã tắt tự động cập nhật';
                 if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
             }
             refreshToggle.addEventListener('click', () => { if (autoRefreshOn) stopAutoRefresh(); else startAutoRefresh(); });
@@ -2116,12 +2117,10 @@
                         const empSvg   = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
                         const attSvg   = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>';
                         const leaveSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
-                        const recruSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>';
                         document.getElementById('md-kpi-grid').innerHTML =
-                            kpiCard("{% url 'employee-view' %}",   PERM.employee,    'md-kpi-card__icon--indigo', empSvg,   '{% trans "Total Employees" %}',   data.total_employees,   data.new_joiners > 0 ? '<span class="md-badge md-badge--green">+' + data.new_joiners + ' {% trans "this month" %}</span>' : '<span style="opacity:0.5">{% trans "No new joiners" %}</span>') +
-                            kpiCard("{% url 'attendance-view' %}",  PERM.attendance,  'md-kpi-card__icon--green',  attSvg,   '{% trans "Present Today" %}',     data.present_today,     '<span class="md-badge ' + (data.attendance_rate >= 80 ? 'md-badge--green' : 'md-badge--amber') + '">' + data.attendance_rate + '% {% trans "rate" %}</span>') +
-                            kpiCard(`{% url 'request-view' %}?from_date=${getToday()}&to_date=${getToday()}&status=approved`,     PERM.leave,       'md-kpi-card__icon--amber',  leaveSvg, '{% trans "On Leave" %}',           data.on_leave,          data.pending_leaves > 0 ? '<span class="md-badge md-badge--amber">' + data.pending_leaves + ' {% trans "pending" %}</span>' : '<span style="opacity:0.5">{% trans "No pending" %}</span>') +
-                            (PERM.recruitment ? kpiCard("{% url 'recruitment-view' %}", true, 'md-kpi-card__icon--purple', recruSvg, '{% trans "Open Recruitments" %}', data.open_recruitments, '<span style="opacity:0.5">{% trans "Active hiring" %}</span>') : '');
+                            kpiCard("{% url 'employee-view' %}",   PERM.employee,    'md-kpi-card__icon--indigo', empSvg,   'Tổng số nhân viên',   data.total_employees,   data.new_joiners > 0 ? '<span class="md-badge md-badge--green">+' + data.new_joiners + ' người mới tháng này</span>' : '<span style="opacity:0.5">Không có người mới</span>') +
+                            kpiCard("{% url 'attendance-view' %}",  PERM.attendance,  'md-kpi-card__icon--green',  attSvg,   'Có mặt hôm nay',     data.present_today,     '<span class="md-badge ' + (data.attendance_rate >= 80 ? 'md-badge--green' : 'md-badge--amber') + '">' + data.attendance_rate + '% có mặt</span>') +
+                            kpiCard(`{% url 'request-view' %}?from_date=${getToday()}&to_date=${getToday()}&status=approved`,     PERM.leave,       'md-kpi-card__icon--amber',  leaveSvg, 'Đang nghỉ phép',           data.on_leave,          data.pending_leaves > 0 ? '<span class="md-badge md-badge--amber">' + data.pending_leaves + ' đơn chờ duyệt</span>' : '<span style="opacity:0.5">Không có đơn chờ</span>');
                     });
             }
             loadKpiCards();
@@ -2132,11 +2131,16 @@
                     .then(r => r.json())
                     .then(data => {
                         const el = document.getElementById('md-announcements');
-                        if (!data.announcements.length) { el.innerHTML = '<div class="md-info-panel__empty">{% trans "No announcements" %}</div>'; return; }
+                        if (!data.announcements.length) { el.innerHTML = '<div class="md-info-panel__empty">Chưa có bản tin</div>'; return; }
                         el.innerHTML = data.announcements.map(a => `
                     <div class="md-ann-item" data-ann-id="${a.id}" style="cursor:pointer;">
-                        <div class="md-ann-item__title">${a.title}</div>
-                        <div class="md-ann-item__meta">${a.date}${a.expire_date ? '<span class="md-ann-item__expire">{% trans "Expires" %} ' + a.expire_date + '</span>' : ''}</div>
+                        <div class="md-ann-item__row">
+                            ${a.image_url ? `<img class="md-ann-item__image" src="${a.image_url}" alt="Ảnh bản tin">` : ''}
+                            <div class="md-ann-item__content">
+                                <div class="md-ann-item__title">${a.is_pinned ? '📌 ' : ''}${a.title}</div>
+                                <div class="md-ann-item__meta">${a.date}${a.expire_date ? '<span class="md-ann-item__expire">Hiển thị đến ' + a.expire_date + '</span>' : ''}</div>
+                            </div>
+                        </div>
                     </div>`).join('');
 
                         // Clicking opens the announcement in the standard Joydigi detail modal
@@ -2154,7 +2158,7 @@
                                 });
                             });
                         });
-                    }).catch(() => { document.getElementById('md-announcements').innerHTML = '<div class="md-info-panel__empty">{% trans "No announcements" %}</div>'; });
+                    }).catch(() => { document.getElementById('md-announcements').innerHTML = '<div class="md-info-panel__empty">Chưa có bản tin</div>'; });
             }
             loadAnnouncements();
 
@@ -2172,15 +2176,15 @@
                         const leaveTitle = document.getElementById('md-todays-leave')
                             ?.closest('.md-info-panel')
                             ?.querySelector('.md-info-panel__title');
-                        if (leaveTitle) leaveTitle.textContent = '{% trans "My Leave Today" %}';
+                        if (leaveTitle) leaveTitle.textContent = 'Ngày nghỉ của tôi hôm nay';
                     } else {
                         if (viewAllLink) viewAllLink.href = `{% url 'request-view' %}?status=approved&today_leave=true`;
                     }
 
                     if (!data.leaves.length) {
                         el.innerHTML = data.is_restricted
-                            ? '<div class="md-info-panel__empty">{% trans "You are not on leave today" %}</div>'
-                            : '<div class="md-info-panel__empty">{% trans "No one on leave today" %}</div>';
+                            ? '<div class="md-info-panel__empty">Hôm nay bạn không nghỉ</div>'
+                            : '<div class="md-info-panel__empty">Hôm nay không có ai nghỉ</div>';
                         return;
                     }
 
@@ -2219,7 +2223,7 @@
                 </div>`;
                     }).join('');
                     if (!data.is_restricted) htmx.process(el);
-                }).catch(() => { document.getElementById('md-todays-leave').innerHTML = '<div class="md-info-panel__empty">{% trans "No one on leave today" %}</div>'; });
+                }).catch(() => { document.getElementById('md-todays-leave').innerHTML = '<div class="md-info-panel__empty">Hôm nay không có ai nghỉ</div>'; });
             }
             loadTodaysLeave();
 
@@ -2232,10 +2236,10 @@
                     if (data.no_permission) { hideCard('attendance_trend'); return; }
                     const sub = document.getElementById('md-attendance-trend-subtitle');
                     if (sub && fromInput.value && toInput.value) {
-                        sub.textContent = `{% trans "Weekly rate" %} — ${fromInput.value} → ${toInput.value}`;
+                        sub.textContent = `Tỷ lệ trong tuần — ${fromInput.value} → ${toInput.value}`;
                     }
                     renderChart('attendance-trend', document.querySelector("#chart-attendance-trend"), {
-                        series: [{ name: '{% trans "Attendance Rate" %}', data: data.weeks.map(w => w.rate) }],
+                        series: [{ name: 'Tỷ lệ chấm công', data: data.weeks.map(w => w.rate) }],
                         chart: { type: 'area', height: 280, toolbar: { show: false }, background: 'transparent', fontFamily: 'inherit', animations: ANIM,
                             dropShadow: { enabled: true, top: 4, blur: 10, opacity: 0.12, color: '#E54F38' } },
                         colors: ['#E54F38'],
@@ -2247,7 +2251,7 @@
                         xaxis: { ...XAXIS_STYLE, categories: data.weeks.map(w => w.week) },
                         yaxis: { ...YAXIS_STYLE, min: 0, max: 100, labels: { ...YAXIS_STYLE.labels, formatter: v => v + '%' } },
                         grid: GRID,
-                        tooltip: { ...TOOLTIP_STYLE, y: { formatter: v => v + '% {% trans "attendance" %}' } },
+                        tooltip: { ...TOOLTIP_STYLE, y: { formatter: v => v + '% chấm công' } },
                     });
                 });
             }
@@ -2259,7 +2263,7 @@
                 fetch("{% url 'dashboard-department-headcount' %}")
                 .then(r => r.json())
                 .then(data => {
-                    if (!data.departments.length) { document.querySelector("#chart-departments").innerHTML = emptyHtml('{% trans "No department data" %}'); return; }
+                    if (!data.departments.length) { document.querySelector("#chart-departments").innerHTML = emptyHtml('Chưa có dữ liệu phòng ban'); return; }
                     renderChart('departments', document.querySelector("#chart-departments"), {
                         series: data.departments.map(d => d.count),
                         chart: { type: 'donut', height: 300, background: 'transparent', fontFamily: 'inherit', animations: ANIM,
@@ -2275,7 +2279,7 @@
                             labels: { show: true,
                                 name: { fontSize: '13px', fontWeight: 700, color: textColor, offsetY: -4 },
                                 value: { fontSize: '22px', fontWeight: 800, color: textColor, offsetY: 4 },
-                                total: { show: true, label: '{% trans "Total" %}', color: subTextColor, fontSize: '12px', fontWeight: 600, formatter: w => w.globals.seriesTotals.reduce((a,b)=>a+b,0) } } } } },
+                                total: { show: true, label: 'Tổng cộng', color: subTextColor, fontSize: '12px', fontWeight: 600, formatter: w => w.globals.seriesTotals.reduce((a,b)=>a+b,0) } } } } },
                         stroke: { width: 3, colors: [cardBg] },
                         dataLabels: { enabled: false },
                         legend: { ...LEGEND_STYLE },
@@ -2290,16 +2294,16 @@
                 fetch("{% url 'dashboard-gender-split' %}")
                 .then(r => r.json())
                 .then(data => {
-                    if (!data.genders.length) { document.querySelector("#chart-gender").innerHTML = emptyHtml('{% trans "No data" %}'); return; }
-                    const gc = { 'Male': '#3b82f6', 'Female': '#ec4899', 'Other': '#a855f7', 'Not Specified': '#94a3b8' };
-                    const genderKeys = { 'Male': 'male', 'Female': 'female', 'Other': 'other', 'Not Specified': '' };
+                    if (!data.genders.length) { document.querySelector("#chart-gender").innerHTML = emptyHtml('Chưa có dữ liệu'); return; }
+                    const gc = { 'Nam': '#3b82f6', 'Nữ': '#ec4899', 'Khác': '#a855f7', 'Chưa cập nhật': '#94a3b8' };
+                    const genderKeys = { 'Nam': 'male', 'Nữ': 'female', 'Khác': 'other', 'Chưa cập nhật': '' };
                     renderChart('gender', document.querySelector("#chart-gender"), {
                         series: data.genders.map(g => g.count),
                         chart: { type: 'pie', height: 300, background: 'transparent', fontFamily: 'inherit', animations: ANIM,
                             events: { dataPointSelection: (e, ctx, config) => {
                                 if (!PERM.employee) return;
                                 const gender = data.genders[config.dataPointIndex].gender;
-                                window.location.href = "{% url 'employee-view' %}?gender=" + (genderKeys[gender] || gender.toLowerCase());
+                                window.location.href = "{% url 'employee-view' %}?gender=" + (genderKeys[gender] || '');
                             }}
                         },
                         labels: data.genders.map(g => g.gender),
@@ -2322,9 +2326,9 @@
                 .then(data => {
                     if (data.no_permission) { hideCard('leave_breakdown'); return; }
                     document.getElementById('leave-month').textContent = data.month;
-                    if (!data.breakdown.length) { document.querySelector("#chart-leave").innerHTML = emptyHtml('{% trans "No leave data this month" %}'); return; }
+                    if (!data.breakdown.length) { document.querySelector("#chart-leave").innerHTML = emptyHtml('Tháng này chưa có dữ liệu nghỉ phép'); return; }
                     renderChart('leave-breakdown', document.querySelector("#chart-leave"), {
-                        series: [{ name: '{% trans "Requests" %}', data: data.breakdown.map(b => b.count) }],
+                        series: [{ name: 'Số đơn', data: data.breakdown.map(b => b.count) }],
                         chart: { type: 'bar', height: 300, toolbar: { show: false }, background: 'transparent', fontFamily: 'inherit', animations: ANIM,
                             events: { dataPointSelection: (e, ctx, config) => {
                                 if (!PERM.leave) return;
@@ -2339,7 +2343,7 @@
                         grid: GRID,
                         dataLabels: { enabled: true, formatter: (v, { dataPointIndex: i }) => v + ' (' + data.breakdown[i].days + 'd)', style: { fontSize: '11px', fontWeight: 600 }, offsetX: 0 },
                         legend: { show: false },
-                        tooltip: { ...TOOLTIP_STYLE, y: { formatter: v => v + ' {% trans "requests" %}' } },
+                        tooltip: { ...TOOLTIP_STYLE, y: { formatter: v => v + ' đơn' } },
                         states: { hover: { filter: { type: 'darken', value: 0.85 } } },
                     });
                 });
@@ -2352,15 +2356,14 @@
                 fetch("/employee/dashboard-employee")
                 .then(r => r.json())
                 .then(data => {
-                    if (!data.dataSet || !data.dataSet.length) { document.querySelector("#chart-employee-status").innerHTML = emptyHtml('{% trans "No data" %}'); return; }
-                    const sc = { 'Active': '#22c55e', 'Inactive': '#ef4444' };
+                    if (!data.dataSet || !data.dataSet.length) { document.querySelector("#chart-employee-status").innerHTML = emptyHtml('Chưa có dữ liệu'); return; }
+                    const sc = { 'Đang làm việc': '#22c55e', 'Đã nghỉ việc': '#ef4444' };
                     renderChart('employee-status', document.querySelector("#chart-employee-status"), {
                         series: data.dataSet[0].data,
                         chart: { type: 'radialBar', height: 300, background: 'transparent', fontFamily: 'inherit', animations: ANIM,
                             events: { legendClick: (ctx, seriesIndex) => {
                                 if (!PERM.employee) return;
-                                const label = data.labels[seriesIndex];
-                                const active = label.toLowerCase().includes('active') && !label.toLowerCase().includes('in') ? 'true' : 'false';
+                                const active = seriesIndex === 0 ? 'true' : 'false';
                                 window.location.href = "{% url 'employee-view' %}?is_active=" + active;
                             }}
                         },
@@ -2372,7 +2375,7 @@
                             dataLabels: {
                                 name: { fontSize: '12px', fontWeight: 600, color: textColor, offsetY: -4 },
                                 value: { fontSize: '20px', fontWeight: 800, color: textColor, offsetY: 4 },
-                                total: { show: true, label: '{% trans "Total" %}', color: subTextColor, fontSize: '11px', fontWeight: 600,
+                                total: { show: true, label: 'Tổng cộng', color: subTextColor, fontSize: '11px', fontWeight: 600,
                                     formatter: w => w.globals.seriesTotals.reduce((a,b)=>a+b,0) }
                             }
                         } },
@@ -2390,7 +2393,7 @@
                 .then(r => r.json())
                 .then(data => {
                     if (data.no_permission) { hideCard('attendance_overview'); return; }
-                    if (!data.dataSet || !data.dataSet.length) { document.querySelector("#chart-attendance-overview").innerHTML = emptyHtml('{% trans "No attendance records available" %}'); return; }
+                    if (!data.dataSet || !data.dataSet.length) { document.querySelector("#chart-attendance-overview").innerHTML = emptyHtml('Chưa có dữ liệu chấm công'); return; }
                     renderChart('attendance-overview', document.querySelector("#chart-attendance-overview"), {
                         series: data.dataSet.map(d => ({ name: d.label, data: d.data })),
                         chart: { type: 'bar', height: 320, toolbar: { show: false }, background: 'transparent', fontFamily: 'inherit', stacked: false, animations: ANIM,
@@ -2416,7 +2419,7 @@
                         tooltip: { ...TOOLTIP_STYLE },
                         states: { hover: { filter: { type: 'darken', value: 0.85 } } },
                     });
-                }).catch(() => { document.querySelector("#chart-attendance-overview").innerHTML = emptyHtml('{% trans "Unable to load attendance data" %}'); });
+                }).catch(() => { document.querySelector("#chart-attendance-overview").innerHTML = emptyHtml('Không thể tải dữ liệu chấm công'); });
             }
             loadAttendanceOverview();
 
@@ -2426,7 +2429,7 @@
                 .then(r => r.json())
                 .then(data => {
                     if (data.no_permission) { hideCard('department_overtime'); return; }
-                    if (!data.labels || !data.labels.length || !data.dataset || !data.dataset.length) { document.querySelector("#chart-overtime").innerHTML = emptyHtml('{% trans "No overtime data" %}'); return; }
+                    if (!data.labels || !data.labels.length || !data.dataset || !data.dataset.length) { document.querySelector("#chart-overtime").innerHTML = emptyHtml('Chưa có dữ liệu làm thêm'); return; }
                     renderChart('overtime', document.querySelector("#chart-overtime"), {
                         series: data.dataset[0].data,
                         chart: { type: 'donut', height: 300, background: 'transparent', fontFamily: 'inherit', animations: ANIM },
@@ -2436,13 +2439,13 @@
                             labels: { show: true,
                                 name: { fontSize: '13px', fontWeight: 700, color: textColor },
                                 value: { fontSize: '20px', fontWeight: 800, color: textColor, formatter: v => parseFloat(v).toFixed(1) + 'h' },
-                                total: { show: true, label: '{% trans "Total Hrs" %}', color: subTextColor, fontSize: '11px', fontWeight: 600, formatter: w => w.globals.seriesTotals.reduce((a,b)=>a+b,0).toFixed(1) + 'h' } } } } },
+                                total: { show: true, label: 'Tổng số giờ', color: subTextColor, fontSize: '11px', fontWeight: 600, formatter: w => w.globals.seriesTotals.reduce((a,b)=>a+b,0).toFixed(1) + ' giờ' } } } } },
                         stroke: { width: 3, colors: [cardBg] },
                         dataLabels: { enabled: false },
                         legend: { ...LEGEND_STYLE },
-                        tooltip: { ...TOOLTIP_STYLE, y: { formatter: v => v.toFixed(1) + ' {% trans "hrs" %}' } },
+                        tooltip: { ...TOOLTIP_STYLE, y: { formatter: v => v.toFixed(1) + ' giờ' } },
                     });
-                }).catch(() => { document.querySelector("#chart-overtime").innerHTML = emptyHtml('{% trans "No overtime data" %}'); });
+                }).catch(() => { document.querySelector("#chart-overtime").innerHTML = emptyHtml('Chưa có dữ liệu làm thêm'); });
             }
             loadDepartmentOvertime();
             {% endif %}
@@ -2454,10 +2457,10 @@
                 .then(r => r.json())
                 .then(data => {
                     if (data.no_permission) { hideCard('leave_trends'); return; }
-                    if (!data.labels || !data.labels.length) { document.querySelector("#chart-leave-trend").innerHTML = emptyHtml('{% trans "No data for this week" %}'); return; }
+                    if (!data.labels || !data.labels.length) { document.querySelector("#chart-leave-trend").innerHTML = emptyHtml('Tuần này chưa có dữ liệu'); return; }
                     const seriesArr = Array.isArray(data.dataset) ? data.dataset : [data.dataset];
                     renderChart('leave-trend', document.querySelector("#chart-leave-trend"), {
-                        series: seriesArr.map(s => ({ name: s.label || 'Leaves', data: s.data })),
+                        series: seriesArr.map(s => ({ name: s.label || 'Nghỉ phép', data: s.data })),
                         chart: { type: 'area', height: 300, toolbar: { show: false }, background: 'transparent', fontFamily: 'inherit', animations: ANIM,
                             dropShadow: { enabled: true, top: 4, blur: 10, opacity: 0.1, color: '#a855f7' } },
                         colors: ['#a855f7'],
@@ -2468,14 +2471,14 @@
                         xaxis: { ...XAXIS_STYLE, categories: data.labels },
                         yaxis: { ...YAXIS_STYLE, min: 0, tickAmount: 4 },
                         grid: GRID,
-                        tooltip: { ...TOOLTIP_STYLE, y: { formatter: v => v + ' {% trans "leave(s)" %}' } },
+                        tooltip: { ...TOOLTIP_STYLE, y: { formatter: v => v + ' lượt nghỉ' } },
                     });
-                }).catch(() => { document.querySelector("#chart-leave-trend").innerHTML = emptyHtml('{% trans "No data for this week" %}'); });
+                }).catch(() => { document.querySelector("#chart-leave-trend").innerHTML = emptyHtml('Tuần này chưa có dữ liệu'); });
             }
             loadLeaveOverPeriod();
             {% endif %}
 
-            {% if perms.recruitment.view_recruitment or request.user.is_superuser %}
+            {% if False %}
             // ─── RECRUITMENT PIPELINE ───
             function loadRecruitmentPipeline() {
                 fetch("{% url 'recruitment-pipeline' %}?_t=" + Date.now())
@@ -2576,7 +2579,7 @@
                 .then(r => r.json())
                 .then(data => {
                     if (data.no_permission) { hideCard('leave_by_department'); return; }
-                    if (!data.labels || !data.labels.length || !data.data || !data.data.length) { document.querySelector("#chart-leave-dept").innerHTML = emptyHtml('{% trans "No leave data" %}'); return; }
+                    if (!data.labels || !data.labels.length || !data.data || !data.data.length) { document.querySelector("#chart-leave-dept").innerHTML = emptyHtml('Chưa có dữ liệu nghỉ phép'); return; }
                     renderChart('leave-dept', document.querySelector("#chart-leave-dept"), {
                         series: data.data,
                         chart: { type: 'donut', height: 300, background: 'transparent', fontFamily: 'inherit', animations: ANIM,
@@ -2592,13 +2595,13 @@
                             labels: { show: true,
                                 name: { fontSize: '13px', fontWeight: 700, color: textColor },
                                 value: { fontSize: '20px', fontWeight: 800, color: textColor },
-                                total: { show: true, label: '{% trans "Total" %}', color: subTextColor, fontSize: '11px', fontWeight: 600, formatter: w => w.globals.seriesTotals.reduce((a,b)=>a+b,0) } } } } },
+                                total: { show: true, label: 'Tổng cộng', color: subTextColor, fontSize: '11px', fontWeight: 600, formatter: w => w.globals.seriesTotals.reduce((a,b)=>a+b,0) } } } } },
                         stroke: { width: 3, colors: [cardBg] },
                         dataLabels: { enabled: false },
                         legend: { ...LEGEND_STYLE },
                         tooltip: { ...TOOLTIP_STYLE },
                     });
-                }).catch(() => { document.querySelector("#chart-leave-dept").innerHTML = emptyHtml('{% trans "No leave data" %}'); });
+                }).catch(() => { document.querySelector("#chart-leave-dept").innerHTML = emptyHtml('Chưa có dữ liệu nghỉ phép'); });
             }
             loadLeaveByDepartment();
 
@@ -2608,21 +2611,21 @@
                 .then(r => r.json())
                 .then(data => {
                     if (data.no_permission) { hideCard('department_leave_days'); return; }
-                    if (!data.labels || !data.labels.length || !data.dataset || !data.dataset.length) { document.querySelector("#chart-leave-days").innerHTML = emptyHtml('{% trans "No leave data this month" %}'); return; }
+                    if (!data.labels || !data.labels.length || !data.dataset || !data.dataset.length) { document.querySelector("#chart-leave-days").innerHTML = emptyHtml('Tháng này chưa có dữ liệu nghỉ phép'); return; }
                     renderChart('leave-days', document.querySelector("#chart-leave-days"), {
-                        series: [{ name: '{% trans "Leave Days" %}', data: data.dataset[0].data }],
+                        series: [{ name: 'Số ngày nghỉ', data: data.dataset[0].data }],
                         chart: { type: 'bar', height: 300, toolbar: { show: false }, background: 'transparent', fontFamily: 'inherit', animations: ANIM },
                         colors: ['#3b82f6','#E54F38','#a855f7','#06b6d4','#14b8a6','#ec4899','#f59e0b','#22c55e','#ef4444','#f97316'],
                         plotOptions: { bar: { borderRadius: 8, borderRadiusApplication: 'end', horizontal: true, barHeight: '50%', distributed: true } },
                         xaxis: { ...XAXIS_STYLE, categories: data.labels },
                         yaxis: { labels: { style: { colors: textColor, fontSize: '11px', fontWeight: 500 } } },
                         grid: GRID,
-                        dataLabels: { enabled: true, formatter: v => v + ' {% trans "days" %}', style: { fontSize: '11px', fontWeight: 600 }, offsetX: 0 },
+                        dataLabels: { enabled: true, formatter: v => v + ' ngày', style: { fontSize: '11px', fontWeight: 600 }, offsetX: 0 },
                         legend: { show: false },
-                        tooltip: { ...TOOLTIP_STYLE, y: { formatter: v => v + ' {% trans "day(s)" %}' } },
+                        tooltip: { ...TOOLTIP_STYLE, y: { formatter: v => v + ' ngày' } },
                         states: { hover: { filter: { type: 'darken', value: 0.85 } } },
                     });
-                }).catch(() => { document.querySelector("#chart-leave-days").innerHTML = emptyHtml('{% trans "No leave data this month" %}'); });
+                }).catch(() => { document.querySelector("#chart-leave-days").innerHTML = emptyHtml('Tháng này chưa có dữ liệu nghỉ phép'); });
             }
             loadDepartmentLeaveDays();
             {% endif %}
@@ -2639,10 +2642,10 @@
                     const viewAllLink = document.getElementById('md-holidays-viewall');
                     if (viewAllLink) viewAllLink.href = `{% url 'holiday-view' %}`;
 
-                    if (!data.holidays.length) { el.innerHTML = '<div class="md-info-panel__empty">{% trans "No holidays in the next 7 days" %}</div>'; return; }
+                    if (!data.holidays.length) { el.innerHTML = '<div class="md-info-panel__empty">Không có ngày lễ trong 7 ngày tới</div>'; return; }
                     el.innerHTML = data.holidays.map(h => {
                         const badge = h.days_away === 0
-                            ? '<span class="md-bday-item__badge md-bday-item__badge--today">{% trans "Today" %}</span>'
+                            ? '<span class="md-bday-item__badge md-bday-item__badge--today">Hôm nay</span>'
                             : `<span class="md-bday-item__badge md-bday-item__badge--soon">${h.start_date}</span>`;
                         const dateRange = h.end_date && h.end_date !== h.start_date ? `${h.start_date} – ${h.end_date}` : h.start_date;
                         return `
@@ -2655,58 +2658,11 @@
                         ${badge}
                     </div>`;
                     }).join('');
-                }).catch(() => { document.getElementById('md-birthdays').innerHTML = '<div class="md-info-panel__empty">{% trans "No holidays this week" %}</div>'; });
+                }).catch(() => { document.getElementById('md-birthdays').innerHTML = '<div class="md-info-panel__empty">Tuần này không có ngày lễ</div>'; });
             }
             loadUpcomingHolidays();
 
-            // ─── PENDING APPROVALS ───
-            function loadPendingApprovals() {
-                fetchP("{% url 'dashboard-pending-approvals' %}")
-                .then(r => r.json())
-                .then(data => {
-                    const p = data.pending;
-                    const isRestricted = data.is_restricted;
-
-                    // Hide the entire panel for normal users without approval permission
-                    if (isRestricted) {
-                        const panel = document.getElementById('md-pending-approvals')?.closest('.md-info-panel');
-                        if (panel) panel.style.display = 'none';
-                        return;
-                    }
-
-                    // Admins / managers: render clickable approval cards
-                    document.getElementById('md-pending-approvals').innerHTML = `
-                <div class="md-pending-grid">
-                    <a href="{% url 'request-view' %}?status=requested" class="md-pending-card md-pending-card--amber">
-                        <div class="md-pending-card__count">${p.leave_requests}</div>
-                        <div class="md-pending-card__label">{% trans "Leave" %}</div>
-                    </a>
-                    <a href="{% url 'request-attendance-view' %}?approved=false" class="md-pending-card md-pending-card--blue">
-                        <div class="md-pending-card__count">${p.attendance_requests}</div>
-                        <div class="md-pending-card__label">{% trans "Attendance" %}</div>
-                    </a>
-                    <a href="{% url 'asset-request-allocation-view' %}?approval_status=pending" class="md-pending-card md-pending-card--green">
-                        <div class="md-pending-card__count">${p.asset_requests}</div>
-                        <div class="md-pending-card__label">{% trans "Assets" %}</div>
-                    </a>
-                    <a href="{% url 'shift-request-view' %}?approved=false&canceled=false" class="md-pending-card" style="background:#f0fdfa;">
-                        <div class="md-pending-card__count" style="color:#0d9488;">${p.shift_requests}</div>
-                        <div class="md-pending-card__label">{% trans "Shift" %}</div>
-                    </a>
-                    <a href="{% url 'work-type-request-view' %}?approved=false&canceled=false" class="md-pending-card" style="background:#eef2ff;">
-                        <div class="md-pending-card__count" style="color:#4f46e5;">${p.work_type_requests}</div>
-                        <div class="md-pending-card__label">{% trans "Work Type" %}</div>
-                    </a>
-                    <a href="{% url 'view-reimbursement' %}" class="md-pending-card md-pending-card--purple">
-                        <div class="md-pending-card__count">${p.reimbursements}</div>
-                        <div class="md-pending-card__label">{% trans "Reimbursements" %}</div>
-                    </a>
-                </div>`;
-                }).catch(() => { document.getElementById('md-pending-approvals').innerHTML = '<div class="md-info-panel__empty">{% trans "Unable to load" %}</div>'; });
-            }
-            loadPendingApprovals();
-
-            {% if perms.recruitment.view_recruitment or request.user.is_superuser %}
+            {% if False %}
             // ─── RECRUITMENT FUNNEL ───
             function loadRecruitmentFunnel() {
                 fetch("{% url 'dashboard-recruitment-pipeline' %}?_t=" + Date.now())
@@ -2754,12 +2710,12 @@
                 fetchP("{% url 'dashboard-turnover' %}")
                 .then(r => r.json())
                 .then(data => {
-                    if (!data.months.length) { document.querySelector("#chart-turnover").innerHTML = emptyHtml('{% trans "No data" %}'); return; }
-                    document.getElementById('turnover-rate').textContent = `{% trans "6-month turnover rate" %}: ${data.turnover_rate_6m}%`;
+                    if (!data.months.length) { document.querySelector("#chart-turnover").innerHTML = emptyHtml('Chưa có dữ liệu'); return; }
+                    document.getElementById('turnover-rate').textContent = `Tỷ lệ biến động trong 6 tháng: ${data.turnover_rate_6m}%`;
                     renderChart('turnover', document.querySelector("#chart-turnover"), {
                         series: [
-                            { name: '{% trans "New Hires" %}', data: data.months.map(m => m.hires) },
-                            { name: '{% trans "Exits" %}', data: data.months.map(m => m.exits) },
+                            { name: 'Nhân viên mới', data: data.months.map(m => m.hires) },
+                            { name: 'Nhân viên nghỉ việc', data: data.months.map(m => m.exits) },
                         ],
                         chart: { type: 'bar', height: 290, toolbar: { show: false }, background: 'transparent', fontFamily: 'inherit', animations: ANIM },
                         colors: ['#22c55e', '#ef4444'],
@@ -2773,12 +2729,12 @@
                         tooltip: { ...TOOLTIP_STYLE },
                         states: { hover: { filter: { type: 'darken', value: 0.85 } } },
                     });
-                }).catch(() => { document.querySelector("#chart-turnover").innerHTML = emptyHtml('{% trans "No turnover data" %}'); });
+                }).catch(() => { document.querySelector("#chart-turnover").innerHTML = emptyHtml('Chưa có dữ liệu biến động nhân sự'); });
             }
             loadEmployeeTurnover();
             {% endif %}
 
-            {% if perms.payroll.view_payslip or request.user.is_superuser %}
+            {% if False %}
             // ─── PAYROLL SUMMARY ───
             function loadPayrollSummary() {
                 fetchP("{% url 'dashboard-payroll-summary' %}")
@@ -2849,7 +2805,6 @@
                 if (typeof loadLeaveByDepartment === 'function') loadLeaveByDepartment();
                 if (typeof loadDepartmentLeaveDays === 'function') loadDepartmentLeaveDays();
                 loadUpcomingHolidays();
-                loadPendingApprovals();
                 if (typeof loadRecruitmentFunnel === 'function') loadRecruitmentFunnel();
                 if (typeof loadEmployeeTurnover === 'function') loadEmployeeTurnover();
                 if (typeof loadPayrollSummary === 'function') loadPayrollSummary();

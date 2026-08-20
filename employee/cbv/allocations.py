@@ -29,6 +29,7 @@ from employee.models import Employee, EmployeeBankDetails, EmployeeWorkInformati
 from employee.models import models as django_models
 from joydigi.joydigi_middlewares import _thread_locals
 from joydigi.http import JoydigiRedirect
+from joydigi.decorators import manager_can_enter
 from joydigi_views.cbv_methods import (
     hx_request_required,
     login_required,
@@ -48,10 +49,17 @@ if app_installed("asset"):
     from asset.views import asset_allocate_return
     from asset.forms import AssetReturnForm
 
-from onboarding.cbv_decorators import (
-    all_manager_can_enter,
-    recruitment_manager_can_enter,
-)
+
+# The employee allocation wizard used decorators owned by onboarding even for
+# ordinary employee/profile operations. Keep the shared wizard independent of
+# the removed recruitment/onboarding modules and authorize it with the core
+# employee permission (reporting managers are also accepted by this decorator).
+def all_manager_can_enter(*args, **kwargs):
+    return manager_can_enter(perm="employee.change_employee")
+
+
+def recruitment_manager_can_enter(*args, **kwargs):
+    return manager_can_enter(perm="employee.change_employee")
 
 if app_installed("leave"):
     from leave.cbv.leave_types import AvailableLeave, LeaveType, LeaveTypeListView

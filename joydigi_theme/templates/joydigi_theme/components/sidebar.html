@@ -508,52 +508,6 @@
             aria-label="{% trans 'Main navigation' %}"
         >
             {% include "joydigi_theme/components/sidebar/top_menu.html" %}
-            {% for menues in sidebar %}
-                <div class="sidebar-item">
-                    <button
-                        class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300"
-                        data-menu="{{ menues.menu }}"
-                        aria-label="{{ menues.menu }}"
-                        aria-expanded="false"
-                        aria-haspopup="true"
-                    >
-                        <img
-                            src="{% static menues.img_src %}"
-                            alt=""
-                            class="w-4.5 h-4.5 flex-shrink-0 transition duration-300 group-hover:filter group-hover:brightness-0 group-hover:invert"
-                        >
-                        <span
-                            class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left"
-                        >{{ menues.menu }}</span>
-                        <svg
-                            class="sidebar-chevron w-3.5 h-3.5 flex-shrink-0"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                        >
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
-                    <ul class="sidebar-subnav hidden pl-2 mt-1 space-y-0.5">
-                        {% for submenu in menues.submenu %}
-                            <li>
-                                <a
-                                    href="{{ submenu.redirect }}"
-                                    {% if submenu.match_prefixes %}data-match-prefixes="{{ submenu.match_prefixes|join:',' }}"{% endif %}
-                                    class="sidebar-subnav-link block text-[13px] text-gray-600 px-3 py-1.5 rounded-md hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150 truncate"
-                                    hx-get="{{ submenu.redirect }}"
-                                    hx-target="#ohMainContent"
-                                    hx-select="#ohMainContent > *"
-                                    hx-swap="innerHTML show:window:top"
-                                    hx-push-url="true"
-                                >{{ submenu.menu }}</a>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            {% endfor %}
             {% comment %} {{ request.active_company }} {% endcomment %}
             {% comment %} {% include "joydigi_theme/components/sidebar/bottom_menu.html" %} {% endcomment %}
         </nav>

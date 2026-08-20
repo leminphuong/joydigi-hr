@@ -34,6 +34,7 @@ from django.utils.http import urlsafe_base64_encode
 from django.utils.translation import gettext_lazy as _
 
 from base.methods import reload_queryset
+from base.roles import ensure_standard_roles, standard_roles_queryset
 from base.models import (
     Announcement,
     AnnouncementComment,
@@ -43,6 +44,8 @@ from base.models import (
     BaserequestFile,
     Company,
     CompanyLeaves,
+    CheckInLocation,
+    CheckInPolicy,
     Department,
     DriverViewed,
     DynamicEmailConfiguration,
@@ -56,6 +59,7 @@ from base.models import (
     JobPosition,
     JobRole,
     MultipleApprovalCondition,
+    OfficeWifi,
     PenaltyAccounts,
     Roster,
     RotatingShift,
@@ -381,17 +385,17 @@ class UserGroupForm(ModelForm):
         model = Group
         fields = ["name", "permissions"]
         labels = {
-            "name": _("Group name"),
+            "name": _("Tên vai trò"),
         }
         help_texts = {
             "name": _(
-                "Give this group a clear name, e.g. HR Managers or Finance Team."
+                "Hệ thống chỉ dùng ba vai trò: Quản trị viên, Trưởng nhóm và Nhân viên."
             ),
         }
         widgets = {
             "name": forms.TextInput(
                 attrs={
-                    "placeholder": _("e.g. HR Managers"),
+                    "placeholder": _("Tên vai trò"),
                     "class": "oh-input w-100",
                     "autocomplete": "off",
                 }
@@ -400,6 +404,8 @@ class UserGroupForm(ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields["name"].disabled = True
         try:
             self.fields["permissions"].choices = [
                 (perm.codename, perm.name) for perm in Permission.objects.all()
@@ -446,15 +452,16 @@ class AssignUserGroup(Form):
             filter_template_path="employee_filters.html",
             required=False,
         ),
-        label=_("Employees"),
+        label=_("Nhân viên"),
         required=False,
-        help_text=_("Search and select who should belong to this group."),
+        help_text=_("Tìm và chọn nhân viên cần gán vai trò."),
     )
 
     group = forms.ModelChoiceField(
-        queryset=Group.objects.all(),
+        queryset=Group.objects.none(),
+        label=_("Vai trò"),
         error_messages={
-            "invalid_choice": _("Invalid group ID."),
+            "invalid_choice": _("Vai trò không hợp lệ."),
         },
     )
 
@@ -462,18 +469,19 @@ class AssignUserGroup(Form):
         queryset=Company.objects.all(),
         required=False,
         widget=forms.CheckboxSelectMultiple,
-        label=_("Companies"),
+        label=_("Công ty"),
         help_text=_(
-            "Members get this group's permissions only in the selected "
-            "companies. Leave empty for all companies you can manage."
+            "Vai trò chỉ có hiệu lực tại các công ty đã chọn. Để trống để áp dụng cho tất cả công ty bạn quản lý."
         ),
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         reload_queryset(self.fields)
+        ensure_standard_roles()
+        self.fields["group"].queryset = standard_roles_queryset()
         self.fields["employee"].widget.attrs.update(
-            {"data-placeholder": _("Search employees...")}
+            {"data-placeholder": _("Tìm nhân viên...")}
         )
         from base.auth_backends import company_scoped_active, get_assigned_company_ids
         from joydigi.joydigi_middlewares import _thread_locals
@@ -494,9 +502,9 @@ class AssignUserGroup(Form):
                 id__in=grantable or []
             )
             self.fields["companies"].help_text = _(
-                "Members get this group's permissions only in the selected "
-                "companies. You can only assign companies you already have "
-                "access to. Leave empty for all of those companies."
+                "Nhân viên chỉ có quyền của vai trò tại các công ty đã chọn. "
+                "Bạn chỉ được chọn công ty mình đang quản lý. Để trống để áp "
+                "dụng cho tất cả công ty bạn được phép quản lý."
             )
         else:
             self.fields["companies"].queryset = Company.objects.all()
@@ -513,7 +521,7 @@ class AssignUserGroup(Form):
             if illegal:
                 self.add_error(
                     "companies",
-                    _("You cannot assign this group for companies you do not manage."),
+                    _("Bạn không thể gán vai trò tại công ty mình không quản lý."),
                 )
         return self.cleaned_data
 
@@ -621,12 +629,18 @@ class AddToUserGroupForm(Form):
     Form to add employee in to  groups
     """
 
-    group = forms.ModelMultipleChoiceField(queryset=Group.objects.all(), required=False)
-    employee = forms.ModelChoiceField(queryset=Employee.objects.all())
+    group = forms.ModelMultipleChoiceField(
+        queryset=Group.objects.none(), required=False, label=_("Vai trò")
+    )
+    employee = forms.ModelChoiceField(
+        queryset=Employee.objects.all(), label=_("Nhân viên")
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         reload_queryset(self.fields)
+        ensure_standard_roles()
+        self.fields["group"].queryset = standard_roles_queryset()
 
     def save(self):
         """
@@ -2918,10 +2932,8 @@ class MultipleFileField(forms.FileField):
         if isinstance(data, (list, tuple)):
             result = [single_file_clean(d, initial) for d in data]
         else:
-            result = [
-                single_file_clean(data, initial),
-            ]
-        return result[0] if result else None
+            result = [single_file_clean(data, initial)] if data else []
+        return result
 
 
 class AnnouncementForm(ModelForm):
@@ -2937,9 +2949,9 @@ class AnnouncementForm(ModelForm):
             filter_instance_context_name="f",
             filter_template_path="employee_filters.html",
         ),
-        label="Employees",
+        label="Nhân viên nhận bản tin",
         help_text=_(
-            "If no employee, department or job position is selected, the announcement will be visible to all employees in the selected company."
+            "Để trống nếu muốn gửi bản tin cho toàn bộ nhân viên trong công ty đã chọn."
         ),
     )
 
@@ -2951,6 +2963,8 @@ class AnnouncementForm(ModelForm):
         "employees": 12,
         "department": 12,
         "job_position": 12,
+        "is_pinned": 6,
+        "send_notification": 6,
     }
 
     required_fields = ["description"]
@@ -2967,20 +2981,79 @@ class AnnouncementForm(ModelForm):
             "description": forms.Textarea(attrs={"data-summernote": ""}),
             "expire_date": DateInput(attrs={"type": "date"}),
         }
+        labels = {
+            "is_pinned": "📌 Ghim đầu bảng tin",
+            "send_notification": "🔔 Gửi thông báo ứng dụng",
+        }
 
     def clean_description(self):
         description = self.cleaned_data.get("description", "").strip()
         # Remove HTML tags and check if there's meaningful content
         text_content = strip_tags(description).strip()
         if not text_content:  # Checks if the field is empty after stripping HTML
-            raise forms.ValidationError(_("Description is required."))
+            raise forms.ValidationError(_("Vui lòng nhập nội dung bản tin."))
         return description
+
+    def clean_attachments(self):
+        files = self.files.getlist("attachments")
+        blocked_extensions = {
+            ".html",
+            ".htm",
+            ".js",
+            ".svg",
+            ".xml",
+            ".php",
+            ".py",
+            ".sh",
+            ".exe",
+        }
+        invalid_files = [
+            file.name
+            for file in files
+            if os.path.splitext(file.name)[1].lower() in blocked_extensions
+        ]
+        if invalid_files:
+            raise forms.ValidationError(
+                _("Không được phép tải lên loại tệp này: %(files)s")
+                % {"files": ", ".join(invalid_files)}
+            )
+        return files
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["attachments"] = MultipleFileField(label=_("Attachments"))
+        self.fields["attachments"] = MultipleFileField(
+            label=_("Ảnh hoặc tệp đính kèm"),
+            help_text=_("Có thể chọn nhiều ảnh cùng lúc. Ảnh đầu tiên sẽ làm ảnh đại diện."),
+        )
+        self.fields["attachments"].widget.attrs.update(
+            {
+                "accept": "image/*,.pdf,.doc,.docx,.xls,.xlsx",
+                "data-image-preview": "announcementImagePreview",
+            }
+        )
         self.fields["attachments"].required = False
         self.fields["description"].required = False
+        labels = {
+            "title": _("Tiêu đề"),
+            "description": _("Nội dung"),
+            "expire_date": _("Ngày ngừng hiển thị"),
+            "department": _("Phòng ban nhận bản tin"),
+            "job_position": _("Chức danh nhận bản tin"),
+            "company_id": _("Công ty"),
+            "disable_comments": _("Tắt bình luận"),
+            "public_comments": _("Mọi người được xem bình luận"),
+            "is_pinned": _("📌 Ghim đầu bảng tin"),
+            "send_notification": _("🔔 Gửi thông báo ứng dụng"),
+        }
+        for field_name, label in labels.items():
+            if field_name in self.fields:
+                self.fields[field_name].label = label
+        self.fields["title"].widget.attrs["placeholder"] = _(
+            "Ví dụ: Thông báo nghỉ lễ"
+        )
+        self.fields["description"].widget.attrs["placeholder"] = _(
+            "Nhập nội dung bản tin..."
+        )
         self.fields["disable_comments"].widget.attrs.update(
             {"hx-on:click": "togglePublicComments()"}
         )
@@ -2996,9 +3069,8 @@ class AnnouncementForm(ModelForm):
         attachement = []
         multiple_attachment_ids = []
         attachements = None
-        if self.files.getlist("attachments"):
-            attachements = self.files.getlist("attachments")
-            self.instance.attachement = attachements[0]
+        if self.cleaned_data.get("attachments"):
+            attachements = self.cleaned_data["attachments"]
             multiple_attachment_ids = []
 
             for attachement in attachements:
@@ -3021,8 +3093,14 @@ class AnnouncementForm(ModelForm):
         # Remove 'employees' field error if it's handled manually
         if isinstance(self.fields["employees"], JoydigiMultiSelectField):
             self.errors.pop("employees", None)
+            if hasattr(self.data, "getlist"):
+                employee_ids = self.data.getlist("employees")
+            else:
+                employee_ids = self.data.get("employees", [])
+                if employee_ids and not isinstance(employee_ids, (list, tuple)):
+                    employee_ids = [employee_ids]
             employee_data = self.fields["employees"].queryset.filter(
-                id__in=self.data.getlist("employees")
+                id__in=employee_ids
             )
             cleaned_data["employees"] = employee_data
 
@@ -3202,6 +3280,33 @@ def validate_ip_or_cidr(value):
             raise ValidationError(
                 f"{value} is not a valid IP address or CIDR notation."
             )
+
+
+class CheckInPolicyForm(forms.ModelForm):
+    class Meta:
+        model = CheckInPolicy
+        fields = (
+            "late_threshold_minutes",
+            "annual_leave_days",
+            "allow_remote",
+            "allow_outside_radius_request",
+        )
+
+
+class CheckInLocationForm(forms.ModelForm):
+    class Meta:
+        model = CheckInLocation
+        fields = ("name", "latitude", "longitude", "radius_meters", "is_active")
+        widgets = {
+            "latitude": forms.NumberInput(attrs={"step": "0.000001"}),
+            "longitude": forms.NumberInput(attrs={"step": "0.000001"}),
+        }
+
+
+class OfficeWifiForm(forms.ModelForm):
+    class Meta:
+        model = OfficeWifi
+        fields = ("name", "ssid", "bssid", "is_active")
 
 
 class AttendanceAllowedIPForm(forms.ModelForm):

@@ -167,6 +167,7 @@ from base.models import (
     WorkTypeRequest,
     WorkTypeRequestComment,
 )
+from base.roles import STANDARD_ROLE_NAMES, ensure_standard_roles
 from employee.filters import EmployeeFilter
 from employee.forms import ActiontypeForm, EmployeeGeneralSettingPrefixForm
 from employee.models import (
@@ -1237,6 +1238,21 @@ def _permission_app_label(app_name):
     Human label for permission UI module nav.
     Uses AppConfig.verbose_name and drops a leading "Joydigi" product prefix.
     """
+    vietnamese_labels = {
+        "auth": "Tài khoản và quyền hạn",
+        "base": "Dữ liệu chung",
+        "employee": "Nhân sự",
+        "attendance": "Chấm công",
+        "leave": "Nghỉ phép",
+        "notifications": "Thông báo",
+        "joydigi_audit": "Nhật ký thay đổi",
+        "joydigi_theme": "Giao diện",
+        "joydigi_auth": "Tài khoản",
+        "joydigi_api": "Kết nối nội bộ",
+    }
+    if app_name in vietnamese_labels:
+        return vietnamese_labels[app_name]
+
     import re
 
     from django.apps import apps as django_apps
@@ -1309,8 +1325,9 @@ def _build_permission_matrix():
 
 
 def _user_groups_queryset(search=""):
-    """Lightweight group list with annotated counts (no heavy prefetches)."""
-    groups = Group.objects.annotate(
+    """Chỉ hiển thị ba vai trò cố định của hệ thống."""
+    ensure_standard_roles()
+    groups = Group.objects.filter(name__in=STANDARD_ROLE_NAMES).annotate(
         member_count=Count("user", distinct=True),
         perm_count=Count("permissions", distinct=True),
     ).order_by("name")
@@ -1326,23 +1343,11 @@ def user_group_table(request):
     """
     Group create form (HTMX) — loaded on demand when opening Create modal.
     """
-    permissions, no_permission_models = _build_permission_matrix()
-    form = UserGroupForm()
-    if request.method == "POST":
-        form = UserGroupForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, _("Role created."))
-            return JoydigiRedirect(request)
-    return render(
+    messages.info(
         request,
-        "base/auth/group_assign.html",
-        {
-            "permissions": permissions,
-            "form": form,
-            "no_permission_models": no_permission_models,
-        },
+        _("Hệ thống chỉ dùng ba vai trò: Quản trị viên, Trưởng nhóm và Nhân viên."),
     )
+    return JoydigiRedirect(request)
 
 
 @login_required
@@ -1462,7 +1467,7 @@ def user_group_detail(request, obj_id):
     group = get_object_or_404(
         Group.objects.prefetch_related(
             "permissions", "user_set", "user_set__employee_get"
-        ),
+        ).filter(name__in=STANDARD_ROLE_NAMES),
         id=obj_id,
     )
     return render(request, "base/auth/group_detail.html", _group_detail_context(group))
@@ -1478,31 +1483,27 @@ def update_group_permission(
     This method is used to remove user permission.
     """
     group_id = request.POST.get("id")
-    instance = Group.objects.filter(id=group_id).first()
+    instance = Group.objects.filter(
+        id=group_id, name__in=STANDARD_ROLE_NAMES
+    ).first()
     if not instance:
-        messages.error(request, _("Group not found"))
-        return JsonResponse({"message": "Group not found", "type": "danger"})
+        messages.error(request, _("Không tìm thấy vai trò."))
+        return JsonResponse({"message": "Không tìm thấy vai trò.", "type": "danger"})
     form = UserGroupForm(request.POST, instance=instance)
     if form.is_valid():
         form.save()
-        messages.success(request, _("Updated the permissions"))
+        messages.success(request, _("Đã cập nhật quyền hạn."))
         return JsonResponse({})
     if request.POST.get("name_update"):
-        name = request.POST["name"]
-        if len(name) > 3:
-            instance.name = name
-            instance.save()
-            messages.success(request, _("Name updated"))
-            return JsonResponse({"message": "Name updated", "type": "success"})
-        messages.info(request, _("At least 4 characters required"))
+        messages.info(request, _("Tên của ba vai trò cố định không thể đổi."))
         return JsonResponse({})
     perms = form.cleaned_data.get("permissions")
     if not perms:
         instance.permissions.clear()
-        messages.info(request, _("All permission cleared"))
+        messages.info(request, _("Đã xóa toàn bộ quyền của vai trò."))
         return JsonResponse({})
-    messages.error(request, _("Something went wrong"))
-    return JsonResponse({"message": "Something went wrong", "type": "danger"})
+    messages.error(request, _("Không thể cập nhật quyền hạn."))
+    return JsonResponse({"message": "Không thể cập nhật quyền hạn.", "type": "danger"})
 
 
 @login_required
@@ -1522,10 +1523,12 @@ def group_assign(request):
         "target_employee"
     )
     if not group_id:
-        return JoydigiRedirect(request, message=_("Required parameters are missing"))
-    group = Group.objects.filter(id=group_id).first()
+        return JoydigiRedirect(request, message=_("Thiếu thông tin vai trò."))
+    group = Group.objects.filter(
+        id=group_id, name__in=STANDARD_ROLE_NAMES
+    ).first()
     if not group:
-        return JoydigiRedirect(request, message=_("Group not found"))
+        return JoydigiRedirect(request, message=_("Không tìm thấy vai trò."))
 
     grantable_ids = None
     if (
@@ -1579,9 +1582,9 @@ def group_assign(request):
             messages.success(
                 request,
                 (
-                    _("Role members updated.")
+                    _("Đã cập nhật thành viên của vai trò.")
                     if mode == "edit"
-                    else _("Role members added.")
+                    else _("Đã thêm thành viên vào vai trò.")
                 ),
             )
             return JoydigiRedirect(request)
@@ -1613,7 +1616,10 @@ def group_assign_view(request):
     search = ""
     if request.GET.get("search") is not None:
         search = request.GET.get("search")
-    groups = Group.objects.filter(name__icontains=search)
+    ensure_standard_roles()
+    groups = Group.objects.filter(
+        name__in=STANDARD_ROLE_NAMES, name__icontains=search
+    )
     previous_data = request.GET.urlencode()
     return render(
         request,
@@ -1631,7 +1637,8 @@ def user_group_view(request):
     search = ""
     if request.GET.get("search") is not None:
         search = request.GET["search"]
-    user_group = Group.objects.filter()
+    ensure_standard_roles()
+    user_group = Group.objects.filter(name__in=STANDARD_ROLE_NAMES)
     return render(request, "base/auth/group_assign.html", {"data": user_group})
 
 
@@ -1645,8 +1652,8 @@ def user_group_permission_remove(request, pid, gid):
         pid: permission id
         gid: group id
     """
-    group = Group.objects.get(id=1)
-    permission = Permission.objects.get(id=2)
+    group = get_object_or_404(Group, id=gid, name__in=STANDARD_ROLE_NAMES)
+    permission = get_object_or_404(Permission, id=pid)
     group.permissions.remove(permission)
     return JoydigiRedirect(request)
 
@@ -1663,7 +1670,7 @@ def group_remove_user(request, uid, gid):
         uid: user instance id
         gid: group instance id
     """
-    group = Group.objects.filter(id=gid).first()
+    group = Group.objects.filter(id=gid, name__in=STANDARD_ROLE_NAMES).first()
     user = JoydigiUser.objects.filter(id=uid).first()
     company_id = request.POST.get("company_id") or request.GET.get("company_id")
     fully_removed = True

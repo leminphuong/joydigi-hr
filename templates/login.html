@@ -1,12 +1,12 @@
 {% load static %}
 {% load i18n %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
     <head>
         <meta charset="UTF-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Login - {{ white_label_company_name }} Dashboard</title>
+        <title>Đăng nhập - {{ white_label_company_name }}</title>
         <link
             rel="apple-touch-icon"
             sizes="180x180"
@@ -40,32 +40,32 @@
             <main class="oh-auth">
                 <div class="oh-auth-card mb-4">
                     <h1 class="oh-onboarding-card__title oh-onboarding-card__title--h2 text-center my-3">
-                        {% trans "Sign In" %}
+                        Đăng nhập
                     </h1>
                     <p class="text-muted text-center">
-                        {% trans "Please login to access the dashboard." %}
+                        Đăng nhập để sử dụng hệ thống chấm công.
                     </p>
                     <form method="post" class="oh-form-group">
                         {% csrf_token %}
                         <div class="oh-input-group">
-                            <label class="oh-label" for="username">{% trans "Username" %}</label>
+                            <label class="oh-label" for="username">Tên đăng nhập hoặc email</label>
                             <input
                                 type="text"
                                 id="username"
                                 name="username"
                                 class="oh-input w-100"
-                                placeholder="{% trans 'e.g. adam.luis@joydigi.com' %}"
+                                placeholder="Ví dụ: lan.phuong hoặc lan.phuong@joydigi.vn"
                             >
                         </div>
                         <div class="oh-input-group">
-                            <label class="oh-label" for="password">{% trans "Password" %}</label>
+                            <label class="oh-label" for="password">Mật khẩu</label>
                             <div class="oh-password-input-container">
                                 <input
                                     type="password"
                                     id="password"
                                     name="password"
                                     class="oh-input oh-input--password w-100"
-                                    placeholder="{% trans 'Use alphanumeric characters' %}"
+                                    placeholder="Nhập mật khẩu"
                                 >
                                 <button type="button" class="oh-btn oh-btn--transparent oh-password-input--toggle">
                                     <ion-icon
@@ -87,7 +87,7 @@
                             role="button"
                         >
                             <ion-icon class="me-2" name="lock-closed-outline"></ion-icon>
-                            {% trans "Secure Sign-in" %}
+                            Đăng nhập
                         </button>
                         {% if not initialize_database %}
                             <small class="text-center">
@@ -95,7 +95,7 @@
                                     href="{% url 'forgot-password' %}"
                                     class="oh-link oh-link--secondary justify-content-center"
                                 >
-                                    {% trans "Forgot password" %}?
+                                    Quên mật khẩu?
                                 </a>
                             </small>
                         {% endif %}
@@ -162,6 +162,18 @@
         <script type="module" src="{% static 'images/ionicons/ui_icons/ionicons/ionicons.esm.js' %}"></script>
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
         <script>
+            window.addEventListener('pageshow', function (event) {
+                if (event.persisted) window.location.reload();
+            });
+
+            document.querySelectorAll('form[method="post"]').forEach(function (form) {
+                form.addEventListener('submit', function () {
+                    const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+                    const input = form.querySelector('input[name="csrfmiddlewaretoken"]');
+                    if (match && input) input.value = decodeURIComponent(match[1]);
+                });
+            });
+
             $(document).ready(function () {
                 if ($(".oh-alert--warning").length > 0) {
                     Swal.fire({

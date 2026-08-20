@@ -54,6 +54,18 @@ class LoginUserViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.wsgi_request.user.is_authenticated)
 
+    def test_login_with_employee_email_redirects(self):
+        self.user.email = "view_login@test.joydigi"
+        self.user.save(update_fields=["email"])
+
+        response = self.client.post(
+            reverse("login"),
+            {"username": "view_login@test.joydigi", "password": self.password},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+
     def test_login_inactive_user_redirects_to_login(self):
         self.user.is_active = False
         self.user.save(update_fields=["is_active"])

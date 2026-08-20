@@ -71,6 +71,7 @@ urlpatterns = [
     path("duyet-don/", checkin_portal.approval_hub, name="approval-hub"),
     path("kiosk/", checkin_portal.kiosk, name="checkin-kiosk"),
     path("kiosk/ma-qr/", checkin_portal.kiosk_qr, name="checkin-kiosk-qr"),
+    path("kiosk/du-lieu/", checkin_portal.kiosk_data, name="checkin-kiosk-data"),
     path("cham-cong/qr/", checkin_portal.qr_checkin, name="qr-checkin"),
     path("settings/cham-cong/", checkin_portal.checkin_settings, name="checkin-settings"),
     path(

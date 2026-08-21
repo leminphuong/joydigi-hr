@@ -6,34 +6,34 @@
   <div class="swal2-icon swal2-warning swal2-icon-show" style="display:flex;">
     <div class="swal2-icon-content">!</div>
   </div>
-  <h5 class="mt-3 mb-1">{% trans "No Entries Imported" %}</h5>
-  <p style="font-size:13px; color:#888;">{% trans "All rows were either blank, skipped, or had errors." %}</p>
+  <h5 class="mt-3 mb-1">Chưa nhập được lịch nào</h5>
+  <p style="font-size:13px; color:#888;">Các dòng đều đang trống, bị bỏ qua hoặc có lỗi.</p>
   {% else %}
   <div class="swal2-icon swal2-success swal2-icon-show" style="display:flex;">
     <div class="swal2-icon-content">✔</div>
   </div>
-  <h5 class="mt-3 mb-1">{% trans "Roster Import Complete" %}</h5>
+  <h5 class="mt-3 mb-1">Đã nhập xong lịch làm việc</h5>
   {% endif %}
 
   <div class="d-flex justify-content-center gap-4 mt-3 mb-3">
     <div class="text-center px-3 py-2 rounded" style="background:#e8f0fe;">
       <div style="font-size:26px; font-weight:700; color:#3a5bbf;">{{ created }}</div>
-      <div style="font-size:11px; color:#3a5bbf; font-weight:600;">{% trans "Created" %}</div>
+      <div style="font-size:11px; color:#3a5bbf; font-weight:600;">Đã tạo</div>
     </div>
     <div class="text-center px-3 py-2 rounded" style="background:#f3f0fb;">
       <div style="font-size:26px; font-weight:700; color:#7e57c2;">{{ updated }}</div>
-      <div style="font-size:11px; color:#7e57c2; font-weight:600;">{% trans "Updated" %}</div>
+      <div style="font-size:11px; color:#7e57c2; font-weight:600;">Đã cập nhật</div>
     </div>
     <div class="text-center px-3 py-2 rounded" style="background:#f5f5f5;">
       <div style="font-size:26px; font-weight:700; color:#999;">{{ skipped }}</div>
-      <div style="font-size:11px; color:#999; font-weight:600;">{% trans "Skipped" %}</div>
+      <div style="font-size:11px; color:#999; font-weight:600;">Đã bỏ qua</div>
     </div>
   </div>
 
   {% if errors %}
   <div class="text-start mt-2" style="max-height:160px; overflow-y:auto;">
     <p style="font-size:12px; font-weight:600; color:#e65100; margin-bottom:6px;">
-      {% blocktrans count n=errors|length %}{{ n }} error{% plural %}{{ n }} errors{% endblocktrans %}
+      Có {{ errors|length }} lỗi cần kiểm tra
     </p>
     {% for err in errors %}
     <div class="oh-alert oh-alert--danger py-1 mb-1" style="font-size:11px;">{{ err }}</div>
@@ -46,7 +46,7 @@
             onclick="$('#genericModal').removeClass('oh-modal--show');
                      htmx.ajax('GET', '{% url "roster-grid" %}',
                      {'target':'#rosterGridContainer','swap':'innerHTML'});">
-      {% trans "Done" %}
+      Hoàn tất
     </button>
   </div>
 

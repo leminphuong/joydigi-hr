@@ -23,8 +23,12 @@ from django.urls import include, path, re_path
 from django.views.i18n import JavaScriptCatalog
 
 import notifications.urls
+from base.views import custom404
 
 from . import settings
+
+
+handler404 = "base.views.custom404"
 
 
 def health_check(request):
@@ -76,6 +80,9 @@ urlpatterns = [
     path("jsi18n/", JavaScriptCatalog.as_view(), name="javascript-catalog"),
     path("health/", health_check),
     path("ready/", readiness_check),
+    # Luôn đặt cuối cùng: mọi đường dẫn chưa được khai báo dùng trang 404 JoyDigi,
+    # kể cả môi trường cục bộ đang bật DEBUG=True.
+    re_path(r"^.*$", custom404, name="custom-404"),
 ]
 
 # if settings.DEBUG:

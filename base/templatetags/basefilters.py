@@ -1,8 +1,11 @@
 import json
+import re
+from datetime import datetime
 
 from django import template
 from django.core.paginator import Page, Paginator
 from django.template.defaultfilters import register
+from django.utils import timezone
 
 from base.methods import get_pagination
 from base.models import MultipleApprovalManagers
@@ -12,6 +15,112 @@ from employee.models import Employee, EmployeeWorkInformation
 from joydigi.menu.settings_menu import get_settings_menu
 
 register = template.Library()
+
+
+_NOTIFICATION_TEXTS_VI = {
+    "Your roster has been published.": "Lịch làm việc của bạn đã được công bố.",
+    "You have a new leave request to validate.": "Có đơn xin phép mới đang chờ bạn duyệt.",
+    "New leave type is assigned to you": "Bạn đã được cấp một loại nghỉ phép mới.",
+    "Your leave allocation request has been approved": "Yêu cầu cấp ngày phép của bạn đã được duyệt.",
+    "Your leave allocation request has been rejected": "Yêu cầu cấp ngày phép của bạn đã bị từ chối.",
+    "Your leave request has received a comment.": "Đơn xin phép của bạn có bình luận mới.",
+    "Your leave allocation request has received a comment.": "Yêu cầu cấp ngày phép của bạn có bình luận mới.",
+    "Your compensatory leave request has been approved": "Đơn nghỉ bù của bạn đã được duyệt.",
+    "Your compensatory leave request has been rejected": "Đơn nghỉ bù của bạn đã bị từ chối.",
+    "Your compensatory leave request has received a comment.": "Đơn nghỉ bù của bạn có bình luận mới.",
+    "Your attendance request has received a comment.": "Yêu cầu chấm công của bạn có bình luận mới.",
+    "Your work type request has been rejected.": "Yêu cầu hình thức làm việc của bạn đã bị từ chối.",
+    "Your work type request has been canceled.": "Yêu cầu hình thức làm việc của bạn đã được hủy.",
+    "Your work type request has been approved.": "Yêu cầu hình thức làm việc của bạn đã được duyệt.",
+    "Your work type request has been deleted.": "Yêu cầu hình thức làm việc của bạn đã được xóa.",
+    "Your shift request has been canceled.": "Yêu cầu đổi ca của bạn đã được hủy.",
+    "Your shift request has been rejected.": "Yêu cầu đổi ca của bạn đã bị từ chối.",
+    "Your shift request has been approved.": "Yêu cầu đổi ca của bạn đã được duyệt.",
+    "Your shift request has been deleted.": "Yêu cầu đổi ca của bạn đã được xóa.",
+    "Your shift request has received a comment.": "Yêu cầu đổi ca của bạn có bình luận mới.",
+    "Your work type request has received a comment.": "Yêu cầu hình thức làm việc của bạn có bình luận mới.",
+    "You are added to rotating work type": "Bạn đã được thêm vào lịch luân phiên hình thức làm việc.",
+    "You are added to rotating shift": "Bạn đã được thêm vào lịch luân phiên ca làm việc.",
+    "Your Work Type has been changed.": "Hình thức làm việc của bạn đã được thay đổi.",
+    "Your shift has been changed.": "Ca làm việc của bạn đã được thay đổi.",
+    "Shift Changes notification": "Thông báo thay đổi ca làm việc.",
+    "Shift changes notification, Requested date expired.": "Yêu cầu thay đổi ca đã hết hạn.",
+    "Work Type Changes notification": "Thông báo thay đổi hình thức làm việc.",
+    "Work type changes notification, Requested date expired.": "Yêu cầu thay đổi hình thức làm việc đã hết hạn.",
+}
+
+
+_NOTIFICATION_PATTERNS_VI = (
+    (r"^Your roster from (.+) has been published\.$", r"Lịch làm việc của bạn từ \1 đã được công bố."),
+    (r"^New leave request created for (.+)\.$", r"Đã tạo đơn xin phép mới cho \1."),
+    (r"^Leave request updated for (.+)\.$", r"Đơn xin phép của \1 đã được cập nhật."),
+    (r"^Your (.+) leave type updated\.$", r"Loại nghỉ phép \1 của bạn đã được cập nhật."),
+    (r"^New leave allocation request created for (.+)\.$", r"Đã tạo yêu cầu cấp ngày phép mới cho \1."),
+    (r"^Leave allocation request updated for (.+)\.$", r"Yêu cầu cấp ngày phép của \1 đã được cập nhật."),
+    (r"^(.+)'s leave request has received a comment\.$", r"Đơn xin phép của \1 có bình luận mới."),
+    (r"^(.+)'s leave allocation request has received a comment\.$", r"Yêu cầu cấp ngày phép của \1 có bình luận mới."),
+    (r"^(.+)'s [Cc]ompensatory leave request has received a comment\.$", r"Đơn nghỉ bù của \1 có bình luận mới."),
+    (r"^Your attendance for the date (.+) is validated\.?$", r"Chấm công ngày \1 của bạn đã được xác nhận."),
+    (r"^Your (.+)'s attendance overtime approved\.$", r"Làm thêm giờ ngày \1 của bạn đã được duyệt."),
+    (r"^Overtime approved for (.+)'s attendance$", r"Đã duyệt làm thêm giờ ngày \1."),
+    (r"^Your attendance request for (.+) is rejected\.?$", r"Yêu cầu chấm công ngày \1 của bạn đã bị từ chối."),
+    (r"^(.+) requested revalidation for\s+(.+) attendance$", r"\1 yêu cầu xác nhận lại chấm công ngày \2."),
+    (r"^(.+)'s attendance request has received a comment\.$", r"Yêu cầu chấm công của \1 có bình luận mới."),
+    (r"^Comment under the announcement (.+)\.$", r"Bản tin “\1” có bình luận mới."),
+    (r"^You have new work type request to approve(?: for)?\s*(.*)$", r"Có yêu cầu hình thức làm việc mới đang chờ bạn duyệt: \1"),
+    (r"^You have new shift request to approve(?: for)?\s*(.*)$", r"Có yêu cầu đổi ca mới đang chờ bạn duyệt: \1"),
+    (r"^You have a new shift reallocation request to approve for (.+)\.$", r"Có yêu cầu đổi ca của \1 đang chờ bạn duyệt."),
+    (r"^You have a new shift reallocation request from (.+)\.$", r"Bạn có yêu cầu đổi ca mới từ \1."),
+    (r"^(.+) is available for shift reallocation\.$", r"\1 đang sẵn sàng đổi ca."),
+    (r"^(.+)'s shift request has received a comment\.$", r"Yêu cầu đổi ca của \1 có bình luận mới."),
+    (r"^(.+)'s work type request has received a comment\.$", r"Yêu cầu hình thức làm việc của \1 có bình luận mới."),
+)
+
+
+@register.filter(name="notification_text_vi")
+def notification_text_vi(value):
+    """Việt hóa cả thông báo mới lẫn nội dung tiếng Anh đã lưu trước đây."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    translated = _NOTIFICATION_TEXTS_VI.get(text)
+    if translated:
+        return translated
+    for pattern, replacement in _NOTIFICATION_PATTERNS_VI:
+        if re.match(pattern, text, flags=re.IGNORECASE):
+            return re.sub(pattern, replacement, text, flags=re.IGNORECASE).strip()
+    return text
+
+
+@register.filter(name="relative_time_vi")
+def relative_time_vi(value):
+    """Hiển thị thời gian tương đối bằng tiếng Việt, không phụ thuộc cookie ngôn ngữ."""
+    if not isinstance(value, datetime):
+        return ""
+    current = timezone.now()
+    if timezone.is_naive(value) and timezone.is_aware(current):
+        value = timezone.make_aware(value, timezone.get_current_timezone())
+    elif timezone.is_aware(value) and timezone.is_naive(current):
+        value = timezone.make_naive(value, timezone.get_current_timezone())
+
+    seconds = max(0, int((current - value).total_seconds()))
+    if seconds < 10:
+        return "vừa xong"
+    if seconds < 60:
+        return f"{seconds} giây trước"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes} phút trước"
+    hours = minutes // 60
+    if hours < 24:
+        return f"{hours} giờ trước"
+    days = hours // 24
+    if days < 30:
+        return f"{days} ngày trước"
+    months = days // 30
+    if months < 12:
+        return f"{months} tháng trước"
+    return f"{days // 365} năm trước"
 
 
 @register.filter(name="is_checkin_admin")

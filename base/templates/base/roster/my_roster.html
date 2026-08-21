@@ -4,7 +4,7 @@
 
 <div class="oh-wrapper">
   <div class="oh-main__titlebar">
-    <h1 class="oh-main__titlebar-title fw-bold">{% trans "My Roster" %}</h1>
+    <h1 class="oh-main__titlebar-title fw-bold">Lịch làm việc của tôi</h1>
     <span class="text-muted" style="font-size:13px;">
       {{ today|date:"d M Y" }} – {{ end_date|date:"d M Y" }}
     </span>
@@ -12,7 +12,7 @@
 
   {% if not entries %}
     <div class="oh-alert oh-alert--animated oh-alert--info mt-3">
-      {% trans "No published roster entries for the next 14 days." %}
+      Chưa có lịch làm việc được công bố trong 14 ngày tới.
     </div>
   {% else %}
     <div class="row mt-3">
@@ -23,7 +23,7 @@
           <div class="d-flex justify-content-between align-items-start mb-1">
             <span class="fw-bold" style="font-size:15px;">{{ entry.date|date:"D, d M" }}</span>
             {% if entry.is_off %}
-              <span class="oh-badge oh-badge--warning">{% trans "Day Off" %}</span>
+              <span class="oh-badge oh-badge--warning">Ngày nghỉ</span>
             {% else %}
               <span class="oh-badge oh-badge--info">{{ entry.shift.employee_shift }}</span>
             {% endif %}

@@ -734,7 +734,13 @@ var avatarPreviewTimer = null;
 
 $(document).on("mouseenter", ".avatar-thumb", function (e) {
     var $thumb = $(this);
-    var src = $thumb.data("src");
+    // Một số bảng chỉ khai báo `src` mà không có `data-src`. Trước đây
+    // trình xem trước nhận giá trị undefined nên mở ra một khung ảnh hỏng.
+    var src = $thumb.data("src") || $thumb.attr("src");
+
+    if (!src) {
+        return;
+    }
 
     avatarPreviewTimer = setTimeout(function () {
         var thumbWidth = $thumb[0].offsetWidth;

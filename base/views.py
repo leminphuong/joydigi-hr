@@ -232,11 +232,9 @@ CHARTS = [
 ]
 
 
-def custom404(request):
-    """
-    Custom 404 method
-    """
-    return render(request, "404.html")
+def custom404(request, exception=None):
+    """Trang thân thiện khi người dùng mở một đường dẫn không tồn tại."""
+    return render(request, "404.html", {"requested_path": request.path}, status=404)
 
 
 # Create your views here.

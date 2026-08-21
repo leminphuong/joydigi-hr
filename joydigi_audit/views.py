@@ -2,21 +2,28 @@
 views.py
 """
 
+from datetime import datetime
+from ipaddress import ip_address
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
+from django.core.paginator import Paginator
+from django.db.models import Q
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_http_methods
 
+from base.roles import checkin_admin_required
 from joydigi.http.response import JoydigiRedirect
 from joydigi_audit.forms import (
     AuditModelConfigForm,
     AuditModelFieldsForm,
     field_choices_for,
 )
-from joydigi_audit.models import AuditModelConfig
+from joydigi_audit.models import AuditModelConfig, UserActivityLog
 from joydigi_audit.registry import DEFAULT_TRACKED_MODELS
 
 
@@ -40,6 +47,82 @@ def audit_history_settings_view(request):
     if request.user.has_perm("joydigi_audit.view_auditmodelconfig"):
         context.update(_audit_tracking_context())
     return render(request, "base/settings/audit_history.html", context)
+
+
+@login_required
+@checkin_admin_required
+def user_activity_log_view(request):
+    """Nhật ký tập trung của quản trị viên, trưởng nhóm và nhân viên."""
+
+    logs = UserActivityLog.objects.select_related("user", "company")
+    selected_company = request.session.get("selected_company")
+    if selected_company and selected_company != "all":
+        try:
+            logs = logs.filter(company_id=int(selected_company))
+        except (TypeError, ValueError):
+            logs = logs.none()
+    elif not request.user.is_superuser:
+        allowed_company_ids = getattr(request, "all_my_company_ids", None)
+        if allowed_company_ids is not None:
+            logs = logs.filter(company_id__in=allowed_company_ids)
+
+    scoped_logs = logs
+
+    query = request.GET.get("q", "").strip()
+    role = request.GET.get("role", "").strip()
+    method = request.GET.get("method", "").strip().upper()
+    date_value = request.GET.get("date", "").strip()
+
+    if query:
+        search_filter = (
+            Q(actor_name__icontains=query)
+            | Q(actor_email__icontains=query)
+            | Q(action__icontains=query)
+            | Q(resource__icontains=query)
+            | Q(path__icontains=query)
+        )
+        try:
+            ip_address(query)
+            search_filter |= Q(ip_address=query)
+        except ValueError:
+            pass
+        logs = logs.filter(search_filter)
+    if role in dict(UserActivityLog.ROLE_CHOICES):
+        logs = logs.filter(role=role)
+    if method in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
+        logs = logs.filter(method=method)
+    if date_value:
+        try:
+            selected_date = datetime.strptime(date_value, "%Y-%m-%d").date()
+            logs = logs.filter(created_at__date=selected_date)
+        except ValueError:
+            date_value = ""
+
+    today = timezone.localdate()
+    today_logs = scoped_logs.filter(created_at__date=today)
+    stats = {
+        "today": today_logs.count(),
+        "changes": today_logs.exclude(method="GET").count(),
+        "failures": today_logs.filter(status_code__gte=400).count(),
+    }
+    page_obj = Paginator(logs, 30).get_page(request.GET.get("page"))
+    query_without_page = request.GET.copy()
+    query_without_page.pop("page", None)
+
+    return render(
+        request,
+        "joydigi_audit/user_activity_log.html",
+        {
+            "page_obj": page_obj,
+            "stats": stats,
+            "query": query,
+            "selected_role": role,
+            "selected_method": method,
+            "selected_date": date_value,
+            "role_choices": UserActivityLog.ROLE_CHOICES,
+            "query_without_page": query_without_page.urlencode(),
+        },
+    )
 
 
 @login_required

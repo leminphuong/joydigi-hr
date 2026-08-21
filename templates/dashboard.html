@@ -1222,8 +1222,98 @@
             }
         }
         @media (max-width: 640px) {
+            .md-dashboard {
+                box-sizing: border-box;
+                width: 100%;
+                max-width: 100%;
+                min-height: calc(100dvh - 64px);
+                margin: 0;
+                padding: 0 0 28px;
+                overflow-x: hidden;
+            }
+            .md-header {
+                align-items: stretch;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .md-header > div:first-child {
+                display: flex;
+                align-items: flex-end;
+                justify-content: space-between;
+                gap: 12px;
+            }
+            .md-header h1 {
+                font-size: 20px;
+                line-height: 1.2;
+            }
+            .md-header__actions {
+                width: 100%;
+                align-items: stretch;
+                flex-direction: column;
+            }
+            .md-period-picker {
+                display: grid;
+                width: 100%;
+                grid-template-columns: repeat(6, minmax(0, 1fr));
+                gap: 6px;
+            }
+            .md-period-preset {
+                grid-column: span 2;
+                min-height: 38px;
+                padding: 6px 4px;
+            }
+            .md-period-picker input[type='date'] {
+                grid-column: span 3;
+                width: 100%;
+                min-width: 0;
+                min-height: 40px;
+            }
+            .md-period-picker__sep {
+                display: none;
+            }
+            #md-open-customize {
+                width: 100%;
+                min-height: 40px;
+                justify-content: center;
+            }
             .md-kpi-grid {
-                grid-template-columns: 1fr;
+                width: 100%;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
+            }
+            .md-kpi-card {
+                width: 100%;
+                min-height: 158px;
+                padding: 14px;
+            }
+            .md-kpi-card:last-child:nth-child(odd) {
+                grid-column: 1 / -1;
+            }
+            .md-kpi-card__value {
+                font-size: 27px;
+            }
+            .md-kpi-card__sub {
+                font-size: 11px;
+                overflow-wrap: anywhere;
+            }
+            .md-kpi-card,
+            .md-chart-card,
+            .md-chart-card__body,
+            .md-main,
+            .md-layout {
+                min-width: 0;
+                max-width: 100%;
+            }
+            .md-chart-card__header {
+                padding: 14px 14px 4px;
+            }
+            .md-chart-card__body {
+                padding: 4px 6px 10px;
+                overflow: hidden;
+            }
+            .md-chart-card svg,
+            .md-chart-card canvas {
+                max-width: 100% !important;
             }
             .md-customize-panel {
                 right: -100%;

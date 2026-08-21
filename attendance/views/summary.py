@@ -1863,13 +1863,19 @@ def attendance_monthly_summary_conflict_resolve(request):
             "leave",  # legacy kept for existing records
         }
         if resolution in _valid:
-            AttendanceConflictResolution.objects.update_or_create(
+            # The company-aware manager adds DISTINCT when a company is
+            # selected. Django's update_or_create() also adds FOR UPDATE,
+            # and PostgreSQL rejects FOR UPDATE + DISTINCT. The employee was
+            # already resolved through _summary_employees(request), so this
+            # unfiltered base queryset remains tenant-safe while allowing the
+            # row lock required for an atomic upsert.
+            AttendanceConflictResolution.objects.entire().update_or_create(
                 employee_id=emp,
                 date=date,
                 defaults={"resolution": resolution, "conflict_type": conflict_type},
             )
         elif resolution == "clear":
-            _obj = AttendanceConflictResolution.objects.filter(
+            _obj = AttendanceConflictResolution.objects.entire().filter(
                 employee_id=emp, date=date
             ).first()
             if _obj:

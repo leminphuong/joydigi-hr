@@ -6,6 +6,11 @@ from joydigi_audit import views
 
 urlpatterns = [
     path(
+        "nhat-ky-hoat-dong/",
+        views.user_activity_log_view,
+        name="user-activity-log",
+    ),
+    path(
         "settings/audit-history/",
         views.audit_history_settings_view,
         name="audit-history-view",

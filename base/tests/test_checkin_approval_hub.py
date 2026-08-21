@@ -6,6 +6,7 @@ from django.urls import reverse
 
 from base.dashboard import _get_setup_checklist_context
 from base.models import CheckInLocation, EmployeeShift, OfficeWifi, Roster
+from attendance.models import AttendanceConflictResolution
 from joydigi.testkit import make_company, make_employee, make_user
 from leave.models import LeaveRequest, LeaveType
 
@@ -125,6 +126,43 @@ class CheckInApprovalHubTests(TestCase):
             response = self.client.get(reverse(url_name))
             self.assertTemplateUsed(response, "base/settings/holidays.html")
 
+    def test_checkin_wifi_actions_update_inline_without_page_reload(self):
+        self.client.force_login(self.admin_user)
+
+        create_response = self.client.post(
+            reverse("checkin-settings"),
+            {
+                "action": "wifi",
+                "object_id": "",
+                "name": "Wi-Fi tầng 5",
+                "ssid": "JOYDIGI-FLOOR-5",
+                "bssid": "AA:BB:CC:DD:EE:51",
+                "is_active": "on",
+            },
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TARGET="checkinSettingsContent",
+        )
+        self.assertEqual(create_response.status_code, 200)
+        self.assertContains(create_response, "Đã lưu Wi-Fi văn phòng.")
+        wifi = OfficeWifi.objects.get(company_id=self.company, ssid="JOYDIGI-FLOOR-5")
+
+        edit_response = self.client.get(
+            f"{reverse('checkin-settings')}?edit_wifi={wifi.pk}",
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TARGET="checkinSettingsContent",
+        )
+        self.assertEqual(edit_response.status_code, 200)
+        self.assertContains(edit_response, f'value="{wifi.pk}"')
+
+        delete_response = self.client.post(
+            reverse("delete-office-wifi", kwargs={"pk": wifi.pk}),
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TARGET="checkinSettingsContent",
+        )
+        self.assertEqual(delete_response.status_code, 200)
+        self.assertContains(delete_response, "Đã xóa Wi-Fi văn phòng.")
+        self.assertFalse(OfficeWifi.objects.filter(pk=wifi.pk).exists())
+
     def test_checkin_location_and_holiday_are_separate_main_menu_buttons(self):
         self.client.force_login(self.admin_user)
         response = self.client.get(reverse("dashboard"))
@@ -142,6 +180,7 @@ class CheckInApprovalHubTests(TestCase):
         self.assertIn('data-menu="Ngày nghỉ lễ"', menu_html)
         self.assertIn(f'href="{reverse("settings")}"', menu_html)
         self.assertIn('data-menu="Cài đặt"', menu_html)
+        self.assertIn(f'href="{reverse("user-activity-log")}"', menu_html)
         self.assertContains(response, reverse("load-demo-database"))
 
         mobile_menu_html = render_to_string(
@@ -159,6 +198,7 @@ class CheckInApprovalHubTests(TestCase):
             "checkin-settings",
             "holiday-view",
             "settings",
+            "user-activity-log",
         ):
             with self.subTest(mobile_url_name=url_name):
                 self.assertIn(reverse(url_name), mobile_menu_html)
@@ -231,6 +271,30 @@ class CheckInApprovalHubTests(TestCase):
         )
         self.assertEqual(entry.shift_id, self.shift.pk)
         self.assertIsNone(entry.department_id)
+
+    def test_monthly_attendance_conflict_resolution_saves_with_company_filter(self):
+        self.client.force_login(self.admin_user)
+        conflict_date = date.today() - timedelta(days=1)
+
+        response = self.client.post(
+            reverse("attendance-monthly-summary-conflict-resolve"),
+            {
+                "employee_id": self.worker.pk,
+                "date": conflict_date.isoformat(),
+                "from_date": conflict_date.replace(day=1).isoformat(),
+                "to_date": conflict_date.isoformat(),
+                "resolution": "full_present",
+                "conflict_type": "attendance",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        resolution = AttendanceConflictResolution.objects.entire().get(
+            employee_id=self.worker,
+            date=conflict_date,
+        )
+        self.assertEqual(resolution.resolution, "full_present")
 
     def test_setup_checklist_does_not_show_mail_server(self):
         request = self.client.request().wsgi_request

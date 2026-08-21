@@ -82,6 +82,30 @@ html body #sidebar.sidebar-pinned ~ #floating-buttons .fab-container {
   -webkit-overflow-scrolling: touch;
 }
 
+/* A table may pin at most one leading information column. Action columns
+   always scroll with the rest of the row so they cannot cover mobile data. */
+.oh-sticky-table__right,
+.lastTh,
+.lastTd,
+.stickyright,
+.stickyleft-second {
+  position: static !important;
+  right: auto !important;
+  left: auto !important;
+}
+
+.fixed-table .stickyleft {
+  position: sticky !important;
+  z-index: 4;
+  left: 0 !important;
+  background-color: #ffffff;
+  box-shadow: 2px 0 5px rgba(15, 23, 42, 0.08);
+}
+
+body.dark .fixed-table .stickyleft {
+  background-color: #1a1a1a;
+}
+
 .mobile-bottom-nav,
 .mobile-nav-more,
 .mobile-nav-backdrop {
@@ -260,6 +284,13 @@ html body #sidebar.sidebar-pinned ~ #floating-buttons .fab-container {
 
 /* Phone: replace the side rail with a safe-area-aware bottom navigation. */
 @media (max-width: 767.98px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+
   html body #sidebar,
   html body #sidebarFlyout,
   html body #floating-buttons .fab-container {
@@ -271,6 +302,7 @@ html body #sidebar.sidebar-pinned ~ #floating-buttons .fab-container {
     width: 100%;
     max-width: 100%;
     margin-left: 0 !important;
+    scroll-padding-bottom: calc(var(--joydigi-mobile-nav-height) + env(safe-area-inset-bottom));
   }
 
   html body .oh-main-header,
@@ -311,12 +343,409 @@ html body #sidebar.sidebar-pinned ~ #floating-buttons .fab-container {
   }
 
   #ohMainContent {
-    padding: 4.75rem 0.75rem calc(var(--joydigi-mobile-nav-height) + env(safe-area-inset-bottom) + 1rem) !important;
+    width: 100%;
+    padding: 4.75rem 0.75rem 6rem !important;
+    overflow-x: hidden;
   }
 
   #ohMainContent .oh-wrapper,
   #ohMainContent .oh-wrapper-main {
+    width: 100%;
     max-width: 100%;
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+  }
+
+  #ohMainContent .oh-container {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding-right: 0 !important;
+    padding-left: 0 !important;
+  }
+
+  #ohMainContent > *,
+  #ohMainContent section,
+  #ohMainContent article,
+  #ohMainContent form,
+  #ohMainContent .row,
+  #ohMainContent [class*="grid"] {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  #ohMainContent input,
+  #ohMainContent select,
+  #ohMainContent textarea {
+    max-width: 100%;
+    font-size: 16px !important;
+  }
+
+  #ohMainContent .select2-selection,
+  #ohMainContent .select2-search__field,
+  #ohMainContent .select2-selection__rendered {
+    font-size: 16px !important;
+  }
+
+  /* List toolbars */
+  .joydigi-list-nav {
+    width: 100%;
+    align-items: stretch !important;
+    flex-direction: column;
+    gap: 0.65rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  .joydigi-list-nav > h3,
+  .joydigi-list-nav > span {
+    width: 100%;
+  }
+
+  .joydigi-list-nav__actions,
+  .joydigi-list-nav .navFilterForm {
+    width: 100%;
+    max-width: 100%;
+    align-items: stretch !important;
+  }
+
+  .joydigi-list-nav .navFilterForm > .relative:first-of-type {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .joydigi-list-nav .navFilterForm > .relative:first-of-type input {
+    width: 100% !important;
+    min-height: 40px;
+  }
+
+  .joydigi-list-nav .oh-filter-dropdown,
+  #ms-filter-dropdown {
+    position: fixed !important;
+    z-index: 10070 !important;
+    top: 76px !important;
+    right: 12px !important;
+    left: 12px !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 24px) !important;
+    max-height: calc(100dvh - 96px);
+    overflow-y: auto;
+  }
+
+  #filterTagContainer,
+  #filterTagContainerSectionNav,
+  .oh-titlebar-container__filters {
+    display: flex !important;
+    width: 100%;
+    max-width: 100%;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: 0.45rem !important;
+    padding: 0 !important;
+    overflow: visible;
+  }
+
+  .oh-titlebar__tag,
+  .oh-titlebar__tag--custom {
+    max-width: 100%;
+    margin: 0 !important;
+  }
+
+  .oh-titlebar__tag.filter-field {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  /* Dashboard */
+  .checkin-overview {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .checkin-panel {
+    min-width: 0;
+    padding: 14px !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+  }
+
+  .checkin-panel__head {
+    align-items: flex-start !important;
+    margin-bottom: 12px !important;
+  }
+
+  .checkin-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .checkin-number {
+    min-width: 0;
+    padding: 10px !important;
+  }
+
+  .checkin-group-table {
+    min-width: 520px;
+  }
+
+  .checkin-group-table th:first-child,
+  .checkin-group-table td:first-child,
+  .checkin-approval-hub table th:first-child,
+  .checkin-approval-hub table td:first-child {
+    position: sticky;
+    z-index: 2;
+    left: 0;
+    background: #ffffff;
+    box-shadow: 2px 0 5px rgba(15, 23, 42, 0.08);
+  }
+
+  .checkin-group-table thead th:first-child,
+  .checkin-approval-hub table thead th:first-child {
+    z-index: 3;
+    background: #f8fafc;
+  }
+
+  .checkin-chart,
+  .checkin-chart .apexcharts-canvas,
+  .checkin-chart svg {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Approval hub */
+  .checkin-approval-hub > div {
+    border-radius: 12px !important;
+  }
+
+  .checkin-approval-hub > div > div:first-child {
+    align-items: flex-start !important;
+    padding: 14px !important;
+    gap: 10px;
+  }
+
+  .checkin-approval-hub > div > div:first-child h2 {
+    min-width: 0;
+  }
+
+  .checkin-approval-hub > div > div:first-child a {
+    flex: 0 0 auto;
+    max-width: 45%;
+    line-height: 1.35;
+    text-align: right;
+  }
+
+  .checkin-approval-hub table {
+    min-width: 720px;
+  }
+
+  .checkin-approval-hub th,
+  .checkin-approval-hub td {
+    padding: 12px 14px !important;
+    white-space: nowrap;
+  }
+
+  /* Monthly attendance */
+  #summary-filter-form .ms-page-header {
+    width: 100%;
+    align-items: stretch !important;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  #summary-filter-form .ms-page-header > div {
+    display: grid !important;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px !important;
+  }
+
+  #summary-filter-form .ms-page-header > div > .relative:first-child {
+    grid-column: 1 / -1;
+  }
+
+  #ms-search-input {
+    width: 100% !important;
+    min-height: 40px;
+  }
+
+  #ms-from-date,
+  #ms-to-date {
+    width: 100% !important;
+    min-width: 0;
+    min-height: 40px;
+  }
+
+  #ms-filter-toggle,
+  #export-btn {
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ms-filter-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .ms-stat-row {
+    display: grid !important;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px !important;
+  }
+
+  .ms-stat-card {
+    width: auto !important;
+    min-width: 0 !important;
+    padding: 12px 8px !important;
+    flex: none !important;
+  }
+
+  .ms-stat-card__label {
+    min-height: 2.4em;
+    font-size: 0.64rem !important;
+  }
+
+  .ms-stat-card__value {
+    font-size: 1.35rem !important;
+  }
+
+  .ms-table-wrap .table-wrapper {
+    max-height: 56dvh !important;
+  }
+
+  .ms-table-wrap .fixed-table th:first-child,
+  .ms-table-wrap .fixed-table td:first-child {
+    position: static !important;
+    left: auto !important;
+  }
+
+  .ms-table-wrap .fixed-table th:nth-child(2),
+  .ms-table-wrap .fixed-table td:nth-child(2) {
+    left: 0 !important;
+    width: 165px !important;
+    min-width: 165px !important;
+  }
+
+  /* Roster and generic data tables */
+  #rosterGridContainer {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  #rosterGridContainer > .flex,
+  #rosterGridContainer .flex.flex-wrap.gap-1.items-center {
+    max-width: 100%;
+    flex-wrap: wrap !important;
+  }
+
+  #rosterGridContainer table {
+    min-width: max-content;
+  }
+
+  #rosterGridContainer table th:first-child,
+  #rosterGridContainer table td:first-child {
+    width: 170px !important;
+    min-width: 170px !important;
+  }
+
+  .heightContainer,
+  .oh-table_sticky--wrapper,
+  .oh-sticky-table {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto !important;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fixed-table th,
+  .fixed-table td {
+    white-space: nowrap;
+  }
+
+  /* Employee list: checkbox and actions scroll; Employee is the one frozen column. */
+  #employee-table .oh-sticky-table__thead .oh-sticky-table__tr > .oh-sticky-table__th:first-child,
+  #employee-table .oh-sticky-table__sd {
+    position: static !important;
+    right: auto !important;
+    left: auto !important;
+    width: 46px !important;
+    min-width: 46px !important;
+  }
+
+  #employee-table .oh-sticky-table__thead .oh-sticky-table__tr > .oh-sticky-table__th:nth-child(2),
+  #employee-table .oh-sticky-table__sd + .oh-sticky-table__td {
+    position: sticky !important;
+    z-index: 12 !important;
+    left: 0 !important;
+    width: 165px !important;
+    min-width: 165px !important;
+    background: #ffffff !important;
+    box-shadow: 2px 0 5px rgba(15, 23, 42, 0.08);
+  }
+
+  #employee-table .oh-sticky-table__thead .oh-sticky-table__tr > .oh-sticky-table__th:nth-child(2) {
+    z-index: 13 !important;
+  }
+
+  #employee-table .oh-sticky-table__right {
+    width: 250px !important;
+    min-width: 250px !important;
+  }
+
+  /* Employee profile tabs become a clean horizontal strip. */
+  #employee-tab-profile .oh-sticky-dropdown--header {
+    display: none !important;
+  }
+
+  #employee-tab-profile .oh-general__tabs--profile {
+    display: flex !important;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 1rem !important;
+    padding: 0 0 0.55rem !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  #employee-tab-profile .oh-general__tabs--profile::-webkit-scrollbar {
+    display: none;
+  }
+
+  #employee-tab-profile .oh-general__tabs--profile > li {
+    flex: 0 0 auto;
+    margin: 0 !important;
+  }
+
+  #employee-tab-profile .oh-general__tab-link {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    padding: 0.55rem 0.85rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  body.dark .checkin-group-table th:first-child,
+  body.dark .checkin-group-table td:first-child,
+  body.dark .checkin-approval-hub table th:first-child,
+  body.dark .checkin-approval-hub table td:first-child,
+  body.dark #employee-table .oh-sticky-table__sd + .oh-sticky-table__td,
+  body.dark #employee-table .oh-sticky-table__thead .oh-sticky-table__tr > .oh-sticky-table__th:nth-child(2) {
+    background: #1a1a1a !important;
+    color: #f8fafc !important;
+  }
+
+  body.dark #employee-tab-profile .oh-general__tab-link {
+    border-color: #3f3f46;
+    background: #242424;
+    color: #e5e7eb;
   }
 
   .mobile-bottom-nav {

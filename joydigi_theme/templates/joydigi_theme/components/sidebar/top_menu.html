@@ -61,5 +61,9 @@
     <img src="{% static 'images/ui/cog.svg' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
     <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Cài đặt</span>
 </a>
+<a href="{% url 'user-activity-log' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Nhật ký hoạt động" title="Nhật ký hoạt động" hx-get="{% url 'user-activity-log' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+    <ion-icon name="shield-checkmark-outline" class="w-4.5 h-4.5 flex-shrink-0 text-lg transition duration-300"></ion-icon>
+    <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Nhật ký hoạt động</span>
+</a>
 {% endif %}
 {% endwith %}

@@ -107,7 +107,7 @@
     background-color: hsl(0, 0%, 96%);
     cursor: pointer;
   }
-  /* Checkbox column (1st) — frozen while the rest of the table scrolls.
+  /* Checkbox column (1st) scrolls with the rest of the table.
      30px matches the Employee table's own checkbox column width exactly.
      Padding must stay at 4px each side (not 8px) because box-sizing is
      border-box site-wide (tailwind.css preflight) -- width:30px already
@@ -116,22 +116,19 @@
      sticky column while scrolling. */
   .ms-table-wrap .fixed-table th:first-child,
   .ms-table-wrap .fixed-table td:first-child {
-    position: sticky !important;
-    left: 0 !important;
-    z-index: 2;
+    position: static !important;
+    left: auto !important;
     width: 30px !important;
     min-width: 30px !important;
     padding: 0 4px !important;
     text-align: center !important;
     background-color: #fff !important;
   }
-  /* Employee column (2nd) — frozen right after the checkbox column.
-     `left` must match the checkbox column's actual width (30px) above,
-     or the two overlap and clip the first character of each name. */
+  /* Only the Employee column (2nd) is frozen. */
   .ms-table-wrap .fixed-table th:nth-child(2),
   .ms-table-wrap .fixed-table td:nth-child(2) {
     position: sticky !important;
-    left: 30px !important;
+    left: 0 !important;
     z-index: 2;
     width: 210px !important;
     min-width: 210px !important;
@@ -139,7 +136,6 @@
     border-right: none !important;
     box-shadow: 2px 0 4px rgba(0,0,0,.06);
   }
-  .ms-table-wrap .fixed-table thead th:first-child,
   .ms-table-wrap .fixed-table thead th:nth-child(2) {
     z-index: 6;
   }
@@ -172,17 +168,15 @@
   .ms-table-wrap .fixed-table tbody tr.highlight-selected td {
     background-color: color-mix(in srgb, var(--primary-600, #E54F38) 12%, transparent) !important;
   }
-  /* The two STICKY columns (checkbox + Employee) must stay fully opaque —
+  /* The Employee column must stay fully opaque -
      a semi-transparent background on a `position: sticky` cell lets the
      non-sticky columns scrolled underneath it show through, which reads as
      the sticky column "overlapping" the rest of the row while scrolling.
      Mixing into the row's own opaque background (white / #1a1a1a) instead
      of transparent gives the same visible tint, pre-composited and opaque. */
-  .ms-table-wrap .fixed-table tbody tr.highlight-selected td:first-child,
   .ms-table-wrap .fixed-table tbody tr.highlight-selected td:nth-child(2) {
     background-color: color-mix(in srgb, var(--primary-600, #E54F38) 12%, white) !important;
   }
-  body.dark .ms-table-wrap .fixed-table tbody tr.highlight-selected td:first-child,
   body.dark .ms-table-wrap .fixed-table tbody tr.highlight-selected td:nth-child(2) {
     background-color: color-mix(in srgb, var(--primary-600, #E54F38) 12%, #1a1a1a) !important;
   }

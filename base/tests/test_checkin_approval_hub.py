@@ -90,6 +90,13 @@ class CheckInApprovalHubTests(TestCase):
         )
         self.assertContains(response, "Đã duyệt")
 
+    def test_full_leave_request_page_is_available(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.get(reverse("request-view"))
+
+        self.assertEqual(response.status_code, 200)
+
     def test_checkin_and_holiday_pages_use_standalone_layout(self):
         self.client.force_login(self.admin_user)
 

@@ -3,6 +3,13 @@ from django.urls import resolve, reverse
 
 
 class Custom404Tests(TestCase):
+    def test_leave_request_route_is_registered_before_404_fallback(self):
+        url = reverse("request-view")
+        match = resolve(url)
+
+        self.assertEqual(url, "/leave/request-view/")
+        self.assertEqual(match.view_name, "request-view")
+
     def test_monthly_attendance_route_is_registered_before_404_fallback(self):
         url = reverse("attendance-monthly-summary")
         match = resolve(url)

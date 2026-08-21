@@ -72,6 +72,10 @@ urlpatterns = [
     path("", include("joydigi_views.urls")),
     path("", include("joydigi_audit.urls")),
     path("employee/", include("employee.urls")),
+    # LeaveConfig registers these dynamically after this module has loaded.
+    # Keep the retained leave/request workflow reachable before the custom
+    # catch-all 404 route.
+    path("leave/", include("leave.urls")),
     # Register attendance routes before the custom 404 fallback.  The
     # AttendanceConfig also registers these routes dynamically, but that runs
     # after this module is loaded; routes appended after the catch-all pattern

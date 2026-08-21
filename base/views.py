@@ -169,7 +169,12 @@ from base.models import (
     WorkTypeRequest,
     WorkTypeRequestComment,
 )
-from base.roles import STANDARD_ROLE_NAMES, ensure_standard_roles, is_checkin_admin
+from base.roles import (
+    STANDARD_ROLE_NAMES,
+    ensure_standard_roles,
+    is_checkin_admin,
+    is_checkin_leader,
+)
 from employee.filters import EmployeeFilter
 from employee.forms import ActiontypeForm, EmployeeGeneralSettingPrefixForm
 from employee.models import (
@@ -1200,7 +1205,11 @@ def home(request):
     """
     This method is used to render index page — redirects to the modern dashboard.
     """
-    return redirect("dashboard")
+    if is_checkin_admin(request.user):
+        return redirect("dashboard")
+    if is_checkin_leader(request.user):
+        return redirect("today-attendance")
+    return redirect("view-my-attendance")
 
 
 @login_required

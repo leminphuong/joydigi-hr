@@ -50,9 +50,12 @@ class ThreadLocalMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        previous_request = getattr(_thread_locals, "request", None)
         _thread_locals.request = request
-        response = self.get_response(request)
-        return response
+        try:
+            return self.get_response(request)
+        finally:
+            _thread_locals.request = previous_request
 
 
 class MethodNotAllowedMiddleware:

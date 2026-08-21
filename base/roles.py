@@ -57,6 +57,60 @@ def is_checkin_leader(user):
     return is_checkin_admin(user) or user_has_role(user, LEADER_ROLE)
 
 
+def is_checkin_employee(user):
+    """Mọi tài khoản nhân sự đều có quyền tự phục vụ cá nhân."""
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    return bool(
+        is_checkin_leader(user)
+        or user_has_role(user, EMPLOYEE_ROLE)
+        or getattr(user, "employee_get", None)
+    )
+
+
+def assign_default_employee_role(employee, company=None):
+    """Gán vai trò Nhân viên nếu tài khoản chưa có vai trò tại công ty."""
+    user = getattr(employee, "employee_user_id", None)
+    if user is None:
+        return False
+    if getattr(user, "is_superuser", False):
+        return False
+
+    ensure_standard_roles()
+    employee_group = Group.objects.filter(name=EMPLOYEE_ROLE).first()
+    if employee_group is None:
+        return False
+
+    if company is None:
+        company = getattr(
+            getattr(employee, "employee_work_info", None), "company_id", None
+        )
+
+    if company is None:
+        if not user.groups.filter(name__in=STANDARD_ROLE_NAMES).exists():
+            user.groups.add(employee_group)
+            return True
+        return False
+
+    from base.models import CompanyGroupAssignment
+
+    has_role = CompanyGroupAssignment.objects.filter(
+        user=user,
+        company=company,
+        group__name__in=STANDARD_ROLE_NAMES,
+    ).exists()
+    if has_role:
+        return False
+
+    _, created = CompanyGroupAssignment.objects.get_or_create(
+        user=user,
+        company=company,
+        group=employee_group,
+    )
+    CompanyGroupAssignment.sync_user_group_membership(user, employee_group)
+    return created
+
+
 def _role_required(checker, message):
     def decorator(view_func):
         @wraps(view_func)

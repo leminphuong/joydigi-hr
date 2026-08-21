@@ -338,6 +338,18 @@ class CompanyMiddleware:
         return clamped if clamped is not None else "all"
 
     def __call__(self, request):
+        """Giới hạn ngữ cảnh người dùng/công ty trong đúng một request."""
+        from joydigi.joydigi_middlewares import get_selected_company
+
+        previous_request = getattr(_thread_locals, "request", None)
+        previous_company = get_selected_company()
+        try:
+            return self._handle_request(request)
+        finally:
+            _thread_locals.request = previous_request
+            set_selected_company(previous_company)
+
+    def _handle_request(self, request):
         # ✅ make request globally accessible (safe)
         _thread_locals.request = request
 

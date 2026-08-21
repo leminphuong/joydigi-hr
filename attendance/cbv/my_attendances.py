@@ -183,6 +183,9 @@ class MyAttendancesDetailView(JoydigiDetailedView):
 
     model = Attendance
 
+    def get_queryset(self):
+        return super().get_queryset().filter(employee_id=self.request.user.employee_get)
+
     title = _("Details")
 
     header = {

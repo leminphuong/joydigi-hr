@@ -987,7 +987,12 @@ class LeaveRequest(JoydigiModel):
         ordering = ["-id"]
         verbose_name = _("Leave Request")
         verbose_name_plural = _("Leave Requests")
-        permissions = (("can_view_on_leave", "Can View On Leave"),)
+        permissions = (
+            ("can_view_on_leave", "Can View On Leave"),
+            ("view_own_leave_request", "Xem đơn của mình"),
+            ("add_own_leave_request", "Gửi đơn của mình"),
+            ("change_own_leave_request", "Sửa hoặc hủy đơn của mình"),
+        )
 
     def comment_action(self):
         """

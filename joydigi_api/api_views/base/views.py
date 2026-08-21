@@ -1,6 +1,6 @@
 from typing import Any
 
-from django.http import HttpResponse
+from django.http import HttpResponse, QueryDict
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django_filters.rest_framework import DjangoFilterBackend
@@ -359,6 +359,20 @@ class WorkTypeRequestView(APIView):
             work_type_request = object_check(WorkTypeRequest, pk)
             if work_type_request is None:
                 return Response({"error": _("WorkTypeRequest not found")}, status=404)
+            is_owner = work_type_request.employee_id == request.user.employee_get
+            if not (
+                is_owner
+                or is_reportingmanger(request, work_type_request)
+                or request.user.has_perm("base.view_worktyperequest")
+            ):
+                return Response(
+                    {
+                        "error": _(
+                            "You do not have permission to view this work type request."
+                        )
+                    },
+                    status=403,
+                )
             serializer = self.serializer_class(work_type_request)
             return Response(serializer.data, status=200)
         # permission based queryset
@@ -381,7 +395,13 @@ class WorkTypeRequestView(APIView):
         return paginater.get_paginated_response(serializer.data)
 
     def post(self, request):
-        serializer = self.serializer_class(data=request.data)
+        data = request.data
+        if isinstance(data, QueryDict):
+            data = data.dict()
+        else:
+            data = dict(data)
+        data["employee_id"] = request.user.employee_get.id
+        serializer = self.serializer_class(data=data)
         if serializer.is_valid():
             instance = serializer.save()
             try:
@@ -643,16 +663,23 @@ class IndividualWorkTypeRequestView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk=None):
-        if individual_permssion_check(request) == False:
-            return Response({"error": _("you have no permssion to view")}, status=400)
-
         # individual object workflow
         if pk:
             work_type_request = object_check(WorkTypeRequest, pk)
             if work_type_request is None:
                 return Response({"error": _("WorkTypeRequest not found")}, status=404)
+            is_owner = work_type_request.employee_id == request.user.employee_get
+            if not (
+                is_owner
+                or is_reportingmanger(request, work_type_request)
+                or request.user.has_perm("base.view_worktyperequest")
+            ):
+                return Response({"error": _("you have no permssion to view")}, status=400)
             serializer = self.serializer_class(work_type_request)
             return Response(serializer.data, status=200)
+
+        if individual_permssion_check(request) == False:
+            return Response({"error": _("you have no permssion to view")}, status=400)
         employee_id = request.GET.get("employee_id", None)
         work_type_request = WorkTypeRequest.objects.filter(employee_id=employee_id)
         paginater = PageNumberPagination()
@@ -910,15 +937,22 @@ class IndividualShiftRequestView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk=None):
-        if individual_permssion_check(request) == False:
-            return Response({"error": _("you have no permssion to view")}, status=400)
-
         if pk:
             shift_request = object_check(ShiftRequest, pk)
             if shift_request is None:
                 return Response({"error": _("EmployeeShift not found")}, status=404)
+            is_owner = shift_request.employee_id == request.user.employee_get
+            if not (
+                is_owner
+                or is_reportingmanger(request, shift_request)
+                or request.user.has_perm("base.view_shiftrequest")
+            ):
+                return Response({"error": _("you have no permssion to view")}, status=400)
             serializer = self.serializer_class(shift_request)
             return Response(serializer.data, status=200)
+
+        if individual_permssion_check(request) == False:
+            return Response({"error": _("you have no permssion to view")}, status=400)
         employee_id = request.GET.get("employee_id", None)
         shift_requests = ShiftRequest.objects.filter(employee_id=employee_id)
         paginater = PageNumberPagination()
@@ -951,6 +985,20 @@ class ShiftRequestView(APIView):
             shift_request = object_check(ShiftRequest, pk)
             if shift_request is None:
                 return Response({"error": _("ShiftRequest not found")}, status=404)
+            is_owner = shift_request.employee_id == request.user.employee_get
+            if not (
+                is_owner
+                or is_reportingmanger(request, shift_request)
+                or request.user.has_perm("base.view_shiftrequest")
+            ):
+                return Response(
+                    {
+                        "error": _(
+                            "You do not have permission to view this shift request."
+                        )
+                    },
+                    status=403,
+                )
             serializer = self.serializer_class(shift_request)
             return Response(serializer.data, status=200)
         # filter section
@@ -972,7 +1020,13 @@ class ShiftRequestView(APIView):
         return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
-        serializer = self.serializer_class(data=request.data)
+        data = request.data
+        if isinstance(data, QueryDict):
+            data = data.dict()
+        else:
+            data = dict(data)
+        data["employee_id"] = request.user.employee_get.id
+        serializer = self.serializer_class(data=data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=201)

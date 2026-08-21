@@ -236,6 +236,9 @@ class MyLeaveRequestDetailView(JoydigiDetailedView):
     """
 
     model = LeaveRequest
+
+    def get_queryset(self):
+        return super().get_queryset().filter(employee_id=self.request.user.employee_get)
     title = _("Details")
     header = {
         "title": "employee_id__get_full_name",

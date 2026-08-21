@@ -15,6 +15,7 @@ from itertools import chain
 
 import pandas as pd
 from django.conf import settings
+from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.utils.translation import gettext_lazy as _

@@ -371,6 +371,8 @@ class Attendance(JoydigiModel):
         permissions = [
             ("change_validateattendance", "Validate Attendance"),
             ("change_approveovertime", "Change Approve Overtime"),
+            ("clock_in_out", "Chấm công vào và ra"),
+            ("view_own_attendance", "Xem bảng công cá nhân"),
         ]
         ordering = [
             "-attendance_date",

@@ -1,6 +1,17 @@
 {% load static basefilters %}
 {% with checkin_admin=request.user|is_checkin_admin checkin_leader=request.user|is_checkin_leader %}
 
+{% if not checkin_leader %}
+<a href="{% url 'view-my-attendance' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Bảng công của tôi" hx-get="{% url 'view-my-attendance' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+    <img src="{% static 'images/ui/attendance.png' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
+    <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Bảng công của tôi</span>
+</a>
+<a href="{% url 'user-request-view' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Đơn của tôi" hx-get="{% url 'user-request-view' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+    <img src="{% static 'images/ui/leave.svg' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
+    <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Đơn của tôi</span>
+</a>
+{% endif %}
+
 {% if checkin_admin %}
 <a href="{% url 'dashboard' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Trang tổng quan" hx-get="{% url 'dashboard' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
     <img src="{% static 'images/ui/dashboard.svg' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">

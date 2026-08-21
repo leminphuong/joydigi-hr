@@ -280,6 +280,16 @@ _DEFAULT_HRMS_GROUPS = {
 # Hệ thống chấm công chỉ dùng ba vai trò cố định. Cấu hình cũ ở trên được giữ
 # để các bản nâng cấp còn đọc được dữ liệu lịch sử, nhưng không tạo lại các vai
 # trò theo từng phân hệ đã loại bỏ.
+_EMPLOYEE_SELF_PERMISSIONS = (
+    ("employee", "view_ownprofile"),
+    ("employee", "change_ownprofile"),
+    ("attendance", "clock_in_out"),
+    ("attendance", "view_own_attendance"),
+    ("leave", "view_own_leave_request"),
+    ("leave", "add_own_leave_request"),
+    ("leave", "change_own_leave_request"),
+)
+
 _CHECKIN_ROLE_GROUPS = {
     "Quản trị viên": {
         "apps": "__all__",
@@ -288,10 +298,13 @@ _CHECKIN_ROLE_GROUPS = {
     "Trưởng nhóm": {
         "apps": (),
         "actions": (),
+        # Trưởng nhóm vẫn có đầy đủ quyền cá nhân như Nhân viên.
+        "permissions": _EMPLOYEE_SELF_PERMISSIONS,
     },
     "Nhân viên": {
         "apps": (),
         "actions": (),
+        "permissions": _EMPLOYEE_SELF_PERMISSIONS,
     },
 }
 
@@ -366,6 +379,14 @@ def _resolve_group_permissions(config):
                 ).values_list("id", flat=True)
             )
 
+    for app_label, codename in config.get("permissions", ()):
+        permission_ids.extend(
+            Permission.objects.filter(
+                content_type__app_label=app_label,
+                codename=codename,
+            ).values_list("id", flat=True)
+        )
+
     # Admin also needs Django auth group/permission management
     if config.get("apps") == "__all__" and _is_app_available("auth"):
         permission_ids.extend(
@@ -389,6 +410,24 @@ def _resolve_group_permissions(config):
         )
 
     return Permission.objects.filter(id__in=set(permission_ids))
+
+
+@receiver(post_save, sender="employee.Employee")
+def assign_employee_role_after_employee_save(sender, instance, **kwargs):
+    """Tài khoản nhân sự mới mặc định thuộc vai trò Nhân viên."""
+    from base.roles import assign_default_employee_role
+
+    assign_default_employee_role(instance)
+
+
+@receiver(post_save, sender="employee.EmployeeWorkInformation")
+def assign_employee_role_after_work_info_save(sender, instance, **kwargs):
+    """Gắn quyền Nhân viên vào đúng công ty khi hồ sơ công việc được lưu."""
+    from base.roles import assign_default_employee_role
+
+    employee = getattr(instance, "employee_id", None)
+    if employee is not None:
+        assign_default_employee_role(employee, company=instance.company_id)
 
 
 def _sync_export_permissions():

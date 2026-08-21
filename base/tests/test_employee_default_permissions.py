@@ -93,6 +93,18 @@ class EmployeeDefaultPermissionsTests(TestCase):
         self.assertNotIn(reverse("approval-hub"), menu_html)
         self.assertNotIn(reverse("settings"), menu_html)
 
+        mobile_menu_html = render_to_string(
+            "joydigi_theme/components/mobile_bottom_menu.html",
+            request=page.wsgi_request,
+        )
+        self.assertIn(reverse("view-my-attendance"), mobile_menu_html)
+        self.assertIn(reverse("user-request-view"), mobile_menu_html)
+        self.assertIn(reverse("bulletin"), mobile_menu_html)
+        self.assertIn(reverse("employee-profile"), mobile_menu_html)
+        self.assertNotIn(reverse("dashboard"), mobile_menu_html)
+        self.assertNotIn(reverse("approval-hub"), mobile_menu_html)
+        self.assertNotIn(reverse("settings"), mobile_menu_html)
+
     def test_employee_cannot_open_another_employees_attendance_detail(self):
         coworker = make_employee(
             company=self.company,

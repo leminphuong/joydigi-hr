@@ -296,6 +296,14 @@ class CheckInApprovalHubTests(TestCase):
         )
         self.assertEqual(resolution.resolution, "full_present")
 
+    def test_monthly_attendance_page_is_available(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.get(reverse("attendance-monthly-summary"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Bảng chấm công tháng")
+
     def test_setup_checklist_does_not_show_mail_server(self):
         request = self.client.request().wsgi_request
         request.user = self.admin_user

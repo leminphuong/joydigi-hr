@@ -72,6 +72,11 @@ urlpatterns = [
     path("", include("joydigi_views.urls")),
     path("", include("joydigi_audit.urls")),
     path("employee/", include("employee.urls")),
+    # Register attendance routes before the custom 404 fallback.  The
+    # AttendanceConfig also registers these routes dynamically, but that runs
+    # after this module is loaded; routes appended after the catch-all pattern
+    # can never be reached.
+    path("attendance/", include("attendance.urls")),
     path("joydigi-widget/", include("joydigi_widgets.urls")),
     re_path(
         "^inbox/notifications/", include(notifications.urls, namespace="notifications")

@@ -1,7 +1,15 @@
 from django.test import TestCase, override_settings
+from django.urls import resolve, reverse
 
 
 class Custom404Tests(TestCase):
+    def test_monthly_attendance_route_is_registered_before_404_fallback(self):
+        url = reverse("attendance-monthly-summary")
+        match = resolve(url)
+
+        self.assertEqual(url, "/attendance/monthly-summary/")
+        self.assertEqual(match.view_name, "attendance-monthly-summary")
+
     def test_unknown_path_uses_custom_page_while_debug_is_enabled(self):
         response = self.client.get("/emplwdq")
 

@@ -1,9 +1,10 @@
+import calendar
 from datetime import date, datetime, timedelta, timezone
 
 from django import template
 from django.conf import settings
 from django.core.mail import EmailMessage
-from django.db.models import Case, CharField, F, Value, When
+from django.db.models import Case, CharField, F, Q, Value, When
 from django.http import QueryDict
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
@@ -14,7 +15,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from attendance.models import Attendance, AttendanceActivity, EmployeeShiftDay
+from attendance.models import (
+    Attendance,
+    AttendanceActivity,
+    AttendanceLateComeEarlyOut,
+    EmployeeShiftDay,
+)
 from attendance.views.clock_in_out import *
 from attendance.views.clock_in_out import clock_out
 from attendance.views.dashboard import (
@@ -24,9 +30,10 @@ from attendance.views.dashboard import (
 )
 from attendance.views.views import *
 from base.backends import ConfiguredEmailBackend
-from base.methods import generate_pdf, is_reportingmanager
+from base.methods import generate_pdf, is_company_leave, is_holiday, is_reportingmanager
 from base.models import JoydigiMailTemplate
 from employee.filters import EmployeeFilter
+from leave.models import LeaveRequest
 
 from ...api_decorators.base.decorators import (
     manager_permission_required,
@@ -1122,4 +1129,127 @@ class UserAttendanceDetailedView(APIView):
             return Response(serializer.data, status=200)
         return Response(
             {"error": _("Permission denied")}, status=status.HTTP_403_FORBIDDEN
+        )
+
+
+class TimesheetMonthView(APIView):
+    """
+    Read-only monthly timesheet aggregation for the authenticated
+    employee (Phase 3A). One request instead of the client stitching
+    together `my-attendance/`, an employee-scoped late/early query, and
+    approved leave itself.
+
+    Employee is always derived from `request.user.employee_get` — never
+    from a client-supplied id. This is deliberate: the Phase 3A backend
+    audit found `LateComeEarlyOutView` (`late-come-early-out-view/`)
+    accepts an arbitrary `employee_id` query param with no ownership
+    check, letting any authenticated user read another employee's
+    late/early records. This view does not reuse that endpoint or its
+    filter — it queries `AttendanceLateComeEarlyOut` directly, scoped
+    to `employee_id=employee` set server-side.
+
+    Holiday/company-leave-day detection reuses the same real backend
+    logic the `Attendance` model itself uses (`base.methods.is_holiday`
+    and `base.methods.is_company_leave`) rather than guessing at
+    weekday/weekend rules.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        employee = request.user.employee_get
+
+        try:
+            year = int(request.GET["year"])
+            month = int(request.GET["month"])
+        except (KeyError, TypeError, ValueError):
+            return Response(
+                {"error": _("year and month are required integers.")}, status=400
+            )
+        if not (1 <= month <= 12) or not (2000 <= year <= 2100):
+            return Response({"error": _("Invalid year or month.")}, status=400)
+
+        last_day = calendar.monthrange(year, month)[1]
+        month_start = date(year, month, 1)
+        month_end = date(year, month, last_day)
+
+        attendance_by_date = {
+            a.attendance_date: a
+            for a in Attendance.objects.filter(
+                employee_id=employee,
+                attendance_date__gte=month_start,
+                attendance_date__lte=month_end,
+            )
+        }
+
+        late_early_qs = AttendanceLateComeEarlyOut.objects.filter(
+            employee_id=employee,
+            attendance_id__attendance_date__gte=month_start,
+            attendance_id__attendance_date__lte=month_end,
+        ).values_list("attendance_id__attendance_date", "type")
+        late_dates = {d for d, t in late_early_qs if t == "late_come"}
+        early_dates = {d for d, t in late_early_qs if t == "early_out"}
+
+        approved_leaves = LeaveRequest.objects.filter(
+            employee_id=employee, status="approved", start_date__lte=month_end
+        ).filter(Q(end_date__gte=month_start) | Q(end_date__isnull=True))
+        leave_dates = set()
+        for leave_request in approved_leaves:
+            span_start = max(leave_request.start_date, month_start)
+            span_end = min(leave_request.end_date or leave_request.start_date, month_end)
+            current = span_start
+            while current <= span_end:
+                leave_dates.add(current)
+                current += timedelta(days=1)
+
+        days = []
+        present_days = 0
+        worked_seconds_total = 0
+        overtime_seconds_total = 0
+        current = month_start
+        while current <= month_end:
+            attendance = attendance_by_date.get(current)
+            holiday = is_holiday(current, employee)
+            company_leave = is_company_leave(current)
+            days.append(
+                {
+                    "date": current.isoformat(),
+                    "checkIn": attendance.attendance_clock_in.isoformat()
+                    if attendance and attendance.attendance_clock_in
+                    else None,
+                    "checkOut": attendance.attendance_clock_out.isoformat()
+                    if attendance and attendance.attendance_clock_out
+                    else None,
+                    "workedHour": attendance.attendance_worked_hour
+                    if attendance
+                    else None,
+                    "overtime": attendance.attendance_overtime if attendance else None,
+                    "isHoliday": bool(holiday),
+                    "isCompanyLeave": bool(company_leave),
+                    "isLate": current in late_dates,
+                    "isEarly": current in early_dates,
+                    "isLeave": current in leave_dates,
+                    "isValidated": attendance.attendance_validated
+                    if attendance
+                    else None,
+                }
+            )
+            if attendance:
+                present_days += 1
+                worked_seconds_total += attendance.at_work_second or 0
+                overtime_seconds_total += attendance.overtime_second or 0
+            current += timedelta(days=1)
+
+        summary = {
+            "presentDays": present_days,
+            "leaveDays": len(leave_dates),
+            "lateCount": len(late_dates),
+            "earlyCount": len(early_dates),
+            "workedSeconds": worked_seconds_total,
+            "overtimeSeconds": overtime_seconds_total,
+        }
+
+        return Response(
+            {"year": year, "month": month, "summary": summary, "days": days},
+            status=200,
         )

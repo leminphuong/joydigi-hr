@@ -1,4 +1,4 @@
-{% load static i18n joydigifilters %}
+{% load static i18n joydigifilters basefilters %}
 {% get_company as theme_obj %}
 {% if notifications %}
     {% for notification in notifications %}
@@ -36,12 +36,12 @@
                     </p>
                 {% else %}
                     <p class="oh-navbar__notification-text" class="oh-navbar__notification-text--unread">
-                        {{ notification.verb }}
+                        {{ notification.verb|notification_text_vi }}
                     </p>
                 {% endif %}
             </h5>
             <p class="text-xs text-[#777777] mt-1 flex">
-                {{ notification.timesince }} {% trans "ago by " %}
+                {{ notification.timestamp|relative_time_vi }} · bởi&nbsp;
                 <b>
                     {{ notification.actor.get_full_name }}</b>
             </p>
@@ -55,7 +55,7 @@
             width="40"
             class="mx-auto mb-3"
         >
-        <h5 class="text-center font-semibold mb-1">{% trans "All Caught Up!" %}</h5>
-        <p class="text-center text-sm">{% trans "You have no new notifications at the moment" %}</p>
+        <h5 class="text-center font-semibold mb-1">Bạn đã xem hết thông báo!</h5>
+        <p class="text-center text-sm">Hiện tại bạn không có thông báo mới.</p>
     </div>
 {% endif %}

@@ -669,14 +669,17 @@ $(document).on("htmx:afterSettle", function (event) {
     if (bulk_select_option) {
         $scope.find('tr').each(function () {
             const $cells = $(this).find('th, td');
-            if ($cells.length > 0) {
-                $cells.eq(0).addClass('stickyleft');
-                $cells.eq(1).addClass('stickyleft-second');
+            $cells.removeClass('stickyleft stickyleft-second');
+            if ($cells.length > 1) {
+                // The checkbox scrolls with the table. Only the first
+                // information column stays visible on narrow screens.
+                $cells.eq(1).addClass('stickyleft');
             }
         });
     } else {
         $scope.find('tr').each(function () {
             const $cells = $(this).find('th, td');
+            $cells.removeClass('stickyleft stickyleft-second');
             if ($cells.length > 0) {
                 $cells.eq(0).addClass('stickyleft');
             }

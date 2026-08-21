@@ -377,6 +377,35 @@ def _settings_instance(model, raw_id, company):
     return model.objects.filter(pk=object_id, company_id=company).first()
 
 
+def _checkin_settings_context(
+    company,
+    *,
+    policy_form=None,
+    location_form=None,
+    wifi_form=None,
+    location_instance=None,
+    wifi_instance=None,
+    success_message="",
+):
+    policy, _ = CheckInPolicy.objects.get_or_create(company_id=company)
+    return {
+        "company": company,
+        "policy_form": policy_form or CheckInPolicyForm(instance=policy),
+        "location_form": location_form or CheckInLocationForm(instance=location_instance),
+        "wifi_form": wifi_form or OfficeWifiForm(instance=wifi_instance),
+        "location_instance": location_instance,
+        "wifi_instance": wifi_instance,
+        "locations": CheckInLocation.objects.filter(company_id=company),
+        "wifi_networks": OfficeWifi.objects.filter(company_id=company),
+        "success_message": success_message,
+    }
+
+
+def _render_checkin_settings(request, context):
+    """Trả trang cài đặt; HTMX tự lấy riêng vùng nội dung cần cập nhật."""
+    return render(request, "checkin/settings.html", context)
+
+
 @login_required
 @checkin_admin_required
 def checkin_settings(request):
@@ -401,6 +430,13 @@ def checkin_settings(request):
             if form.is_valid():
                 saved_policy = form.save()
                 _sync_annual_leave(company, saved_policy.annual_leave_days)
+                if request.headers.get("HX-Target") == "checkinSettingsContent":
+                    return _render_checkin_settings(
+                        request,
+                        _checkin_settings_context(
+                            company, success_message="Đã lưu quy định chấm công."
+                        ),
+                    )
                 messages.success(request, "Đã lưu quy định chấm công.")
                 return redirect("checkin-settings")
         elif action == "location":
@@ -412,6 +448,13 @@ def checkin_settings(request):
                 obj = form.save(commit=False)
                 obj.company_id = company
                 obj.save()
+                if request.headers.get("HX-Target") == "checkinSettingsContent":
+                    return _render_checkin_settings(
+                        request,
+                        _checkin_settings_context(
+                            company, success_message="Đã lưu địa điểm chấm công."
+                        ),
+                    )
                 messages.success(request, "Đã lưu địa điểm chấm công.")
                 return redirect("checkin-settings")
             location_instance = instance
@@ -424,20 +467,22 @@ def checkin_settings(request):
                 obj = form.save(commit=False)
                 obj.company_id = company
                 obj.save()
+                if request.headers.get("HX-Target") == "checkinSettingsContent":
+                    return _render_checkin_settings(
+                        request,
+                        _checkin_settings_context(
+                            company, success_message="Đã lưu Wi-Fi văn phòng."
+                        ),
+                    )
                 messages.success(request, "Đã lưu Wifi văn phòng.")
                 return redirect("checkin-settings")
             wifi_instance = instance
 
-    context = {
-        "company": company,
-        "policy_form": CheckInPolicyForm(instance=policy),
-        "location_form": CheckInLocationForm(instance=location_instance),
-        "wifi_form": OfficeWifiForm(instance=wifi_instance),
-        "location_instance": location_instance,
-        "wifi_instance": wifi_instance,
-        "locations": CheckInLocation.objects.filter(company_id=company),
-        "wifi_networks": OfficeWifi.objects.filter(company_id=company),
-    }
+    context = _checkin_settings_context(
+        company,
+        location_instance=location_instance,
+        wifi_instance=wifi_instance,
+    )
     if request.method == "POST":
         if request.POST.get("action") == "policy":
             context["policy_form"] = form
@@ -445,7 +490,7 @@ def checkin_settings(request):
             context["location_form"] = form
         elif request.POST.get("action") == "wifi":
             context["wifi_form"] = form
-    return render(request, "checkin/settings.html", context)
+    return _render_checkin_settings(request, context)
 
 
 @login_required
@@ -454,7 +499,15 @@ def checkin_settings(request):
 def delete_checkin_location(request, pk):
     if not _can_manage_settings(request):
         return HttpResponseForbidden("Bạn không có quyền thực hiện thao tác này.")
-    get_object_or_404(CheckInLocation, pk=pk, company_id=_current_company(request)).delete()
+    company = _current_company(request)
+    get_object_or_404(CheckInLocation, pk=pk, company_id=company).delete()
+    if request.headers.get("HX-Target") == "checkinSettingsContent":
+        return _render_checkin_settings(
+            request,
+            _checkin_settings_context(
+                company, success_message="Đã xóa địa điểm chấm công."
+            ),
+        )
     messages.success(request, "Đã xóa địa điểm chấm công.")
     return redirect("checkin-settings")
 
@@ -465,6 +518,12 @@ def delete_checkin_location(request, pk):
 def delete_office_wifi(request, pk):
     if not _can_manage_settings(request):
         return HttpResponseForbidden("Bạn không có quyền thực hiện thao tác này.")
-    get_object_or_404(OfficeWifi, pk=pk, company_id=_current_company(request)).delete()
+    company = _current_company(request)
+    get_object_or_404(OfficeWifi, pk=pk, company_id=company).delete()
+    if request.headers.get("HX-Target") == "checkinSettingsContent":
+        return _render_checkin_settings(
+            request,
+            _checkin_settings_context(company, success_message="Đã xóa Wi-Fi văn phòng."),
+        )
     messages.success(request, "Đã xóa Wifi văn phòng.")
     return redirect("checkin-settings")

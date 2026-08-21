@@ -4,6 +4,7 @@ models.py
 
 from collections.abc import Iterable
 
+from django.conf import settings
 from django.db import models
 from django.dispatch import receiver
 from django.urls import reverse_lazy
@@ -400,3 +401,65 @@ class AuditModelConfig(JoydigiModel):
     @property
     def dotted_path(self):
         return f"{self.app_label}.{self.model_name}"
+
+
+class UserActivityLog(models.Model):
+    """Nhật ký tập trung cho mọi thao tác của người dùng đã đăng nhập."""
+
+    ROLE_ADMIN = "admin"
+    ROLE_LEADER = "leader"
+    ROLE_EMPLOYEE = "employee"
+    ROLE_CHOICES = (
+        (ROLE_ADMIN, "Quản trị viên"),
+        (ROLE_LEADER, "Trưởng nhóm"),
+        (ROLE_EMPLOYEE, "Nhân viên"),
+    )
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="activity_logs",
+        verbose_name="Tài khoản",
+    )
+    company = models.ForeignKey(
+        "base.Company",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="user_activity_logs",
+        verbose_name="Công ty",
+    )
+    actor_name = models.CharField(max_length=255, verbose_name="Người thao tác")
+    actor_email = models.EmailField(blank=True, verbose_name="Thư điện tử")
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default=ROLE_EMPLOYEE,
+        db_index=True,
+        verbose_name="Vai trò",
+    )
+    action = models.CharField(max_length=255, verbose_name="Thao tác")
+    resource = models.CharField(max_length=255, blank=True, verbose_name="Chức năng")
+    method = models.CharField(max_length=10, db_index=True, verbose_name="Phương thức")
+    path = models.CharField(max_length=500, verbose_name="Đường dẫn")
+    route_name = models.CharField(max_length=150, blank=True, verbose_name="Tên đường dẫn")
+    status_code = models.PositiveSmallIntegerField(default=200, verbose_name="Kết quả")
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="Địa chỉ mạng")
+    user_agent = models.CharField(max_length=500, blank=True, verbose_name="Thiết bị")
+    duration_ms = models.PositiveIntegerField(default=0, verbose_name="Thời gian xử lý (ms)")
+    details = models.JSONField(default=dict, blank=True, verbose_name="Chi tiết")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Thời điểm")
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+        verbose_name = "Nhật ký hoạt động"
+        verbose_name_plural = "Nhật ký hoạt động"
+        indexes = [
+            models.Index(fields=("company", "-created_at"), name="activity_company_time"),
+            models.Index(fields=("user", "-created_at"), name="activity_user_time"),
+        ]
+
+    def __str__(self):
+        return f"{self.actor_name} - {self.action}"

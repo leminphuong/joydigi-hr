@@ -1,0 +1,140 @@
+{% extends "index.html" %}
+
+{% block content %}
+<style>
+    .activity-page {
+        --al-bg: #f4f7fb;
+        --al-card: #ffffff;
+        --al-soft: #f8fafc;
+        --al-border: #e2e8f0;
+        --al-text: #0f172a;
+        --al-muted: #64748b;
+        --al-primary: #2563eb;
+        min-height: 100%;
+        padding: 24px;
+        color: var(--al-text);
+        background: var(--al-bg);
+    }
+    .activity-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+    .activity-title { margin: 0; font-size: 24px; line-height: 1.25; font-weight: 850; }
+    .activity-description { margin: 6px 0 0; color: var(--al-muted); font-size: 13px; }
+    .activity-live { display: inline-flex; align-items: center; gap: 7px; padding: 8px 11px; border: 1px solid #bbf7d0; border-radius: 999px; color: #15803d; background: #f0fdf4; font-size: 11px; font-weight: 800; white-space: nowrap; }
+    .activity-live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,.13); }
+    .activity-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .activity-stat { display: flex; align-items: center; gap: 12px; padding: 15px 16px; border: 1px solid var(--al-border); border-radius: 15px; background: var(--al-card); box-shadow: 0 7px 20px rgba(15,23,42,.035); }
+    .activity-stat__icon { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; border-radius: 12px; color: #2563eb; background: #eff6ff; font-size: 20px; }
+    .activity-stat:nth-child(2) .activity-stat__icon { color: #7c3aed; background: #f5f3ff; }
+    .activity-stat:nth-child(3) .activity-stat__icon { color: #dc2626; background: #fef2f2; }
+    .activity-stat strong { display: block; font-size: 21px; line-height: 1.1; }
+    .activity-stat span { display: block; margin-top: 4px; color: var(--al-muted); font-size: 11px; }
+    .activity-card { overflow: hidden; border: 1px solid var(--al-border); border-radius: 16px; background: var(--al-card); box-shadow: 0 8px 26px rgba(15,23,42,.04); }
+    .activity-filters { display: grid; grid-template-columns: minmax(220px, 1fr) 180px 150px 165px auto; gap: 10px; padding: 15px; border-bottom: 1px solid var(--al-border); background: var(--al-soft); }
+    .activity-control { min-width: 0; height: 42px; padding: 0 12px; border: 1px solid var(--al-border); border-radius: 10px; outline: none; color: var(--al-text); background: var(--al-card); font-size: 13px; }
+    .activity-control:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(37,99,235,.11); }
+    .activity-filter-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 42px; padding: 0 17px; border: 0; border-radius: 10px; color: #fff; background: linear-gradient(135deg, #2563eb, #3b82f6); font-size: 12px; font-weight: 800; cursor: pointer; }
+    .activity-table-wrap { width: 100%; overflow: auto; }
+    .activity-table { width: 100%; min-width: 980px; border-collapse: collapse; }
+    .activity-table th { padding: 12px 14px; color: var(--al-muted); background: var(--al-soft); font-size: 10px; font-weight: 850; letter-spacing: .04em; text-align: left; text-transform: uppercase; white-space: nowrap; }
+    .activity-table td { padding: 13px 14px; border-top: 1px solid var(--al-border); color: var(--al-text); font-size: 12px; vertical-align: middle; }
+    .activity-actor { display: flex; align-items: center; gap: 10px; min-width: 190px; }
+    .activity-avatar { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; color: #1d4ed8; background: #dbeafe; font-size: 12px; font-weight: 900; }
+    .activity-actor strong { display: block; max-width: 180px; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .activity-actor small, .activity-meta { display: block; margin-top: 3px; color: var(--al-muted); font-size: 10px; }
+    .activity-role, .activity-method, .activity-result { display: inline-flex; align-items: center; justify-content: center; padding: 5px 8px; border-radius: 999px; font-size: 10px; font-weight: 850; white-space: nowrap; }
+    .activity-role--admin { color: #b91c1c; background: #fee2e2; }
+    .activity-role--leader { color: #6d28d9; background: #ede9fe; }
+    .activity-role--employee { color: #0369a1; background: #e0f2fe; }
+    .activity-method { color: #475569; background: #eef2f7; }
+    .activity-method--write { color: #9a3412; background: #ffedd5; }
+    .activity-result { gap: 5px; color: #15803d; background: #dcfce7; }
+    .activity-result--error { color: #b91c1c; background: #fee2e2; }
+    .activity-result::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .activity-action { min-width: 195px; }
+    .activity-action strong { display: block; font-size: 12px; }
+    .activity-path { display: block; max-width: 260px; margin-top: 4px; overflow: hidden; color: var(--al-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .activity-empty { padding: 52px 18px; color: var(--al-muted); text-align: center; }
+    .activity-empty ion-icon { display: block; margin: 0 auto 10px; font-size: 38px; }
+    .activity-pagination { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 14px; border-top: 1px solid var(--al-border); }
+    .activity-page-link { display: grid; place-items: center; min-width: 34px; height: 34px; padding: 0 9px; border: 1px solid var(--al-border); border-radius: 9px; color: var(--al-text); background: var(--al-card); font-size: 11px; font-weight: 750; }
+    .activity-page-link.is-current { border-color: #2563eb; color: #fff; background: #2563eb; }
+    body.dark .activity-page { --al-bg: #15191f; --al-card: #20252c; --al-soft: #191e25; --al-border: #39424e; --al-text: #f8fafc; --al-muted: #b3bfcd; }
+    body.dark .activity-live { border-color: #166534; color: #86efac; background: rgba(20,83,45,.32); }
+    body.dark .activity-avatar { color: #bfdbfe; background: #1e3a5f; }
+    body.dark .activity-method { color: #d5dde8; background: #343c47; }
+    @media (max-width: 980px) { .activity-filters { grid-template-columns: 1fr 1fr; } .activity-filters .activity-control:first-child { grid-column: 1 / -1; } }
+    @media (max-width: 767px) {
+        .activity-page { padding: 16px 12px; }
+        .activity-header { align-items: flex-start; flex-direction: column; }
+        .activity-title { font-size: 21px; }
+        .activity-stats { grid-template-columns: 1fr; }
+        .activity-filters { grid-template-columns: 1fr; }
+        .activity-filters .activity-control:first-child { grid-column: auto; }
+        .activity-filter-button { width: 100%; }
+        .activity-table th:first-child, .activity-table td:first-child { position: sticky; left: 0; z-index: 2; background: var(--al-card); box-shadow: 1px 0 0 var(--al-border); }
+        .activity-table th:first-child { background: var(--al-soft); z-index: 3; }
+    }
+</style>
+
+<section class="activity-page">
+    <header class="activity-header">
+        <div>
+            <h1 class="activity-title">Nhật ký hoạt động</h1>
+            <p class="activity-description">Theo dõi thao tác của Quản trị viên, Trưởng nhóm và Nhân viên trong hệ thống.</p>
+        </div>
+        <span class="activity-live">Đang ghi nhận tự động</span>
+    </header>
+
+    <div class="activity-stats">
+        <div class="activity-stat"><span class="activity-stat__icon"><ion-icon name="pulse-outline"></ion-icon></span><div><strong>{{ stats.today }}</strong><span>Hoạt động hôm nay</span></div></div>
+        <div class="activity-stat"><span class="activity-stat__icon"><ion-icon name="create-outline"></ion-icon></span><div><strong>{{ stats.changes }}</strong><span>Thao tác thay đổi hôm nay</span></div></div>
+        <div class="activity-stat"><span class="activity-stat__icon"><ion-icon name="alert-circle-outline"></ion-icon></span><div><strong>{{ stats.failures }}</strong><span>Thao tác lỗi hôm nay</span></div></div>
+    </div>
+
+    <div class="activity-card">
+        <form method="get" class="activity-filters">
+            <input class="activity-control" type="search" name="q" value="{{ query }}" placeholder="Tìm người dùng, thao tác, chức năng hoặc địa chỉ mạng…">
+            <select class="activity-control" name="role">
+                <option value="">Tất cả vai trò</option>
+                {% for value, label in role_choices %}<option value="{{ value }}" {% if selected_role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+            <select class="activity-control" name="method">
+                <option value="">Mọi thao tác</option>
+                <option value="GET" {% if selected_method == "GET" %}selected{% endif %}>Xem dữ liệu</option>
+                <option value="POST" {% if selected_method == "POST" %}selected{% endif %}>Thay đổi dữ liệu</option>
+                <option value="DELETE" {% if selected_method == "DELETE" %}selected{% endif %}>Xóa dữ liệu</option>
+            </select>
+            <input class="activity-control" type="date" name="date" value="{{ selected_date }}" aria-label="Lọc theo ngày">
+            <button class="activity-filter-button" type="submit"><ion-icon name="filter-outline"></ion-icon> Lọc nhật ký</button>
+        </form>
+
+        <div class="activity-table-wrap">
+            <table class="activity-table">
+                <thead><tr><th>Người thao tác</th><th>Vai trò</th><th>Hoạt động</th><th>Cách thực hiện</th><th>Kết quả</th><th>Thời điểm</th><th>Địa chỉ mạng</th></tr></thead>
+                <tbody>
+                    {% for log in page_obj %}
+                    <tr>
+                        <td><div class="activity-actor"><span class="activity-avatar">{{ log.actor_name|slice:":1"|upper }}</span><div><strong title="{{ log.actor_name }}">{{ log.actor_name }}</strong><small>{{ log.actor_email|default:"Không có tài khoản" }}</small></div></div></td>
+                        <td><span class="activity-role activity-role--{{ log.role }}">{{ log.get_role_display }}</span></td>
+                        <td><div class="activity-action"><strong>{{ log.action }}</strong><span class="activity-path" title="{{ log.path }}">{{ log.resource }} · {{ log.path }}</span></div></td>
+                        <td><span class="activity-method {% if log.method != 'GET' %}activity-method--write{% endif %}">{% if log.method == "GET" %}Xem{% elif log.method == "POST" %}Cập nhật{% elif log.method == "DELETE" %}Xóa{% else %}{{ log.method }}{% endif %}</span><span class="activity-meta">{{ log.duration_ms }} mili giây</span></td>
+                        <td><span class="activity-result {% if log.status_code >= 400 %}activity-result--error{% endif %}">{% if log.status_code < 400 %}Thành công{% else %}Lỗi {{ log.status_code }}{% endif %}</span></td>
+                        <td>{{ log.created_at|date:"d/m/Y" }}<span class="activity-meta">{{ log.created_at|date:"H:i:s" }}</span></td>
+                        <td>{{ log.ip_address|default:"—" }}{% if log.company %}<span class="activity-meta">{{ log.company }}</span>{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7"><div class="activity-empty"><ion-icon name="file-tray-outline"></ion-icon>Chưa có hoạt động phù hợp với bộ lọc.</div></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <nav class="activity-pagination" aria-label="Phân trang nhật ký">
+            {% if page_obj.has_previous %}<a class="activity-page-link" href="?{% if query_without_page %}{{ query_without_page }}&{% endif %}page={{ page_obj.previous_page_number }}"><ion-icon name="chevron-back-outline"></ion-icon></a>{% endif %}
+            <span class="activity-page-link is-current">{{ page_obj.number }}/{{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}<a class="activity-page-link" href="?{% if query_without_page %}{{ query_without_page }}&{% endif %}page={{ page_obj.next_page_number }}"><ion-icon name="chevron-forward-outline"></ion-icon></a>{% endif %}
+        </nav>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

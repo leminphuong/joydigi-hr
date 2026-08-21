@@ -123,6 +123,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # Joydigi-specific middlewares
     "base.middleware.CompanyMiddleware",
+    "joydigi_audit.middleware.UserActivityLogMiddleware",
     "base.middleware.ForcePasswordChangeMiddleware",
     "base.middleware.TwoFactorAuthMiddleware",
     "accessibility.middlewares.AccessibilityMiddleware",

@@ -32,6 +32,9 @@
             <a class="mobile-nav-more__link" href="{% url 'settings' %}" data-mobile-path="{% url 'settings' %}" hx-get="{% url 'settings' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
                 <ion-icon name="settings-outline"></ion-icon><span>Cài đặt</span>
             </a>
+            <a class="mobile-nav-more__link" href="{% url 'user-activity-log' %}" data-mobile-path="{% url 'user-activity-log' %}" hx-get="{% url 'user-activity-log' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                <ion-icon name="shield-checkmark-outline"></ion-icon><span>Nhật ký hoạt động</span>
+            </a>
         {% endif %}
         <a class="mobile-nav-more__link" href="{% url 'employee-profile' %}" data-mobile-path="{% url 'employee-profile' %}" hx-get="{% url 'employee-profile' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
             <ion-icon name="person-circle-outline"></ion-icon><span>Hồ sơ của tôi</span>

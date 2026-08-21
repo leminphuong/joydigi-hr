@@ -1,0 +1,145 @@
+{% load basefilters %}
+{% with checkin_admin=request.user|is_checkin_admin checkin_leader=request.user|is_checkin_leader %}
+<div id="mobileNavBackdrop" class="mobile-nav-backdrop" aria-hidden="true"></div>
+
+<section id="mobileNavMore" class="mobile-nav-more" aria-label="Các chức năng khác" aria-hidden="true">
+    <div class="mobile-nav-more__handle" aria-hidden="true"></div>
+    <div class="mobile-nav-more__header">
+        <strong>Chức năng khác</strong>
+        <button type="button" class="mobile-nav-more__close" aria-label="Đóng danh sách chức năng">
+            <ion-icon name="close-outline"></ion-icon>
+        </button>
+    </div>
+    <div class="mobile-nav-more__grid">
+        {% if checkin_admin %}
+            <a class="mobile-nav-more__link" href="{% url 'roster-home' %}" data-mobile-path="{% url 'roster-home' %}" hx-get="{% url 'roster-home' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                <ion-icon name="calendar-number-outline"></ion-icon><span>Xếp ca</span>
+            </a>
+            <a class="mobile-nav-more__link" href="{% url 'employee-view' %}" data-mobile-path="{% url 'employee-view' %}" hx-get="{% url 'employee-view' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                <ion-icon name="people-outline"></ion-icon><span>Nhân sự</span>
+            </a>
+        {% endif %}
+        <a class="mobile-nav-more__link" href="{% url 'bulletin' %}" data-mobile-path="{% url 'bulletin' %}" hx-get="{% url 'bulletin' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+            <ion-icon name="newspaper-outline"></ion-icon><span>Bảng tin</span>
+        </a>
+        {% if checkin_admin %}
+            <a class="mobile-nav-more__link" href="{% url 'checkin-settings' %}" data-mobile-path="{% url 'checkin-settings' %}" hx-get="{% url 'checkin-settings' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                <ion-icon name="location-outline"></ion-icon><span>Địa điểm và Wifi</span>
+            </a>
+            <a class="mobile-nav-more__link" href="{% url 'holiday-view' %}" data-mobile-path="{% url 'holiday-view' %}" hx-get="{% url 'holiday-view' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                <ion-icon name="calendar-outline"></ion-icon><span>Ngày nghỉ lễ</span>
+            </a>
+            <a class="mobile-nav-more__link" href="{% url 'settings' %}" data-mobile-path="{% url 'settings' %}" hx-get="{% url 'settings' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                <ion-icon name="settings-outline"></ion-icon><span>Cài đặt</span>
+            </a>
+        {% endif %}
+        <a class="mobile-nav-more__link" href="{% url 'employee-profile' %}" data-mobile-path="{% url 'employee-profile' %}" hx-get="{% url 'employee-profile' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+            <ion-icon name="person-circle-outline"></ion-icon><span>Hồ sơ của tôi</span>
+        </a>
+    </div>
+</section>
+
+<nav id="mobileBottomNav" class="mobile-bottom-nav" aria-label="Menu dành cho điện thoại">
+    <div class="mobile-bottom-nav__inner">
+        {% if not checkin_leader %}
+            <a class="mobile-bottom-nav__link" href="{% url 'view-my-attendance' %}" data-mobile-path="{% url 'view-my-attendance' %}" hx-get="{% url 'view-my-attendance' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                <ion-icon name="calendar-clear-outline"></ion-icon><span>Bảng công</span>
+            </a>
+            <a class="mobile-bottom-nav__link" href="{% url 'user-request-view' %}" data-mobile-path="{% url 'user-request-view' %}" hx-get="{% url 'user-request-view' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                <ion-icon name="document-text-outline"></ion-icon><span>Đơn của tôi</span>
+            </a>
+            <a class="mobile-bottom-nav__link" href="{% url 'bulletin' %}" data-mobile-path="{% url 'bulletin' %}" hx-get="{% url 'bulletin' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                <ion-icon name="newspaper-outline"></ion-icon><span>Bảng tin</span>
+            </a>
+            <a class="mobile-bottom-nav__link" href="{% url 'employee-profile' %}" data-mobile-path="{% url 'employee-profile' %}" hx-get="{% url 'employee-profile' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                <ion-icon name="person-circle-outline"></ion-icon><span>Hồ sơ</span>
+            </a>
+        {% else %}
+            {% if checkin_admin %}
+                <a class="mobile-bottom-nav__link" href="{% url 'dashboard' %}" data-mobile-path="{% url 'dashboard' %}" hx-get="{% url 'dashboard' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                    <ion-icon name="grid-outline"></ion-icon><span>Tổng quan</span>
+                </a>
+            {% else %}
+                <a class="mobile-bottom-nav__link" href="{% url 'roster-home' %}" data-mobile-path="{% url 'roster-home' %}" hx-get="{% url 'roster-home' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                    <ion-icon name="calendar-number-outline"></ion-icon><span>Xếp ca</span>
+                </a>
+            {% endif %}
+            <a class="mobile-bottom-nav__link" href="{% url 'today-attendance' %}" data-mobile-path="{% url 'today-attendance' %}" hx-get="{% url 'today-attendance' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                <ion-icon name="time-outline"></ion-icon><span>Hôm nay</span>
+            </a>
+            <a class="mobile-bottom-nav__link" href="{% url 'approval-hub' %}" data-mobile-path="{% url 'approval-hub' %}" hx-get="{% url 'approval-hub' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                <span class="mobile-bottom-nav__icon-wrap">
+                    <ion-icon name="checkmark-done-outline"></ion-icon>
+                    {% pending_checkin_approvals request.user as mobile_approval_count %}
+                    {% if mobile_approval_count %}<span class="mobile-bottom-nav__badge">{{ mobile_approval_count }}</span>{% endif %}
+                </span>
+                <span>Duyệt đơn</span>
+            </a>
+            <a class="mobile-bottom-nav__link" href="{% url 'attendance-monthly-summary' %}" data-mobile-path="{% url 'attendance-monthly-summary' %}" hx-get="{% url 'attendance-monthly-summary' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                <ion-icon name="calendar-clear-outline"></ion-icon><span>Bảng công</span>
+            </a>
+            <button id="mobileNavMoreButton" class="mobile-bottom-nav__link mobile-bottom-nav__button" type="button" aria-controls="mobileNavMore" aria-expanded="false">
+                <ion-icon name="apps-outline"></ion-icon><span>Thêm</span>
+            </button>
+        {% endif %}
+    </div>
+</nav>
+{% endwith %}
+
+<script>
+    (function () {
+        function initMobileNavigation() {
+            var nav = document.getElementById("mobileBottomNav");
+            var sheet = document.getElementById("mobileNavMore");
+            var backdrop = document.getElementById("mobileNavBackdrop");
+            var moreButton = document.getElementById("mobileNavMoreButton");
+            if (!nav || nav.dataset.ready === "true") return;
+            nav.dataset.ready = "true";
+
+            function setSheet(open) {
+                if (!sheet || !backdrop || !moreButton) return;
+                sheet.classList.toggle("is-open", open);
+                backdrop.classList.toggle("is-open", open);
+                sheet.setAttribute("aria-hidden", open ? "false" : "true");
+                backdrop.setAttribute("aria-hidden", open ? "false" : "true");
+                moreButton.setAttribute("aria-expanded", open ? "true" : "false");
+                document.body.classList.toggle("mobile-nav-open", open);
+            }
+
+            function syncActiveLink() {
+                var path = window.location.pathname;
+                document.querySelectorAll("[data-mobile-path]").forEach(function (link) {
+                    var target = (link.getAttribute("data-mobile-path") || "").split("?")[0];
+                    var active = target && target !== "/" && path.indexOf(target) === 0;
+                    link.classList.toggle("is-active", active);
+                    if (active) link.setAttribute("aria-current", "page");
+                    else link.removeAttribute("aria-current");
+                });
+            }
+
+            if (moreButton) moreButton.addEventListener("click", function () { setSheet(true); });
+            if (backdrop) backdrop.addEventListener("click", function () { setSheet(false); });
+            if (sheet) {
+                var closeButton = sheet.querySelector(".mobile-nav-more__close");
+                if (closeButton) closeButton.addEventListener("click", function () { setSheet(false); });
+                sheet.addEventListener("click", function (event) {
+                    if (event.target.closest("a")) setSheet(false);
+                });
+            }
+            nav.addEventListener("click", function (event) {
+                if (!event.target.closest("a")) return;
+                var scroller = document.querySelector(".oh-main-content");
+                if (scroller) scroller.scrollTo({ top: 0, behavior: "smooth" });
+            });
+            document.addEventListener("keydown", function (event) {
+                if (event.key === "Escape") setSheet(false);
+            });
+            document.addEventListener("htmx:afterSettle", syncActiveLink);
+            window.addEventListener("popstate", syncActiveLink);
+            syncActiveLink();
+        }
+
+        if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initMobileNavigation);
+        else initMobileNavigation();
+    })();
+</script>

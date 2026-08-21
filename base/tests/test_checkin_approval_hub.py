@@ -144,6 +144,25 @@ class CheckInApprovalHubTests(TestCase):
         self.assertIn('data-menu="Cài đặt"', menu_html)
         self.assertContains(response, reverse("load-demo-database"))
 
+        mobile_menu_html = render_to_string(
+            "joydigi_theme/components/mobile_bottom_menu.html",
+            request=response.wsgi_request,
+        )
+        for url_name in (
+            "dashboard",
+            "today-attendance",
+            "approval-hub",
+            "attendance-monthly-summary",
+            "roster-home",
+            "employee-view",
+            "bulletin",
+            "checkin-settings",
+            "holiday-view",
+            "settings",
+        ):
+            with self.subTest(mobile_url_name=url_name):
+                self.assertIn(reverse(url_name), mobile_menu_html)
+
     def test_checkin_settings_create_location_and_multiple_wifi_networks(self):
         self.client.force_login(self.admin_user)
         url = reverse("checkin-settings")

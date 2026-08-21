@@ -61,6 +61,10 @@
             rel="stylesheet"
             href="{% static 'joydigi_theme/assets/css/v1_styles.css' %}"
         >
+        <link
+            rel="stylesheet"
+            href="{% static 'joydigi_theme/assets/css/responsive.css' %}?v=20260821-3"
+        >
         <link rel="stylesheet" href="{% static 'build/css/pivottable.min.css' %}">
         {% with theme=theme_obj %}
             <style>
@@ -72,6 +76,8 @@
                    form, so it degrades gracefully if a page renders through a base
                    layout that doesn't define these tokens. */
                 :root {
+                    --joydigi-app-background-light: {{ theme.primary_50|default:"#f8fafc" }};
+                    --joydigi-app-background-dark: #000000;
                     --primary-100: {{ theme.primary_100|default:"#FFF5F1" }};
                     --primary-200: {{ theme.primary_200|default:"#FEF6F5" }};
                     --primary-300: {{ theme.primary_300|default:"#FCEDEB" }};
@@ -342,6 +348,7 @@
                 </div>
             </div>
         </div>
+        {% include "joydigi_theme/components/mobile_bottom_menu.html" %}
         {% include "generic/components.html" %}
         {% include "joydigi_theme/components/footer_scripts.html" %}
         <script>

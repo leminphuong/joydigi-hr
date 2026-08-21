@@ -1,4 +1,4 @@
-{% load i18n static %}
+{% load i18n static basefilters %}
 {% if notifications %}
     <ul class="list-checked text-sm h-60 overflow-hidden overflow-y-auto">
         {% for notification in notifications %}
@@ -42,11 +42,11 @@
                         onclick="markNotificationAndRedirect(this)"
                         id="notificationItem{{notification.id}}"
                         data-id="{{notification.id}}"
-                    >{{ notification.verb }}</a>
+                    >{{ notification.verb|notification_text_vi }}</a>
                 {% endif %}
                 <br>
                 <p class="text-xs text-[#777777] mt-1">
-                    {{ notification.timesince }} ago by
+                    {{ notification.timestamp|relative_time_vi }} · bởi
                     {% if notification.actor.employee_first_name %}
                         {{ notification.actor.get_full_name }}
                     {% else %}
@@ -64,8 +64,6 @@
         $(document).ready(function () {
             $(".notification-item").on("click", function (event) {
                 event.preventDefault();
-                alert('Hello')
-
             });
         });
     </script>
@@ -77,7 +75,7 @@
             width="40"
             class="mx-auto mb-3"
         >
-        <h5 class="text-center font-semibold mb-1">{% trans "All Caught Up!" %}</h5>
-        <p class="text-center text-sm">{% trans "You have no new notifications at the moment" %}</p>
+        <h5 class="text-center font-semibold mb-1">Bạn đã xem hết thông báo!</h5>
+        <p class="text-center text-sm">Hiện tại bạn không có thông báo mới.</p>
     </div>
 {% endif %}

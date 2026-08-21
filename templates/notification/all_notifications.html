@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n basefilters %}
 {% get_current_language as LANGUAGE_CODE %}
 {% if messages %}
     <div class="oh-alert-container">
@@ -38,7 +38,7 @@
                         </p>
                     {% else %}
                         <p class="oh-navbar__notification-text" class="oh-navbar__notification-text--unread">
-                            {{ notification.verb }}
+                            {{ notification.verb|notification_text_vi }}
                         </p>
                     {% endif %}
                 </span>
@@ -52,10 +52,10 @@
                 </div>
             </div>
             <span class="oh-activity-sidebar__a">
-                {{ notification.timesince }} {% trans "ago by" %}<img
+                {{ notification.timestamp|relative_time_vi }} · bởi <img
                     src="https://ui-avatars.com/api/?name={{notification.actor}}&amp;background=random"
                     style="width: 1.5em; border-radius: 100%"
-                    alt="{% trans 'User' %}"
+                    alt="Người dùng"
                 > {{ notification.actor }}
             </span>
         </li>

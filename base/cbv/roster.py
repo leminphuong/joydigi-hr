@@ -88,7 +88,7 @@ class RosterHomeView(TemplateView):
 @method_decorator(login_required, name="dispatch")
 @method_decorator(checkin_leader_required, name="dispatch")
 class RosterNavView(JoydigiNavView):
-    nav_title = _("Roster Planner")
+    nav_title = "Xếp ca"
     template_name = "generic/inline_nav.html"
     search_url = reverse_lazy("roster-grid")
     search_swap_target = "#rosterGridContainer"
@@ -108,7 +108,7 @@ class RosterNavView(JoydigiNavView):
                 """,
             },
             {
-                "action": _("Import Roster"),
+                "action": "Nhập lịch từ Excel",
                 "attrs": f"""
                     data-toggle="oh-modal-toggle"
                     data-target="#genericModal"
@@ -117,7 +117,7 @@ class RosterNavView(JoydigiNavView):
                 """,
             },
             {
-                "action": _("Publish Roster"),
+                "action": "Công bố lịch làm việc",
                 "attrs": f"""
                     data-toggle="oh-modal-toggle"
                     data-target="#genericModal"
@@ -367,7 +367,7 @@ class RosterPublishView(View):
         to_date = _parse_date(request.POST.get("to_date"), None)
 
         if not from_date:
-            return JsonResponse({"error": "From date is required."}, status=400)
+            return JsonResponse({"error": "Vui lòng chọn ngày bắt đầu."}, status=400)
 
         if dept_id:
             departments = Department.objects.filter(pk=dept_id)
@@ -419,17 +419,17 @@ class RosterPublishView(View):
                 notify.send(
                     publisher,
                     recipient=entry.employee.employee_user_id,
-                    verb=f"Your roster from {date_label} has been published.",
+                    verb=f"Lịch làm việc của bạn từ {date_label} đã được công bố.",
                     redirect=my_roster_url,
                     icon="calendar-outline",
                 )
             except Exception:
                 pass
 
-        dept_label = departments.first() if dept_id else _("All Departments")
+        dept_label = departments.first() if dept_id else "tất cả phòng ban"
         messages.success(
             request,
-            _("Roster published for %(dept)s (%(range)s).")
+            "Đã công bố lịch làm việc cho %(dept)s (%(range)s)."
             % {"dept": dept_label, "range": date_label},
         )
         grid_params = f"from_date={from_date}"
@@ -500,7 +500,7 @@ class RosterEmployeeBulkPublishView(View):
                 notify.send(
                     publisher,
                     recipient=entry.employee.employee_user_id,
-                    verb="Your roster has been published.",
+                    verb="Lịch làm việc của bạn đã được công bố.",
                     redirect=my_roster_url,
                     icon="calendar-outline",
                 )
@@ -509,7 +509,8 @@ class RosterEmployeeBulkPublishView(View):
 
         messages.success(
             request,
-            _("Roster published for %(count)s employee(s).") % {"count": count},
+            "Đã công bố lịch làm việc cho %(count)s nhân viên."
+            % {"count": count},
         )
         grid_params = f"from_date={from_date}"
         if to_date:
@@ -712,7 +713,7 @@ class RosterTemplateDownloadView(View):
                 if cl.based_on_week_day == week_day and (
                     not cl.based_on_week or cl.based_on_week == week_no
                 ):
-                    off_dates[d] = "Weekly Off Day"
+                    off_dates[d] = "Ngày nghỉ hằng tuần"
                     break
 
         selected_company = request.session.get("selected_company")
@@ -728,11 +729,11 @@ class RosterTemplateDownloadView(View):
             emp_qs = emp_qs.filter(employee_work_info__company_id=selected_company)
 
         shifts = list(EmployeeShift.objects.values_list("employee_shift", flat=True))
-        shift_options = ["OFF"] + list(shifts)
+        shift_options = ["NGHỈ"] + list(shifts)
 
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "Roster"
+        ws.title = "Lịch làm việc"
 
         header_fill = PatternFill("solid", fgColor="5C6BC0")
         weekend_fill = PatternFill("solid", fgColor="ECEEF6")
@@ -745,7 +746,7 @@ class RosterTemplateDownloadView(View):
         center = Alignment(horizontal="center", vertical="center")
         left = Alignment(horizontal="left", vertical="center")
 
-        for col, label in enumerate(["Employee Name", "Employee ID"], start=1):
+        for col, label in enumerate(["Tên nhân viên", "Mã nhân viên"], start=1):
             c = ws.cell(1, col, label)
             c.fill = meta_fill
             c.font = meta_font
@@ -796,17 +797,17 @@ class RosterTemplateDownloadView(View):
                     emp.pk, {}
                 ).get(d)
                 if off_reason:
-                    c.value = "OFF"
+                    c.value = "NGHỈ"
                     c.fill = off_fill
                     c.font = off_font
-                    if off_reason != "Weekly Off Day":
-                        c.comment = Comment(f"Holiday: {off_reason}", "Joydigi")
+                    if off_reason != "Ngày nghỉ hằng tuần":
+                        c.comment = Comment(f"Ngày lễ: {off_reason}", "Joydigi")
                 elif d.weekday() >= 5:
                     c.fill = weekend_fill
 
-        ws2 = wb.create_sheet("Available Shifts")
-        ws2.cell(1, 1, "Shift Name").font = Font(bold=True, color="4A5173", size=10)
-        ws2.cell(2, 1, "OFF").font = Font(bold=True, color="E65100", size=10)
+        ws2 = wb.create_sheet("Danh sách ca")
+        ws2.cell(1, 1, "Tên ca").font = Font(bold=True, color="4A5173", size=10)
+        ws2.cell(2, 1, "NGHỈ").font = Font(bold=True, color="E65100", size=10)
         for i, s in enumerate(shifts, start=3):
             ws2.cell(i, 1, s).font = Font(size=10)
         ws2.column_dimensions["A"].width = 32
@@ -817,7 +818,7 @@ class RosterTemplateDownloadView(View):
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
         filename = (
-            f"roster_template_{start_date.isoformat()}_{end_date.isoformat()}.xlsx"
+            f"mau_xep_ca_{start_date.isoformat()}_{end_date.isoformat()}.xlsx"
         )
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         wb.save(response)
@@ -838,16 +839,16 @@ class RosterImportView(View):
 
         uploaded = request.FILES.get("file")
         if not uploaded:
-            return self._form_error(request, _("No file uploaded."))
+            return self._form_error(request, "Vui lòng chọn tệp cần tải lên.")
         if not uploaded.name.endswith(".xlsx"):
-            return self._form_error(request, _("Please upload a valid .xlsx file."))
+            return self._form_error(request, "Vui lòng chọn đúng tệp Excel định dạng .xlsx.")
 
         try:
             wb = openpyxl.load_workbook(uploaded, data_only=True)
         except Exception:
             return self._form_error(
                 request,
-                _("Could not read the file. Please upload the unmodified template."),
+                "Không đọc được tệp. Vui lòng dùng đúng tệp mẫu chưa chỉnh sửa cấu trúc.",
             )
 
         ws = wb.active
@@ -866,7 +867,7 @@ class RosterImportView(View):
         if not any(dates):
             return self._form_error(
                 request,
-                _("Could not read date headers. Please use the downloaded template."),
+                "Không đọc được các cột ngày. Vui lòng dùng tệp mẫu đã tải từ hệ thống.",
             )
 
         shift_map = {s.employee_shift.lower(): s for s in EmployeeShift.objects.all()}
@@ -883,7 +884,9 @@ class RosterImportView(View):
                     "employee_work_info__department_id",
                 ).get(pk=int(emp_id_val))
             except (Employee.DoesNotExist, ValueError, TypeError):
-                errors.append(f"Row {row}: Employee ID {emp_id_val!r} not found.")
+                errors.append(
+                    f"Dòng {row}: Không tìm thấy nhân viên có mã {emp_id_val!r}."
+                )
                 continue
 
             work_info = getattr(emp, "employee_work_info", None)
@@ -891,7 +894,7 @@ class RosterImportView(View):
 
             if not dept:
                 errors.append(
-                    f"Row {row}: {emp.get_full_name()} has no department — skipped."
+                    f"Dòng {row}: {emp.get_full_name()} chưa có phòng ban nên đã được bỏ qua."
                 )
                 continue
 
@@ -905,14 +908,14 @@ class RosterImportView(View):
                     continue
 
                 value = str(raw).strip()
-                is_off = value.lower() == "off"
+                is_off = value.lower() in {"off", "nghỉ", "nghi"}
                 shift = None
 
                 if not is_off:
                     shift = shift_map.get(value.lower())
                     if not shift:
                         errors.append(
-                            f"Row {row}, {roster_date}: Unknown shift '{value}'."
+                            f"Dòng {row}, ngày {roster_date}: Không tìm thấy ca “{value}”."
                         )
                         skipped += 1
                         continue

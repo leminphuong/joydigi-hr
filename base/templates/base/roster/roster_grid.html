@@ -12,11 +12,11 @@
             <img
                 src="{% static 'images/ui/search.svg' %}"
                 class="oh-404__image"
-                alt="{% trans 'No records' %}"
+                alt="Không có dữ liệu"
             >
-            <h1 class="oh-404__title">{% trans "No Records Found" %}</h1>
+            <h1 class="oh-404__title">Không tìm thấy dữ liệu</h1>
             <p class="oh-404__subtitle">
-                {% trans "No employees or roster entries match the current filter." %}
+                Không có nhân viên hoặc lịch làm việc phù hợp với bộ lọc.
             </p>
         </div>
     </div>
@@ -33,7 +33,7 @@
               reloadSelectedCount($('.count_{{ view_id }}'), '{{ selected_instances_key_id }}');
               rosterUpdatePublishBtn()"
             >
-                <span class="label">{% trans "Select" %}</span>
+                <span class="label">Chọn</span>
                 ({{ queryset.paginator.count }})
             </button>
 
@@ -50,7 +50,7 @@
               rosterUpdatePublishBtn();
               rosterHideDateForm()"
             >
-                <span class="label">{% trans "Unselect" %}</span>
+                <span class="label">Bỏ chọn</span>
                 (<span id="count_{{ view_id }}">0</span>)
             </button>
 
@@ -61,7 +61,7 @@
             >
                 <div class="flex items-center gap-1">
                     <ion-icon name="cloud-upload-outline" class="me-1"></ion-icon>
-                    <span class="label">{% trans "Publish" %}</span>
+                    <span class="label">Công bố lịch</span>
                     (<span class="count_{{ view_id }}">0</span>)
                 </div>
             </button>
@@ -78,7 +78,7 @@
                 type="button"
                 class="absolute top-2 right-2 text-[#555] hover:text-[#333] transition-colors duration-200"
                 onclick="rosterHideDateForm()"
-                title="{% trans 'Close' %}"
+                title="Đóng"
             >
                 <ion-icon name="close-outline" style="font-size: 18px"></ion-icon>
             </button>
@@ -99,7 +99,7 @@
                 {% endif %}
                 <div class="flex flex-wrap gap-3 pr-6 items-center">
                     <div>
-                        <label class="text-xs font-medium text-[#444] block mb-1">{% trans "From Date" %} *</label>
+                        <label class="text-xs font-medium text-[#444] block mb-1">Từ ngày *</label>
                         <input
                             type="date"
                             name="from_date"
@@ -109,7 +109,7 @@
                         >
                     </div>
                     <div>
-                        <label class="text-xs font-medium text-[#444] block mb-1">{% trans "To Date" %}</label>
+                        <label class="text-xs font-medium text-[#444] block mb-1">Đến ngày</label>
                         <input
                             type="date"
                             name="to_date"
@@ -125,7 +125,7 @@
                             name="cloud-upload-outline"
                             class="me-1"
                         ></ion-icon>
-                        {% trans "Confirm Publish" %}
+                        Xác nhận công bố
                     </button>
                 </div>
             </form>
@@ -149,21 +149,21 @@
                                 <input
                                     type="checkbox"
                                     class="bulk-list-table-row custom-checkbox w-4 h-4 bg-[#E9EDF7] rounded-sm text-primary-600 cursor-pointer"
-                                    title="{% trans 'Select All' %}"
+                                    title="Chọn tất cả"
                                     onchange="$(this)
 										.closest('table')
 										.find('.list-table-row')
 										.prop('checked', $(this).is(':checked'))
 										.change()"
                                 >
-                                {% trans "Employee" %}
+                                Nhân viên
                             </div>
                         </th>
                         <th
                             class="sticky top-0 z-[3] text-left px-3 py-3 text-[11px] font-bold uppercase tracking-[.4px] text-[#4a5173] bg-[#f0f2f8] border-b-2 border-r border-[#d6dae8] whitespace-nowrap"
                             style="min-width: 130px"
                         >
-                            {% trans "Department" %}
+                            Phòng ban
                         </th>
                         {% for d in date_range %}
                             {% with d_str=d|date:"Y-m-d" %}
@@ -198,7 +198,7 @@
                                         type="checkbox"
                                         class="list-table-row custom-checkbox w-4 h-4 bg-[#E9EDF7] rounded-sm text-primary-600 cursor-pointer"
                                         data-view-id="{{ view_id }}"
-                                        title="{% trans 'Select Row' %}"
+                                        title="Chọn nhân viên"
                                         value="{{ row.employee.pk }}"
                                         onclick="event.stopPropagation()"
                                         onchange="element = $(this);
@@ -213,7 +213,7 @@
                                     <div class="w-8 h-8">
                                         <img
                                             src="{{ row.employee.get_avatar }}"
-                                            alt=""
+                                            alt="Ảnh đại diện của {{ row.employee.get_full_name }}"
                                             class="oh-profile__image oh-table-img avatar-thumb rounded-full object-cover shrink-0"
                                             width="30"
                                             height="30"
@@ -246,7 +246,7 @@
                                             <span
                                                 class="inline-block rounded-md px-2 py-0.5 text-[11px] font-semibold max-w-[70px] truncate bg-[#fff3e0] text-[#e65100] border border-[#ffcc80]"
                                             >
-                                                {% trans "OFF" %}
+                                                NGHỈ
                                             </span>
                                         {% elif not entry.is_published %}
                                             <span
@@ -279,9 +279,9 @@
         {% if paginated_employees.has_previous or paginated_employees.has_next %}
             <div class="flex justify-between items-center mt-4 px-3 pb-3 w-full">
                 <p class="text-xs text-[#666]">
-                    {% trans "Page" %}
+                    Trang
                     {{ paginated_employees.number }}
-                    {% trans "of" %}
+                    trên
                     {{ paginated_employees.paginator.num_pages }}
                 </p>
                 <div class="flex gap-3 text-[#666] items-center">

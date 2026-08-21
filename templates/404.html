@@ -219,14 +219,46 @@
     .oh-alert--success::before {
         background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDYiIGhlaWdodD0iNDYiIGZpbGw9IiM0OWEyNDgiIHZpZXdCb3g9IjAgMCAyNCAyNCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cGF0aCBkPSJNMTIgMi4yNWMtNS4zNzYgMC05Ljc1IDQuMzc0LTkuNzUgOS43NXM0LjM3NCA5Ljc1IDkuNzUgOS43NSA5Ljc1LTQuMzc0IDkuNzUtOS43NVMxNy4zNzYgMi4yNSAxMiAyLjI1Wm0uOTM4IDE0Ljk5NmgtMS44NzZWMTUuMzdoMS44NzZ2MS44NzVabS0uMTg4LTIuOTk2aC0xLjVsLS4yODEtNy41aDIuMDYybC0uMjgxIDcuNVoiPjwvcGF0aD4KPC9zdmc+');
     }
+    body {
+        min-height: 100vh;
+        color: #0f172a;
+        background: radial-gradient(circle at 12% 15%, rgba(59,130,246,.12), transparent 28rem), radial-gradient(circle at 88% 85%, rgba(239,78,58,.10), transparent 25rem), #f8fafc;
+    }
+    .hr-error_container { min-height: 100vh; box-sizing: border-box; padding: 32px; gap: 56px; }
+    .hr-error { max-width: 520px; align-items: flex-start; gap: 12px; text-align: left; }
+    .hr-error_badge { display: inline-flex; align-items: center; padding: 7px 11px; border: 1px solid #fecaca; border-radius: 999px; color: #b91c1c; background: #fef2f2; font-size: 12px; font-weight: 700; }
+    .hr-404 { color: #ef4e3a; font-size: clamp(5rem,13vw,9rem); line-height: .9; letter-spacing: -.06em; }
+    .hr-error_msg { margin-top: 12px; color: #0f172a; font-size: clamp(1.6rem,4vw,2.35rem); line-height: 1.25; }
+    .hr-error_description { max-width: 480px; margin-top: 12px; color: #64748b; font-size: 15px; line-height: 1.65; }
+    .hr-error_path { display: inline-block; max-width: min(100%,460px); margin-top: 10px; padding: 8px 11px; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 9px; color: #475569; background: rgba(255,255,255,.72); font-family: Consolas,monospace; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .hr-error_actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+    .hr-error_btn { min-height: 44px; box-sizing: border-box; margin: 0; padding: 0 18px; border-width: 1px; border-radius: 11px; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .hr-error_btn--secondary { border-color: #cbd5e1; color: #334155; background: #fff; }
+    .hr-error_btn--secondary:hover { border-color: #94a3b8; color: #0f172a; background: #f1f5f9; }
+    .hr-error_bg { width: min(34vw,360px); height: min(34vw,360px); flex: 0 0 auto; background: linear-gradient(145deg,#f97362,#e43e2b); box-shadow: 0 24px 60px rgba(229,79,56,.23); }
+    .hr-error_bg img { top: 38px; }
+    @media (prefers-color-scheme: dark) {
+        body { color: #f8fafc; background: radial-gradient(circle at 14% 15%,rgba(59,130,246,.16),transparent 28rem),#14181e; }
+        .hr-error_msg { color: #f8fafc; }
+        .hr-error_description { color: #b3bfcd; }
+        .hr-error_path { border-color: #3b4552; color: #cbd5e1; background: #20252c; }
+        .hr-error_btn--secondary { border-color: #475569; color: #e2e8f0; background: #20252c; }
+    }
+    @media (max-width: 767.98px) {
+        .hr-error_container { justify-content: center; padding: 24px 18px; }
+        .hr-error { align-items: center; text-align: center; }
+        .hr-error_bg { width: 220px; height: 220px; }
+        .hr-error_bg img { top: 24px; }
+        .hr-error_actions { justify-content: center; }
+    }
 </style>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>{% trans "Joydigi" %}</title>
+        <title>Không tìm thấy trang · JoyDigi</title>
         <link
             rel="icon"
             type="image/png"
@@ -254,22 +286,20 @@
             </div>
         {% endif %}
         <section class="hr-error_container">
+            <div class="hr-error_img hr-error_bg">
+                <img src='{% static "/images/ui/404_error_image.png" %}' alt="Không tìm thấy trang">
+            </div>
             <div class="hr-error">
-                <div class="hr-error_img hr-error_bg">
-                    <img src='{% static "/images/ui/404_error_image.png" %}'>
-                </div>
-                <div>
-                    <h1 class="hr-404">404</h1>
-                    <p class="hr-error_msg">{% trans "Page not found!" %}</p>
-                    <p>{% trans "Oops! The page you are looking for could not be found." %}</p>
-                    <a href="/" class="hr-error_btn"><ion-icon
-                            name="arrow-back-outline"
-                        ></ion-icon>{% trans "Return to the main page" %}</a>
+                <span class="hr-error_badge">Đường dẫn không tồn tại</span>
+                <h1 class="hr-404">404</h1>
+                <p class="hr-error_msg">Không tìm thấy trang bạn yêu cầu</p>
+                <p class="hr-error_description">Trang này có thể đã được chuyển, bị xóa hoặc đường dẫn chưa chính xác. Bạn có thể quay lại trang trước hoặc trở về trang chính.</p>
+                {% if requested_path %}<span class="hr-error_path" title="{{ requested_path }}">{{ requested_path }}</span>{% endif %}
+                <div class="hr-error_actions">
+                    <button type="button" class="hr-error_btn hr-error_btn--secondary" onclick="if (history.length > 1) { history.back(); } else { location.href = '/'; }">← Quay lại</button>
+                    <a href="/" class="hr-error_btn">Về trang chính</a>
                 </div>
             </div>
         </section>
-
-        <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
-        <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
     </body>
 </html>

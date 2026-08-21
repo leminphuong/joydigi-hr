@@ -369,3 +369,4 @@ curl -kI --resolve modbibi.com:443:127.0.0.1 https://modbibi.com/
 3. Không chạy đồng thời Nginx Ubuntu và Nginx aaPanel nếu cả hai cùng muốn dùng port 80/443.
 4. Nếu dùng Nginx aaPanel cho website, nên tránh để Nginx Ubuntu tự động chiếm port sau reboot.
 5. Với JoyDigi HR, chỉ một process/service nên giữ port 8000.
+dd

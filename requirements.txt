@@ -36,10 +36,12 @@ html5lib
 Jinja2
 idna
 lxml
-numpy==2.5.2
+# Production VPS currently uses Python 3.10; local development uses Python 3.12.
+numpy
 opencv-python==5.0.0.93
 insightface==1.0.1
-onnxruntime==1.28.0
+onnxruntime==1.23.2; python_version < "3.11"
+onnxruntime==1.28.0; python_version >= "3.11"
 oauthlib
 openpyxl
 oscrypto

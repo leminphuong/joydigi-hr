@@ -8,7 +8,12 @@ from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 
 from attendance.methods.utils import strtime_seconds
-from attendance.models import Attendance, AttendanceGeneralSetting, WorkRecords
+from attendance.models import (
+    Attendance,
+    AttendanceGeneralSetting,
+    WorkRecords,
+    _normalized_minimum_hour,
+)
 from base.models import Company, PenaltyAccounts
 from employee.models import Employee
 from joydigi.methods import get_joydigi_model_class
@@ -19,7 +24,9 @@ def attendance_post_save(sender, instance, **kwargs):
     """
     Handle post-save actions for Attendance model.
     """
-    min_hour_second = strtime_seconds(instance.minimum_hour)
+    min_hour_second = strtime_seconds(
+        _normalized_minimum_hour(instance.minimum_hour, instance.pk)
+    )
     at_work_second = strtime_seconds(instance.attendance_worked_hour)
 
     if not instance.attendance_validated:

@@ -613,6 +613,43 @@ def clock_out(request):
     """
     This method is used to set the out date and time for attendance and attendance activity
     """
+    attendance, allowed = perform_clock_out(request)
+    if not allowed:
+        # `perform_clock_out` already queued the specific reason via
+        # `messages.error` before returning `(None, False)` — this is a
+        # plain redirect, not a duplicate message.
+        return JoydigiRedirect(request)
+    # Refresh employee from DB so template re-evaluates is_clocked_in correctly
+    request.user.employee_get.refresh_from_db()
+    return render(request, "attendance/components/in_out_component.html", {"run": 1})
+
+
+def perform_clock_out(request):
+    """
+    Pure clock-out mutation, split out of `clock_out()` (Phase 5.2).
+
+    Looks up the employee's shift/company context, records the
+    clock-out time + activity, and applies early-out logic. Returns
+    `(attendance, allowed)`: `allowed` is `False` only when the
+    company hasn't enabled the attendance check-in/check-out feature
+    at all (a distinct "not configured" state, not "already clocked
+    out" or "no open attendance" — those are gated by the caller via
+    `Employee.check_online()` before this runs).
+
+    Callers must never depend on this function rendering a template or
+    otherwise needing a real Django `HttpRequest` — that's exactly the
+    bug this split fixes: `ClockOutAPIView` used to call `clock_out()`
+    directly with the lightweight `Request` shim (see
+    `attendance.methods.utils.Request`, built for device/API callers),
+    and `clock_out()` unconditionally ended in `render(request, ...)`.
+    That call happened *after* the real DB mutation below had already
+    committed, so when it raised (`render()` needs a genuine
+    `HttpRequest` for template context processors), the exception
+    propagated to `ClockOutAPIView`'s `except Exception` and got turned
+    into a false "already clocked-out" 400 — even though the checkout
+    had already succeeded. This function never renders anything, so an
+    API caller using it directly can't hit that failure mode.
+    """
     # check wether check in/check out feature is enabled
     company = _resolve_checkin_company(request)
     attendance_general_settings = AttendanceGeneralSetting.objects.filter(
@@ -652,16 +689,24 @@ def clock_out(request):
                     continue
 
             if not ip_allowed:
+                # Unreachable for API/device callers — this branch is
+                # gated by `not request.__dict__.get("datetime")` above,
+                # and API/device requests always set `.datetime`. Only a
+                # real web request reaches here, so `messages.error` is
+                # always called against a genuine `HttpRequest`.
                 messages.error(
                     request,
                     _("Check-Out Restricted: Your current network is not authorized"),
                 )
-                return JoydigiRedirect(request)
+                return None, False
 
         checkin_source = _validate_checkin_source(request, company)
         if not checkin_source["allowed"]:
+            # Also unreachable for API/device callers — see
+            # `_validate_checkin_source`, which short-circuits to
+            # `allowed: True` whenever `request.datetime` is set.
             messages.error(request, checkin_source["message"])
-            return JoydigiRedirect(request)
+            return None, False
 
         datetime_now = timezone.localtime()
         if request.__dict__.get("datetime"):
@@ -722,17 +767,12 @@ def clock_out(request):
                         shift=shift,
                     )
 
-        # Refresh employee from DB so template re-evaluates is_clocked_in correctly
-        employee.refresh_from_db()
-        return render(
-            request, "attendance/components/in_out_component.html", {"run": 1}
-        )
+        return attendance, True
 
-    else:
-        messages.error(
-            request,
-            _(
-                "The attendance check-in/check-out feature has not been enabled for your company."
-            ),
-        )
-        return JoydigiRedirect(request)
+    messages.error(
+        request,
+        _(
+            "The attendance check-in/check-out feature has not been enabled for your company."
+        ),
+    )
+    return None, False

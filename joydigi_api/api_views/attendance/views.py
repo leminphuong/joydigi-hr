@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from django import template
 from django.conf import settings
 from django.core.mail import EmailMessage
+from django.db import transaction
 from django.db.models import Case, CharField, F, Q, Value, When
 from django.http import QueryDict
 from django.shortcuts import get_object_or_404
@@ -22,7 +23,7 @@ from attendance.models import (
     EmployeeShiftDay,
 )
 from attendance.views.clock_in_out import *
-from attendance.views.clock_in_out import clock_out
+from attendance.views.clock_in_out import perform_clock_out
 from attendance.views.dashboard import (
     find_expected_attendances,
     find_late_come,
@@ -169,26 +170,53 @@ class ClockOutAPIView(APIView):
                     return response
         except:
             pass
-        if request.user.employee_get.check_online():
-            current_date = date.today()
-            current_time = datetime.now().time()
-            current_datetime = datetime.now()
 
-            try:
-                clock_out(
-                    Request(
-                        user=request.user,
-                        date=current_date,
-                        time=current_time,
-                        datetime=current_datetime,
-                    )
+        if not request.user.employee_get.check_online():
+            return Response({"message": "Already clocked-out"}, status=400)
+
+        current_date = date.today()
+        current_time = datetime.now().time()
+        current_datetime = datetime.now()
+
+        # Phase 5.2: `perform_clock_out` is the pure-mutation half of the
+        # web `clock_out()` helper (see its docstring) — it never renders
+        # a template, so a genuinely unexpected exception here is a real
+        # 500, not a false "already clocked-out" masking a successful
+        # write. Wrapped in `transaction.atomic()` so a failure partway
+        # through (mutation + early-out logic) can't leave a half-applied
+        # checkout.
+        with transaction.atomic():
+            attendance, allowed = perform_clock_out(
+                Request(
+                    user=request.user,
+                    date=current_date,
+                    time=current_time,
+                    datetime=current_datetime,
                 )
-                return Response({"message": "Clocked-Out"}, status=200)
+            )
 
-            except Exception as error:
-                logger.error("Got an error in clock_out", error)
-            # return Response({"message": "Clocked-Out"}, status=200)
-        return Response({"message": "Already clocked-out"}, status=400)
+        if not allowed:
+            return Response(
+                {
+                    "message": (
+                        "Attendance check-in/check-out is not enabled for "
+                        "your company."
+                    )
+                },
+                status=400,
+            )
+        return Response(
+            {
+                "message": "Clocked-Out",
+                "attendance_id": attendance.id if attendance else None,
+                "clock_out": (
+                    str(attendance.attendance_clock_out)
+                    if attendance and attendance.attendance_clock_out
+                    else None
+                ),
+            },
+            status=200,
+        )
 
 
 class AttendanceView(APIView):

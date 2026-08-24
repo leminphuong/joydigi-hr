@@ -59,7 +59,7 @@ class ClockOutAPITests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
-    def _clock_in(self):
+    def _clock_in(self, minimum_hour="08:00"):
         clock_in_attendance_and_activity(
             employee=self.employee,
             date_today=self.today,
@@ -67,7 +67,7 @@ class ClockOutAPITests(TestCase):
             day=self.day,
             now="08:00",
             shift=self.shift,
-            minimum_hour="08:00",
+            minimum_hour=minimum_hour,
             start_time=0,
             end_time=1,
             in_datetime=datetime.now(),
@@ -180,3 +180,38 @@ class ClockOutAPITests(TestCase):
         )
         self.assertIsNotNone(own_attendance.attendance_clock_out)
         self.assertIsNone(other_attendance.attendance_clock_out)
+
+    # Phase 6.3A.1 — a real production 500 traced to Attendance.minimum_hour
+    # being falsy (a data-integrity gap upstream, e.g. a row written outside
+    # the normal check-in path) crashing overtime calculation during
+    # checkout. `Attendance.minimum_hour` has a NOT NULL constraint locally
+    # (confirmed: a literal `None` insert raises IntegrityError here), so a
+    # true SQL NULL — which the real production traceback showed — implies
+    # schema drift on production relative to this model (see the phase
+    # report). The locally-reproducible equivalent, exercising the exact
+    # same `if not minimum_hour` fallback path, is an empty string forced
+    # in via `.update()` (bypasses model validation, satisfies NOT NULL).
+    def test_checkout_with_blank_minimum_hour_succeeds_without_500(self):
+        self._clock_in()
+        Attendance.objects.filter(
+            employee_id=self.employee, attendance_date=self.today
+        ).update(minimum_hour="")
+        attendance_before = Attendance.objects.get(
+            employee_id=self.employee, attendance_date=self.today
+        )
+        self.assertEqual(attendance_before.minimum_hour, "")
+
+        response = self.client.post("/api/attendance/clock-out/")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertIn("application/json", response["Content-Type"])
+        self.assertEqual(response.data["message"], "Clocked-Out")
+        attendance_after = Attendance.objects.get(
+            employee_id=self.employee, attendance_date=self.today
+        )
+        self.assertIsNotNone(attendance_after.attendance_clock_out)
+        # No invalid overtime was fabricated from the missing minimum —
+        # the fallback (08:15, the shift schedule model's own default)
+        # is close to a normal short test-clock-in/out gap, so this
+        # should compute as no overtime, not a large bogus value.
+        self.assertEqual(attendance_after.attendance_overtime, "00:00")

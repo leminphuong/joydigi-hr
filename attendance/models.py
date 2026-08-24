@@ -8,6 +8,7 @@ This module is used to register models for recruitment app
 import contextlib
 import datetime as dt
 import json
+import logging
 from datetime import date, datetime, timedelta
 
 import pandas as pd
@@ -42,6 +43,37 @@ from joydigi_views.cbv_methods import render_template
 
 # to skip the migration issue with the old migrations
 _validate_time_in_minutes = validate_time_in_minutes
+
+logger = logging.getLogger(__name__)
+
+# Phase 6.3A.1: `EmployeeShiftSchedule.minimum_working_hour` is a
+# non-nullable CharField with this exact default (`default="08:15"`,
+# no `null=True`) — reused here as the fallback whenever an
+# `Attendance` row's copied `minimum_hour` is missing. That situation
+# is a data-integrity gap (the row was written outside the normal
+# check-in path), never a legitimate "no minimum required" config —
+# falling back to "00:00" instead would count an employee's entire
+# worked day as overtime, exactly like the `is_holiday` case
+# (`Attendance.adjust_minimum_hour`) but for a day that isn't actually
+# a holiday. See `_normalized_minimum_hour`.
+_DEFAULT_MINIMUM_HOUR = "08:15"
+
+
+def _normalized_minimum_hour(minimum_hour, attendance_pk):
+    """Real value if present, else `_DEFAULT_MINIMUM_HOUR` with a
+    diagnostic log — never silently persisted back onto the row, so
+    the underlying data gap stays visible for a human to correct."""
+    if minimum_hour:
+        return minimum_hour
+    logger.warning(
+        "Attendance %s has no minimum_hour recorded; falling back to the "
+        "shift schedule's default (%s) for overtime calculation instead "
+        "of crashing. The EmployeeShiftSchedule row for this shift/day "
+        "should be corrected.",
+        attendance_pk,
+        _DEFAULT_MINIMUM_HOUR,
+    )
+    return _DEFAULT_MINIMUM_HOUR
 
 
 # Create your models here.
@@ -650,7 +682,9 @@ class Attendance(JoydigiModel):
         """
         This method will returns difference between minimum_hour and attendance_worked_hour
         """
-        minimum_hours = strtime_seconds(self.minimum_hour)
+        minimum_hours = strtime_seconds(
+            _normalized_minimum_hour(self.minimum_hour, self.pk)
+        )
         worked_hour = strtime_seconds(self.attendance_worked_hour)
         pending_seconds = minimum_hours - worked_hour
         if pending_seconds < 0:
@@ -674,12 +708,13 @@ class Attendance(JoydigiModel):
         """
         Calculate and update attendance overtime and worked seconds.
         """
+        minimum_hour = _normalized_minimum_hour(self.minimum_hour, self.pk)
         self.attendance_overtime = format_time(
             max(
                 0,
                 (
                     strtime_seconds(self.attendance_worked_hour)
-                    - strtime_seconds(self.minimum_hour)
+                    - strtime_seconds(minimum_hour)
                 ),
             )
         )
@@ -754,6 +789,14 @@ class Attendance(JoydigiModel):
         is_new = self.pk is None
         old = None
 
+        # Phase 6.3A.1: normalize once, up front, so every downstream
+        # read in this method (and the `post_save` signal, which
+        # receives this exact same instance) sees a real value —
+        # rather than re-guarding each individual read site. This also
+        # self-heals the stored value going forward the next time this
+        # row is saved; see `_normalized_minimum_hour`.
+        self.minimum_hour = _normalized_minimum_hour(self.minimum_hour, self.pk)
+
         if not self.attendance_day:
             self.attendance_day = EmployeeShiftDay.objects.get(
                 day=self.attendance_date.strftime("%A").lower()
@@ -771,7 +814,9 @@ class Attendance(JoydigiModel):
             old_approved_ot = old.approved_overtime_second or 0
             old_approved_flag = old.attendance_overtime_approve or False
 
-            old_min = strtime_seconds(old.minimum_hour)
+            old_min = strtime_seconds(
+                _normalized_minimum_hour(old.minimum_hour, self.pk)
+            )
             old_pending_today = max(0, old_min - old_work)
         else:
             old_work = 0
@@ -793,7 +838,9 @@ class Attendance(JoydigiModel):
         new_work = self.at_work_second or 0
         new_approved_ot = self.approved_overtime_second or 0
 
-        new_min = strtime_seconds(self.minimum_hour)
+        new_min = strtime_seconds(
+            _normalized_minimum_hour(self.minimum_hour, self.pk)
+        )
         new_pending_today = max(0, new_min - new_work)
 
         diff_work = new_work - old_work
@@ -937,14 +984,16 @@ class Attendance(JoydigiModel):
                 attendance_validated=True,
             )
             .exclude(exclude_condition)
-            .values("minimum_hour", "at_work_second")
+            .values("id", "minimum_hour", "at_work_second")
         )
 
         # Calculate hour balance and hours pending in a single loop
         hour_balance = 0
         minimum_hour_second = 0
         for attendance in month_attendances:
-            required_work_second = strtime_seconds(attendance["minimum_hour"])
+            required_work_second = strtime_seconds(
+                _normalized_minimum_hour(attendance["minimum_hour"], attendance["id"])
+            )
             at_work_second = min(required_work_second, attendance["at_work_second"])
             hour_balance += at_work_second
             minimum_hour_second += required_work_second

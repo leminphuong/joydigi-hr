@@ -5,6 +5,7 @@ This module is used write custom methods
 """
 
 import calendar
+import logging
 from datetime import date, datetime, time, timedelta
 
 import pandas as pd
@@ -19,6 +20,8 @@ from django.utils.translation import gettext_lazy as _
 from base.methods import get_pagination
 from base.models import WEEK_DAYS, CompanyLeaves, Holidays
 from employee.models import Employee
+
+logger = logging.getLogger(__name__)
 
 MONTH_MAPPING = {
     "january": 1,
@@ -198,6 +201,28 @@ def overtime_calculation(attendance):
     """
 
     minimum_hour = attendance.minimum_hour
+    if not minimum_hour:
+        # `Attendance.minimum_hour` is copied once, at check-in, from
+        # `EmployeeShiftSchedule.minimum_working_hour` — a CharField
+        # with `default="08:15"` and no `null=True`, i.e. the model
+        # itself guarantees this is never blank when written through
+        # the normal ORM path. A None/empty value here means the row
+        # was created some other way (legacy data, a direct DB edit,
+        # ...) — a data-integrity gap, not a legitimate "no minimum"
+        # configuration. Falling back to 0 would count the employee's
+        # entire worked day as overtime (Phase 6.3A.1), so we reuse
+        # the schedule model's own documented default instead of
+        # inventing a new one, and log it so the underlying shift
+        # schedule can be corrected.
+        logger.warning(
+            "Attendance %s has no minimum_hour recorded; falling back to "
+            "the shift schedule's default (08:15) for overtime "
+            "calculation instead of crashing check-out. The "
+            "EmployeeShiftSchedule row for this shift/day should be "
+            "corrected.",
+            attendance.pk,
+        )
+        minimum_hour = "08:15"
     at_work = attendance.attendance_worked_hour
     at_work_sec = strtime_seconds(at_work)
     minimum_hour_sec = strtime_seconds(minimum_hour)

@@ -23,6 +23,7 @@ from attendance.models import (
     AttendanceOverTime,
     AttendanceValidationCondition,
     GraceTime,
+    _normalized_minimum_hour,
     strtime_seconds,
 )
 from base.filters import FilterSet
@@ -438,7 +439,9 @@ class AttendanceFilters(JoydigiFilterSet):
             value = strtime_seconds(value)
             filtered_attendance = []
             for attendance in queryset:
-                minimum_hour_second = strtime_seconds(attendance.minimum_hour)
+                minimum_hour_second = strtime_seconds(
+                    _normalized_minimum_hour(attendance.minimum_hour, attendance.pk)
+                )
                 worked_hour_second = attendance.at_work_second
                 pending_hour_second = minimum_hour_second - worked_hour_second
                 if name == "pending_hour__lte":

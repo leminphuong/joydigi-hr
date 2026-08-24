@@ -76,7 +76,7 @@ class FaceAttendanceTests(TestCase):
     ):
         profile = self.register_face()
         verify.return_value = {"success": True, "verified": True, "score": 0.76}
-        perform_clock_in.return_value = (SimpleNamespace(id=10), True)
+        perform_clock_in.return_value = (SimpleNamespace(id=10), True, None)
 
         response = self.client.post(
             reverse("face-attendance-verify"),
@@ -100,7 +100,7 @@ class FaceAttendanceTests(TestCase):
     ):
         self.register_face()
         verify.return_value = {"success": True, "verified": True, "score": 0.79}
-        perform_clock_out.return_value = (SimpleNamespace(id=11), True)
+        perform_clock_out.return_value = (SimpleNamespace(id=11), True, None)
 
         response = self.client.post(
             reverse("face-attendance-verify"),
@@ -110,6 +110,34 @@ class FaceAttendanceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["action"], "CHECK_OUT")
         perform_clock_out.assert_called_once()
+
+    @patch("attendance.face_views.perform_clock_in")
+    @patch("attendance.face_views.verify_face")
+    @patch("attendance.face_views._is_clocked_in", return_value=False)
+    def test_attendance_source_rejection_preserves_reason_code(
+        self, is_clocked_in, verify, perform_clock_in
+    ):
+        self.register_face()
+        verify.return_value = {"success": True, "verified": True, "score": 0.81}
+        perform_clock_in.return_value = (
+            None,
+            False,
+            {
+                "code": "VERIFICATION_REQUIRED",
+                "message": "Vui lòng bật quyền vị trí để chấm công.",
+            },
+        )
+
+        response = self.client.post(
+            reverse("face-attendance-verify"),
+            {"image": camera_image()},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json()["error"]["code"],
+            "VERIFICATION_REQUIRED",
+        )
 
     @patch("attendance.face_views.perform_clock_in")
     @patch("attendance.face_views.verify_face")

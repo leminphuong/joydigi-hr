@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from base.forms import CheckInLocationForm, CheckInPolicyForm, OfficeWifiForm
-from base.checkin_tokens import kiosk_numeric_code, make_kiosk_token, valid_kiosk_token
+from base.checkin_tokens import create_kiosk_session, resolve_kiosk_token
 from base.models import CheckInLocation, CheckInPolicy, Company, OfficeWifi
 from base.roles import (
     checkin_admin_required,
@@ -68,19 +68,57 @@ def _sync_annual_leave(company, days):
             balance.save(update_fields=["available_days", "total_leave_days"])
 
 
+def _kiosk_location(request):
+    """Resolves the `location_id` GET param to a `CheckInLocation` the
+    requester's company actually owns. Returns `None` if missing or
+    doesn't belong to this company — never falls back to "any
+    location" (Phase 6.1: the kiosk display must be explicitly bound
+    to one real, active location before it can mint a session)."""
+    location_id = request.GET.get("location_id")
+    if not location_id:
+        return None
+    company = _current_company(request)
+    return CheckInLocation.objects.filter(
+        pk=location_id, company_id=company, is_active=True
+    ).first()
+
+
+@login_required
+@checkin_leader_required
 def kiosk(request):
-    """Màn hình QR động tại văn phòng; không chứa dữ liệu nhân viên."""
-    response = render(request, "checkin/kiosk.html")
+    """Màn hình QR động tại văn phòng; không chứa dữ liệu nhân viên.
+
+    Phase 6.1: this used to be a fully public page. It's now gated to
+    an authenticated checkin-leader/admin, and must be bound to one
+    specific `CheckInLocation` the caller's company actually owns —
+    that binding is what the minted QR/code sessions carry, so a
+    displayed QR always answers "which real office location is this
+    kiosk?" instead of nothing at all.
+    """
+    location = _kiosk_location(request)
+    company = _current_company(request)
+    response = render(
+        request,
+        "checkin/kiosk.html",
+        {
+            "location": location,
+            "locations": CheckInLocation.objects.filter(
+                company_id=company, is_active=True
+            ),
+        },
+    )
     response["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return response
 
 
+@login_required
+@checkin_leader_required
 def kiosk_qr(request):
     import qrcode
 
     token = request.GET.get("token", "")
-    if not valid_kiosk_token(token):
-        token = make_kiosk_token()
+    if not resolve_kiosk_token(token):
+        return HttpResponseForbidden("Mã QR đã hết hạn hoặc không hợp lệ.")
     destination = request.build_absolute_uri(
         f"{reverse('qr-checkin')}?qr_token={token}"
     )
@@ -92,13 +130,27 @@ def kiosk_qr(request):
     return response
 
 
+@login_required
+@checkin_leader_required
 def kiosk_data(request):
-    """Cấp cùng một lượt mã QR và mã số để hai giá trị luôn khớp nhau."""
-    token = make_kiosk_token()
+    """Mints a fresh kiosk session for one specific, caller-owned
+    `CheckInLocation` and returns its matching QR URL + 6-digit code —
+    both opaque lookup keys into that same session (see
+    `base.checkin_tokens.create_kiosk_session`)."""
+    location = _kiosk_location(request)
+    if location is None:
+        return JsonResponse(
+            {"error": "location_id không hợp lệ hoặc không thuộc công ty của bạn."},
+            status=400,
+        )
+    session = create_kiosk_session(company_id=location.company_id_id, location_id=location.id)
     return JsonResponse(
         {
-            "qr_url": f"{reverse('checkin-kiosk-qr')}?token={token}",
-            "code": kiosk_numeric_code(token),
+            "qr_url": f"{reverse('checkin-kiosk-qr')}?token={session['token']}",
+            "code": session["code"],
+            "location_id": location.id,
+            "location_name": location.name,
+            "ttl": session["ttl"],
         }
     )
 

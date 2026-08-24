@@ -134,22 +134,24 @@ def face_attendance_verify(request):
             employee = locked_profile.employee
             action = _action_for(employee)
             if action == "CHECK_OUT":
-                attendance, allowed = perform_clock_out(request)
+                attendance, allowed, reason = perform_clock_out(request)
             else:
-                attendance, allowed = perform_clock_in(request)
+                attendance, allowed, reason = perform_clock_in(request)
 
             if not allowed or attendance is None:
-                message = _last_message(
-                    request,
-                    "Không thể chấm công vào lúc này. Vui lòng thử lại.",
+                reason = reason or {}
+                message = reason.get("message") or _last_message(
+                    request, "Không thể chấm công vào lúc này. Vui lòng thử lại."
                 )
+                error_code = reason.get("code") or "attendance_rejected"
                 transaction.set_rollback(True)
                 logger.warning(
-                    "FACE_VERIFY employee=%s action=%s verified=True face_score=%.4f timestamp=%s error=attendance_rejected",
+                    "FACE_VERIFY employee=%s action=%s verified=True face_score=%.4f timestamp=%s error=%s",
                     _employee_log_id(employee),
                     action,
                     score,
                     timestamp,
+                    error_code,
                 )
                 return JsonResponse(
                     {
@@ -157,7 +159,7 @@ def face_attendance_verify(request):
                         "verified": True,
                         "score": score,
                         "message": message,
-                        "error": {"code": "attendance_rejected"},
+                        "error": {"code": error_code},
                     },
                     status=400,
                 )

@@ -59,4 +59,10 @@ urlpatterns = [
     path("attendance-type-check/", AttendanceTypeAccessCheck.as_view()),
     path("my-attendance-detailed/<int:id>/", UserAttendanceDetailedView.as_view()),
     path("timesheet/", TimesheetMonthView.as_view(), name="api-timesheet-month"),
+    path("policy/", AttendancePolicyView.as_view(), name="api-attendance-policy"),
+    path(
+        "verify-source/",
+        AttendanceVerifySourceView.as_view(),
+        name="api-attendance-verify-source",
+    ),
 ]

@@ -22,8 +22,13 @@ from attendance.models import (
     AttendanceLateComeEarlyOut,
     EmployeeShiftDay,
 )
+from attendance.methods.verification_proof import PROOF_TTL, issue_verification_proof
 from attendance.views.clock_in_out import *
-from attendance.views.clock_in_out import perform_clock_out
+from attendance.views.clock_in_out import (
+    perform_clock_in,
+    perform_clock_out,
+    validate_checkin_source,
+)
 from attendance.views.dashboard import (
     find_expected_attendances,
     find_late_come,
@@ -32,7 +37,7 @@ from attendance.views.dashboard import (
 from attendance.views.views import *
 from base.backends import ConfiguredEmailBackend
 from base.methods import generate_pdf, is_company_leave, is_holiday, is_reportingmanager
-from base.models import JoydigiMailTemplate
+from base.models import CheckInLocation, JoydigiMailTemplate, OfficeWifi
 from employee.filters import EmployeeFilter
 from leave.models import LeaveRequest
 
@@ -66,6 +71,24 @@ def query_dict(data):
     return query_dict
 
 
+def _attendance_evidence(request):
+    """Pulls only the attendance-source evidence fields a mobile
+    client may legitimately supply (Phase 6.1) — never `employee_id`,
+    `company_id`, or any other identity/authority field; those always
+    come from `request.user.employee_get`, never the body."""
+    data = request.data if isinstance(request.data, dict) else {}
+    fields = (
+        "verification_proof",
+        "qr_token",
+        "numeric_code",
+        "wifi_ssid",
+        "wifi_bssid",
+        "latitude",
+        "longitude",
+    )
+    return {key: data[key] for key in fields if data.get(key) not in (None, "")}
+
+
 class ClockInAPIView(APIView):
     """
     Allows authenticated employees to clock in, determining the correct shift and attendance date, including handling night shifts.
@@ -77,75 +100,50 @@ class ClockInAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        if not request.user.employee_get.check_online():
-            try:
-                if request.user.employee_get.get_company().geo_fencing.start:
-                    from geofencing.views import GeoFencingEmployeeLocationCheckAPIView
+        if request.user.employee_get.check_online():
+            return Response({"message": "Already clocked-in"}, status=400)
 
-                    location_api_view = GeoFencingEmployeeLocationCheckAPIView()
-                    response = location_api_view.post(request)
-                    if response.status_code != 200:
-                        return response
-            except:
-                pass
-            employee, work_info = employee_exists(request)
-            datetime_now = datetime.now()
-            if request.__dict__.get("datetime"):
-                datetime_now = request.datetime
-            if employee and work_info is not None:
-                shift = work_info.shift_id
-                date_today = date.today()
-                if request.__dict__.get("date"):
-                    date_today = request.date
-                attendance_date = date_today
-                day = date_today.strftime("%A").lower()
-                day = EmployeeShiftDay.objects.get(day=day)
-                now = datetime.now().strftime("%H:%M")
-                if request.__dict__.get("time"):
-                    now = request.time.strftime("%H:%M")
-                now_sec = strtime_seconds(now)
-                mid_day_sec = strtime_seconds("12:00")
-                minimum_hour, start_time_sec, end_time_sec = shift_schedule_today(
-                    day=day, shift=shift
+        current_date = date.today()
+        current_time = datetime.now().time()
+        current_datetime = datetime.now()
+
+        # Phase 6.1: no more legacy-geofencing fail-open block here —
+        # that call always raised `AttributeError` against this
+        # synthetic `Request` (it has no `.data`), which the old bare
+        # `except: pass` silently swallowed as "check passed". Location/
+        # Wi-Fi/QR/6-digit evidence now flows through `perform_clock_in`
+        # -> `validate_checkin_source`, which fails closed.
+        with transaction.atomic():
+            attendance, allowed, reason = perform_clock_in(
+                Request(
+                    user=request.user,
+                    date=current_date,
+                    time=current_time,
+                    datetime=current_datetime,
+                    evidence=_attendance_evidence(request),
                 )
-                if start_time_sec > end_time_sec:
-                    # night shift
-                    # ------------------
-                    # Night shift in Joydigi consider a 24 hours from noon to next day noon,
-                    # the shift day taken today if the attendance clocked in after 12 O clock.
+            )
 
-                    if mid_day_sec > now_sec:
-                        # Here you need to create attendance for yesterday
-
-                        date_yesterday = date_today - timedelta(days=1)
-                        day_yesterday = date_yesterday.strftime("%A").lower()
-                        day_yesterday = EmployeeShiftDay.objects.get(day=day_yesterday)
-                        minimum_hour, start_time_sec, end_time_sec = (
-                            shift_schedule_today(day=day_yesterday, shift=shift)
-                        )
-                        attendance_date = date_yesterday
-                        day = day_yesterday
-                clock_in_attendance_and_activity(
-                    employee=employee,
-                    date_today=date_today,
-                    attendance_date=attendance_date,
-                    day=day,
-                    now=now,
-                    shift=shift,
-                    minimum_hour=minimum_hour,
-                    start_time=start_time_sec,
-                    end_time=end_time_sec,
-                    in_datetime=datetime_now,
-                )
-                return Response({"message": "Clocked-In"}, status=200)
+        if not allowed:
             return Response(
                 {
-                    "error": _(
-                        "You Don't have work information filled or your employee detail neither entered "
-                    )
-                }
+                    "code": reason["code"] if reason else "VERIFICATION_REQUIRED",
+                    "message": reason["message"] if reason else "Không thể chấm công vào.",
+                },
+                status=400,
             )
-        return Response({"message": "Already clocked-in"}, status=400)
+        return Response(
+            {
+                "message": "Clocked-In",
+                "attendance_id": attendance.id if attendance else None,
+                "clock_in": (
+                    str(attendance.attendance_clock_in)
+                    if attendance and attendance.attendance_clock_in
+                    else None
+                ),
+            },
+            status=200,
+        )
 
 
 class ClockOutAPIView(APIView):
@@ -159,18 +157,6 @@ class ClockOutAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-
-        try:
-            if request.user.employee_get.get_company().geo_fencing.start:
-                from geofencing.views import GeoFencingEmployeeLocationCheckAPIView
-
-                location_api_view = GeoFencingEmployeeLocationCheckAPIView()
-                response = location_api_view.post(request)
-                if response.status_code != 200:
-                    return response
-        except:
-            pass
-
         if not request.user.employee_get.check_online():
             return Response({"message": "Already clocked-out"}, status=400)
 
@@ -184,24 +170,24 @@ class ClockOutAPIView(APIView):
         # 500, not a false "already clocked-out" masking a successful
         # write. Wrapped in `transaction.atomic()` so a failure partway
         # through (mutation + early-out logic) can't leave a half-applied
-        # checkout.
+        # checkout. Phase 6.1: no more legacy-geofencing fail-open block
+        # (see `ClockInAPIView` docstring above — same bug, same fix).
         with transaction.atomic():
-            attendance, allowed = perform_clock_out(
+            attendance, allowed, reason = perform_clock_out(
                 Request(
                     user=request.user,
                     date=current_date,
                     time=current_time,
                     datetime=current_datetime,
+                    evidence=_attendance_evidence(request),
                 )
             )
 
         if not allowed:
             return Response(
                 {
-                    "message": (
-                        "Attendance check-in/check-out is not enabled for "
-                        "your company."
-                    )
+                    "code": reason["code"] if reason else "VERIFICATION_REQUIRED",
+                    "message": reason["message"] if reason else "Không thể chấm công ra.",
                 },
                 status=400,
             )
@@ -214,6 +200,97 @@ class ClockOutAPIView(APIView):
                     if attendance and attendance.attendance_clock_out
                     else None
                 ),
+            },
+            status=200,
+        )
+
+
+class AttendancePolicyView(APIView):
+    """
+    Phase 6.1 — read-only, JWT-authenticated view of which attendance
+    methods the current employee's company has actually configured.
+    Lets Flutter enable/disable method cards from backend truth
+    instead of hardcoded assumptions. Exposes only booleans — never
+    coordinates, QR signing material, or Wi-Fi identifiers themselves.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        company = request.user.employee_get.get_company()
+        has_location = CheckInLocation.objects.filter(
+            company_id=company, is_active=True
+        ).exists()
+        has_wifi = OfficeWifi.objects.filter(
+            company_id=company, is_active=True
+        ).exists()
+        return Response(
+            {
+                "location": {"enabled": has_location},
+                "wifi": {"enabled": has_wifi},
+                # QR and the 6-digit fallback are both minted per
+                # `CheckInLocation` (see `base.checkin_tokens`), so
+                # they're only meaningful once at least one is set up.
+                "qr": {"enabled": has_location},
+                "numeric_code": {"enabled": has_location},
+                "camera_ai": {"enabled": False},
+            },
+            status=200,
+        )
+
+
+class AttendanceVerifySourceView(APIView):
+    """
+    Phase 6.1 — JWT-authenticated, validation-only endpoint: checks
+    one piece of client-supplied attendance-source evidence
+    (location/wifi/qr/numeric_code) against the employee's real
+    company policy and, on success, issues a short-lived signed proof
+    (see `attendance.methods.verification_proof`) instead of ever
+    trusting a client-asserted "verified: true" at check-in/out time.
+    This call never writes an Attendance row itself.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    _METHODS = {"location", "wifi", "qr", "numeric_code"}
+
+    def post(self, request):
+        method = request.data.get("method") if isinstance(request.data, dict) else None
+        if method not in self._METHODS:
+            return Response(
+                {
+                    "code": "METHOD_NOT_ENABLED",
+                    "message": "Phương thức chấm công không hợp lệ.",
+                },
+                status=400,
+            )
+
+        employee = request.user.employee_get
+        company = employee.get_company()
+        evidence_request = Request(
+            user=request.user,
+            date=date.today(),
+            time=datetime.now().time(),
+            datetime=None,
+            evidence=_attendance_evidence(request),
+        )
+        result = validate_checkin_source(evidence_request, company)
+        if not result["allowed"]:
+            return Response(
+                {
+                    "code": result.get("code") or "VERIFICATION_REQUIRED",
+                    "message": result["message"],
+                },
+                status=400,
+            )
+
+        proof = issue_verification_proof(employee.id, method)
+        return Response(
+            {
+                "verified": True,
+                "method": result.get("method"),
+                "proof": proof,
+                "expires_in": PROOF_TTL,
             },
             status=200,
         )

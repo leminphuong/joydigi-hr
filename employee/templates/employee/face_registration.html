@@ -1,0 +1,48 @@
+{% extends "index.html" %}
+{% load static %}
+
+{% block styles %}
+<link rel="stylesheet" href="{% static 'face/face_camera.css' %}">
+{% endblock styles %}
+
+{% block content %}
+<main class="face-shell">
+    <section
+        class="face-card"
+        id="faceEnrollment"
+        data-register-url="{% url 'register-face' %}"
+    >
+        {% csrf_token %}
+        {% if face_registered %}
+            <div class="face-badge">✓ Face ID: Đã đăng ký</div>
+        {% endif %}
+        <h1 class="face-title">
+            {% if face_registered %}Đăng ký lại khuôn mặt{% else %}Đăng ký khuôn mặt{% endif %}
+        </h1>
+        <p class="face-subtitle">
+            Chụp 3 ảnh của chính bạn: nhìn thẳng, hơi nghiêng trái và hơi nghiêng phải.
+            Đăng ký lại sẽ ghi đè Face ID hiện tại.
+        </p>
+
+        <div class="face-camera-frame">
+            <video id="faceVideo" autoplay muted playsinline aria-label="Camera đăng ký khuôn mặt"></video>
+            <div class="face-guide" aria-hidden="true"></div>
+            <div class="face-guide-label">Đưa khuôn mặt vào giữa khung · chỉ một người trong ảnh</div>
+        </div>
+
+        <div class="face-previews" id="facePreviews" aria-live="polite"></div>
+        <div class="face-status" id="faceStatus" role="status" aria-live="polite">
+            Đang mở camera...
+        </div>
+
+        <div class="face-actions">
+            <button class="face-button" id="captureFace" type="button" disabled>CHỤP ẢNH 1/3</button>
+            <button class="face-button" id="saveFace" type="button" disabled>LƯU FACE ID</button>
+            <button class="face-button face-button--secondary" id="resetFace" type="button">CHỤP LẠI</button>
+        </div>
+    </section>
+</main>
+
+<script src="{% static 'face/face_camera.js' %}"></script>
+<script src="{% static 'face/face_enrollment.js' %}"></script>
+{% endblock content %}

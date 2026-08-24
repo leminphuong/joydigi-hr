@@ -778,6 +778,27 @@ class Employee(models.Model):
         return self
 
 
+class EmployeeFace(models.Model):
+    """One-to-one face template used only to verify the owning employee."""
+
+    employee = models.OneToOneField(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name="face_profile",
+        verbose_name=_("Employee"),
+    )
+    embedding = models.JSONField(verbose_name=_("Face embedding"))
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Employee Face ID")
+        verbose_name_plural = _("Employee Face IDs")
+
+    def __str__(self):
+        return f"Face ID - {self.employee.get_full_name()}"
+
+
 class EmployeeTag(JoydigiModel):
     """
     EmployeeTag Model

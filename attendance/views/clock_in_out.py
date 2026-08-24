@@ -472,26 +472,16 @@ def clock_in_attendance_and_activity(
 @login_required
 @hx_request_required
 def clock_in(request):
-    """
-    This method is used to mark the attendance once per a day and multiple attendance activities.
-    """
+    """Render wrapper around the reusable clock-in mutation."""
     attendance, allowed, _reason = perform_clock_in(request)
-    if not allowed:
-        # `perform_clock_in` already queued the specific reason via
-        # `messages.error`/`messages.warning` before returning.
+    if not allowed or attendance is None:
         return JoydigiRedirect(request)
     request.user.employee_get.refresh_from_db()
     return render(request, "attendance/components/in_out_component.html", {"run": 1})
 
 
 def perform_clock_in(request):
-    """
-    Pure clock-in mutation, mirroring `perform_clock_out` (Phase 6.1).
-    Never renders a template; safe to call with the lightweight
-    `Request` shim used by device/API callers. Returns
-    `(attendance, allowed, reason)` — `reason` is `None` on success or
-    `{"code", "message"}` on rejection.
-    """
+    """Apply clock-in without rendering and return attendance, status and reason."""
     # check wether check in/check out feature is enabled
     company = _resolve_checkin_company(request)
     attendance_general_settings = AttendanceGeneralSetting.objects.filter(
@@ -601,7 +591,8 @@ def perform_clock_in(request):
             )
             _mark_outside_radius_request(attendance, checkin_source)
             if checkin_source.get("outside_radius"):
-                _flash(messages.warning, 
+                _flash(
+                    messages.warning,
                     request,
                     checkin_source["message"] + " Bản ghi đã được chuyển sang chờ duyệt.",
                 )
@@ -616,17 +607,17 @@ def perform_clock_in(request):
         }
         _flash(messages.error, request, reason["message"])
         return None, False, reason
-    else:
-        reason = {
-            "code": "METHOD_NOT_ENABLED",
-            "message": str(
-                _(
-                    "The attendance check-in/check-out feature has not been enabled for your company."
-                )
+
+    reason = {
+        "code": "METHOD_NOT_ENABLED",
+        "message": str(
+            _(
+                "The attendance check-in/check-out feature has not been enabled for your company."
             ),
-        }
-        _flash(messages.error, request, reason["message"])
-        return None, False, reason
+        ),
+    }
+    _flash(messages.error, request, reason["message"])
+    return None, False, reason
 
 
 def clock_out_attendance_and_activity(employee, date_today, now, out_datetime=None):

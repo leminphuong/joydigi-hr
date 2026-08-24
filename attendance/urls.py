@@ -8,6 +8,7 @@ This page is used to map request or url path with function
 from django.urls import path
 
 from attendance import dashboard as att_dashboard
+from attendance import face_views
 from attendance.cbv import (
     attendance_activity,
     attendance_request,
@@ -33,6 +34,12 @@ from base.views import add_remove_dynamic_fields
 from .views import summary, views
 
 urlpatterns = [
+    path("face/", face_views.face_attendance_page, name="face-attendance"),
+    path(
+        "face/verify/",
+        face_views.face_attendance_verify,
+        name="face-attendance-verify",
+    ),
     path(
         "individual-panalty-list-view/<int:pk>/",
         attendances.PenaltyAccountListView.as_view(),

@@ -13,6 +13,7 @@ from employee.models import (
     DisciplinaryAction,
     Employee,
     EmployeeBankDetails,
+    EmployeeFace,
     EmployeeNote,
     EmployeeTag,
     EmployeeWorkInformation,
@@ -51,6 +52,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         "employee_first_name",
         "employee_last_name",
         "employee_user_id",
+        "face_id_registered",
         "is_active",
     )
 
@@ -65,6 +67,13 @@ class EmployeeAdmin(admin.ModelAdmin):
 
     ordering = ("employee_first_name", "employee_last_name")
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("face_profile")
+
+    @admin.display(boolean=True, description="Face ID")
+    def face_id_registered(self, obj):
+        return hasattr(obj, "face_profile")
+
     def delete_view(self, request, object_id, extra_context=None):
         extra_context = extra_context or {}
         extra_context["custom_message"] = (
@@ -75,3 +84,22 @@ class EmployeeAdmin(admin.ModelAdmin):
 
 admin.site.register(Employee, EmployeeAdmin)
 admin.site.register(EmployeeWorkInformation, EmployeeWorkInformationAdmin)
+
+
+@admin.register(EmployeeFace)
+class EmployeeFaceAdmin(admin.ModelAdmin):
+    list_display = ("employee", "created_at", "updated_at")
+    search_fields = (
+        "employee__badge_id",
+        "employee__employee_first_name",
+        "employee__employee_last_name",
+        "employee__employee_user_id__username",
+    )
+    readonly_fields = ("employee", "created_at", "updated_at")
+    exclude = ("embedding",)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

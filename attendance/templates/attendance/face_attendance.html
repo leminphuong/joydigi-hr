@@ -1,0 +1,59 @@
+{% extends "index.html" %}
+{% load static %}
+
+{% block styles %}
+<link rel="stylesheet" href="{% static 'face/face_camera.css' %}">
+{% endblock styles %}
+
+{% block content %}
+<main class="face-shell">
+    <section class="face-card">
+        {% if not face_registered %}
+            <h1 class="face-title">Chưa có Face ID</h1>
+            <p class="face-subtitle">Bạn cần đăng ký khuôn mặt trước khi chấm công bằng Face ID.</p>
+            <div class="face-notice">Face ID chỉ được so sánh 1:1 với tài khoản bạn đang đăng nhập.</div>
+            <div class="face-actions">
+                <a class="face-button" href="{% url 'face-registration' %}">ĐĂNG KÝ KHUÔN MẶT</a>
+            </div>
+        {% else %}
+            <div
+                id="faceAttendance"
+                data-verify-url="{% url 'face-attendance-verify' %}"
+                data-action="{{ attendance_action }}"
+            >
+                {% csrf_token %}
+                <div class="face-badge">✓ Face ID: Đã đăng ký</div>
+                <h1 class="face-title">
+                    {% if attendance_action == "CHECK_OUT" %}Check-out bằng khuôn mặt{% else %}Check-in bằng khuôn mặt{% endif %}
+                </h1>
+                <p class="face-subtitle">
+                    Hệ thống chỉ so sánh ảnh camera với Face ID của tài khoản đang đăng nhập.
+                </p>
+
+                <div class="face-camera-frame">
+                    <video id="faceVideo" autoplay muted playsinline aria-label="Camera chấm công khuôn mặt"></video>
+                    <div class="face-guide" aria-hidden="true"></div>
+                    <div class="face-guide-label">Đưa khuôn mặt vào giữa khung · chỉ một người trong ảnh</div>
+                </div>
+
+                <div class="face-status" id="faceStatus" role="status" aria-live="polite">
+                    Đang mở camera...
+                </div>
+                <div class="face-actions">
+                    <button class="face-button" id="faceAttendanceButton" type="button" disabled>
+                        {% if attendance_action == "CHECK_OUT" %}CHỤP & CHECK-OUT{% else %}CHỤP & CHECK-IN{% endif %}
+                    </button>
+                    <a class="face-button face-button--secondary" href="{% url 'face-registration' %}">
+                        ĐĂNG KÝ LẠI FACE ID
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </section>
+</main>
+
+{% if face_registered %}
+<script src="{% static 'face/face_camera.js' %}"></script>
+<script src="{% static 'face/face_attendance.js' %}"></script>
+{% endif %}
+{% endblock content %}

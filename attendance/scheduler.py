@@ -59,6 +59,9 @@ def auto_punch_out():
                                 date=date,
                                 time=shift_schedule.auto_punch_out_time,
                                 datetime=combined_datetime,
+                                # Genuinely trusted: an internal scheduled
+                                # job, not user-facing input.
+                                trusted_device=True,
                             )
                         )
                     except Exception as e:

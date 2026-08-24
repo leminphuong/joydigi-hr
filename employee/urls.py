@@ -11,6 +11,7 @@ from base.views import object_delete
 from employee import dashboard as emp_dashboard
 from employee import (
     employee_settings,
+    face_views,
     not_in_out_dashboard,
     requests,
     views,
@@ -26,6 +27,8 @@ from employee.cbv import (
 from employee.models import Employee, EmployeeTag
 
 urlpatterns = [
+    path("face-id/", face_views.face_registration_page, name="face-registration"),
+    path("face-id/register/", face_views.register_face, name="register-face"),
     path(
         "allocation-view/<int:pk>/",
         allocations.AllocationView.as_view(),

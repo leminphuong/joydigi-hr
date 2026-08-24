@@ -37,6 +37,13 @@ CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 JOYDIGI_ENV = env("JOYDIGI_ENV", default="")
 REDIS_URL = env("REDIS_URL", default=None)
 
+# In-process 1:1 face recognition. The model is loaded once per Django process.
+FACE_VERIFY_THRESHOLD = env.float("FACE_VERIFY_THRESHOLD", default=0.55)
+FACE_MODEL_NAME = env("FACE_MODEL_NAME", default="buffalo_l")
+FACE_MODEL_ROOT = env("FACE_MODEL_ROOT", default="~/.insightface")
+FACE_DETECTION_SIZE = env.int("FACE_DETECTION_SIZE", default=640)
+FACE_IMAGE_MAX_BYTES = env.int("FACE_IMAGE_MAX_BYTES", default=5 * 1024 * 1024)
+
 # Default site ID for django.contrib.sites framework.
 SITE_ID = 1
 

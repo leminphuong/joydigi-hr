@@ -345,11 +345,12 @@ def clock_in_attendance_and_activity(
     return attendance
 
 
-@login_required
-@hx_request_required
-def clock_in(request):
+def perform_clock_in(request):
     """
-    This method is used to mark the attendance once per a day and multiple attendance activities.
+    Apply the existing clock-in mutation without rendering a response.
+
+    Returns ``(attendance, allowed)`` so browser, API and Face ID entry points
+    can share IP/GPS/Wifi, shifts, late-coming and attendance logic.
     """
     # check wether check in/check out feature is enabled
     company = _resolve_checkin_company(request)
@@ -395,12 +396,12 @@ def clock_in(request):
                     request,
                     _("Check-In Restricted: Your current network is not authorized "),
                 )
-                return JoydigiRedirect(request)
+                return None, False
 
         checkin_source = _validate_checkin_source(request, company)
         if not checkin_source["allowed"]:
             messages.error(request, checkin_source["message"])
-            return JoydigiRedirect(request)
+            return None, False
 
         employee, work_info = employee_exists(request)
         datetime_now = timezone.localtime()
@@ -459,16 +460,14 @@ def clock_in(request):
                 )
             # Refresh employee from DB so template re-evaluates is_clocked_in correctly
             employee.refresh_from_db()
-            return render(
-                request, "attendance/components/in_out_component.html", {"run": 1}
-            )
+            return attendance, True
         messages.error(
             request,
             _(
                 "Check-In Unavailable: Your employee profile or work information is incomplete."
             ),
         )
-        return JoydigiRedirect(request)
+        return None, False
     else:
         messages.error(
             request,
@@ -476,7 +475,17 @@ def clock_in(request):
                 "The attendance check-in/check-out feature has not been enabled for your company."
             ),
         )
+        return None, False
+
+
+@login_required
+@hx_request_required
+def clock_in(request):
+    """Render wrapper around the reusable clock-in mutation."""
+    attendance, allowed = perform_clock_in(request)
+    if not allowed or attendance is None:
         return JoydigiRedirect(request)
+    return render(request, "attendance/components/in_out_component.html", {"run": 1})
 
 
 def clock_out_attendance_and_activity(employee, date_today, now, out_datetime=None):

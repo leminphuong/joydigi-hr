@@ -5,16 +5,24 @@
             <!-- "CHEKING WETHER Check in/check out enabled" -->
             {% if request|is_check_in_enabled %}
                 <!-- "CHEKING WETHER ITS IS THE CURRENT EMPLOYEES COMPANY OR ALL COMPANY, THEN ONLY SHOWS THE CHECK-IN, CHECK-OUT BUTTON" -->
-                {% if request.user|is_clocked_in and get_forecasted_at_work.has_attendance %}
-                    <button
+                {% if not request.user.employee_get.face_profile %}
+                    <a
+                        class="oh-btn oh-btn--secondary mr-2"
+                        href="{% url 'face-registration' %}"
+                        title="Đăng ký khuôn mặt trước khi chấm công"
+                    >
+                        <ion-icon class="oh-navbar__clock-icon mr-2 text-white" name="scan-outline"></ion-icon>
+                        <span class="hr-Check-In-out-text">Đăng ký Face ID</span>
+                    </a>
+                {% elif request.user|is_clocked_in and get_forecasted_at_work.has_attendance %}
+                    <a
                         class="oh-btn oh-btn--warning mr-2"
                         {% if request|is_timerunner_enabled and get_forecasted_at_work.has_attendance %}
                             onmouseenter="$(this).find('span').show();$(this).find('.time-runner').hide()"
                             onmouseleave="$(this).find('span').hide();$(this).find('.time-runner').show()"
                         {% endif %}
-                        hx-get="{% url 'clock-out' %}"
-                        hx-target="#attendance-activity-container"
-                        hx-swap="innerHTML"
+                        href="{% url 'face-attendance' %}"
+                        title="Check-out bằng khuôn mặt"
                     >
                         <ion-icon class="oh-navbar__clock-icon mr-2 text-white" name="exit-outline"></ion-icon>
                         <span
@@ -30,20 +38,19 @@
                                 {% endif %}
                             </div>
                         {% endif %}
-                    </button>
+                    </a>
                     <script>
                         run = 1
                     </script>
                 {% else %}
-                    <button
+                    <a
                         {% if request|is_timerunner_enabled %}
                             onmouseenter="$(this).find('span').show();$(this).find('.at-work-seconds').hide()"
                             onmouseleave="$(this).find('span').hide();$(this).find('.at-work-seconds').show()"
                         {% endif %}
                         class="oh-btn oh-btn--success mr-2"
-                        hx-get="{% url 'clock-in' %}"
-                        hx-target="#attendance-activity-container"
-                        hx-swap="innerHTML"
+                        href="{% url 'face-attendance' %}"
+                        title="Check-in bằng khuôn mặt"
                     >
                         <ion-icon class="oh-navbar__clock-icon mr-2 text-white" name="enter-outline"></ion-icon>
                         <span
@@ -53,7 +60,7 @@
                             {% endif %}
                         >{% trans "Check-In" %}</span>
                         <div class="at-work-seconds"></div>
-                    </button>
+                    </a>
                     {% if request|is_timerunner_enabled %}
                         <script>
                             $(document).ready(function () {

@@ -36,7 +36,10 @@ html5lib
 Jinja2
 idna
 lxml
-numpy
+numpy==2.5.2
+opencv-python==5.0.0.93
+insightface==1.0.1
+onnxruntime==1.28.0
 oauthlib
 openpyxl
 oscrypto

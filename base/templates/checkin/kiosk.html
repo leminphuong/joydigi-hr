@@ -19,30 +19,46 @@
 </head>
 <body>
 <main>
-    <h1>Chấm công bằng mã QR</h1>
-    <p>Mở máy ảnh điện thoại và quét mã bên dưới</p>
-    <img id="kioskQr" src="" alt="Mã QR chấm công">
-    <div class="code-label">Mã số</div>
-    <div id="kioskCode" class="numeric-code" aria-live="polite">------</div>
-    <small>Mã tự đổi sau mỗi 30 giây để bảo đảm an toàn.</small>
-</main>
-<script>
-    async function refreshKioskCode() {
-        try {
-            const response = await fetch('{% url "checkin-kiosk-data" %}?v=' + Date.now(), {
-                cache: 'no-store'
-            });
-            if (!response.ok) throw new Error('Không thể tải mã chấm công');
-            const data = await response.json();
-            document.getElementById('kioskQr').src = data.qr_url + '&v=' + Date.now();
-            document.getElementById('kioskCode').textContent = data.code;
-        } catch (error) {
-            document.getElementById('kioskCode').textContent = '------';
-        }
-    }
+    {% if location %}
+        <h1>Chấm công bằng mã QR</h1>
+        <p>{{ location.name }} — Mở máy ảnh điện thoại và quét mã bên dưới</p>
+        <img id="kioskQr" src="" alt="Mã QR chấm công">
+        <div class="code-label">Mã số</div>
+        <div id="kioskCode" class="numeric-code" aria-live="polite">------</div>
+        <small>Mã tự đổi sau mỗi 30 giây để bảo đảm an toàn.</small>
+        <script>
+            const kioskLocationId = "{{ location.id }}";
+            async function refreshKioskCode() {
+                try {
+                    const response = await fetch(
+                        '{% url "checkin-kiosk-data" %}?location_id=' + kioskLocationId + '&v=' + Date.now(),
+                        { cache: 'no-store' }
+                    );
+                    if (!response.ok) throw new Error('Không thể tải mã chấm công');
+                    const data = await response.json();
+                    document.getElementById('kioskQr').src = data.qr_url + '&v=' + Date.now();
+                    document.getElementById('kioskCode').textContent = data.code;
+                } catch (error) {
+                    document.getElementById('kioskCode').textContent = '------';
+                }
+            }
 
-    refreshKioskCode();
-    setInterval(refreshKioskCode, 30000);
-</script>
+            refreshKioskCode();
+            setInterval(refreshKioskCode, 30000);
+        </script>
+    {% else %}
+        <h1>Chọn địa điểm chấm công</h1>
+        <p>Chọn địa điểm để hiển thị mã QR chấm công cho địa điểm đó.</p>
+        <ul style="list-style:none;padding:0;text-align:left;max-width:360px;margin:0 auto">
+            {% for loc in locations %}
+                <li style="margin:8px 0">
+                    <a href="?location_id={{ loc.id }}" style="display:block;padding:14px 18px;border-radius:12px;background:#f4f7fb;color:#172033;text-decoration:none;font-weight:700">{{ loc.name }}</a>
+                </li>
+            {% empty %}
+                <li>Chưa có địa điểm chấm công nào được cấu hình.</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</main>
 </body>
 </html>

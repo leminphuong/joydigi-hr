@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 from datetime import date, datetime, timedelta
 
 from django.contrib import messages
+from django.contrib.messages.api import MessageFailure
 from django.db.models import Q
 from django.http import HttpResponse
 from django.utils import timezone
@@ -49,9 +50,24 @@ from base.models import (
     EmployeeShiftDay,
     OfficeWifi,
 )
-from base.checkin_tokens import valid_kiosk_token
+from base.checkin_tokens import resolve_kiosk_token
 from joydigi.decorators import hx_request_required, login_required
 from joydigi.joydigi_middlewares import _thread_locals
+
+
+def _flash(level, request, text):
+    """`django.contrib.messages` requires a real `HttpRequest` that
+    went through `MessageMiddleware` — the lightweight `Request` shim
+    used by device/API callers (`attendance.methods.utils.Request`)
+    has no `_messages` storage at all, so calling `messages.error()`
+    on it raises `MessageFailure`. That's purely web flash-message UX;
+    the actual allow/reject decision has already been made by the
+    time this runs, so for a non-web caller this is a no-op rather
+    than a reason to fail the request."""
+    try:
+        level(request, text)
+    except MessageFailure:
+        pass
 
 
 def _resolve_checkin_company(request):
@@ -80,24 +96,122 @@ def _distance_meters(lat1, lon1, lat2, lon2):
     return radius * 2 * math.atan2(math.sqrt(value), math.sqrt(1 - value))
 
 
-def _validate_checkin_source(request, company):
-    """Kiểm tra GPS/Wifi; thiết bị chấm công chuyên dụng vẫn dùng luồng cũ."""
-    if request.__dict__.get("datetime") or company is None:
-        return {"allowed": True, "method": "Thiết bị chấm công"}
+def validate_checkin_source(request, company):
+    """Kiểm tra GPS/Wifi/QR cho một lượt chấm công.
+
+    Phase 6.1: `request.trusted_device` (explicit, defaults `False`)
+    replaces the old `request.__dict__.get("datetime")` check — every
+    caller of `attendance.methods.utils.Request` sets `.datetime`
+    (including the JWT-authenticated mobile API), so that check used
+    to grant an unconditional bypass to any caller using this request
+    shim, not just genuinely trusted fixed infrastructure. Only
+    `attendance.scheduler`'s internal auto-punch-out job opts in.
+    """
+    if getattr(request, "trusted_device", False) or company is None:
+        return {"allowed": True, "method": "Thiết bị tin cậy"}
+
+    proof = request.GET.get("verification_proof") or request.POST.get(
+        "verification_proof"
+    )
+    if proof:
+        from attendance.methods.verification_proof import consume_verification_proof
+
+        employee = getattr(request.user, "employee_get", None)
+        method = consume_verification_proof(proof, getattr(employee, "id", None))
+        if method is None:
+            return {
+                "allowed": False,
+                "code": "VERIFICATION_REQUIRED",
+                "message": "Xác thực đã hết hạn hoặc không hợp lệ. Vui lòng thử lại.",
+            }
+        return {"allowed": True, "method": f"Đã xác thực trước ({method})"}
 
     qr_token = request.GET.get("qr_token") or request.POST.get("qr_token")
-    if valid_kiosk_token(qr_token):
-        return {"allowed": True, "method": "Mã QR văn phòng"}
+    if qr_token:
+        session = resolve_kiosk_token(qr_token)
+        if session is None:
+            return {
+                "allowed": False,
+                "code": "QR_EXPIRED",
+                "message": "Mã QR đã hết hạn hoặc không hợp lệ.",
+            }
+        if session.get("company_id") != getattr(company, "id", company):
+            return {
+                "allowed": False,
+                "code": "QR_WRONG_COMPANY",
+                "message": "Mã QR không thuộc công ty của bạn.",
+            }
+        location = CheckInLocation.objects.filter(
+            pk=session.get("location_id"), company_id=company, is_active=True
+        ).first()
+        if location is None:
+            return {
+                "allowed": False,
+                "code": "QR_WRONG_LOCATION",
+                "message": "Địa điểm chấm công của mã QR không còn hoạt động.",
+            }
+        return {
+            "allowed": True,
+            "method": "Mã QR văn phòng",
+            "location": location.name,
+        }
+
+    numeric_code = (
+        request.GET.get("numeric_code") or request.POST.get("numeric_code")
+    )
+    if numeric_code:
+        from base.checkin_tokens import resolve_kiosk_code
+        from base.throttling import check_and_record_numeric_code_attempt
+
+        throttled = check_and_record_numeric_code_attempt(request.user)
+        if throttled:
+            return {
+                "allowed": False,
+                "code": "QR_CODE_THROTTLED",
+                "message": "Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau.",
+            }
+        session = resolve_kiosk_code(numeric_code)
+        if session is None:
+            return {
+                "allowed": False,
+                "code": "QR_CODE_INVALID",
+                "message": "Mã số không đúng hoặc đã hết hạn.",
+            }
+        if session.get("company_id") != getattr(company, "id", company):
+            return {
+                "allowed": False,
+                "code": "QR_WRONG_COMPANY",
+                "message": "Mã số không thuộc công ty của bạn.",
+            }
+        location = CheckInLocation.objects.filter(
+            pk=session.get("location_id"), company_id=company, is_active=True
+        ).first()
+        if location is None:
+            return {
+                "allowed": False,
+                "code": "QR_WRONG_LOCATION",
+                "message": "Địa điểm chấm công của mã số không còn hoạt động.",
+            }
+        return {
+            "allowed": True,
+            "method": "Mã số văn phòng",
+            "location": location.name,
+        }
 
     locations = list(CheckInLocation.objects.filter(company_id=company, is_active=True))
     wifi_networks = OfficeWifi.objects.filter(company_id=company, is_active=True)
     wifi_ssid = (request.GET.get("wifi_ssid") or request.POST.get("wifi_ssid") or "").strip()
     wifi_bssid = (request.GET.get("wifi_bssid") or request.POST.get("wifi_bssid") or "").strip()
-    if wifi_ssid and wifi_networks.filter(
-        Q(ssid__iexact=wifi_ssid)
-        & (Q(bssid="") | Q(bssid__iexact=wifi_bssid))
-    ).exists():
-        return {"allowed": True, "method": "Wifi văn phòng", "wifi": wifi_ssid}
+    if wifi_ssid:
+        if wifi_networks.filter(
+            Q(ssid__iexact=wifi_ssid) & (Q(bssid="") | Q(bssid__iexact=wifi_bssid))
+        ).exists():
+            return {"allowed": True, "method": "Wifi văn phòng", "wifi": wifi_ssid}
+        return {
+            "allowed": False,
+            "code": "WIFI_NOT_ALLOWED",
+            "message": "Mạng Wifi hiện tại không được dùng để chấm công.",
+        }
 
     latitude = request.GET.get("latitude") or request.POST.get("latitude")
     longitude = request.GET.get("longitude") or request.POST.get("longitude")
@@ -105,9 +219,17 @@ def _validate_checkin_source(request, company):
         try:
             latitude, longitude = float(latitude), float(longitude)
         except (TypeError, ValueError):
-            return {"allowed": False, "message": "Tọa độ chấm công không hợp lệ."}
+            return {
+                "allowed": False,
+                "code": "LOCATION_INVALID",
+                "message": "Tọa độ chấm công không hợp lệ.",
+            }
         if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
-            return {"allowed": False, "message": "Tọa độ chấm công không hợp lệ."}
+            return {
+                "allowed": False,
+                "code": "LOCATION_INVALID",
+                "message": "Tọa độ chấm công không hợp lệ.",
+            }
         if not locations:
             return {
                 "allowed": True,
@@ -147,6 +269,7 @@ def _validate_checkin_source(request, company):
             result["allowed"] = bool(
                 policy is None or policy.allow_outside_radius_request
             )
+            result["code"] = None if result["allowed"] else "LOCATION_OUTSIDE"
             result["message"] = (
                 f"Bạn đang cách {nearest.name} khoảng {distance} m, "
                 f"ngoài bán kính {nearest.radius_meters} m."
@@ -156,6 +279,7 @@ def _validate_checkin_source(request, company):
     if locations:
         return {
             "allowed": False,
+            "code": "VERIFICATION_REQUIRED",
             "message": "Vui lòng bật quyền vị trí để chấm công.",
         }
     # Chưa cấu hình địa điểm/Wifi thì giữ tương thích với hệ thống cũ.
@@ -351,6 +475,23 @@ def clock_in(request):
     """
     This method is used to mark the attendance once per a day and multiple attendance activities.
     """
+    attendance, allowed, _reason = perform_clock_in(request)
+    if not allowed:
+        # `perform_clock_in` already queued the specific reason via
+        # `messages.error`/`messages.warning` before returning.
+        return JoydigiRedirect(request)
+    request.user.employee_get.refresh_from_db()
+    return render(request, "attendance/components/in_out_component.html", {"run": 1})
+
+
+def perform_clock_in(request):
+    """
+    Pure clock-in mutation, mirroring `perform_clock_out` (Phase 6.1).
+    Never renders a template; safe to call with the lightweight
+    `Request` shim used by device/API callers. Returns
+    `(attendance, allowed, reason)` — `reason` is `None` on success or
+    `{"code", "message"}` on rejection.
+    """
     # check wether check in/check out feature is enabled
     company = _resolve_checkin_company(request)
     attendance_general_settings = AttendanceGeneralSetting.objects.filter(
@@ -367,7 +508,7 @@ def clock_in(request):
         ).first()
 
         if (
-            not request.__dict__.get("datetime")
+            not getattr(request, "trusted_device", False)
             and allowed_attendance_ips
             and allowed_attendance_ips.is_enabled
         ):
@@ -391,16 +532,23 @@ def clock_in(request):
                     continue
 
             if not ip_allowed:
-                messages.error(
-                    request,
-                    _("Check-In Restricted: Your current network is not authorized "),
-                )
-                return JoydigiRedirect(request)
+                reason = {
+                    "code": "WIFI_NOT_ALLOWED",
+                    "message": str(
+                        _("Check-In Restricted: Your current network is not authorized ")
+                    ),
+                }
+                _flash(messages.error, request, reason["message"])
+                return None, False, reason
 
-        checkin_source = _validate_checkin_source(request, company)
+        checkin_source = validate_checkin_source(request, company)
         if not checkin_source["allowed"]:
-            messages.error(request, checkin_source["message"])
-            return JoydigiRedirect(request)
+            _flash(messages.error, request, checkin_source["message"])
+            reason = {
+                "code": checkin_source.get("code") or "VERIFICATION_REQUIRED",
+                "message": checkin_source["message"],
+            }
+            return None, False, reason
 
         employee, work_info = employee_exists(request)
         datetime_now = timezone.localtime()
@@ -453,30 +601,32 @@ def clock_in(request):
             )
             _mark_outside_radius_request(attendance, checkin_source)
             if checkin_source.get("outside_radius"):
-                messages.warning(
+                _flash(messages.warning, 
                     request,
                     checkin_source["message"] + " Bản ghi đã được chuyển sang chờ duyệt.",
                 )
-            # Refresh employee from DB so template re-evaluates is_clocked_in correctly
-            employee.refresh_from_db()
-            return render(
-                request, "attendance/components/in_out_component.html", {"run": 1}
-            )
-        messages.error(
-            request,
-            _(
-                "Check-In Unavailable: Your employee profile or work information is incomplete."
+            return attendance, True, None
+        reason = {
+            "code": "PROFILE_INCOMPLETE",
+            "message": str(
+                _(
+                    "Check-In Unavailable: Your employee profile or work information is incomplete."
+                )
             ),
-        )
-        return JoydigiRedirect(request)
+        }
+        _flash(messages.error, request, reason["message"])
+        return None, False, reason
     else:
-        messages.error(
-            request,
-            _(
-                "The attendance check-in/check-out feature has not been enabled for your company."
+        reason = {
+            "code": "METHOD_NOT_ENABLED",
+            "message": str(
+                _(
+                    "The attendance check-in/check-out feature has not been enabled for your company."
+                )
             ),
-        )
-        return JoydigiRedirect(request)
+        }
+        _flash(messages.error, request, reason["message"])
+        return None, False, reason
 
 
 def clock_out_attendance_and_activity(employee, date_today, now, out_datetime=None):
@@ -613,7 +763,7 @@ def clock_out(request):
     """
     This method is used to set the out date and time for attendance and attendance activity
     """
-    attendance, allowed = perform_clock_out(request)
+    attendance, allowed, _reason = perform_clock_out(request)
     if not allowed:
         # `perform_clock_out` already queued the specific reason via
         # `messages.error` before returning `(None, False)` — this is a
@@ -665,7 +815,7 @@ def perform_clock_out(request):
         ).first()
 
         if (
-            not request.__dict__.get("datetime")
+            not getattr(request, "trusted_device", False)
             and allowed_attendance_ips
             and allowed_attendance_ips.is_enabled
         ):
@@ -689,24 +839,26 @@ def perform_clock_out(request):
                     continue
 
             if not ip_allowed:
-                # Unreachable for API/device callers — this branch is
-                # gated by `not request.__dict__.get("datetime")` above,
-                # and API/device requests always set `.datetime`. Only a
-                # real web request reaches here, so `messages.error` is
-                # always called against a genuine `HttpRequest`.
-                messages.error(
-                    request,
-                    _("Check-Out Restricted: Your current network is not authorized"),
-                )
-                return None, False
+                reason = {
+                    "code": "WIFI_NOT_ALLOWED",
+                    "message": str(
+                        _("Check-Out Restricted: Your current network is not authorized")
+                    ),
+                }
+                _flash(messages.error, request, reason["message"])
+                return None, False, reason
 
-        checkin_source = _validate_checkin_source(request, company)
+        checkin_source = validate_checkin_source(request, company)
         if not checkin_source["allowed"]:
-            # Also unreachable for API/device callers — see
-            # `_validate_checkin_source`, which short-circuits to
-            # `allowed: True` whenever `request.datetime` is set.
-            messages.error(request, checkin_source["message"])
-            return None, False
+            # Phase 6.1: mobile/API callers no longer get an automatic
+            # pass here — see `validate_checkin_source`'s
+            # `trusted_device` doc.
+            _flash(messages.error, request, checkin_source["message"])
+            reason = {
+                "code": checkin_source.get("code") or "VERIFICATION_REQUIRED",
+                "message": checkin_source["message"],
+            }
+            return None, False, reason
 
         datetime_now = timezone.localtime()
         if request.__dict__.get("datetime"):
@@ -767,12 +919,15 @@ def perform_clock_out(request):
                         shift=shift,
                     )
 
-        return attendance, True
+        return attendance, True, None
 
-    messages.error(
-        request,
-        _(
-            "The attendance check-in/check-out feature has not been enabled for your company."
+    reason = {
+        "code": "METHOD_NOT_ENABLED",
+        "message": str(
+            _(
+                "The attendance check-in/check-out feature has not been enabled for your company."
+            )
         ),
-    )
-    return None, False
+    }
+    _flash(messages.error, request, reason["message"])
+    return None, False, reason

@@ -522,6 +522,20 @@ class Request:
     - time: The time of the request.
     - path: The path associated with the request (default: "/").
     - session: The session data associated with the request (default: Session with title=None).
+    - trusted_device: explicit flag (Phase 6.1) for callers that are
+      genuinely trusted fixed infrastructure (e.g. the scheduled
+      auto-punch-out job in `attendance.scheduler`), not user-facing
+      input. Previously `_validate_checkin_source()` inferred "trusted"
+      from whether `.datetime` was set at all — but every caller of
+      this class sets `.datetime`, including the JWT-authenticated
+      mobile API, so that check granted every mobile request an
+      unconditional attendance-source-validation bypass. Defaults to
+      `False`: callers must opt in explicitly.
+    - evidence: dict of client-supplied attendance-source evidence
+      (`qr_token`, `wifi_ssid`, `wifi_bssid`, `latitude`, `longitude`)
+      exposed as both `.GET` and `.POST` so `_validate_checkin_source`
+      can read it the same way it reads a real request, without this
+      shim pretending to be a full Django/DRF `HttpRequest`.
     """
 
     def __init__(
@@ -530,6 +544,8 @@ class Request:
         date,
         time,
         datetime,
+        trusted_device=False,
+        evidence=None,
     ) -> None:
         self.user = user
         self.path = "/"
@@ -537,6 +553,9 @@ class Request:
         self.date = date
         self.time = time
         self.datetime = datetime
+        self.trusted_device = trusted_device
+        self.GET = evidence or {}
+        self.POST = evidence or {}
         self.META = META()
 
     def build_absolute_uri(self, location=None):

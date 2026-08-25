@@ -20,6 +20,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from attendance.methods.diagnostics import set_stage
 from attendance.methods.utils import (
     MONTH_MAPPING,
     attendance_date_validate,
@@ -847,6 +848,7 @@ class Attendance(JoydigiModel):
         diff_approved_ot = new_approved_ot - old_approved_ot
         diff_pending = new_pending_today - old_pending_today
 
+        set_stage("attendance_save:super_save")
         super().save(*args, **kwargs)
 
         if diff_work == diff_approved_ot == diff_pending == 0:
@@ -859,6 +861,7 @@ class Attendance(JoydigiModel):
             # Khi chạy tác vụ nền/nạp dữ liệu mẫu không có công ty trong
             # session, manager theo công ty có thể không nhìn thấy bản ghi đã
             # tồn tại và gây trùng khóa tháng. Dùng toàn bộ queryset nội bộ.
+            set_stage("attendance_overtime_get_or_create")
             ot, _ = AttendanceOverTime.objects.entire().get_or_create(
                 employee_id=self.employee_id,
                 month=month,
@@ -870,6 +873,7 @@ class Attendance(JoydigiModel):
                 },
             )
 
+            set_stage("attendance_overtime_update")
             AttendanceOverTime.objects.entire().filter(pk=ot.pk).update(
                 hour_account_second=F("hour_account_second") + diff_work,
                 overtime_second=F("overtime_second") + diff_approved_ot,
@@ -882,6 +886,7 @@ class Attendance(JoydigiModel):
             ot.worked_hours = format_time(ot.hour_account_second or 0)
             ot.pending_hours = format_time(ot.hour_pending_second or 0)
             ot.overtime = format_time(ot.overtime_second or 0)
+            set_stage("attendance_overtime_charfield_save")
             ot.save(update_fields=["worked_hours", "pending_hours", "overtime"])
 
     def serialize(self):

@@ -22,6 +22,7 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from attendance.methods.diagnostics import set_stage
 from attendance.methods.utils import (
     activity_datetime,
     employee_exists,
@@ -641,6 +642,7 @@ def clock_out_attendance_and_activity(employee, date_today, now, out_datetime=No
         attendance_activity.clock_out = out_datetime
         attendance_activity.clock_out_date = date_today
         attendance_activity.out_datetime = out_datetime
+        set_stage("attendance_activity_write")
         attendance_activity.save()
 
         attendance_activities = attendance_activities.filter(
@@ -669,6 +671,7 @@ def clock_out_attendance_and_activity(employee, date_today, now, out_datetime=No
 
         # Validate the attendance as per the condition
         attendance.attendance_validated = attendance_validate(attendance)
+        set_stage("attendance_save")
         attendance.save()
 
         return attendance
@@ -694,6 +697,7 @@ def early_out_create(attendance):
     late_come_obj.type = "early_out"
     late_come_obj.attendance_id = attendance
     late_come_obj.employee_id = attendance.employee_id
+    set_stage("early_out_write")
     late_come_obj.save()
     return late_come_obj
 
@@ -791,6 +795,7 @@ def perform_clock_out(request):
     had already succeeded. This function never renders anything, so an
     API caller using it directly can't hit that failure mode.
     """
+    set_stage("perform_clock_out_start")
     # check wether check in/check out feature is enabled
     company = _resolve_checkin_company(request)
     attendance_general_settings = AttendanceGeneralSetting.objects.filter(

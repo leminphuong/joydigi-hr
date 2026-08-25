@@ -1,12 +1,10 @@
 import calendar
-import logging
-import uuid
 from datetime import date, datetime, timedelta, timezone
 
 from django import template
 from django.conf import settings
 from django.core.mail import EmailMessage
-from django.db import DataError, transaction
+from django.db import transaction
 from django.db.models import Case, CharField, F, Q, Value, When
 from django.http import QueryDict
 from django.shortcuts import get_object_or_404
@@ -23,12 +21,6 @@ from attendance.models import (
     AttendanceActivity,
     AttendanceLateComeEarlyOut,
     EmployeeShiftDay,
-)
-from attendance.methods.diagnostics import (
-    get_stage,
-    reset_stage,
-    sanitize_db_message,
-    set_stage,
 )
 from attendance.methods.verification_proof import PROOF_TTL, issue_verification_proof
 from attendance.views.clock_in_out import *
@@ -48,8 +40,6 @@ from base.methods import generate_pdf, is_company_leave, is_holiday, is_reportin
 from base.models import CheckInLocation, JoydigiMailTemplate, OfficeWifi
 from employee.filters import EmployeeFilter
 from leave.models import LeaveRequest
-
-logger = logging.getLogger(__name__)
 
 from ...api_decorators.base.decorators import (
     manager_permission_required,
@@ -182,57 +172,16 @@ class ClockOutAPIView(APIView):
         # through (mutation + early-out logic) can't leave a half-applied
         # checkout. Phase 6.1: no more legacy-geofencing fail-open block
         # (see `ClockInAPIView` docstring above — same bug, same fix).
-        #
-        # Phase 6.3A.3 (TEMPORARY): the `except DataError` below sits
-        # OUTSIDE the `with transaction.atomic():` block on purpose — by
-        # the time this `except` runs, the `with` block's own `__exit__`
-        # has already rolled back the transaction (and any nested
-        # savepoint inside `Attendance.save()`) because an exception
-        # propagated out of it. Catching inside the `with` block instead
-        # would risk the checkout being (partially) committed depending
-        # on exactly where the catch sits relative to the savepoint —
-        # this ordering guarantees rollback already happened before we
-        # ever build the diagnostic response.
-        reset_stage()
-        try:
-            with transaction.atomic():
-                attendance, allowed, reason = perform_clock_out(
-                    Request(
-                        user=request.user,
-                        date=current_date,
-                        time=current_time,
-                        datetime=current_datetime,
-                        evidence=_attendance_evidence(request),
-                    )
+        with transaction.atomic():
+            attendance, allowed, reason = perform_clock_out(
+                Request(
+                    user=request.user,
+                    date=current_date,
+                    time=current_time,
+                    datetime=current_datetime,
+                    evidence=_attendance_evidence(request),
                 )
-        except DataError as exc:
-            error_id = uuid.uuid4().hex[:12]
-            stage = get_stage()
-            logger.exception(
-                "CLOCK_OUT_DATA_ERROR error_id=%s stage=%s user_id=%s",
-                error_id,
-                stage,
-                getattr(request.user, "id", None),
             )
-            return Response(
-                {
-                    "success": False,
-                    "code": "CLOCK_OUT_DATA_ERROR",
-                    "message": "Lỗi dữ liệu khi xử lý chấm công ra.",
-                    "diagnostic": {
-                        "exception_type": "DataError",
-                        "db_exception_type": type(exc.__cause__).__name__
-                        if exc.__cause__
-                        else type(exc).__name__,
-                        "db_message": sanitize_db_message(str(exc.__cause__ or exc)),
-                        "stage": stage,
-                        "error_id": error_id,
-                    },
-                },
-                status=500,
-            )
-        finally:
-            reset_stage()
 
         if not allowed:
             return Response(

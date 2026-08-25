@@ -7,7 +7,6 @@ from django.db.models.signals import post_migrate, post_save, pre_delete
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 
-from attendance.methods.diagnostics import set_stage
 from attendance.methods.utils import strtime_seconds
 from attendance.models import (
     Attendance,
@@ -82,7 +81,6 @@ def attendance_post_save(sender, instance, **kwargs):
 
     work_record.work_record_type = status
     work_record.message = message
-    set_stage("attendance_post_save_signal:work_record_save")
     work_record.save()
 
 

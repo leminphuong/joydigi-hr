@@ -260,4 +260,19 @@ urlpatterns = [
         views.AnnouncementListAPIView.as_view(),
         name="announcement-view",
     ),
+    path(
+        "announcement/<int:announcement_id>/reaction",
+        views.AnnouncementReactionView.as_view(),
+        name="api-announcement-reaction",
+    ),
+    path(
+        "announcement/<int:announcement_id>/comments",
+        views.AnnouncementCommentListCreateView.as_view(),
+        name="api-announcement-comments",
+    ),
+    path(
+        "announcement/<int:announcement_id>/comments/<int:comment_id>",
+        views.AnnouncementCommentDetailView.as_view(),
+        name="api-announcement-comment-detail",
+    ),
 ]

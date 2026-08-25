@@ -2570,6 +2570,42 @@ class AnnouncementComment(JoydigiModel):
     objects = models.Manager()
 
 
+class AnnouncementReaction(JoydigiModel):
+    """
+    One employee's *current* reaction to one Announcement — a single
+    row per (announcement, employee), overwritten in place on change,
+    not a like-history log. Phase UI-3B: replaces the previously
+    nonexistent like/reaction feature (confirmed absent from both the
+    web dashboard and mobile API during the Phase UI-3A audit).
+    """
+
+    from employee.models import Employee
+
+    REACTION_CHOICES = [
+        ("like", "Like"),
+        ("love", "Love"),
+        ("haha", "Haha"),
+        ("wow", "Wow"),
+        ("sad", "Sad"),
+        ("clap", "Clap"),
+    ]
+
+    announcement_id = models.ForeignKey(
+        Announcement, on_delete=models.CASCADE, related_name="reactions"
+    )
+    employee_id = models.ForeignKey(Employee, on_delete=models.CASCADE)
+    reaction = models.CharField(max_length=10, choices=REACTION_CHOICES)
+    objects = models.Manager()
+
+    class Meta:
+        """Meta class for AnnouncementReaction"""
+
+        # DB-level guarantee: one employee can have only one current
+        # reaction per announcement (a second POST updates this row,
+        # it never inserts a second one).
+        unique_together = ("announcement_id", "employee_id")
+
+
 class AnnouncementView(models.Model):
     """
     Announcement View Model

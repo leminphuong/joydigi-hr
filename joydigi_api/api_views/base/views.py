@@ -1372,9 +1372,210 @@ class CheckUserLevel(APIView):
 from datetime import datetime, timedelta
 
 from bs4 import BeautifulSoup
-from django.db.models import Q
+from django.db.models import Count, Q
 
-from base.models import Announcement, AnnouncementExpire
+from base.models import (
+    Announcement,
+    AnnouncementComment,
+    AnnouncementExpire,
+    AnnouncementReaction,
+)
+
+ANNOUNCEMENT_REACTION_VALUES = {"like", "love", "haha", "wow", "sad", "clap"}
+
+
+def _scope_announcements_to_employee_company(queryset, employee):
+    """
+    Phase UI-3B security fix. `JoydigiCompanyManager`'s implicit
+    thread-local company scoping (`base/joydigi_company_manager.py`)
+    never activates for JWT-authenticated mobile requests:
+    `base.middleware.CompanyMiddleware` reads `request.session`/
+    `request.user` to compute the selected company *before* DRF's
+    `JWTAuthentication` ever runs (JWT auth happens later, inside
+    `APIView.dispatch()`); Flutter sends a bare `Authorization: Bearer`
+    header with no Django session cookie, so `request.user` is
+    `AnonymousUser` at that point and `current_company_id` is set to
+    `None` for the rest of the request. With no company in context,
+    `JoydigiCompanyManager.get_queryset()` returns its queryset
+    completely unfiltered by company (see Phase UI-3A audit report).
+
+    This function is the explicit, JWT-safe replacement used by every
+    Feed endpoint: it resolves the employee's company directly from
+    `request.user.employee_get.get_company()` and filters on it,
+    mirroring the exact `Q(path=company) | Q(path__isnull=True)`
+    semantics `JoydigiCompanyManager` itself uses elsewhere, so
+    company-wide-with-no-company-selected posts keep behaving exactly
+    like they already do on the web dashboard.
+    """
+    company = employee.get_company() if employee is not None else None
+    if company is not None:
+        return queryset.filter(Q(company_id=company) | Q(company_id__isnull=True))
+    # No resolvable employee/company at all — the only announcements
+    # safe to show are ones with no company restriction whatsoever.
+    return queryset.filter(company_id__isnull=True)
+
+
+def _visible_announcements_for(request):
+    """
+    Single source of truth for "which Announcements can this
+    authenticated request see" — company-scoped (see above) plus the
+    exact same employee-targeting permission check the list endpoint
+    already used. Shared by the list endpoint AND the reaction/comment
+    endpoints so an employee can never react/comment on — or even
+    detect the existence of — a post outside their own company or
+    targeting rules by guessing a numeric id.
+    """
+    employee = getattr(request.user, "employee_get", None)
+    queryset = _scope_announcements_to_employee_company(
+        Announcement.objects.filter(is_active=True), employee
+    )
+    if not request.user.has_perm("base.view_announcement"):
+        queryset = queryset.filter(Q(employees=employee) | Q(employees__isnull=True))
+    return queryset.distinct()
+
+
+def _visible_announcement_for_action(request, announcement_id):
+    """
+    Fetches one Announcement for a reaction/comment action, re-checking
+    full visibility on every call (never trusts that a valid id alone
+    means the caller may act on it). Returns None — surfaced by the
+    caller as a plain 404 — for both "doesn't exist" and "exists but
+    isn't visible to this employee," so an attacker cannot distinguish
+    the two by response shape.
+    """
+    return _visible_announcements_for(request).filter(pk=announcement_id).first()
+
+
+def _author_payload(announcement):
+    """
+    Phase UI-3B: best authoritative existing data for "who posted
+    this" — `Announcement.created_by` (a `JoydigiUser`, auto-set by
+    `JoydigiModel.save()` from the request that created it) resolved
+    to its linked `Employee` (`created_by.employee_get`) for a real
+    name + real department + real company. Returns None — never a
+    fabricated placeholder — when `created_by` is unset (e.g. a
+    management-command-created row) or has no linked Employee.
+    """
+    user = announcement.created_by
+    employee = getattr(user, "employee_get", None) if user else None
+    if employee is None:
+        return None
+    department = employee.get_department()
+    company = employee.get_company()
+    return {
+        "name": employee.get_full_name(),
+        "department": department.department if department else None,
+        "company": company.company if company else None,
+    }
+
+
+def _attachment_payload(attachment, request):
+    """Only safe, mobile-needed fields — never a raw filesystem path."""
+    try:
+        url = request.build_absolute_uri(attachment.file.url)
+    except ValueError:
+        url = None
+    return {"id": attachment.id, "url": url, "is_image": attachment.is_image}
+
+
+def _bulk_comment_counts(announcement_ids):
+    """One query for every announcement on the page, not one per row."""
+    if not announcement_ids:
+        return {}
+    rows = (
+        AnnouncementComment.objects.filter(announcement_id__in=announcement_ids)
+        .values("announcement_id")
+        .annotate(count=Count("id"))
+    )
+    return {row["announcement_id"]: row["count"] for row in rows}
+
+
+def _bulk_reaction_data(announcement_ids, employee):
+    """
+    Two bulk queries total (not two per row) covering every
+    announcement on the page: one GROUP BY for reaction_count +
+    reaction_summary, one targeted query for this employee's own
+    my_reaction on each of those announcements.
+    """
+    reaction_counts: dict = {}
+    reaction_summaries: dict = {}
+    if announcement_ids:
+        rows = (
+            AnnouncementReaction.objects.filter(
+                announcement_id__in=announcement_ids
+            )
+            .values("announcement_id", "reaction")
+            .annotate(count=Count("id"))
+        )
+        for row in rows:
+            ann_id = row["announcement_id"]
+            reaction_counts[ann_id] = reaction_counts.get(ann_id, 0) + row["count"]
+            reaction_summaries.setdefault(ann_id, {})[row["reaction"]] = row["count"]
+
+    my_reactions: dict = {}
+    if announcement_ids and employee is not None:
+        mine = AnnouncementReaction.objects.filter(
+            announcement_id__in=announcement_ids, employee_id=employee
+        ).values("announcement_id", "reaction")
+        my_reactions = {row["announcement_id"]: row["reaction"] for row in mine}
+
+    return reaction_counts, reaction_summaries, my_reactions
+
+
+def _reaction_summary_payload(announcement, employee):
+    rows = (
+        AnnouncementReaction.objects.filter(announcement_id=announcement)
+        .values("reaction")
+        .annotate(count=Count("id"))
+    )
+    summary = {row["reaction"]: row["count"] for row in rows}
+    mine = (
+        AnnouncementReaction.objects.filter(
+            announcement_id=announcement, employee_id=employee
+        )
+        .values_list("reaction", flat=True)
+        .first()
+    )
+    return {
+        "my_reaction": mine,
+        "reaction_count": sum(summary.values()),
+        "reaction_summary": summary,
+    }
+
+
+def _clean_comment_text(value):
+    """Enforces `AnnouncementComment.comment`'s own max_length=255 and
+    rejects empty/whitespace-only text. Returns (cleaned_text, error)."""
+    if not isinstance(value, str):
+        return None, _("Comment cannot be empty.")
+    trimmed = value.strip()
+    if not trimmed:
+        return None, _("Comment cannot be empty.")
+    if len(trimmed) > 255:
+        return None, _("Comment must be 255 characters or fewer.")
+    return trimmed, None
+
+
+def _comment_payload(comment, user):
+    employee = getattr(user, "employee_get", None)
+    author = comment.employee_id
+    is_own = (
+        employee is not None and author is not None and author.id == employee.id
+    )
+    can_delete = is_own or user.has_perm("base.delete_announcementcomment")
+    return {
+        "id": comment.id,
+        "comment": comment.comment,
+        "created_at": comment.created_at,
+        "author": (
+            {"employee_id": author.id, "name": author.get_full_name()}
+            if author
+            else None
+        ),
+        "is_own": is_own,
+        "can_edit": is_own,
+        "can_delete": can_delete,
+    }
 
 
 class AnnouncementPagination(PageNumberPagination):
@@ -1382,14 +1583,28 @@ class AnnouncementPagination(PageNumberPagination):
     max_page_size = 100  # prevent abuse
 
 
+class AnnouncementCommentPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class AnnouncementListAPIView(APIView):
     """
     API endpoint to list announcements for the authenticated user.
 
     - Updates expire dates if missing.
-    - Filters based on user permissions and validity.
+    - Filters based on user permissions, company, and validity.
     - Marks announcements with whether the user has viewed them.
     - Supports pagination.
+
+    Phase UI-3B: explicitly scopes results to the authenticated
+    employee's own company (`_scope_announcements_to_employee_company`)
+    — see that function's docstring for the JWT company-isolation bug
+    this closes. Also now returns `is_pinned`, `author`, `attachments`,
+    `comment_count`, `reaction_count`, `my_reaction`, and
+    `reaction_summary`; the original fields (`id`, `title`, `content`,
+    `created_at`, `expire_date`, `has_viewed`) are unchanged.
     """
 
     permission_classes = [IsAuthenticated]
@@ -1415,18 +1630,40 @@ class AnnouncementListAPIView(APIView):
             expire_date__gte=datetime.today().date()
         )
 
-        # Permission filter
-        if not request.user.has_perm("base.view_announcement"):
-            announcements = announcements.filter(
-                Q(employees=request.user.employee_get) | Q(employees__isnull=True)
-            )
-
-        # Prefetch related views for efficiency
-        announcements = announcements.prefetch_related("announcementview_set").order_by(
-            "-created_at"
+        # Phase UI-3B: explicit company scope (see helper docstring).
+        employee = getattr(request.user, "employee_get", None)
+        announcements = _scope_announcements_to_employee_company(
+            announcements, employee
         )
 
-        # Build response data
+        # Permission filter (unchanged from before this phase)
+        if not request.user.has_perm("base.view_announcement"):
+            announcements = announcements.filter(
+                Q(employees=employee) | Q(employees__isnull=True)
+            )
+
+        # Prefetch/select related for efficiency
+        announcements = (
+            announcements.prefetch_related("announcementview_set", "attachments")
+            .select_related(
+                "created_by__employee_get__employee_work_info__department_id",
+                "created_by__employee_get__employee_work_info__company_id",
+            )
+            .distinct()
+            .order_by("-is_pinned", "-created_at")
+        )
+
+        # Paginate the queryset itself (not a pre-built list) so the
+        # bulk comment/reaction lookups below only ever touch one page.
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(announcements, request)
+
+        page_ids = [ann.id for ann in page]
+        comment_counts = _bulk_comment_counts(page_ids)
+        reaction_counts, reaction_summaries, my_reactions = _bulk_reaction_data(
+            page_ids, employee
+        )
+
         data = [
             {
                 "id": ann.id,
@@ -1437,14 +1674,20 @@ class AnnouncementListAPIView(APIView):
                 "has_viewed": ann.announcementview_set.filter(
                     user=request.user, viewed=True
                 ).exists(),
+                "is_pinned": ann.is_pinned,
+                "author": _author_payload(ann),
+                "attachments": [
+                    _attachment_payload(a, request) for a in ann.attachments.all()
+                ],
+                "comment_count": comment_counts.get(ann.id, 0),
+                "reaction_count": reaction_counts.get(ann.id, 0),
+                "my_reaction": my_reactions.get(ann.id),
+                "reaction_summary": reaction_summaries.get(ann.id, {}),
             }
-            for ann in announcements
+            for ann in page
         ]
 
-        # Apply pagination
-        paginator = self.pagination_class()
-        page = paginator.paginate_queryset(data, request)
-        return paginator.get_paginated_response(page)
+        return paginator.get_paginated_response(data)
 
     @staticmethod
     def _parse_description(description: str) -> list[dict]:
@@ -1459,3 +1702,196 @@ class AnnouncementListAPIView(APIView):
             content.append({"type": tag_type, "text": tag.get_text(" ", strip=True)})
 
         return content
+
+
+class AnnouncementReactionView(APIView):
+    """
+    `POST` sets/changes the authenticated employee's current reaction
+    to an Announcement; `DELETE` removes it. Employee identity is
+    always `request.user.employee_get` — the request body/URL never
+    supplies an employee id. Visibility is re-checked on every call via
+    `_visible_announcement_for_action`, so an employee cannot react to
+    a post outside their own company/targeting scope merely by
+    guessing its numeric id (see Phase UI-3A audit item 7).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, announcement_id):
+        employee = getattr(request.user, "employee_get", None)
+        if employee is None:
+            return Response(
+                {"error": _("No employee profile linked to this account.")},
+                status=403,
+            )
+
+        announcement = _visible_announcement_for_action(request, announcement_id)
+        if announcement is None:
+            return Response(status=404)
+
+        reaction = request.data.get("reaction")
+        if reaction not in ANNOUNCEMENT_REACTION_VALUES:
+            return Response(
+                {
+                    "error": _("Invalid reaction. Allowed: %(values)s")
+                    % {"values": ", ".join(sorted(ANNOUNCEMENT_REACTION_VALUES))}
+                },
+                status=400,
+            )
+
+        AnnouncementReaction.objects.update_or_create(
+            announcement_id=announcement,
+            employee_id=employee,
+            defaults={"reaction": reaction},
+        )
+        return Response(_reaction_summary_payload(announcement, employee), status=200)
+
+    def delete(self, request, announcement_id):
+        employee = getattr(request.user, "employee_get", None)
+        if employee is None:
+            return Response(
+                {"error": _("No employee profile linked to this account.")},
+                status=403,
+            )
+
+        announcement = _visible_announcement_for_action(request, announcement_id)
+        if announcement is None:
+            return Response(status=404)
+
+        AnnouncementReaction.objects.filter(
+            announcement_id=announcement, employee_id=employee
+        ).delete()
+        return Response(_reaction_summary_payload(announcement, employee), status=200)
+
+
+class AnnouncementCommentListCreateView(APIView):
+    """
+    `GET` lists comments on one Announcement; `POST` creates one.
+    Reuses the existing `AnnouncementComment` model — no second comment
+    system. Employee identity always comes from
+    `request.user.employee_get`, never from the request body.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, announcement_id):
+        announcement = _visible_announcement_for_action(request, announcement_id)
+        if announcement is None:
+            return Response(status=404)
+
+        comments = (
+            AnnouncementComment.objects.filter(announcement_id=announcement)
+            .select_related("employee_id")
+            .order_by("-created_at")
+        )
+
+        # Phase UI-3A audit finding, preserved exactly for mobile: the
+        # web `comment_view` only restricts to "own comments" when
+        # `public_comments` is False AND the viewer lacks
+        # `base.view_announcement` (`filter_own_records`,
+        # `base/announcement.py`). `disable_comments` does not affect
+        # *reading* existing comments on the web either — it only
+        # blocks new ones — so it is intentionally not applied here.
+        if not announcement.public_comments and not request.user.has_perm(
+            "base.view_announcement"
+        ):
+            employee = getattr(request.user, "employee_get", None)
+            comments = comments.filter(employee_id=employee)
+
+        paginator = AnnouncementCommentPagination()
+        page = paginator.paginate_queryset(comments, request)
+        data = [_comment_payload(c, request.user) for c in page]
+        return paginator.get_paginated_response(data)
+
+    def post(self, request, announcement_id):
+        employee = getattr(request.user, "employee_get", None)
+        if employee is None:
+            return Response(
+                {"error": _("No employee profile linked to this account.")},
+                status=403,
+            )
+
+        announcement = _visible_announcement_for_action(request, announcement_id)
+        if announcement is None:
+            return Response(status=404)
+
+        if announcement.disable_comments:
+            return Response(
+                {"error": _("Comments are disabled for this post.")}, status=403
+            )
+
+        trimmed, error = _clean_comment_text(request.data.get("comment"))
+        if error:
+            return Response({"error": error}, status=400)
+
+        comment = AnnouncementComment.objects.create(
+            announcement_id=announcement,
+            employee_id=employee,
+            comment=trimmed,
+        )
+        return Response(_comment_payload(comment, request.user), status=201)
+
+
+class AnnouncementCommentDetailView(APIView):
+    """
+    `PATCH` edits one comment (owner only); `DELETE` removes one
+    (owner, or an explicit `base.delete_announcementcomment` permission
+    — mirrors `base/announcement.py:delete_announcement_comment` exactly).
+    Never allows editing/deleting another employee's comment merely by
+    changing the id in the URL.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @staticmethod
+    def _get_comment(announcement_id, comment_id):
+        return (
+            AnnouncementComment.objects.filter(
+                id=comment_id, announcement_id=announcement_id
+            )
+            .select_related("employee_id")
+            .first()
+        )
+
+    def patch(self, request, announcement_id, comment_id):
+        announcement = _visible_announcement_for_action(request, announcement_id)
+        if announcement is None:
+            return Response(status=404)
+
+        comment = self._get_comment(announcement.id, comment_id)
+        if comment is None:
+            return Response(status=404)
+
+        employee = getattr(request.user, "employee_get", None)
+        if employee is None or comment.employee_id_id != employee.id:
+            return Response(
+                {"error": _("You can only edit your own comment.")}, status=403
+            )
+
+        trimmed, error = _clean_comment_text(request.data.get("comment"))
+        if error:
+            return Response({"error": error}, status=400)
+
+        comment.comment = trimmed
+        comment.save()
+        return Response(_comment_payload(comment, request.user), status=200)
+
+    def delete(self, request, announcement_id, comment_id):
+        announcement = _visible_announcement_for_action(request, announcement_id)
+        if announcement is None:
+            return Response(status=404)
+
+        comment = self._get_comment(announcement.id, comment_id)
+        if comment is None:
+            return Response(status=404)
+
+        employee = getattr(request.user, "employee_get", None)
+        is_owner = employee is not None and comment.employee_id_id == employee.id
+        if not (is_owner or request.user.has_perm("base.delete_announcementcomment")):
+            return Response(
+                {"error": _("You don't have permission to delete this comment.")},
+                status=403,
+            )
+
+        comment.delete()
+        return Response(status=204)

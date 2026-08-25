@@ -65,4 +65,9 @@ urlpatterns = [
         AttendanceVerifySourceView.as_view(),
         name="api-attendance-verify-source",
     ),
+    path(
+        "verify-face/",
+        AttendanceVerifyFaceView.as_view(),
+        name="api-attendance-verify-face",
+    ),
 ]

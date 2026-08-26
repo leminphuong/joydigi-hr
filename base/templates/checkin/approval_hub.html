@@ -34,5 +34,19 @@
             </tbody>
         </table></div>
     </div>
+
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <h2 class="font-semibold text-gray-900">Đơn đổi ca</h2>
+            <a href="{% url 'shift-request-view' %}" class="text-sm text-primary-600 hover:underline">Mở trang duyệt đầy đủ</a>
+        </div>
+        <div class="overflow-x-auto"><table class="w-full text-sm">
+            <thead class="bg-gray-50 text-left text-gray-500"><tr><th class="px-5 py-3">Nhân viên</th><th class="px-5 py-3">Phòng ban / Chức danh</th><th class="px-5 py-3">Ca hiện tại → Ca yêu cầu</th><th class="px-5 py-3">Từ ngày</th><th class="px-5 py-3">Đến ngày</th><th class="px-5 py-3">Loại</th><th class="px-5 py-3">Lý do</th><th class="px-5 py-3">Thao tác</th></tr></thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for item in shift_requests %}<tr><td class="px-5 py-3 font-medium">{{ item.employee_id.get_full_name }}</td><td class="px-5 py-3">{{ item.employee_id.get_department|default:"—" }} / {{ item.employee_id.get_job_position|default:"—" }}</td><td class="px-5 py-3">{{ item.previous_shift_id|default:"—" }} → {{ item.shift_id }}</td><td class="px-5 py-3">{{ item.requested_date|date:"d/m/Y"|default:"—" }}</td><td class="px-5 py-3">{% if item.is_permanent_shift %}—{% else %}{{ item.requested_till|date:"d/m/Y"|default:"—" }}{% endif %}</td><td class="px-5 py-3">{% if item.is_permanent_shift %}<span class="text-gray-600">Vĩnh viễn</span>{% else %}<span class="text-gray-600">Tạm thời</span>{% endif %}</td><td class="px-5 py-3">{{ item.description|default:"Không có lý do" }}</td><td class="px-5 py-3"><div class="flex items-center gap-2"><form method="post" action="{% url 'shift-request-approve' item.id %}">{% csrf_token %}<button class="rounded-lg bg-primary-600 px-3 py-2 text-xs font-semibold text-white" type="submit">Duyệt</button></form><form method="post" action="{% url 'shift-request-cancel' item.id %}">{% csrf_token %}<button class="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50" type="submit">Từ chối</button></form></div></td></tr>
+                {% empty %}<tr><td colspan="8" class="px-5 py-9 text-center text-gray-400">Không có đơn đổi ca đang chờ duyệt.</td></tr>{% endfor %}
+            </tbody>
+        </table></div>
+    </div>
 </section>
 {% endblock %}

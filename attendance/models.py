@@ -2007,3 +2007,79 @@ class OvertimeRequest(JoydigiModel):
             if self.canceled
             else (_("Approved") if self.approved else _("Requested"))
         )
+
+
+class AttendanceExplanationRequest(JoydigiModel):
+    """
+    Phase UI-4F.1: an employee's REQUEST to explain an attendance
+    irregularity (missed clock-in, missed clock-out, late arrival, early
+    leave, or other) to their manager for review.
+
+    Structurally distinct from the pre-existing "Attendance Request"
+    mechanism (``Attendance.is_validate_request``/
+    ``is_validate_request_approved``, ``AttendanceRequestView`` at
+    ``/api/attendance/attendance-request/``), which lets an employee
+    request a CREATE/UPDATE of the actual Attendance row and, on
+    approval, directly mutates ``Attendance``. This model never touches
+    Attendance, WorkRecords, or Timesheet — creating, approving, or
+    canceling a row here is purely a request/response note, the same
+    way OvertimeRequest and AttendanceLateEarlyRequest are independent
+    of Attendance's own computed fields. See the Phase UI-4F.1 report
+    for the recommended future per-request-type integration point,
+    deliberately not implemented here.
+    """
+
+    REQUEST_TYPE_CHOICES = [
+        ("missing_check_in", _("Missing Check-in")),
+        ("missing_check_out", _("Missing Check-out")),
+        ("late_arrival", _("Late Arrival")),
+        ("early_leave", _("Early Leave")),
+        ("other", _("Other")),
+    ]
+
+    employee_id = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="explanation_requests",
+        verbose_name=_("Employee"),
+    )
+    request_type = models.CharField(
+        max_length=32,
+        choices=REQUEST_TYPE_CHOICES,
+        verbose_name=_("Request Type"),
+    )
+    request_date = models.DateField(verbose_name=_("Request Date"))
+    # Unlike OvertimeRequest/AttendanceLateEarlyRequest's optional
+    # description, an explanation with no content defeats the point of
+    # the feature — required at both the model (blank=False) and
+    # serializer (Step 5: reject null/""/whitespace-only) level.
+    description = models.TextField(verbose_name=_("Description"))
+    approved = models.BooleanField(default=False, verbose_name=_("Approved"))
+    canceled = models.BooleanField(default=False, verbose_name=_("Canceled"))
+
+    objects = JoydigiCompanyManager("employee_id__employee_work_info__company_id")
+
+    class Meta:
+        verbose_name = _("Attendance Explanation Request")
+        verbose_name_plural = _("Attendance Explanation Requests")
+        permissions = (
+            (
+                "approve_attendanceexplanationrequest",
+                "Approve Attendance Explanation Request",
+            ),
+            (
+                "cancel_attendanceexplanationrequest",
+                "Cancel Attendance Explanation Request",
+            ),
+        )
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"{self.employee_id} - {self.request_date} ({self.request_type})"
+
+    def request_status(self):
+        return (
+            _("Rejected")
+            if self.canceled
+            else (_("Approved") if self.approved else _("Requested"))
+        )

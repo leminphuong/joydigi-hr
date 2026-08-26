@@ -20,6 +20,7 @@ from rest_framework.views import APIView
 from attendance.models import (
     Attendance,
     AttendanceActivity,
+    AttendanceExplanationRequest,
     AttendanceLateComeEarlyOut,
     AttendanceLateEarlyRequest,
     EmployeeShiftDay,
@@ -55,6 +56,7 @@ from ...api_decorators.base.decorators import (
 from ...api_methods.base.methods import groupby_queryset, permission_based_queryset
 from ...api_serializers.attendance.serializers import (
     AttendanceActivitySerializer,
+    AttendanceExplanationRequestSerializer,
     AttendanceLateComeEarlyOutSerializer,
     AttendanceLateEarlyRequestSerializer,
     AttendanceOverTimeSerializer,
@@ -1700,6 +1702,89 @@ class OvertimeRequestCancelAPIView(APIView):
         if instance is None:
             return Response(
                 {"error": _("Overtime request not found.")},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if instance.canceled:
+            return Response({"status": "success"}, status=200)
+        instance.canceled = True
+        instance.approved = False
+        instance.save()
+        return Response({"status": "success"}, status=200)
+
+
+class AttendanceExplanationRequestListCreateAPIView(APIView):
+    """
+    Phase UI-4F.1. GET lists only the authenticated employee's own
+    explanation requests; POST creates one for that same employee.
+    Employee identity always comes from ``request.user.employee_get`` —
+    never from the request body. Never touches Attendance/WorkRecords/
+    Timesheet (see ``AttendanceExplanationRequest`` docstring).
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = AttendanceExplanationRequestSerializer
+
+    def get(self, request):
+        employee = request.user.employee_get
+        queryset = AttendanceExplanationRequest.objects.entire().filter(
+            employee_id=employee
+        ).order_by("-id")
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = self.serializer_class(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    def post(self, request):
+        employee = request.user.employee_get
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            # employee_id is read_only on the serializer — never trusted
+            # from the client — supplied here from the authenticated
+            # session only.
+            instance = serializer.save(employee_id=employee)
+            return Response(
+                self.serializer_class(instance).data, status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AttendanceExplanationRequestDetailAPIView(APIView):
+    """Phase UI-4F.1. Read-only detail — strictly the owner's own request."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = AttendanceExplanationRequestSerializer
+
+    def get(self, request, pk):
+        employee = request.user.employee_get
+        instance = AttendanceExplanationRequest.objects.entire().filter(
+            pk=pk, employee_id=employee
+        ).first()
+        if instance is None:
+            return Response(
+                {"error": _("Explanation request not found.")},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(self.serializer_class(instance).data, status=200)
+
+
+class AttendanceExplanationRequestCancelAPIView(APIView):
+    """
+    Phase UI-4F.1. The employee's own cancel action — sets
+    ``canceled=True`` (same convention as ShiftRequest/
+    AttendanceLateEarlyRequest/OvertimeRequest). No Attendance/
+    WorkRecords/Timesheet side effect.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        employee = request.user.employee_get
+        instance = AttendanceExplanationRequest.objects.entire().filter(
+            pk=pk, employee_id=employee
+        ).first()
+        if instance is None:
+            return Response(
+                {"error": _("Explanation request not found.")},
                 status=status.HTTP_404_NOT_FOUND,
             )
         if instance.canceled:

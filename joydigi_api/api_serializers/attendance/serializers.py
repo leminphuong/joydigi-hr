@@ -323,3 +323,52 @@ class OvertimeRequestSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["employee_id", "approved", "canceled", "created_at"]
+
+
+class AttendanceExplanationRequestSerializer(serializers.ModelSerializer):
+    """
+    Phase UI-4F.1. Same read-only/server-derived contract as
+    AttendanceLateEarlyRequestSerializer/OvertimeRequestSerializer —
+    ``employee_id``/``approved``/``canceled`` are never accepted from
+    the client.
+
+    Unlike OT/Late-Early, ``description`` is REQUIRED here (an
+    explanation with no content defeats the point) — the model's
+    ``blank=False`` already makes DRF's auto-generated field reject a
+    missing/empty value, but ``validate_description`` explicitly strips
+    and re-checks to guarantee a whitespace-only string (" ") is
+    rejected the same as "".
+    """
+
+    employee_first_name = serializers.CharField(
+        source="employee_id.employee_first_name", read_only=True
+    )
+    employee_last_name = serializers.CharField(
+        source="employee_id.employee_last_name", read_only=True
+    )
+    request_status = serializers.SerializerMethodField()
+
+    def get_request_status(self, obj):
+        return obj.request_status()
+
+    def validate_description(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Description must not be empty.")
+        return value
+
+    class Meta:
+        model = AttendanceExplanationRequest
+        fields = [
+            "id",
+            "employee_id",
+            "employee_first_name",
+            "employee_last_name",
+            "request_type",
+            "request_date",
+            "description",
+            "approved",
+            "canceled",
+            "request_status",
+            "created_at",
+        ]
+        read_only_fields = ["employee_id", "approved", "canceled", "created_at"]

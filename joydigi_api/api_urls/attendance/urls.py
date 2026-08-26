@@ -107,4 +107,23 @@ urlpatterns = [
         OvertimeRequestCancelAPIView.as_view(),
         name="api-overtime-request-cancel",
     ),
+    # Phase UI-4F.1 — Attendance explanation requests (additive; never
+    # touches Attendance/WorkRecords/Timesheet — structurally distinct
+    # from the pre-existing attendance-request/ endpoints above, which
+    # request a CREATE/UPDATE of the real Attendance row).
+    path(
+        "explanation-requests/",
+        AttendanceExplanationRequestListCreateAPIView.as_view(),
+        name="api-explanation-requests",
+    ),
+    path(
+        "explanation-requests/<int:pk>/",
+        AttendanceExplanationRequestDetailAPIView.as_view(),
+        name="api-explanation-request-detail",
+    ),
+    path(
+        "explanation-request-cancel/<int:pk>/",
+        AttendanceExplanationRequestCancelAPIView.as_view(),
+        name="api-explanation-request-cancel",
+    ),
 ]

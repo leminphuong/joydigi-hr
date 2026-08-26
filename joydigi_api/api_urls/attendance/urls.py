@@ -87,4 +87,24 @@ urlpatterns = [
         LateEarlyRequestCancelAPIView.as_view(),
         name="api-late-early-request-cancel",
     ),
+    # Phase UI-4E.1 — Overtime (OT) permission requests (additive;
+    # structurally independent of Attendance.attendance_overtime /
+    # attendance_overtime_approve and the existing overtime-approve/
+    # <pk> endpoint, which approves real worked OT on an Attendance row,
+    # not a pre-request).
+    path(
+        "overtime-requests/",
+        OvertimeRequestListCreateAPIView.as_view(),
+        name="api-overtime-requests",
+    ),
+    path(
+        "overtime-requests/<int:pk>/",
+        OvertimeRequestDetailAPIView.as_view(),
+        name="api-overtime-request-detail",
+    ),
+    path(
+        "overtime-request-cancel/<int:pk>/",
+        OvertimeRequestCancelAPIView.as_view(),
+        name="api-overtime-request-cancel",
+    ),
 ]

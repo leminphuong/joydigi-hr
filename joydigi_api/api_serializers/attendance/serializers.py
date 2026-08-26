@@ -271,3 +271,55 @@ class AttendanceLateEarlyRequestSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["employee_id", "approved", "canceled", "created_at"]
+
+
+class OvertimeRequestSerializer(serializers.ModelSerializer):
+    """
+    Phase UI-4E.1. Same read-only/server-derived contract as
+    AttendanceLateEarlyRequestSerializer — ``employee_id``/``approved``/
+    ``canceled`` are never accepted from the client.
+
+    Phase UI-4E.1 Step 4/5: no existing convention in this codebase
+    models a cross-midnight OT request, so this is scoped to a single
+    calendar day — ``end_time`` must be strictly after ``start_time``.
+    """
+
+    employee_first_name = serializers.CharField(
+        source="employee_id.employee_first_name", read_only=True
+    )
+    employee_last_name = serializers.CharField(
+        source="employee_id.employee_last_name", read_only=True
+    )
+    request_status = serializers.SerializerMethodField()
+
+    def get_request_status(self, obj):
+        return obj.request_status()
+
+    def validate(self, attrs):
+        start_time = attrs.get(
+            "start_time", getattr(self.instance, "start_time", None)
+        )
+        end_time = attrs.get("end_time", getattr(self.instance, "end_time", None))
+        if start_time and end_time and end_time <= start_time:
+            raise serializers.ValidationError(
+                {"end_time": "End time must be after start time."}
+            )
+        return attrs
+
+    class Meta:
+        model = OvertimeRequest
+        fields = [
+            "id",
+            "employee_id",
+            "employee_first_name",
+            "employee_last_name",
+            "request_date",
+            "start_time",
+            "end_time",
+            "description",
+            "approved",
+            "canceled",
+            "request_status",
+            "created_at",
+        ]
+        read_only_fields = ["employee_id", "approved", "canceled", "created_at"]

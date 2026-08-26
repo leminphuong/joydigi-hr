@@ -1945,3 +1945,65 @@ class AttendanceLateEarlyRequest(JoydigiModel):
             if self.canceled
             else (_("Approved") if self.approved else _("Requested"))
         )
+
+
+class OvertimeRequest(JoydigiModel):
+    """
+    Phase UI-4E.1: an employee's REQUEST for permission to work overtime
+    on a planned date/time window.
+
+    Structurally independent of Attendance's own OT machinery
+    (``Attendance.attendance_overtime``/``attendance_overtime_approve``,
+    auto-computed in ``Attendance.update_attendance_overtime()`` from
+    real clock-in/out — never touched here), the same way
+    AttendanceLateEarlyRequest is independent of
+    AttendanceLateComeEarlyOut. Creating, approving, or canceling a row
+    here has no automatic effect on Attendance, WorkRecords, or
+    Timesheet — see the Phase UI-4E.1 report for the recommended future
+    integration point (requested vs. actual OT reconciliation).
+
+    Phase UI-4E.1 explicitly scopes this to a same-day window
+    (``end_time`` after ``start_time``, enforced in the serializer, not
+    here) — no existing convention in this codebase models a cross-
+    midnight OT request, so that case is deferred to a later phase
+    rather than guessed at.
+    """
+
+    employee_id = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="overtime_requests",
+        verbose_name=_("Employee"),
+    )
+    request_date = models.DateField(verbose_name=_("Request Date"))
+    start_time = models.TimeField(verbose_name=_("Start Time"))
+    end_time = models.TimeField(verbose_name=_("End Time"))
+    description = models.TextField(
+        null=True, blank=True, verbose_name=_("Description")
+    )
+    approved = models.BooleanField(default=False, verbose_name=_("Approved"))
+    canceled = models.BooleanField(default=False, verbose_name=_("Canceled"))
+
+    objects = JoydigiCompanyManager("employee_id__employee_work_info__company_id")
+
+    class Meta:
+        verbose_name = _("Overtime Request")
+        verbose_name_plural = _("Overtime Requests")
+        permissions = (
+            ("approve_overtimerequest", "Approve Overtime Request"),
+            ("cancel_overtimerequest", "Cancel Overtime Request"),
+        )
+        ordering = ["-id"]
+
+    def __str__(self):
+        return (
+            f"{self.employee_id} - {self.request_date} "
+            f"{self.start_time}-{self.end_time}"
+        )
+
+    def request_status(self):
+        return (
+            _("Rejected")
+            if self.canceled
+            else (_("Approved") if self.approved else _("Requested"))
+        )

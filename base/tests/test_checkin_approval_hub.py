@@ -15,7 +15,11 @@ from base.models import (
     ShiftRequest,
 )
 from base.roles import LEADER_ROLE
-from attendance.models import AttendanceConflictResolution, AttendanceLateEarlyRequest
+from attendance.models import (
+    AttendanceConflictResolution,
+    AttendanceLateEarlyRequest,
+    OvertimeRequest,
+)
 from joydigi.testkit import make_company, make_employee, make_user
 from leave.models import LeaveRequest, LeaveType
 
@@ -429,21 +433,31 @@ class CheckInApprovalHubShiftRequestTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(list(response.context["shift_requests"]), [])
 
-    def test_approved_requests_are_not_in_pending_section(self):
-        self._make_shift_request(self.worker, approved=True)
+    def test_approved_requests_still_appear_with_approved_status(self):
+        # Phase UI-4E.1A: the hub is a recent-history summary, not a
+        # pending-only queue — processed requests stay visible.
+        approved = self._make_shift_request(self.worker, approved=True)
 
         self.client.force_login(self.leader_user)
         response = self.client.get(reverse("approval-hub"))
 
-        self.assertEqual(list(response.context["shift_requests"]), [])
+        self.assertIn(
+            approved.id,
+            [item.id for item in response.context["shift_requests"]],
+        )
+        self.assertContains(response, "Đã duyệt")
 
-    def test_canceled_requests_are_not_in_pending_section(self):
-        self._make_shift_request(self.worker, canceled=True)
+    def test_canceled_requests_still_appear_with_rejected_status(self):
+        canceled = self._make_shift_request(self.worker, canceled=True)
 
         self.client.force_login(self.leader_user)
         response = self.client.get(reverse("approval-hub"))
 
-        self.assertEqual(list(response.context["shift_requests"]), [])
+        self.assertIn(
+            canceled.id,
+            [item.id for item in response.context["shift_requests"]],
+        )
+        self.assertContains(response, "Đã từ chối")
 
     def test_inactive_employee_requests_are_not_in_pending_section(self):
         pending = self._make_shift_request(self.worker)
@@ -606,21 +620,31 @@ class CheckInApprovalHubLateEarlyRequestTests(TestCase):
 
         self.assertEqual(list(response.context["late_early_requests"]), [])
 
-    def test_approved_requests_are_not_in_pending_section(self):
-        self._make_request(self.worker, approved=True)
+    def test_approved_requests_still_appear_with_approved_status(self):
+        # Phase UI-4E.1A: the hub is a recent-history summary, not a
+        # pending-only queue — processed requests stay visible.
+        approved = self._make_request(self.worker, approved=True)
 
         self.client.force_login(self.leader_user)
         response = self.client.get(reverse("approval-hub"))
 
-        self.assertEqual(list(response.context["late_early_requests"]), [])
+        self.assertIn(
+            approved.id,
+            [item.id for item in response.context["late_early_requests"]],
+        )
+        self.assertContains(response, "Đã duyệt")
 
-    def test_canceled_requests_are_not_in_pending_section(self):
-        self._make_request(self.worker, canceled=True)
+    def test_canceled_requests_still_appear_with_rejected_status(self):
+        canceled = self._make_request(self.worker, canceled=True)
 
         self.client.force_login(self.leader_user)
         response = self.client.get(reverse("approval-hub"))
 
-        self.assertEqual(list(response.context["late_early_requests"]), [])
+        self.assertIn(
+            canceled.id,
+            [item.id for item in response.context["late_early_requests"]],
+        )
+        self.assertContains(response, "Đã từ chối")
 
     def test_approve_action_uses_dedicated_route_and_requires_permission(self):
         pending = self._make_request(self.worker)
@@ -700,3 +724,589 @@ class CheckInApprovalHubLateEarlyRequestTests(TestCase):
 
         self.assertContains(response, "Đơn đổi ca")
         self.assertIn("shift_requests", response.context)
+
+
+class CheckInApprovalHubOvertimeRequestTests(TestCase):
+    """Phase UI-4E.1: /duyet-don/ 'Đơn xin làm thêm giờ (OT)' section —
+    a brand-new admin approve/reject action pair (no pre-existing route
+    to reuse — the existing overtime-approve/<pk> endpoint approves a
+    real Attendance row's computed OT, not a pre-request), scoped
+    through the same _visible_employees(request) used by every other
+    section on this page."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.company = make_company("Overtime Hub Co")
+        leader_group, _ = Group.objects.get_or_create(name=LEADER_ROLE)
+
+        cls.leader_user = make_user("overtime_hub_leader")
+        cls.leader = make_employee(
+            company=cls.company,
+            email="overtime-hub-leader@test.joydigi",
+            user=cls.leader_user,
+        )
+        CompanyGroupAssignment.objects.create(
+            user=cls.leader_user, company=cls.company, group=leader_group
+        )
+        cls.worker_user = make_user("overtime_hub_worker")
+        cls.worker = make_employee(
+            company=cls.company,
+            email="overtime-hub-worker@test.joydigi",
+            user=cls.worker_user,
+        )
+        cls.worker.employee_work_info.reporting_manager_id = cls.leader
+        cls.worker.employee_work_info.save(update_fields=["reporting_manager_id"])
+
+        cls.other_company = make_company("Overtime Other Co")
+        cls.other_leader_user = make_user("overtime_hub_other_leader")
+        cls.other_leader = make_employee(
+            company=cls.other_company,
+            email="overtime-hub-other-leader@test.joydigi",
+            user=cls.other_leader_user,
+        )
+        CompanyGroupAssignment.objects.create(
+            user=cls.other_leader_user, company=cls.other_company, group=leader_group
+        )
+        cls.other_worker = make_employee(
+            company=cls.other_company,
+            email="overtime-hub-other-worker@test.joydigi",
+        )
+        cls.other_worker.employee_work_info.reporting_manager_id = cls.other_leader
+        cls.other_worker.employee_work_info.save(
+            update_fields=["reporting_manager_id"]
+        )
+
+    def _make_request(self, employee, **overrides):
+        defaults = {
+            "employee_id": employee,
+            "request_date": date.today() + timedelta(days=1),
+            "start_time": "18:00",
+            "end_time": "21:00",
+            "description": "Hoàn thành bản phát hành",
+            "approved": False,
+            "canceled": False,
+        }
+        defaults.update(overrides)
+        return OvertimeRequest.objects.create(**defaults)
+
+    def test_visible_manager_sees_pending_request(self):
+        pending = self._make_request(self.worker)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            pending.id,
+            [item.id for item in response.context["overtime_requests"]],
+        )
+        self.assertContains(response, "Đơn xin làm thêm giờ (OT)")
+
+    def test_unrelated_manager_does_not_see_it(self):
+        self._make_request(self.worker)
+
+        self.client.force_login(self.other_leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertEqual(list(response.context["overtime_requests"]), [])
+
+    def test_approved_requests_still_appear_with_approved_status(self):
+        # Phase UI-4E.1A: the hub is a recent-history summary, not a
+        # pending-only queue — processed requests stay visible.
+        approved = self._make_request(self.worker, approved=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertIn(
+            approved.id,
+            [item.id for item in response.context["overtime_requests"]],
+        )
+        self.assertContains(response, "Đã duyệt")
+
+    def test_canceled_requests_still_appear_with_rejected_status(self):
+        canceled = self._make_request(self.worker, canceled=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertIn(
+            canceled.id,
+            [item.id for item in response.context["overtime_requests"]],
+        )
+        self.assertContains(response, "Đã từ chối")
+
+    def test_approve_action_uses_dedicated_route_and_requires_permission(self):
+        pending = self._make_request(self.worker)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+        self.assertContains(
+            response,
+            reverse("overtime-request-approve", kwargs={"id": pending.id}),
+        )
+
+        approve_response = self.client.post(
+            reverse("overtime-request-approve", kwargs={"id": pending.id})
+        )
+
+        self.assertRedirects(approve_response, reverse("approval-hub"))
+        pending.refresh_from_db()
+        self.assertTrue(pending.approved)
+        self.assertFalse(pending.canceled)
+
+    def test_approve_does_not_touch_attendance_fields(self):
+        from attendance.models import Attendance
+
+        before = list(
+            Attendance.objects.values_list(
+                "id", "attendance_overtime", "attendance_overtime_approve"
+            )
+        )
+        pending = self._make_request(self.worker)
+
+        self.client.force_login(self.leader_user)
+        self.client.post(
+            reverse("overtime-request-approve", kwargs={"id": pending.id})
+        )
+
+        after = list(
+            Attendance.objects.values_list(
+                "id", "attendance_overtime", "attendance_overtime_approve"
+            )
+        )
+        self.assertEqual(before, after)
+
+    def test_reject_action_uses_dedicated_route(self):
+        pending = self._make_request(self.worker)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+        self.assertContains(
+            response,
+            reverse("overtime-request-reject", kwargs={"id": pending.id}),
+        )
+
+        reject_response = self.client.post(
+            reverse("overtime-request-reject", kwargs={"id": pending.id})
+        )
+
+        self.assertRedirects(reject_response, reverse("approval-hub"))
+        pending.refresh_from_db()
+        self.assertTrue(pending.canceled)
+        self.assertFalse(pending.approved)
+
+    def test_cross_company_manager_cannot_approve(self):
+        pending = self._make_request(self.worker)
+
+        self.client.force_login(self.other_leader_user)
+        response = self.client.post(
+            reverse("overtime-request-approve", kwargs={"id": pending.id})
+        )
+
+        self.assertRedirects(response, reverse("approval-hub"))
+        pending.refresh_from_db()
+        self.assertFalse(pending.approved)
+
+    def test_cross_company_manager_cannot_reject(self):
+        pending = self._make_request(self.worker)
+
+        self.client.force_login(self.other_leader_user)
+        response = self.client.post(
+            reverse("overtime-request-reject", kwargs={"id": pending.id})
+        )
+
+        self.assertRedirects(response, reverse("approval-hub"))
+        pending.refresh_from_db()
+        self.assertFalse(pending.canceled)
+
+    def test_ordinary_employee_cannot_reach_the_hub_at_all(self):
+        self.client.force_login(self.worker_user)
+
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_leave_section_still_renders(self):
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertContains(response, "Đơn xin phép")
+        self.assertIn("leave_requests", response.context)
+
+    def test_shift_request_section_still_renders(self):
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertContains(response, "Đơn đổi ca")
+        self.assertIn("shift_requests", response.context)
+
+    def test_late_early_section_still_renders(self):
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertContains(response, "Đơn xin đi muộn / về sớm")
+        self.assertIn("late_early_requests", response.context)
+
+    def test_every_section_has_a_full_review_page_link(self):
+        # Phase UI-4E.1A Step 4: every request type section on the hub
+        # must link to a real "Mở trang duyệt đầy đủ" URL.
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertContains(response, reverse("request-view"))
+        self.assertContains(response, reverse("request-attendance-view"))
+        self.assertContains(response, reverse("shift-request-view"))
+        self.assertContains(response, reverse("late-early-request-list"))
+        self.assertContains(response, reverse("overtime-request-list"))
+        # Every occurrence is the literal, unfiltered full-page URL —
+        # the pre-Phase-UI-4E.1A outside-radius link forced
+        # `?approved=false`, hiding processed records; that must be gone.
+        self.assertNotContains(response, "request-attendance-view/?approved=false")
+
+
+class LateEarlyRequestFullPageTests(TestCase):
+    """Phase UI-4E.1A: /duyet-don/di-muon-ve-som/ — the full review page
+    for AttendanceLateEarlyRequest, showing every status (not just
+    pending), scoped through the same _visible_employees(request) as
+    the rest of the hub."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.company = make_company("Late Early Full Page Co")
+        leader_group, _ = Group.objects.get_or_create(name=LEADER_ROLE)
+
+        cls.leader_user = make_user("le_fullpage_leader")
+        cls.leader = make_employee(
+            company=cls.company,
+            email="le-fullpage-leader@test.joydigi",
+            user=cls.leader_user,
+        )
+        CompanyGroupAssignment.objects.create(
+            user=cls.leader_user, company=cls.company, group=leader_group
+        )
+        cls.worker_user = make_user("le_fullpage_worker")
+        cls.worker = make_employee(
+            company=cls.company,
+            email="le-fullpage-worker@test.joydigi",
+            user=cls.worker_user,
+        )
+        cls.worker.employee_work_info.reporting_manager_id = cls.leader
+        cls.worker.employee_work_info.save(update_fields=["reporting_manager_id"])
+
+        cls.other_company = make_company("Late Early Full Page Other Co")
+        cls.other_leader_user = make_user("le_fullpage_other_leader")
+        cls.other_leader = make_employee(
+            company=cls.other_company,
+            email="le-fullpage-other-leader@test.joydigi",
+            user=cls.other_leader_user,
+        )
+        CompanyGroupAssignment.objects.create(
+            user=cls.other_leader_user, company=cls.other_company, group=leader_group
+        )
+        cls.other_worker = make_employee(
+            company=cls.other_company,
+            email="le-fullpage-other-worker@test.joydigi",
+        )
+        cls.other_worker.employee_work_info.reporting_manager_id = cls.other_leader
+        cls.other_worker.employee_work_info.save(
+            update_fields=["reporting_manager_id"]
+        )
+
+    def _make(self, employee, **overrides):
+        defaults = {
+            "employee_id": employee,
+            "request_type": "late_arrival",
+            "request_date": date.today() + timedelta(days=1),
+            "requested_time": "09:30",
+            "approved": False,
+            "canceled": False,
+        }
+        defaults.update(overrides)
+        return AttendanceLateEarlyRequest.objects.create(**defaults)
+
+    def test_authorized_leader_can_access(self):
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("late-early-request-list"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_ordinary_employee_denied(self):
+        self.client.force_login(self.worker_user)
+        response = self.client.get(reverse("late-early-request-list"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_unrelated_manager_sees_nothing(self):
+        self._make(self.worker)
+        self.client.force_login(self.other_leader_user)
+        response = self.client.get(reverse("late-early-request-list"))
+        self.assertEqual(list(response.context["requests"]), [])
+
+    def test_cross_company_request_does_not_appear(self):
+        self._make(self.other_worker)
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("late-early-request-list"))
+        self.assertEqual(list(response.context["requests"]), [])
+
+    def test_pending_approved_and_rejected_all_appear_together(self):
+        pending = self._make(self.worker)
+        approved = self._make(self.worker, approved=True)
+        rejected = self._make(self.worker, canceled=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("late-early-request-list"))
+
+        ids = [item.id for item in response.context["requests"]]
+        self.assertIn(pending.id, ids)
+        self.assertIn(approved.id, ids)
+        self.assertIn(rejected.id, ids)
+        self.assertContains(response, "Chờ duyệt")
+        self.assertContains(response, "Đã duyệt")
+        self.assertContains(response, "Đã từ chối")
+
+    def test_display_type_never_shows_raw_enum(self):
+        self._make(self.worker, request_type="late_arrival")
+        self._make(self.worker, request_type="early_leave")
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("late-early-request-list"))
+
+        self.assertContains(response, "Đi muộn")
+        self.assertContains(response, "Về sớm")
+        self.assertNotContains(response, "late_arrival")
+        self.assertNotContains(response, "early_leave")
+
+    def test_pending_has_approve_and_reject_actions(self):
+        pending = self._make(self.worker)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("late-early-request-list"))
+
+        self.assertContains(
+            response, reverse("late-early-request-approve", kwargs={"id": pending.id})
+        )
+        self.assertContains(
+            response, reverse("late-early-request-reject", kwargs={"id": pending.id})
+        )
+
+    def test_approved_has_no_approve_or_reject_action(self):
+        approved = self._make(self.worker, approved=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("late-early-request-list"))
+
+        self.assertNotContains(
+            response, reverse("late-early-request-approve", kwargs={"id": approved.id})
+        )
+        self.assertNotContains(
+            response, reverse("late-early-request-reject", kwargs={"id": approved.id})
+        )
+        self.assertContains(response, "Đã xử lý")
+
+    def test_rejected_has_no_approve_or_reject_action(self):
+        rejected = self._make(self.worker, canceled=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("late-early-request-list"))
+
+        self.assertNotContains(
+            response, reverse("late-early-request-approve", kwargs={"id": rejected.id})
+        )
+        self.assertNotContains(
+            response, reverse("late-early-request-reject", kwargs={"id": rejected.id})
+        )
+
+    def test_status_filter_pending(self):
+        pending = self._make(self.worker)
+        self._make(self.worker, approved=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(
+            reverse("late-early-request-list"), {"status": "pending"}
+        )
+
+        ids = [item.id for item in response.context["requests"]]
+        self.assertEqual(ids, [pending.id])
+
+    def test_status_filter_approved(self):
+        self._make(self.worker)
+        approved = self._make(self.worker, approved=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(
+            reverse("late-early-request-list"), {"status": "approved"}
+        )
+
+        ids = [item.id for item in response.context["requests"]]
+        self.assertEqual(ids, [approved.id])
+
+
+class OvertimeRequestFullPageTests(TestCase):
+    """Phase UI-4E.1A: /duyet-don/lam-them-gio/ — the full review page
+    for OvertimeRequest, showing every status, scoped through the same
+    _visible_employees(request) as the rest of the hub."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.company = make_company("Overtime Full Page Co")
+        leader_group, _ = Group.objects.get_or_create(name=LEADER_ROLE)
+
+        cls.leader_user = make_user("ot_fullpage_leader")
+        cls.leader = make_employee(
+            company=cls.company,
+            email="ot-fullpage-leader@test.joydigi",
+            user=cls.leader_user,
+        )
+        CompanyGroupAssignment.objects.create(
+            user=cls.leader_user, company=cls.company, group=leader_group
+        )
+        cls.worker_user = make_user("ot_fullpage_worker")
+        cls.worker = make_employee(
+            company=cls.company,
+            email="ot-fullpage-worker@test.joydigi",
+            user=cls.worker_user,
+        )
+        cls.worker.employee_work_info.reporting_manager_id = cls.leader
+        cls.worker.employee_work_info.save(update_fields=["reporting_manager_id"])
+
+        cls.other_company = make_company("Overtime Full Page Other Co")
+        cls.other_leader_user = make_user("ot_fullpage_other_leader")
+        cls.other_leader = make_employee(
+            company=cls.other_company,
+            email="ot-fullpage-other-leader@test.joydigi",
+            user=cls.other_leader_user,
+        )
+        CompanyGroupAssignment.objects.create(
+            user=cls.other_leader_user, company=cls.other_company, group=leader_group
+        )
+        cls.other_worker = make_employee(
+            company=cls.other_company,
+            email="ot-fullpage-other-worker@test.joydigi",
+        )
+        cls.other_worker.employee_work_info.reporting_manager_id = cls.other_leader
+        cls.other_worker.employee_work_info.save(
+            update_fields=["reporting_manager_id"]
+        )
+
+    def _make(self, employee, **overrides):
+        defaults = {
+            "employee_id": employee,
+            "request_date": date.today() + timedelta(days=1),
+            "start_time": "18:00",
+            "end_time": "21:00",
+            "approved": False,
+            "canceled": False,
+        }
+        defaults.update(overrides)
+        return OvertimeRequest.objects.create(**defaults)
+
+    def test_authorized_leader_can_access(self):
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("overtime-request-list"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_ordinary_employee_denied(self):
+        self.client.force_login(self.worker_user)
+        response = self.client.get(reverse("overtime-request-list"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_unrelated_manager_sees_nothing(self):
+        self._make(self.worker)
+        self.client.force_login(self.other_leader_user)
+        response = self.client.get(reverse("overtime-request-list"))
+        self.assertEqual(list(response.context["requests"]), [])
+
+    def test_cross_company_request_does_not_appear(self):
+        self._make(self.other_worker)
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("overtime-request-list"))
+        self.assertEqual(list(response.context["requests"]), [])
+
+    def test_pending_approved_and_rejected_all_appear_together(self):
+        pending = self._make(self.worker)
+        approved = self._make(self.worker, approved=True)
+        rejected = self._make(self.worker, canceled=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("overtime-request-list"))
+
+        ids = [item.id for item in response.context["requests"]]
+        self.assertIn(pending.id, ids)
+        self.assertIn(approved.id, ids)
+        self.assertIn(rejected.id, ids)
+        self.assertContains(response, "Chờ duyệt")
+        self.assertContains(response, "Đã duyệt")
+        self.assertContains(response, "Đã từ chối")
+
+    def test_pending_has_approve_and_reject_actions(self):
+        pending = self._make(self.worker)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("overtime-request-list"))
+
+        self.assertContains(
+            response, reverse("overtime-request-approve", kwargs={"id": pending.id})
+        )
+        self.assertContains(
+            response, reverse("overtime-request-reject", kwargs={"id": pending.id})
+        )
+
+    def test_approved_has_no_approve_or_reject_action(self):
+        approved = self._make(self.worker, approved=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("overtime-request-list"))
+
+        self.assertNotContains(
+            response, reverse("overtime-request-approve", kwargs={"id": approved.id})
+        )
+        self.assertNotContains(
+            response, reverse("overtime-request-reject", kwargs={"id": approved.id})
+        )
+        self.assertContains(response, "Đã xử lý")
+
+    def test_rejected_has_no_approve_or_reject_action(self):
+        rejected = self._make(self.worker, canceled=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("overtime-request-list"))
+
+        self.assertNotContains(
+            response, reverse("overtime-request-approve", kwargs={"id": rejected.id})
+        )
+        self.assertNotContains(
+            response, reverse("overtime-request-reject", kwargs={"id": rejected.id})
+        )
+
+    def test_approve_from_full_page_does_not_touch_attendance(self):
+        from attendance.models import Attendance
+
+        before = list(
+            Attendance.objects.values_list(
+                "id", "attendance_overtime", "attendance_overtime_approve"
+            )
+        )
+        pending = self._make(self.worker)
+
+        self.client.force_login(self.leader_user)
+        self.client.post(
+            reverse("overtime-request-approve", kwargs={"id": pending.id}),
+            HTTP_REFERER=reverse("overtime-request-list"),
+        )
+
+        after = list(
+            Attendance.objects.values_list(
+                "id", "attendance_overtime", "attendance_overtime_approve"
+            )
+        )
+        self.assertEqual(before, after)
+
+    def test_approve_from_full_page_redirects_back_to_full_page(self):
+        pending = self._make(self.worker)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.post(
+            reverse("overtime-request-approve", kwargs={"id": pending.id}),
+            HTTP_REFERER=reverse("overtime-request-list"),
+        )
+
+        self.assertRedirects(response, reverse("overtime-request-list"))

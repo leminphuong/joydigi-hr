@@ -70,6 +70,16 @@ urlpatterns = [
     path("cham-cong-hom-nay/", checkin_portal.today_attendance, name="today-attendance"),
     path("duyet-don/", checkin_portal.approval_hub, name="approval-hub"),
     path(
+        "duyet-don/di-muon-ve-som/",
+        checkin_portal.late_early_request_list,
+        name="late-early-request-list",
+    ),
+    path(
+        "duyet-don/lam-them-gio/",
+        checkin_portal.overtime_request_list,
+        name="overtime-request-list",
+    ),
+    path(
         "duyet-don/di-muon-ve-som/<int:id>/duyet/",
         checkin_portal.late_early_request_approve,
         name="late-early-request-approve",
@@ -78,6 +88,16 @@ urlpatterns = [
         "duyet-don/di-muon-ve-som/<int:id>/tu-choi/",
         checkin_portal.late_early_request_reject,
         name="late-early-request-reject",
+    ),
+    path(
+        "duyet-don/lam-them-gio/<int:id>/duyet/",
+        checkin_portal.overtime_request_approve,
+        name="overtime-request-approve",
+    ),
+    path(
+        "duyet-don/lam-them-gio/<int:id>/tu-choi/",
+        checkin_portal.overtime_request_reject,
+        name="overtime-request-reject",
     ),
     path("kiosk/", checkin_portal.kiosk, name="checkin-kiosk"),
     path("kiosk/ma-qr/", checkin_portal.kiosk_qr, name="checkin-kiosk-qr"),

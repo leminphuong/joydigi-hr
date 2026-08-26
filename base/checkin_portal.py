@@ -20,6 +20,7 @@ from base.roles import (
     checkin_leader_required,
     is_checkin_admin,
 )
+from joydigi.http.response import JoydigiRedirect
 
 
 def _current_company(request):
@@ -345,6 +346,13 @@ def _outside_radius(attendance):
     return any(word in description for word in ("ngoài bán kính", "ngoai ban kinh", "outside radius", "gps", "vị trí"))
 
 
+# Phase UI-4E.1A: the approval hub is a recent-history summary, not a
+# pending-only queue — this caps each section's widget so the hub page
+# stays fast/scannable while still showing Approved/Rejected alongside
+# Pending. Each type's dedicated full-page view has no such cap.
+_HUB_RECENT_LIMIT = 20
+
+
 @login_required
 @checkin_leader_required
 def approval_hub(request):
@@ -393,17 +401,23 @@ def approval_hub(request):
                 )
             )
         leave_requests.append(item)
+    # Phase UI-4E.1A: the hub is a summary, not a pending-only filter —
+    # every section below shows recent history across ALL statuses
+    # (Pending/Approved/Rejected), capped to the most recent
+    # _HUB_RECENT_LIMIT rows; the full, uncapped, all-status list lives
+    # on each type's dedicated full-page view (see below).
     attendance_requests = Attendance.objects.entire().filter(
         employee_id_id__in=employee_ids,
         is_validate_request=True,
-        is_validate_request_approved=False,
-    ).select_related("employee_id").order_by("attendance_date")
+    ).select_related("employee_id").order_by("-attendance_date")
     outside_requests = []
     for item in attendance_requests:
         if _outside_radius(item):
             data = _request_data(item)
             item.distance = data.get("distance") or data.get("distance_meters")
             outside_requests.append(item)
+            if len(outside_requests) >= _HUB_RECENT_LIMIT:
+                break
     # Phase UI-4B.3: same employee_ids scope as the sections above —
     # employee_ids already came from _visible_employees(request), which
     # already filters is_active=True. ShiftRequest also inherits its own
@@ -414,8 +428,6 @@ def approval_hub(request):
         ShiftRequest.objects.entire()
         .filter(
             employee_id_id__in=employee_ids,
-            approved=False,
-            canceled=False,
             is_active=True,
         )
         .select_related(
@@ -425,7 +437,7 @@ def approval_hub(request):
             "shift_id",
             "previous_shift_id",
         )
-        .order_by("-requested_date", "-id")[:100]
+        .order_by("-requested_date", "-id")[:_HUB_RECENT_LIMIT]
     )
     # Phase UI-4C.1: same explicit employee_ids scope as every section
     # above — never implicit thread-local/manager scoping alone.
@@ -435,8 +447,6 @@ def approval_hub(request):
         AttendanceLateEarlyRequest.objects.entire()
         .filter(
             employee_id_id__in=employee_ids,
-            approved=False,
-            canceled=False,
             is_active=True,
         )
         .select_related(
@@ -444,7 +454,24 @@ def approval_hub(request):
             "employee_id__employee_work_info__department_id",
             "employee_id__employee_work_info__job_position_id",
         )
-        .order_by("-request_date", "-id")[:100]
+        .order_by("-request_date", "-id")[:_HUB_RECENT_LIMIT]
+    )
+    # Phase UI-4E.1: same explicit employee_ids scope as every section
+    # above.
+    from attendance.models import OvertimeRequest
+
+    overtime_requests = (
+        OvertimeRequest.objects.entire()
+        .filter(
+            employee_id_id__in=employee_ids,
+            is_active=True,
+        )
+        .select_related(
+            "employee_id",
+            "employee_id__employee_work_info__department_id",
+            "employee_id__employee_work_info__job_position_id",
+        )
+        .order_by("-request_date", "-id")[:_HUB_RECENT_LIMIT]
     )
     response = render(
         request,
@@ -454,6 +481,7 @@ def approval_hub(request):
             "outside_requests": outside_requests,
             "shift_requests": shift_requests,
             "late_early_requests": late_early_requests,
+            "overtime_requests": overtime_requests,
         },
     )
     response["Cache-Control"] = "no-store, no-cache, must-revalidate"
@@ -473,13 +501,13 @@ def late_early_request_approve(request, id):
     visible_ids = set(_visible_employees(request).values_list("pk", flat=True))
     if instance.employee_id_id not in visible_ids:
         messages.error(request, "Bạn không có quyền duyệt đơn này.")
-        return redirect("approval-hub")
+        return JoydigiRedirect(request, fallback_url=reverse("approval-hub"))
     if not instance.approved:
         instance.approved = True
         instance.canceled = False
         instance.save()
         messages.success(request, "Đã duyệt đơn xin đi muộn/về sớm.")
-    return redirect("approval-hub")
+    return JoydigiRedirect(request, fallback_url=reverse("approval-hub"))
 
 
 @login_required
@@ -495,13 +523,140 @@ def late_early_request_reject(request, id):
     visible_ids = set(_visible_employees(request).values_list("pk", flat=True))
     if instance.employee_id_id not in visible_ids:
         messages.error(request, "Bạn không có quyền từ chối đơn này.")
-        return redirect("approval-hub")
+        return JoydigiRedirect(request, fallback_url=reverse("approval-hub"))
     if not instance.canceled:
         instance.canceled = True
         instance.approved = False
         instance.save()
         messages.success(request, "Đã từ chối đơn xin đi muộn/về sớm.")
-    return redirect("approval-hub")
+    return JoydigiRedirect(request, fallback_url=reverse("approval-hub"))
+
+
+@login_required
+@checkin_leader_required
+@require_POST
+def overtime_request_approve(request, id):
+    """Phase UI-4E.1 admin action — same visible-employee scope as the
+    /duyet-don/ query above. Approval only approves the REQUEST; it has
+    no automatic effect on Attendance.attendance_overtime/
+    attendance_overtime_approve, WorkRecords, or Timesheet (see phase
+    report)."""
+    from attendance.models import OvertimeRequest
+
+    instance = get_object_or_404(OvertimeRequest.objects.entire(), pk=id)
+    visible_ids = set(_visible_employees(request).values_list("pk", flat=True))
+    if instance.employee_id_id not in visible_ids:
+        messages.error(request, "Bạn không có quyền duyệt đơn này.")
+        return JoydigiRedirect(request, fallback_url=reverse("approval-hub"))
+    if not instance.approved:
+        instance.approved = True
+        instance.canceled = False
+        instance.save()
+        messages.success(request, "Đã duyệt đơn xin làm thêm giờ.")
+    return JoydigiRedirect(request, fallback_url=reverse("approval-hub"))
+
+
+@login_required
+@checkin_leader_required
+@require_POST
+def overtime_request_reject(request, id):
+    """Phase UI-4E.1 admin action — labeled "Từ chối" in the UI; sets
+    canceled=True, the project's established rejected/cancelled state
+    (same convention as ShiftRequest.canceled)."""
+    from attendance.models import OvertimeRequest
+
+    instance = get_object_or_404(OvertimeRequest.objects.entire(), pk=id)
+    visible_ids = set(_visible_employees(request).values_list("pk", flat=True))
+    if instance.employee_id_id not in visible_ids:
+        messages.error(request, "Bạn không có quyền từ chối đơn này.")
+        return JoydigiRedirect(request, fallback_url=reverse("approval-hub"))
+    if not instance.canceled:
+        instance.canceled = True
+        instance.approved = False
+        instance.save()
+        messages.success(request, "Đã từ chối đơn xin làm thêm giờ.")
+    return JoydigiRedirect(request, fallback_url=reverse("approval-hub"))
+
+
+def _filter_request_status(queryset, status):
+    """Shared GET ?status= filter for the Phase UI-4E.1A full review
+    pages — 'all' (default) applies no filter, matching Leave's own
+    full page (no status filter by default, all history visible)."""
+    if status == "pending":
+        return queryset.filter(approved=False, canceled=False)
+    if status == "approved":
+        return queryset.filter(approved=True, canceled=False)
+    if status == "rejected":
+        return queryset.filter(canceled=True)
+    return queryset
+
+
+@login_required
+@checkin_leader_required
+def late_early_request_list(request):
+    """Phase UI-4E.1A: full review page for AttendanceLateEarlyRequest —
+    shows every status (Pending/Approved/Rejected), unlike the
+    /duyet-don/ hub's recent-N-only summary widget. Same explicit
+    _visible_employees(request) scope as every other section."""
+    from attendance.models import AttendanceLateEarlyRequest
+
+    employee_ids = list(_visible_employees(request).values_list("pk", flat=True))
+    status = request.GET.get("status", "all")
+    queryset = (
+        _filter_request_status(
+            AttendanceLateEarlyRequest.objects.entire().filter(
+                employee_id_id__in=employee_ids, is_active=True
+            ),
+            status,
+        )
+        .select_related(
+            "employee_id",
+            "employee_id__employee_work_info__department_id",
+            "employee_id__employee_work_info__job_position_id",
+        )
+        .order_by("-request_date", "-id")
+    )
+    response = render(
+        request,
+        "checkin/late_early_request_list.html",
+        {"requests": queryset, "status": status},
+    )
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response
+
+
+@login_required
+@checkin_leader_required
+def overtime_request_list(request):
+    """Phase UI-4E.1A: full review page for OvertimeRequest — shows
+    every status (Pending/Approved/Rejected), unlike the /duyet-don/
+    hub's recent-N-only summary widget. Same explicit
+    _visible_employees(request) scope as every other section."""
+    from attendance.models import OvertimeRequest
+
+    employee_ids = list(_visible_employees(request).values_list("pk", flat=True))
+    status = request.GET.get("status", "all")
+    queryset = (
+        _filter_request_status(
+            OvertimeRequest.objects.entire().filter(
+                employee_id_id__in=employee_ids, is_active=True
+            ),
+            status,
+        )
+        .select_related(
+            "employee_id",
+            "employee_id__employee_work_info__department_id",
+            "employee_id__employee_work_info__job_position_id",
+        )
+        .order_by("-request_date", "-id")
+    )
+    response = render(
+        request,
+        "checkin/overtime_request_list.html",
+        {"requests": queryset, "status": status},
+    )
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response
 
 
 def _can_manage_settings(request):

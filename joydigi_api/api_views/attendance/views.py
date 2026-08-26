@@ -23,6 +23,7 @@ from attendance.models import (
     AttendanceLateComeEarlyOut,
     AttendanceLateEarlyRequest,
     EmployeeShiftDay,
+    OvertimeRequest,
 )
 from attendance.methods.verification_proof import PROOF_TTL, issue_verification_proof
 from attendance.views.clock_in_out import *
@@ -60,6 +61,7 @@ from ...api_serializers.attendance.serializers import (
     AttendanceRequestSerializer,
     AttendanceSerializer,
     MailTemplateSerializer,
+    OvertimeRequestSerializer,
     UserAttendanceDetailedSerializer,
     UserAttendanceListSerializer,
 )
@@ -1614,6 +1616,90 @@ class LateEarlyRequestCancelAPIView(APIView):
         if instance is None:
             return Response(
                 {"error": _("Late/early request not found.")},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if instance.canceled:
+            return Response({"status": "success"}, status=200)
+        instance.canceled = True
+        instance.approved = False
+        instance.save()
+        return Response({"status": "success"}, status=200)
+
+
+class OvertimeRequestListCreateAPIView(APIView):
+    """
+    Phase UI-4E.1. GET lists only the authenticated employee's own
+    overtime requests; POST creates one for that same employee.
+    Employee identity always comes from ``request.user.employee_get`` —
+    never from the request body. Structurally independent of
+    ``Attendance.attendance_overtime``/``attendance_overtime_approve``
+    (see ``OvertimeRequest`` docstring) — this never touches Attendance.
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = OvertimeRequestSerializer
+
+    def get(self, request):
+        employee = request.user.employee_get
+        queryset = OvertimeRequest.objects.entire().filter(
+            employee_id=employee
+        ).order_by("-id")
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = self.serializer_class(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    def post(self, request):
+        employee = request.user.employee_get
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            # employee_id is read_only on the serializer — never trusted
+            # from the client — supplied here from the authenticated
+            # session only.
+            instance = serializer.save(employee_id=employee)
+            return Response(
+                self.serializer_class(instance).data, status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class OvertimeRequestDetailAPIView(APIView):
+    """Phase UI-4E.1. Read-only detail — strictly the owner's own request."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = OvertimeRequestSerializer
+
+    def get(self, request, pk):
+        employee = request.user.employee_get
+        instance = OvertimeRequest.objects.entire().filter(
+            pk=pk, employee_id=employee
+        ).first()
+        if instance is None:
+            return Response(
+                {"error": _("Overtime request not found.")},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(self.serializer_class(instance).data, status=200)
+
+
+class OvertimeRequestCancelAPIView(APIView):
+    """
+    Phase UI-4E.1. The employee's own cancel action — sets
+    ``canceled=True`` (same convention as ShiftRequest/
+    AttendanceLateEarlyRequest). No Attendance/WorkRecords/Timesheet
+    side effect.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        employee = request.user.employee_get
+        instance = OvertimeRequest.objects.entire().filter(
+            pk=pk, employee_id=employee
+        ).first()
+        if instance is None:
+            return Response(
+                {"error": _("Overtime request not found.")},
                 status=status.HTTP_404_NOT_FOUND,
             )
         if instance.canceled:

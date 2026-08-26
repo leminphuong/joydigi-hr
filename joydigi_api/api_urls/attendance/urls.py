@@ -70,4 +70,21 @@ urlpatterns = [
         AttendanceVerifyFaceView.as_view(),
         name="api-attendance-verify-face",
     ),
+    # Phase UI-4C.1 — Late/Early permission requests (additive; distinct
+    # from AttendanceLateComeEarlyOut, which is system-computed).
+    path(
+        "late-early-requests/",
+        LateEarlyRequestListCreateAPIView.as_view(),
+        name="api-late-early-requests",
+    ),
+    path(
+        "late-early-requests/<int:pk>/",
+        LateEarlyRequestDetailAPIView.as_view(),
+        name="api-late-early-request-detail",
+    ),
+    path(
+        "late-early-request-cancel/<int:pk>/",
+        LateEarlyRequestCancelAPIView.as_view(),
+        name="api-late-early-request-cancel",
+    ),
 ]

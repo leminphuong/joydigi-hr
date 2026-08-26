@@ -69,6 +69,16 @@ urlpatterns = [
     path("dashboard/", dashboard_module.main_dashboard_view, name="dashboard"),
     path("cham-cong-hom-nay/", checkin_portal.today_attendance, name="today-attendance"),
     path("duyet-don/", checkin_portal.approval_hub, name="approval-hub"),
+    path(
+        "duyet-don/di-muon-ve-som/<int:id>/duyet/",
+        checkin_portal.late_early_request_approve,
+        name="late-early-request-approve",
+    ),
+    path(
+        "duyet-don/di-muon-ve-som/<int:id>/tu-choi/",
+        checkin_portal.late_early_request_reject,
+        name="late-early-request-reject",
+    ),
     path("kiosk/", checkin_portal.kiosk, name="checkin-kiosk"),
     path("kiosk/ma-qr/", checkin_portal.kiosk_qr, name="checkin-kiosk-qr"),
     path("kiosk/du-lieu/", checkin_portal.kiosk_data, name="checkin-kiosk-data"),

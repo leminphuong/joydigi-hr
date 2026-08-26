@@ -349,6 +349,7 @@ def _outside_radius(attendance):
 @checkin_leader_required
 def approval_hub(request):
     from attendance.models import Attendance
+    from base.models import ShiftRequest
     from leave.models import LeaveRequest
 
     employee_ids = list(_visible_employees(request).values_list("pk", flat=True))
@@ -403,10 +404,36 @@ def approval_hub(request):
             data = _request_data(item)
             item.distance = data.get("distance") or data.get("distance_meters")
             outside_requests.append(item)
+    # Phase UI-4B.3: same employee_ids scope as the sections above —
+    # employee_ids already came from _visible_employees(request), which
+    # already filters is_active=True, so no separate employee-active
+    # filter is needed here. Pending = not yet approved and not
+    # canceled/rejected (ShiftRequest has no is_active field of its own;
+    # the "is_active" requirement from the phase spec is the employee's).
+    shift_requests = (
+        ShiftRequest.objects.entire()
+        .filter(
+            employee_id_id__in=employee_ids,
+            approved=False,
+            canceled=False,
+        )
+        .select_related(
+            "employee_id",
+            "employee_id__employee_work_info__department_id",
+            "employee_id__employee_work_info__job_position_id",
+            "shift_id",
+            "previous_shift_id",
+        )
+        .order_by("-requested_date", "-id")[:100]
+    )
     response = render(
         request,
         "checkin/approval_hub.html",
-        {"leave_requests": leave_requests, "outside_requests": outside_requests},
+        {
+            "leave_requests": leave_requests,
+            "outside_requests": outside_requests,
+            "shift_requests": shift_requests,
+        },
     )
     response["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return response

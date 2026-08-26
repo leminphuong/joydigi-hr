@@ -65,6 +65,11 @@ urlpatterns = [
         AttendanceVerifySourceView.as_view(),
         name="api-attendance-verify-source",
     ),
+    path(
+        "verify-face/",
+        AttendanceVerifyFaceView.as_view(),
+        name="api-attendance-verify-face",
+    ),
     # Phase UI-4C.1 — Late/Early permission requests (additive; distinct
     # from AttendanceLateComeEarlyOut, which is system-computed).
     path(

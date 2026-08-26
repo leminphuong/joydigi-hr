@@ -1,12 +1,11 @@
 import calendar
 import logging
-import uuid
 from datetime import date, datetime, timedelta, timezone
 
 from django import template
 from django.conf import settings
 from django.core.mail import EmailMessage
-from django.db import DataError, transaction
+from django.db import transaction
 from django.db.models import Case, CharField, F, Q, Value, When
 from django.http import QueryDict
 from django.shortcuts import get_object_or_404
@@ -25,12 +24,6 @@ from attendance.models import (
     AttendanceLateEarlyRequest,
     EmployeeShiftDay,
 )
-from attendance.methods.diagnostics import (
-    get_stage,
-    reset_stage,
-    sanitize_db_message,
-    set_stage,
-)
 from attendance.methods.verification_proof import PROOF_TTL, issue_verification_proof
 from attendance.views.clock_in_out import *
 from attendance.views.clock_in_out import (
@@ -48,6 +41,8 @@ from base.backends import ConfiguredEmailBackend
 from base.methods import generate_pdf, is_company_leave, is_holiday, is_reportingmanager
 from base.models import CheckInLocation, JoydigiMailTemplate, OfficeWifi
 from employee.filters import EmployeeFilter
+from employee.models import EmployeeFace
+from employee.services.face_recognition import FaceRecognitionError, verify_face
 from leave.models import LeaveRequest
 
 logger = logging.getLogger(__name__)
@@ -184,57 +179,16 @@ class ClockOutAPIView(APIView):
         # through (mutation + early-out logic) can't leave a half-applied
         # checkout. Phase 6.1: no more legacy-geofencing fail-open block
         # (see `ClockInAPIView` docstring above — same bug, same fix).
-        #
-        # Phase 6.3A.3 (TEMPORARY): the `except DataError` below sits
-        # OUTSIDE the `with transaction.atomic():` block on purpose — by
-        # the time this `except` runs, the `with` block's own `__exit__`
-        # has already rolled back the transaction (and any nested
-        # savepoint inside `Attendance.save()`) because an exception
-        # propagated out of it. Catching inside the `with` block instead
-        # would risk the checkout being (partially) committed depending
-        # on exactly where the catch sits relative to the savepoint —
-        # this ordering guarantees rollback already happened before we
-        # ever build the diagnostic response.
-        reset_stage()
-        try:
-            with transaction.atomic():
-                attendance, allowed, reason = perform_clock_out(
-                    Request(
-                        user=request.user,
-                        date=current_date,
-                        time=current_time,
-                        datetime=current_datetime,
-                        evidence=_attendance_evidence(request),
-                    )
+        with transaction.atomic():
+            attendance, allowed, reason = perform_clock_out(
+                Request(
+                    user=request.user,
+                    date=current_date,
+                    time=current_time,
+                    datetime=current_datetime,
+                    evidence=_attendance_evidence(request),
                 )
-        except DataError as exc:
-            error_id = uuid.uuid4().hex[:12]
-            stage = get_stage()
-            logger.exception(
-                "CLOCK_OUT_DATA_ERROR error_id=%s stage=%s user_id=%s",
-                error_id,
-                stage,
-                getattr(request.user, "id", None),
             )
-            return Response(
-                {
-                    "success": False,
-                    "code": "CLOCK_OUT_DATA_ERROR",
-                    "message": "Lỗi dữ liệu khi xử lý chấm công ra.",
-                    "diagnostic": {
-                        "exception_type": "DataError",
-                        "db_exception_type": type(exc.__cause__).__name__
-                        if exc.__cause__
-                        else type(exc).__name__,
-                        "db_message": sanitize_db_message(str(exc.__cause__ or exc)),
-                        "stage": stage,
-                        "error_id": error_id,
-                    },
-                },
-                status=500,
-            )
-        finally:
-            reset_stage()
 
         if not allowed:
             return Response(
@@ -270,13 +224,22 @@ class AttendancePolicyView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        company = request.user.employee_get.get_company()
+        employee = request.user.employee_get
+        company = employee.get_company()
         has_location = CheckInLocation.objects.filter(
             company_id=company, is_active=True
         ).exists()
         has_wifi = OfficeWifi.objects.filter(
             company_id=company, is_active=True
         ).exists()
+        # Phase 6.3C.1: mobile enrollment doesn't exist yet (Step 7 —
+        # web `/employee/face-id/` stays the only enrollment path), so
+        # the tile can only ever be meaningful for an employee who
+        # already has an `EmployeeFace` template. This intentionally
+        # ignores company-level config (there is no company-level
+        # Camera AI policy row anywhere in the codebase, unlike
+        # location/wifi) — enrollment status is the only real gate.
+        has_face = EmployeeFace.objects.filter(employee=employee).exists()
         return Response(
             {
                 "location": {"enabled": has_location},
@@ -286,7 +249,172 @@ class AttendancePolicyView(APIView):
                 # they're only meaningful once at least one is set up.
                 "qr": {"enabled": has_location},
                 "numeric_code": {"enabled": has_location},
-                "camera_ai": {"enabled": False},
+                "camera_ai": {"enabled": has_face},
+            },
+            status=200,
+        )
+
+
+# Phase 6.3C.1: canonical Camera AI verification-proof method identifier —
+# reused nowhere else, must never collide with "location"/"wifi"/"qr"/
+# "numeric_code" (AttendanceVerifySourceView._METHODS).
+CAMERA_AI_METHOD = "camera_ai"
+
+# Maps employee.services.face_recognition.FaceRecognitionError.code to
+# this endpoint's own stable mobile error contract (code, message,
+# status). Any code not listed here (e.g. the engine's own internal
+# "invalid_embedding"/"invalid_registered_embedding"/"invalid_face_result"
+# invariant failures) falls back to FACE_ENGINE_UNAVAILABLE — those are
+# never the caller's fault, so they're never worth a bespoke code.
+_FACE_ERROR_RESPONSES = {
+    "empty_image": ("FACE_IMAGE_REQUIRED", "Vui lòng chụp ảnh khuôn mặt.", 400),
+    "invalid_image": ("FACE_IMAGE_INVALID", "Ảnh khuôn mặt không hợp lệ.", 400),
+    "image_too_large": (
+        "FACE_IMAGE_INVALID",
+        "Ảnh khuôn mặt vượt quá dung lượng cho phép.",
+        413,
+    ),
+    "unsupported_image_type": (
+        "FACE_IMAGE_INVALID",
+        "Định dạng ảnh không được hỗ trợ.",
+        415,
+    ),
+    "face_not_detected": ("FACE_NOT_DETECTED", "Không phát hiện khuôn mặt.", 422),
+    "multiple_faces": (
+        "MULTIPLE_FACES_DETECTED",
+        "Chỉ được có một khuôn mặt trong camera.",
+        422,
+    ),
+    "face_engine_unavailable": (
+        "FACE_ENGINE_UNAVAILABLE",
+        "Không thể khởi tạo nhận diện khuôn mặt. Vui lòng thử lại.",
+        503,
+    ),
+}
+_DEFAULT_FACE_ERROR = (
+    "FACE_ENGINE_UNAVAILABLE",
+    "Không thể xác thực khuôn mặt. Vui lòng thử lại.",
+    503,
+)
+
+
+class AttendanceVerifyFaceView(APIView):
+    """
+    Phase 6.3C.1 — dedicated mobile JWT endpoint for Camera AI (face)
+    attendance verification (`POST /api/attendance/verify-face/`).
+
+    Deliberately NOT folded into `AttendanceVerifySourceView` /
+    `validate_checkin_source` (which only ever handles
+    location/wifi/qr/numeric_code) — a shared dispatch point means any
+    future Camera AI change risks regressing those already-working
+    flows. This view has zero effect on that function or its
+    `_METHODS` set.
+
+    Reuses the exact same `EmployeeFace` biometric template and
+    InsightFace engine (`employee.services.face_recognition`) as the
+    existing web `/attendance/face/verify/` flow — no second AI
+    implementation. Unlike that web endpoint, this one never calls
+    `perform_clock_in`/`perform_clock_out` itself: on a real match it
+    only issues the same short-lived, single-use, employee-bound
+    `verification_proof` every other method already uses
+    (`attendance.methods.verification_proof` — completely unmodified),
+    so the client still finishes the write through the existing
+    `/attendance/clock-in/` or `/attendance/clock-out/`, exactly like
+    Location/Wifi/QR/numeric_code. The uploaded image is never
+    persisted or logged — only read into memory, passed to the engine,
+    and discarded when the request ends.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        employee = request.user.employee_get
+
+        # Employee identity is server-derived only — never accept a
+        # client-supplied employee_id to decide whose face template to
+        # compare against.
+        face_profile = EmployeeFace.objects.filter(employee=employee).first()
+        if face_profile is None:
+            return Response(
+                {
+                    "code": "FACE_NOT_ENROLLED",
+                    "message": "Bạn chưa đăng ký Face ID.",
+                },
+                status=409,
+            )
+
+        image = request.FILES.get("image")
+        if image is None:
+            return Response(
+                {
+                    "code": "FACE_IMAGE_REQUIRED",
+                    "message": "Vui lòng chụp ảnh khuôn mặt.",
+                },
+                status=400,
+            )
+
+        try:
+            image_bytes = image.read()
+        except Exception:
+            return Response(
+                {
+                    "code": "FACE_IMAGE_INVALID",
+                    "message": "Không đọc được ảnh khuôn mặt.",
+                },
+                status=400,
+            )
+
+        try:
+            result = verify_face(
+                face_profile.embedding,
+                image_bytes,
+                filename=image.name or "face.jpg",
+                content_type=image.content_type or "image/jpeg",
+            )
+        except FaceRecognitionError as exc:
+            code, message, status_code = _FACE_ERROR_RESPONSES.get(
+                exc.code, _DEFAULT_FACE_ERROR
+            )
+            logger.warning(
+                "FACE_VERIFY_MOBILE employee=%s result=FAILURE error=%s",
+                getattr(employee, "id", None),
+                exc.code,
+            )
+            return Response({"code": code, "message": message}, status=status_code)
+        except Exception:
+            logger.exception(
+                "FACE_VERIFY_MOBILE employee=%s result=FAILURE error=unexpected",
+                getattr(employee, "id", None),
+            )
+            code, message, status_code = _DEFAULT_FACE_ERROR
+            return Response({"code": code, "message": message}, status=status_code)
+
+        score = result.get("score")
+        safe_score = round(score, 4) if isinstance(score, float) else None
+
+        if not result.get("verified"):
+            logger.info(
+                "FACE_VERIFY_MOBILE employee=%s result=NOT_MATCHED score=%s",
+                getattr(employee, "id", None),
+                safe_score,
+            )
+            return Response(
+                {"code": "FACE_NOT_MATCHED", "message": "Khuôn mặt không khớp."},
+                status=403,
+            )
+
+        logger.info(
+            "FACE_VERIFY_MOBILE employee=%s result=MATCHED score=%s",
+            getattr(employee, "id", None),
+            safe_score,
+        )
+        proof = issue_verification_proof(employee.id, CAMERA_AI_METHOD)
+        return Response(
+            {
+                "verified": True,
+                "method": CAMERA_AI_METHOD,
+                "proof": proof,
+                "expires_in": PROOF_TTL,
             },
             status=200,
         )

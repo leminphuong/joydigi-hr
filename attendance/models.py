@@ -20,7 +20,6 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from attendance.methods.diagnostics import set_stage
 from attendance.methods.utils import (
     MONTH_MAPPING,
     attendance_date_validate,
@@ -848,7 +847,6 @@ class Attendance(JoydigiModel):
         diff_approved_ot = new_approved_ot - old_approved_ot
         diff_pending = new_pending_today - old_pending_today
 
-        set_stage("attendance_save:super_save")
         super().save(*args, **kwargs)
 
         if diff_work == diff_approved_ot == diff_pending == 0:
@@ -861,7 +859,6 @@ class Attendance(JoydigiModel):
             # Khi chạy tác vụ nền/nạp dữ liệu mẫu không có công ty trong
             # session, manager theo công ty có thể không nhìn thấy bản ghi đã
             # tồn tại và gây trùng khóa tháng. Dùng toàn bộ queryset nội bộ.
-            set_stage("attendance_overtime_get_or_create")
             ot, _ = AttendanceOverTime.objects.entire().get_or_create(
                 employee_id=self.employee_id,
                 month=month,
@@ -873,7 +870,6 @@ class Attendance(JoydigiModel):
                 },
             )
 
-            set_stage("attendance_overtime_update")
             AttendanceOverTime.objects.entire().filter(pk=ot.pk).update(
                 hour_account_second=F("hour_account_second") + diff_work,
                 overtime_second=F("overtime_second") + diff_approved_ot,
@@ -886,7 +882,6 @@ class Attendance(JoydigiModel):
             ot.worked_hours = format_time(ot.hour_account_second or 0)
             ot.pending_hours = format_time(ot.hour_pending_second or 0)
             ot.overtime = format_time(ot.overtime_second or 0)
-            set_stage("attendance_overtime_charfield_save")
             ot.save(update_fields=["worked_hours", "pending_hours", "overtime"])
 
     def serialize(self):
@@ -1703,7 +1698,20 @@ class WorkRecords(models.Model):
     at_work_second = models.IntegerField(null=True, blank=True, default=0)
     min_hour_second = models.IntegerField(null=True, blank=True, default=0)
     note = models.TextField(max_length=255)
-    message = models.CharField(max_length=30, null=True, blank=True)
+    # Phase 6.3A.4: was `max_length=30` since the very first migration —
+    # too small for the actual Vietnamese status strings this field has
+    # always been assigned (e.g. "Chưa hoàn thành nửa giờ tối thiểu" is
+    # 33 chars, "Đã tồn tại một kỳ nghỉ phép đã được phê duyệt" is 45,
+    # "Tham dự nửa ngày cần phải xác nhận" is 34 — see
+    # attendance/signals.py's attendance_post_save and
+    # leave/signals.py's leaverequest_pre_save). This is not schema
+    # drift (migrations agree with the old model) and not a wrong value
+    # being assigned — the column was simply always undersized for its
+    # real content, which is exactly what raised a production
+    # `StringDataRightTruncation` DataError during checkout. 100 gives
+    # comfortable headroom over the longest known value (45 chars)
+    # without truncating any of these legitimate, meaningful messages.
+    message = models.CharField(max_length=100, null=True, blank=True)
     is_attendance_record = models.BooleanField(default=False)
     attendance_id = models.ForeignKey(
         Attendance, on_delete=models.SET_NULL, blank=True, null=True

@@ -76,5 +76,19 @@
             </tbody>
         </table></div>
     </div>
+
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <h2 class="font-semibold text-gray-900">Đơn giải trình</h2>
+            <a href="{% url 'explanation-request-list' %}" class="text-sm text-primary-600 hover:underline">Mở trang duyệt đầy đủ</a>
+        </div>
+        <div class="overflow-x-auto"><table class="w-full text-sm">
+            <thead class="bg-gray-50 text-left text-gray-500"><tr><th class="px-5 py-3">Nhân viên</th><th class="px-5 py-3">Phòng ban / Chức danh</th><th class="px-5 py-3">Loại giải trình</th><th class="px-5 py-3">Ngày</th><th class="px-5 py-3">Nội dung giải trình</th><th class="px-5 py-3">Trạng thái</th><th class="px-5 py-3">Thao tác</th></tr></thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for item in explanation_requests %}<tr><td class="px-5 py-3 font-medium">{{ item.employee_id.get_full_name }}</td><td class="px-5 py-3">{{ item.employee_id.get_department|default:"—" }} / {{ item.employee_id.get_job_position|default:"—" }}</td><td class="px-5 py-3">{% if item.request_type == "missing_check_in" %}Quên chấm công vào{% elif item.request_type == "missing_check_out" %}Quên chấm công ra{% elif item.request_type == "late_arrival" %}Giải trình đi muộn{% elif item.request_type == "early_leave" %}Giải trình về sớm{% else %}Khác{% endif %}</td><td class="px-5 py-3">{{ item.request_date|date:"d/m/Y" }}</td><td class="px-5 py-3">{{ item.description }}</td><td class="px-5 py-3">{% if item.canceled %}<span class="text-red-600">Đã từ chối</span>{% elif item.approved %}<span class="text-green-600">Đã duyệt</span>{% else %}<span class="text-amber-600">Chờ duyệt</span>{% endif %}</td><td class="px-5 py-3">{% if not item.approved and not item.canceled %}<div class="flex items-center gap-2"><form method="post" action="{% url 'explanation-request-approve' item.id %}">{% csrf_token %}<button class="rounded-lg bg-primary-600 px-3 py-2 text-xs font-semibold text-white" type="submit">Duyệt</button></form><form method="post" action="{% url 'explanation-request-reject' item.id %}">{% csrf_token %}<button class="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50" type="submit">Từ chối</button></form></div>{% else %}<span class="text-xs text-gray-500">Đã xử lý</span>{% endif %}</td></tr>
+                {% empty %}<tr><td colspan="7" class="px-5 py-9 text-center text-gray-400">Không có đơn giải trình nào.</td></tr>{% endfor %}
+            </tbody>
+        </table></div>
+    </div>
 </section>
 {% endblock %}

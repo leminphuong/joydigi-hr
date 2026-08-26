@@ -99,6 +99,21 @@ urlpatterns = [
         checkin_portal.overtime_request_reject,
         name="overtime-request-reject",
     ),
+    path(
+        "duyet-don/giai-trinh/",
+        checkin_portal.explanation_request_list,
+        name="explanation-request-list",
+    ),
+    path(
+        "duyet-don/giai-trinh/<int:id>/duyet/",
+        checkin_portal.explanation_request_approve,
+        name="explanation-request-approve",
+    ),
+    path(
+        "duyet-don/giai-trinh/<int:id>/tu-choi/",
+        checkin_portal.explanation_request_reject,
+        name="explanation-request-reject",
+    ),
     path("kiosk/", checkin_portal.kiosk, name="checkin-kiosk"),
     path("kiosk/ma-qr/", checkin_portal.kiosk_qr, name="checkin-kiosk-qr"),
     path("kiosk/du-lieu/", checkin_portal.kiosk_data, name="checkin-kiosk-data"),

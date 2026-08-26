@@ -406,16 +406,17 @@ def approval_hub(request):
             outside_requests.append(item)
     # Phase UI-4B.3: same employee_ids scope as the sections above —
     # employee_ids already came from _visible_employees(request), which
-    # already filters is_active=True, so no separate employee-active
-    # filter is needed here. Pending = not yet approved and not
-    # canceled/rejected (ShiftRequest has no is_active field of its own;
-    # the "is_active" requirement from the phase spec is the employee's).
+    # already filters is_active=True. ShiftRequest also inherits its own
+    # is_active from JoydigiModel (defaults True, never toggled by the
+    # approve/cancel views) — filtered explicitly below for correctness,
+    # not because a row is ever observed with it False today.
     shift_requests = (
         ShiftRequest.objects.entire()
         .filter(
             employee_id_id__in=employee_ids,
             approved=False,
             canceled=False,
+            is_active=True,
         )
         .select_related(
             "employee_id",
@@ -426,6 +427,25 @@ def approval_hub(request):
         )
         .order_by("-requested_date", "-id")[:100]
     )
+    # Phase UI-4C.1: same explicit employee_ids scope as every section
+    # above — never implicit thread-local/manager scoping alone.
+    from attendance.models import AttendanceLateEarlyRequest
+
+    late_early_requests = (
+        AttendanceLateEarlyRequest.objects.entire()
+        .filter(
+            employee_id_id__in=employee_ids,
+            approved=False,
+            canceled=False,
+            is_active=True,
+        )
+        .select_related(
+            "employee_id",
+            "employee_id__employee_work_info__department_id",
+            "employee_id__employee_work_info__job_position_id",
+        )
+        .order_by("-request_date", "-id")[:100]
+    )
     response = render(
         request,
         "checkin/approval_hub.html",
@@ -433,10 +453,55 @@ def approval_hub(request):
             "leave_requests": leave_requests,
             "outside_requests": outside_requests,
             "shift_requests": shift_requests,
+            "late_early_requests": late_early_requests,
         },
     )
     response["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return response
+
+
+@login_required
+@checkin_leader_required
+@require_POST
+def late_early_request_approve(request, id):
+    """Phase UI-4C.1 admin action — same visible-employee scope as the
+    /duyet-don/ query above. Approval has no automatic effect on
+    Attendance/Timesheet/AttendanceLateComeEarlyOut (see phase report)."""
+    from attendance.models import AttendanceLateEarlyRequest
+
+    instance = get_object_or_404(AttendanceLateEarlyRequest.objects.entire(), pk=id)
+    visible_ids = set(_visible_employees(request).values_list("pk", flat=True))
+    if instance.employee_id_id not in visible_ids:
+        messages.error(request, "Bạn không có quyền duyệt đơn này.")
+        return redirect("approval-hub")
+    if not instance.approved:
+        instance.approved = True
+        instance.canceled = False
+        instance.save()
+        messages.success(request, "Đã duyệt đơn xin đi muộn/về sớm.")
+    return redirect("approval-hub")
+
+
+@login_required
+@checkin_leader_required
+@require_POST
+def late_early_request_reject(request, id):
+    """Phase UI-4C.1 admin action — labeled "Từ chối" in the UI; sets
+    canceled=True, the project's established rejected/cancelled state
+    (same convention as ShiftRequest.canceled)."""
+    from attendance.models import AttendanceLateEarlyRequest
+
+    instance = get_object_or_404(AttendanceLateEarlyRequest.objects.entire(), pk=id)
+    visible_ids = set(_visible_employees(request).values_list("pk", flat=True))
+    if instance.employee_id_id not in visible_ids:
+        messages.error(request, "Bạn không có quyền từ chối đơn này.")
+        return redirect("approval-hub")
+    if not instance.canceled:
+        instance.canceled = True
+        instance.approved = False
+        instance.save()
+        messages.success(request, "Đã từ chối đơn xin đi muộn/về sớm.")
+    return redirect("approval-hub")
 
 
 def _can_manage_settings(request):

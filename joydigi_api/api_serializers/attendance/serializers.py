@@ -231,3 +231,43 @@ class UserAttendanceDetailedSerializer(serializers.ModelSerializer):
     class Meta:
         model = Attendance
         fields = "__all__"
+
+
+class AttendanceLateEarlyRequestSerializer(serializers.ModelSerializer):
+    """
+    Phase UI-4C.1. ``employee_id``, ``approved``, and ``canceled`` are
+    read-only here on purpose — the owning view always supplies
+    ``employee_id`` itself (``request.user.employee_get``) via
+    ``serializer.save(employee_id=...)`` rather than accepting it from
+    the client, and approval/rejection only ever happens through the
+    dedicated admin actions, never through this create/list serializer.
+    """
+
+    employee_first_name = serializers.CharField(
+        source="employee_id.employee_first_name", read_only=True
+    )
+    employee_last_name = serializers.CharField(
+        source="employee_id.employee_last_name", read_only=True
+    )
+    request_status = serializers.SerializerMethodField()
+
+    def get_request_status(self, obj):
+        return obj.request_status()
+
+    class Meta:
+        model = AttendanceLateEarlyRequest
+        fields = [
+            "id",
+            "employee_id",
+            "employee_first_name",
+            "employee_last_name",
+            "request_type",
+            "request_date",
+            "requested_time",
+            "description",
+            "approved",
+            "canceled",
+            "request_status",
+            "created_at",
+        ]
+        read_only_fields = ["employee_id", "approved", "canceled", "created_at"]

@@ -1874,3 +1874,66 @@ class AttendanceDailyHours(JoydigiModel):
     def __str__(self):
         h, m = self.hours_second // 3600, (self.hours_second % 3600) // 60
         return f"{self.employee_id} {self.date}: {h}h{m:02d}m"
+
+
+LATE_EARLY_REQUEST_TYPES = [
+    ("late_arrival", _("Xin đi muộn")),
+    ("early_leave", _("Xin về sớm")),
+]
+
+
+class AttendanceLateEarlyRequest(JoydigiModel):
+    """
+    Phase UI-4C.1: an employee's REQUEST for permission to arrive late
+    (``late_arrival``) or leave early (``early_leave``) on a given date.
+
+    This is a request/permission-slip record, entirely distinct from
+    AttendanceLateComeEarlyOut (system-computed from real clock-in/out
+    times — never repurposed or altered here). Creating, approving, or
+    canceling a row here has no automatic effect on Attendance,
+    WorkRecords, Timesheet, or AttendanceLateComeEarlyOut; see the
+    Phase UI-4C.1 report for the recommended future integration point.
+    """
+
+    employee_id = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="late_early_requests",
+        verbose_name=_("Employee"),
+    )
+    request_type = models.CharField(
+        max_length=20,
+        choices=LATE_EARLY_REQUEST_TYPES,
+        verbose_name=_("Request Type"),
+    )
+    request_date = models.DateField(verbose_name=_("Request Date"))
+    requested_time = models.TimeField(verbose_name=_("Requested Time"))
+    description = models.TextField(
+        null=True, blank=True, verbose_name=_("Description")
+    )
+    approved = models.BooleanField(default=False, verbose_name=_("Approved"))
+    canceled = models.BooleanField(default=False, verbose_name=_("Canceled"))
+
+    objects = JoydigiCompanyManager("employee_id__employee_work_info__company_id")
+
+    class Meta:
+        verbose_name = _("Late / Early Request")
+        verbose_name_plural = _("Late / Early Requests")
+        permissions = (
+            ("approve_attendancelateearlyrequest", "Approve Late/Early Request"),
+            ("cancel_attendancelateearlyrequest", "Cancel Late/Early Request"),
+        )
+        ordering = ["-id"]
+
+    def __str__(self):
+        return (
+            f"{self.employee_id} - {self.get_request_type_display()} - "
+            f"{self.request_date}"
+        )
+
+    def request_status(self):
+        return (
+            _("Rejected")
+            if self.canceled
+            else (_("Approved") if self.approved else _("Requested"))
+        )

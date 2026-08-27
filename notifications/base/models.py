@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # pylint: disable=too-many-lines
+from django.apps import apps as django_apps
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.contrib.contenttypes.fields import GenericForeignKey  # noqa
@@ -354,6 +355,29 @@ def notify_handler(verb, **kwargs):
         recipients = recipient
     else:
         recipients = [recipient]
+
+    # Phase UI-5C.1A: routine notifications respect each recipient's
+    # own NotificationPreference (a user with no row is treated as
+    # enabled — see `joydigi_api.models.NotificationPreference`).
+    # Callers that must always reach the recipient regardless of that
+    # opt-out (e.g. a future security alert) pass
+    # `force_delivery=True` to `notify.send(...)` — this is a
+    # trusted, server-side-only kwarg; the mobile Notification
+    # Settings API has no field that can set it.
+    force_delivery = bool(kwargs.pop("force_delivery", False))
+    recipients = list(recipients)
+    if not force_delivery and recipients:
+        NotificationPreference = django_apps.get_model(
+            "joydigi_api", "NotificationPreference"
+        )
+        recipient_ids = [r.pk for r in recipients]
+        disabled_ids = set(
+            NotificationPreference.objects.filter(
+                user_id__in=recipient_ids, all_notifications_enabled=False
+            ).values_list("user_id", flat=True)
+        )
+        if disabled_ids:
+            recipients = [r for r in recipients if r.pk not in disabled_ids]
 
     new_notifications = []
 

@@ -400,10 +400,27 @@ class WorkTypeRequestView(APIView):
             data = data.dict()
         else:
             data = dict(data)
-        data["employee_id"] = request.user.employee_get.id
+        # SECURITY-4G.1S: `employee_id` is now `read_only` on
+        # `WorkTypeRequestSerializer` (silently dropped from
+        # `validated_data`), so setting it on `data` here no longer has
+        # any effect — the authenticated employee's id must instead be
+        # supplied explicitly to `serializer.save()`. Passed as the raw
+        # `employee_id_id` (the FK column's attname) rather than the
+        # `request.user.employee_get` object itself: the notify.send
+        # call just below dereferences
+        # `instance.employee_id.employee_work_info.reporting_manager_id`,
+        # and passing the object directly would let a reverse-relation
+        # cache already attached to that specific `employee_get`
+        # Python object leak into `instance.employee_id` — passing the
+        # id instead makes `instance.employee_id` a fresh, uncached
+        # lookup when next accessed, exactly matching this endpoint's
+        # pre-existing behavior (it previously always resolved
+        # `employee_id` fresh via DRF's own `PrimaryKeyRelatedField`
+        # lookup, never through `request.user.employee_get`).
+        employee_id = request.user.employee_get.id
         serializer = self.serializer_class(data=data)
         if serializer.is_valid():
-            instance = serializer.save()
+            instance = serializer.save(employee_id_id=employee_id)
             try:
                 notify.send(
                     instance.employee_id,

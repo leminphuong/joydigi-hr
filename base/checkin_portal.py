@@ -490,6 +490,23 @@ def approval_hub(request):
         )
         .order_by("-request_date", "-id")[:_HUB_RECENT_LIMIT]
     )
+    # Phase UI-4G.1: same explicit employee_ids scope as every section
+    # above.
+    from attendance.models import RemoteWorkRequest
+
+    remote_requests = (
+        RemoteWorkRequest.objects.entire()
+        .filter(
+            employee_id_id__in=employee_ids,
+            is_active=True,
+        )
+        .select_related(
+            "employee_id",
+            "employee_id__employee_work_info__department_id",
+            "employee_id__employee_work_info__job_position_id",
+        )
+        .order_by("-start_date", "-id")[:_HUB_RECENT_LIMIT]
+    )
     response = render(
         request,
         "checkin/approval_hub.html",
@@ -500,6 +517,7 @@ def approval_hub(request):
             "late_early_requests": late_early_requests,
             "overtime_requests": overtime_requests,
             "explanation_requests": explanation_requests,
+            "remote_requests": remote_requests,
         },
     )
     response["Cache-Control"] = "no-store, no-cache, must-revalidate"
@@ -641,6 +659,53 @@ def explanation_request_reject(request, id):
     return JoydigiRedirect(request, fallback_url=reverse("approval-hub"))
 
 
+@login_required
+@checkin_leader_required
+@require_POST
+def remote_request_approve(request, id):
+    """Phase UI-4G.1 admin action — same visible-employee scope as the
+    /duyet-don/ query above. Approval only means the manager accepted
+    the remote-work request; it has no automatic effect on Attendance,
+    WorkRecords, Timesheet, Employee, or EmployeeWorkInformation (see
+    phase report — deliberately distinct from WorkTypeRequest's
+    approval, which does mutate EmployeeWorkInformation)."""
+    from attendance.models import RemoteWorkRequest
+
+    instance = get_object_or_404(RemoteWorkRequest.objects.entire(), pk=id)
+    visible_ids = set(_visible_employees(request).values_list("pk", flat=True))
+    if instance.employee_id_id not in visible_ids:
+        messages.error(request, "Bạn không có quyền duyệt đơn này.")
+        return JoydigiRedirect(request, fallback_url=reverse("approval-hub"))
+    if not instance.approved:
+        instance.approved = True
+        instance.canceled = False
+        instance.save()
+        messages.success(request, "Đã duyệt đơn làm việc từ xa.")
+    return JoydigiRedirect(request, fallback_url=reverse("approval-hub"))
+
+
+@login_required
+@checkin_leader_required
+@require_POST
+def remote_request_reject(request, id):
+    """Phase UI-4G.1 admin action — labeled "Từ chối" in the UI; sets
+    canceled=True, the project's established rejected/cancelled state
+    (same convention as ShiftRequest.canceled)."""
+    from attendance.models import RemoteWorkRequest
+
+    instance = get_object_or_404(RemoteWorkRequest.objects.entire(), pk=id)
+    visible_ids = set(_visible_employees(request).values_list("pk", flat=True))
+    if instance.employee_id_id not in visible_ids:
+        messages.error(request, "Bạn không có quyền từ chối đơn này.")
+        return JoydigiRedirect(request, fallback_url=reverse("approval-hub"))
+    if not instance.canceled:
+        instance.canceled = True
+        instance.approved = False
+        instance.save()
+        messages.success(request, "Đã từ chối đơn làm việc từ xa.")
+    return JoydigiRedirect(request, fallback_url=reverse("approval-hub"))
+
+
 def _filter_request_status(queryset, status):
     """Shared GET ?status= filter for the Phase UI-4E.1A full review
     pages — 'all' (default) applies no filter, matching Leave's own
@@ -750,6 +815,40 @@ def explanation_request_list(request):
     response = render(
         request,
         "checkin/explanation_request_list.html",
+        {"requests": queryset, "status": status},
+    )
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response
+
+
+@login_required
+@checkin_leader_required
+def remote_request_list(request):
+    """Phase UI-4G.1: full review page for RemoteWorkRequest — shows
+    every status (Pending/Approved/Rejected), unlike the /duyet-don/
+    hub's recent-N-only summary widget. Same explicit
+    _visible_employees(request) scope as every other section."""
+    from attendance.models import RemoteWorkRequest
+
+    employee_ids = list(_visible_employees(request).values_list("pk", flat=True))
+    status = request.GET.get("status", "all")
+    queryset = (
+        _filter_request_status(
+            RemoteWorkRequest.objects.entire().filter(
+                employee_id_id__in=employee_ids, is_active=True
+            ),
+            status,
+        )
+        .select_related(
+            "employee_id",
+            "employee_id__employee_work_info__department_id",
+            "employee_id__employee_work_info__job_position_id",
+        )
+        .order_by("-start_date", "-id")
+    )
+    response = render(
+        request,
+        "checkin/remote_request_list.html",
         {"requests": queryset, "status": status},
     )
     response["Cache-Control"] = "no-store, no-cache, must-revalidate"

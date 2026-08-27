@@ -126,4 +126,23 @@ urlpatterns = [
         AttendanceExplanationRequestCancelAPIView.as_view(),
         name="api-explanation-request-cancel",
     ),
+    # Phase UI-4G.1 — Remote/WFH requests (additive; deliberately NOT
+    # built on the pre-existing WorkTypeRequest, whose approve/cancel
+    # paths mutate Employee/EmployeeWorkInformation — see
+    # RemoteWorkRequest's model docstring).
+    path(
+        "remote-requests/",
+        RemoteWorkRequestListCreateAPIView.as_view(),
+        name="api-remote-requests",
+    ),
+    path(
+        "remote-requests/<int:pk>/",
+        RemoteWorkRequestDetailAPIView.as_view(),
+        name="api-remote-request-detail",
+    ),
+    path(
+        "remote-request-cancel/<int:pk>/",
+        RemoteWorkRequestCancelAPIView.as_view(),
+        name="api-remote-request-cancel",
+    ),
 ]

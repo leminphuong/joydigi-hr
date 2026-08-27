@@ -48,6 +48,7 @@ from accessibility.middlewares import ACCESSIBILITY_CACHE_USER_KEYS
 from accessibility.models import DefaultAccessibility
 from base.forms import ModelForm
 from base.methods import (
+    check_manager,
     choosesubordinates,
     filtersubordinates,
     filtersubordinatesemployeemodel,
@@ -2353,6 +2354,86 @@ def employee_archive(request, obj_id):
                 "title": _("Can't Archive"),
             },
         )
+
+
+def _can_force_mobile_logout(actor_user, target_employee):
+    """
+    Phase AUTH-6A.2 authorization for "Đăng xuất khỏi thiết bị".
+
+    Deliberately does NOT copy `employee_archive`'s pattern of relying
+    only on a global Django permission (flagged as a gap in the
+    AUTH-6A.1 audit) — company scope is always checked explicitly, and
+    a bare `employee.change_employee` permission alone only grants
+    access within the actor's own company. Anyone without that
+    permission still needs to be the target's manager (direct or
+    nested, via the same `check_manager` used for scoping every other
+    per-row action on this page).
+    """
+    if actor_user.is_superuser:
+        return True
+    actor_employee = getattr(actor_user, "employee_get", None)
+    if actor_employee is None:
+        return False
+    try:
+        actor_company = actor_employee.get_company()
+        target_company = target_employee.get_company()
+    except Exception:
+        return False
+    if actor_company is None or actor_company != target_company:
+        return False
+    if actor_user.has_perm("employee.change_employee"):
+        return True
+    return check_manager(actor_employee, target_employee)
+
+
+@login_required
+@hx_request_required
+@require_http_methods(["POST"])
+def employee_force_mobile_logout(request, obj_id):
+    """
+    Phase AUTH-6A.2: revokes the target employee's current mobile
+    session by bumping `JoydigiUser.session_version` — their very next
+    authenticated mobile API request (or token refresh, once that
+    exists) is rejected by
+    `joydigi_api.auth.SessionVersionJWTAuthentication`, forcing the
+    Flutter app back to its Login screen. Does NOT touch `is_active`,
+    the password, or delete anything — the employee can log back in
+    immediately with their existing credentials.
+
+    The `F("session_version") + 1` update is a single atomic SQL
+    UPDATE, so concurrent clicks can never lose an increment (no
+    separate `select_for_update` needed for a single-row bump).
+
+    The action itself is recorded for free by the existing
+    `UserActivityLogMiddleware` (every authenticated, non-ignored
+    request is logged with actor/path/method/timestamp/IP — never a
+    token or password) — see that middleware's docstring; no manual
+    audit-log code is added here.
+    """
+    employee = get_object_or_404(Employee, id=obj_id)
+    if not _can_force_mobile_logout(request.user, employee):
+        return HttpResponseForbidden(
+            _("You don't have permission to log this employee out.")
+        )
+
+    user = employee.employee_user_id
+    if user is None:
+        messages.error(request, _("This employee has no linked account."))
+        return HttpResponse("<script>$('#applyFilter').click();</script>")
+
+    type(user).objects.filter(pk=user.pk).update(
+        session_version=F("session_version") + 1
+    )
+
+    messages.success(
+        request,
+        _("%(employee)s has been logged out of their mobile device.")
+        % {"employee": employee},
+    )
+    key = "HTTP_HX_REQUEST"
+    if key not in request.META.keys():
+        return JoydigiRedirect(request)
+    return HttpResponse("<script>$('#applyFilter').click();</script>")
 
 
 @login_required

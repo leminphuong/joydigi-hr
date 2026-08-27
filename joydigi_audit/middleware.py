@@ -29,6 +29,7 @@ RESOURCE_LABELS = {
     "employee-profile": "Hồ sơ cá nhân",
     "login": "Đăng nhập",
     "logout": "Đăng xuất",
+    "employee-force-mobile-logout": "Đăng xuất khỏi thiết bị",
 }
 
 ACTION_HINTS = {

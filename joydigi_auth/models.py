@@ -6,6 +6,17 @@ from django.utils.translation import gettext_lazy as _
 class JoydigiUser(AbstractUser):
     is_new_employee = models.BooleanField(default=False)
 
+    # Phase AUTH-6A.2: bumped by "Đăng xuất khỏi thiết bị" (admin force
+    # logout) to invalidate every mobile access token issued before the
+    # bump — see joydigi_api.auth.SessionVersionJWTAuthentication. A
+    # normal login never changes this (no Single-Device-Login yet); it
+    # only ever increases via the admin action. Existing production
+    # rows get 0 via `default=0`, and a legacy token with no
+    # `session_version` claim is treated as version 0 too, so a plain
+    # deploy of this field never logs anyone out — see that module's
+    # docstring for the full compatibility rule.
+    session_version = models.PositiveIntegerField(default=0)
+
     class Meta:
         swappable = "AUTH_USER_MODEL"
         verbose_name = _("User")

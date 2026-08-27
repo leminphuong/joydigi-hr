@@ -97,7 +97,14 @@ REST_FRAMEWORK = {
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        # Phase AUTH-6A.2: adds the session_version revocation check on
+        # top of stock JWTAuthentication — see joydigi_api.auth for why
+        # this is safe to change globally (the only real, mounted DRF
+        # surface in this project is joydigi_api; `geofencing`, the
+        # other app with DRF views, isn't in INSTALLED_APPS/urls at
+        # all, and the web/admin UI authenticates via Django session
+        # cookies, never this setting).
+        "joydigi_api.auth.SessionVersionJWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -107,6 +114,14 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    # Phase AUTH-6B: bounded but long — the mobile app is expected to
+    # silently refresh well before this, and every successful refresh
+    # mints a brand-new one (see TokenRefreshAPIView), so an
+    # employee who opens the app at least once every 30 days never
+    # sees Login just from time passing. Never literally infinite;
+    # session_version (not this lifetime) is what makes admin
+    # force-logout and single-device login actually immediate.
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
 }
 
 APSCHEDULER_DATETIME_FORMAT = "N j, Y, f:s a"

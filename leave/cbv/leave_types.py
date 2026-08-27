@@ -66,6 +66,7 @@ class LeaveTypeListView(JoydigiListView):
         (_("Carry Forward"), "carryforward_display"),
         (_("Encashable"), "encashable"),
         (_("Conditions"), "conditions_display"),
+        (_("Trạng thái"), "status_display"),
     ]
 
     action_method = "leave_list_actions"

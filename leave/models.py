@@ -539,6 +539,18 @@ class LeaveType(JoydigiModel):
     def encashable(self):
         return _("Yes") if self.is_encashable else _("No")
 
+    def status_display(self):
+        """
+        Phase LEAVE-7A.2: same badge convention as `approval_display`
+        above — `is_active` already exists (inherited from
+        `JoydigiModel`); this only renders it for the admin list.
+        """
+        active = str(_("Đang hoạt động"))
+        inactive = str(_("Đã tắt"))
+        if self.is_active:
+            return f'<span class="oh-badge oh-badge--success">{active}</span>'
+        return f'<span class="oh-badge oh-badge--danger">{inactive}</span>'
+
     def approval_display(self):
         yes = str(_("Yes"))
         no = str(_("No"))

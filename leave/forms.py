@@ -171,7 +171,14 @@ class LeaveTypeForm(ConditionForm):
     class Meta:
         model = LeaveType
         fields = "__all__"
-        exclude = ["is_active", "conditions"]
+        # Phase LEAVE-7A.2: `is_active` is now editable — see
+        # `leave_type_creation.html`'s explicit `{{ form.is_active }}`
+        # toggle. Must stay in sync with that template: this form only
+        # controls which fields *exist* on the form; the field must
+        # also be explicitly rendered there, or a submitted form would
+        # silently save `is_active=False` (an unrendered checkbox
+        # posts as unchecked).
+        exclude = ["conditions"]
         labels = {
             "name": _("Name"),
         }
@@ -220,7 +227,10 @@ class UpdateLeaveTypeForm(ConditionForm):
     class Meta:
         model = LeaveType
         fields = "__all__"
-        exclude = ["is_active", "conditions"]
+        # Phase LEAVE-7A.2: see the matching note on `LeaveTypeForm`
+        # above — `is_active` must also be explicitly rendered in
+        # `leave_type_form_fragment.html`.
+        exclude = ["conditions"]
         widgets = {
             "period_in": forms.HiddenInput(),
             "total_days": forms.HiddenInput(),
@@ -232,7 +242,7 @@ class UpdateLeaveTypeForm(ConditionForm):
         self.fields["payment_percentage"].required = False
 
         # Fields that must always be visible regardless of current value
-        js_managed = {"payment_type", "payment_percentage", "icon", "name"}
+        js_managed = {"payment_type", "payment_percentage", "icon", "name", "is_active"}
 
         for field_name, field in self.fields.items():
             if field_name in js_managed:

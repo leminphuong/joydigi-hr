@@ -372,3 +372,54 @@ class AttendanceExplanationRequestSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["employee_id", "approved", "canceled", "created_at"]
+
+
+class RemoteWorkRequestSerializer(serializers.ModelSerializer):
+    """
+    Phase UI-4G.1. Same read-only/server-derived contract as
+    AttendanceExplanationRequestSerializer/OvertimeRequestSerializer —
+    ``employee_id``/``approved``/``canceled`` are never accepted from
+    the client. This is a NEW model, deliberately not built on top of
+    the pre-existing ``WorkTypeRequest`` (see ``RemoteWorkRequest``
+    docstring) — no ``company_id`` field/parameter exists on this
+    contract either.
+    """
+
+    employee_first_name = serializers.CharField(
+        source="employee_id.employee_first_name", read_only=True
+    )
+    employee_last_name = serializers.CharField(
+        source="employee_id.employee_last_name", read_only=True
+    )
+    request_status = serializers.SerializerMethodField()
+
+    def get_request_status(self, obj):
+        return obj.request_status()
+
+    def validate(self, attrs):
+        start_date = attrs.get(
+            "start_date", getattr(self.instance, "start_date", None)
+        )
+        end_date = attrs.get("end_date", getattr(self.instance, "end_date", None))
+        if start_date and end_date and end_date < start_date:
+            raise serializers.ValidationError(
+                {"end_date": "End date must be on or after start date."}
+            )
+        return attrs
+
+    class Meta:
+        model = RemoteWorkRequest
+        fields = [
+            "id",
+            "employee_id",
+            "employee_first_name",
+            "employee_last_name",
+            "start_date",
+            "end_date",
+            "description",
+            "approved",
+            "canceled",
+            "request_status",
+            "created_at",
+        ]
+        read_only_fields = ["employee_id", "approved", "canceled", "created_at"]

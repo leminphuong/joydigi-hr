@@ -114,6 +114,21 @@ urlpatterns = [
         checkin_portal.explanation_request_reject,
         name="explanation-request-reject",
     ),
+    path(
+        "duyet-don/remote/",
+        checkin_portal.remote_request_list,
+        name="remote-request-list",
+    ),
+    path(
+        "duyet-don/remote/<int:id>/duyet/",
+        checkin_portal.remote_request_approve,
+        name="remote-request-approve",
+    ),
+    path(
+        "duyet-don/remote/<int:id>/tu-choi/",
+        checkin_portal.remote_request_reject,
+        name="remote-request-reject",
+    ),
     path("kiosk/", checkin_portal.kiosk, name="checkin-kiosk"),
     path("kiosk/ma-qr/", checkin_portal.kiosk_qr, name="checkin-kiosk-qr"),
     path("kiosk/du-lieu/", checkin_portal.kiosk_data, name="checkin-kiosk-data"),

@@ -2083,3 +2083,76 @@ class AttendanceExplanationRequest(JoydigiModel):
             if self.canceled
             else (_("Approved") if self.approved else _("Requested"))
         )
+
+
+class RemoteWorkRequest(JoydigiModel):
+    """
+    Phase UI-4G.1: an employee's REQUEST for permission to work remotely
+    (from home / off-site) over a date range.
+
+    Phase UI-4G.1 audited the pre-existing ``WorkTypeRequest``
+    (``base/models.py``) as a possible reuse candidate and deliberately
+    did NOT reuse it, for two independent reasons found during that
+    audit:
+
+    1. ``WorkTypeRequest.work_type_id`` points at ``WorkType``, a
+       plain per-company free-text field (``CharField``) with no
+       canonical slug/code — there is no stable, environment-
+       independent way to identify a "Remote" WorkType row, only
+       whatever text a company admin happened to type.
+    2. Far more importantly, approving/canceling a ``WorkTypeRequest``
+       has real, mature side effects: a scheduled job
+       (``base.scheduler.switch_work_type``) writes the approved
+       ``work_type_id`` back onto the employee's real
+       ``EmployeeWorkInformation.work_type_id`` once
+       ``requested_date`` arrives, and ``WorkTypeRequestCancelView``
+       unconditionally reverts ``employee_work_info.work_type_id`` to
+       ``previous_work_type_id`` on cancel, even for a never-approved
+       request. Reusing that model for a new mobile flow would inherit
+       those live-mutation semantics into this feature by accident.
+
+    This model is therefore a NEW, structurally independent
+    request/response note — exactly the same shape and safety
+    guarantee as ``OvertimeRequest``/``AttendanceLateEarlyRequest``/
+    ``AttendanceExplanationRequest``: creating, approving, or
+    canceling a row here NEVER touches Attendance, WorkRecords,
+    Timesheet, Employee, or EmployeeWorkInformation — see the Phase
+    UI-4G.1 report for the read-only audit of how a future phase might
+    integrate an Approved Remote request with Attendance verification
+    (Location/Wi-Fi/QR/Face), deliberately not implemented here.
+    """
+
+    employee_id = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="remote_work_requests",
+        verbose_name=_("Employee"),
+    )
+    start_date = models.DateField(verbose_name=_("Start Date"))
+    end_date = models.DateField(verbose_name=_("End Date"))
+    description = models.TextField(
+        null=True, blank=True, verbose_name=_("Description")
+    )
+    approved = models.BooleanField(default=False, verbose_name=_("Approved"))
+    canceled = models.BooleanField(default=False, verbose_name=_("Canceled"))
+
+    objects = JoydigiCompanyManager("employee_id__employee_work_info__company_id")
+
+    class Meta:
+        verbose_name = _("Remote Work Request")
+        verbose_name_plural = _("Remote Work Requests")
+        permissions = (
+            ("approve_remoteworkrequest", "Approve Remote Work Request"),
+            ("cancel_remoteworkrequest", "Cancel Remote Work Request"),
+        )
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"{self.employee_id} - {self.start_date} to {self.end_date}"
+
+    def request_status(self):
+        return (
+            _("Rejected")
+            if self.canceled
+            else (_("Approved") if self.approved else _("Requested"))
+        )

@@ -25,6 +25,7 @@ from attendance.models import (
     AttendanceLateEarlyRequest,
     EmployeeShiftDay,
     OvertimeRequest,
+    RemoteWorkRequest,
 )
 from attendance.methods.verification_proof import PROOF_TTL, issue_verification_proof
 from attendance.views.clock_in_out import *
@@ -64,6 +65,7 @@ from ...api_serializers.attendance.serializers import (
     AttendanceSerializer,
     MailTemplateSerializer,
     OvertimeRequestSerializer,
+    RemoteWorkRequestSerializer,
     UserAttendanceDetailedSerializer,
     UserAttendanceListSerializer,
 )
@@ -1785,6 +1787,121 @@ class AttendanceExplanationRequestCancelAPIView(APIView):
         if instance is None:
             return Response(
                 {"error": _("Explanation request not found.")},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if instance.canceled:
+            return Response({"status": "success"}, status=200)
+        instance.canceled = True
+        instance.approved = False
+        instance.save()
+        return Response({"status": "success"}, status=200)
+
+
+class RemoteWorkRequestListCreateAPIView(APIView):
+    """
+    Phase UI-4G.1. GET lists only the authenticated employee's own
+    remote-work requests; POST creates one for that same employee.
+    Employee identity always comes from ``request.user.employee_get`` —
+    never from the request body. Never touches Attendance/WorkRecords/
+    Timesheet/Employee/EmployeeWorkInformation (see
+    ``RemoteWorkRequest`` docstring — deliberately NOT built on
+    ``WorkTypeRequest``, which does mutate those).
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = RemoteWorkRequestSerializer
+
+    def get(self, request):
+        employee = request.user.employee_get
+        queryset = RemoteWorkRequest.objects.entire().filter(
+            employee_id=employee
+        ).order_by("-id")
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = self.serializer_class(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    def post(self, request):
+        employee = request.user.employee_get
+        # Phase UI-4G.1: reuses the SAME two pre-existing eligibility
+        # flags the legacy WorkTypeRequestForm already enforces for a
+        # remote-named work type (base/forms.py `clean()`) — an
+        # employee's position must be individually marked eligible
+        # (EmployeeWorkInformation.allow_remote), and the company must
+        # not have turned remote work off entirely
+        # (CheckInPolicy.allow_remote). Checked here rather than in the
+        # serializer because both flags are reached via the
+        # server-derived employee, never client input.
+        work_info = getattr(employee, "employee_work_info", None)
+        if not work_info or not work_info.allow_remote:
+            return Response(
+                {
+                    "error": _(
+                        "Vị trí của nhân viên này chưa được phép làm việc từ xa."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from base.models import CheckInPolicy
+
+        company = getattr(work_info, "company_id", None)
+        policy = CheckInPolicy.objects.filter(company_id=company).first()
+        if policy and not policy.allow_remote:
+            return Response(
+                {"error": _("Công ty đang tắt hình thức làm việc từ xa.")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            # employee_id is read_only on the serializer — never trusted
+            # from the client — supplied here from the authenticated
+            # session only.
+            instance = serializer.save(employee_id=employee)
+            return Response(
+                self.serializer_class(instance).data, status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RemoteWorkRequestDetailAPIView(APIView):
+    """Phase UI-4G.1. Read-only detail — strictly the owner's own request."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = RemoteWorkRequestSerializer
+
+    def get(self, request, pk):
+        employee = request.user.employee_get
+        instance = RemoteWorkRequest.objects.entire().filter(
+            pk=pk, employee_id=employee
+        ).first()
+        if instance is None:
+            return Response(
+                {"error": _("Remote work request not found.")},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(self.serializer_class(instance).data, status=200)
+
+
+class RemoteWorkRequestCancelAPIView(APIView):
+    """
+    Phase UI-4G.1. The employee's own cancel action — sets
+    ``canceled=True`` (same convention as OT/Late-Early/Explanation).
+    No Attendance/WorkRecords/Timesheet/Employee/
+    EmployeeWorkInformation side effect (unlike
+    ``WorkTypeRequestCancelView``, which does mutate
+    ``employee_work_info.work_type_id``).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        employee = request.user.employee_get
+        instance = RemoteWorkRequest.objects.entire().filter(
+            pk=pk, employee_id=employee
+        ).first()
+        if instance is None:
+            return Response(
+                {"error": _("Remote work request not found.")},
                 status=status.HTTP_404_NOT_FOUND,
             )
         if instance.canceled:

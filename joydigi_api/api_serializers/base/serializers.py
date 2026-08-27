@@ -335,6 +335,17 @@ class WorkTypeRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkTypeRequest
         fields = "__all__"
+        # SECURITY-4G.1S: `employee_id`/`approved`/`canceled` are
+        # server-controlled — never client input. This serializer is
+        # used by the employee-facing create/update endpoints
+        # (`WorkTypeRequestView.post`/`.put`) only; the real
+        # manager-approval and cancel workflows
+        # (`WorkRequestApproveView`, `WorkTypeRequestCancelView`)
+        # mutate the model instance directly and never go through this
+        # serializer, so making these fields read-only here cannot
+        # break that legitimate approval path (verified by reading
+        # both views before this change).
+        read_only_fields = ("employee_id", "approved", "canceled")
 
     def validate(self, attrs):
         request = getattr(joydigi_middlewares._thread_locals, "request", None)

@@ -20,6 +20,7 @@ from attendance.models import (
     AttendanceExplanationRequest,
     AttendanceLateEarlyRequest,
     OvertimeRequest,
+    RemoteWorkRequest,
 )
 from joydigi.testkit import make_company, make_employee, make_user
 from leave.models import LeaveRequest, LeaveType
@@ -1780,3 +1781,454 @@ class ExplanationRequestFullPageTests(TestCase):
         )
 
         self.assertRedirects(response, reverse("explanation-request-list"))
+
+
+class CheckInApprovalHubRemoteRequestTests(TestCase):
+    """Phase UI-4G.1: /duyet-don/ 'Đơn Remote' section — a brand-new
+    admin approve/reject action pair, scoped through the same
+    _visible_employees(request) used by every other section on this
+    page. Structurally independent of the pre-existing WorkTypeRequest
+    (different model, never touched — see RemoteWorkRequest docstring
+    for why it was not reused)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.company = make_company("Remote Hub Co")
+        leader_group, _ = Group.objects.get_or_create(name=LEADER_ROLE)
+
+        cls.leader_user = make_user("remote_hub_leader")
+        cls.leader = make_employee(
+            company=cls.company,
+            email="remote-hub-leader@test.joydigi",
+            user=cls.leader_user,
+        )
+        CompanyGroupAssignment.objects.create(
+            user=cls.leader_user, company=cls.company, group=leader_group
+        )
+        cls.worker_user = make_user("remote_hub_worker")
+        cls.worker = make_employee(
+            company=cls.company,
+            email="remote-hub-worker@test.joydigi",
+            user=cls.worker_user,
+        )
+        cls.worker.employee_work_info.reporting_manager_id = cls.leader
+        cls.worker.employee_work_info.save(update_fields=["reporting_manager_id"])
+
+        cls.other_company = make_company("Remote Other Co")
+        cls.other_leader_user = make_user("remote_hub_other_leader")
+        cls.other_leader = make_employee(
+            company=cls.other_company,
+            email="remote-hub-other-leader@test.joydigi",
+            user=cls.other_leader_user,
+        )
+        CompanyGroupAssignment.objects.create(
+            user=cls.other_leader_user, company=cls.other_company, group=leader_group
+        )
+        cls.other_worker = make_employee(
+            company=cls.other_company,
+            email="remote-hub-other-worker@test.joydigi",
+        )
+        cls.other_worker.employee_work_info.reporting_manager_id = cls.other_leader
+        cls.other_worker.employee_work_info.save(
+            update_fields=["reporting_manager_id"]
+        )
+
+    def _make_request(self, employee, **overrides):
+        defaults = {
+            "employee_id": employee,
+            "start_date": date.today() + timedelta(days=1),
+            "end_date": date.today() + timedelta(days=2),
+            "description": "Chăm sóc con nhỏ tại nhà.",
+            "approved": False,
+            "canceled": False,
+        }
+        defaults.update(overrides)
+        return RemoteWorkRequest.objects.create(**defaults)
+
+    def test_visible_manager_sees_pending_request(self):
+        pending = self._make_request(self.worker)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            pending.id,
+            [item.id for item in response.context["remote_requests"]],
+        )
+        self.assertContains(response, "Đơn Remote")
+
+    def test_unrelated_manager_does_not_see_it(self):
+        self._make_request(self.worker)
+
+        self.client.force_login(self.other_leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertEqual(list(response.context["remote_requests"]), [])
+
+    def test_approved_requests_still_appear_with_approved_status(self):
+        approved = self._make_request(self.worker, approved=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertIn(
+            approved.id,
+            [item.id for item in response.context["remote_requests"]],
+        )
+        self.assertContains(response, "Đã duyệt")
+
+    def test_canceled_requests_still_appear_with_rejected_status(self):
+        canceled = self._make_request(self.worker, canceled=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertIn(
+            canceled.id,
+            [item.id for item in response.context["remote_requests"]],
+        )
+        self.assertContains(response, "Đã từ chối")
+
+    def test_approve_action_uses_dedicated_route_and_requires_permission(self):
+        pending = self._make_request(self.worker)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+        self.assertContains(
+            response,
+            reverse("remote-request-approve", kwargs={"id": pending.id}),
+        )
+
+        approve_response = self.client.post(
+            reverse("remote-request-approve", kwargs={"id": pending.id})
+        )
+
+        self.assertRedirects(approve_response, reverse("approval-hub"))
+        pending.refresh_from_db()
+        self.assertTrue(pending.approved)
+        self.assertFalse(pending.canceled)
+
+    def test_approve_does_not_touch_employee_work_type(self):
+        before_work_type_id = self.worker.employee_work_info.work_type_id_id
+        pending = self._make_request(self.worker)
+
+        self.client.force_login(self.leader_user)
+        self.client.post(
+            reverse("remote-request-approve", kwargs={"id": pending.id})
+        )
+
+        self.worker.employee_work_info.refresh_from_db()
+        self.assertEqual(
+            self.worker.employee_work_info.work_type_id_id, before_work_type_id
+        )
+
+    def test_reject_action_uses_dedicated_route(self):
+        pending = self._make_request(self.worker)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+        self.assertContains(
+            response,
+            reverse("remote-request-reject", kwargs={"id": pending.id}),
+        )
+
+        reject_response = self.client.post(
+            reverse("remote-request-reject", kwargs={"id": pending.id})
+        )
+
+        self.assertRedirects(reject_response, reverse("approval-hub"))
+        pending.refresh_from_db()
+        self.assertTrue(pending.canceled)
+        self.assertFalse(pending.approved)
+
+    def test_cross_company_manager_cannot_approve(self):
+        pending = self._make_request(self.worker)
+
+        self.client.force_login(self.other_leader_user)
+        response = self.client.post(
+            reverse("remote-request-approve", kwargs={"id": pending.id})
+        )
+
+        self.assertRedirects(response, reverse("approval-hub"))
+        pending.refresh_from_db()
+        self.assertFalse(pending.approved)
+
+    def test_cross_company_manager_cannot_reject(self):
+        pending = self._make_request(self.worker)
+
+        self.client.force_login(self.other_leader_user)
+        response = self.client.post(
+            reverse("remote-request-reject", kwargs={"id": pending.id})
+        )
+
+        self.assertRedirects(response, reverse("approval-hub"))
+        pending.refresh_from_db()
+        self.assertFalse(pending.canceled)
+
+    def test_ordinary_employee_cannot_reach_the_hub_at_all(self):
+        self.client.force_login(self.worker_user)
+
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_leave_section_still_renders(self):
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertContains(response, "Đơn xin phép")
+        self.assertIn("leave_requests", response.context)
+
+    def test_shift_request_section_still_renders(self):
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertContains(response, "Đơn đổi ca")
+        self.assertIn("shift_requests", response.context)
+
+    def test_late_early_section_still_renders(self):
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertContains(response, "Đơn xin đi muộn / về sớm")
+        self.assertIn("late_early_requests", response.context)
+
+    def test_overtime_section_still_renders(self):
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertContains(response, "Đơn xin làm thêm giờ (OT)")
+        self.assertIn("overtime_requests", response.context)
+
+    def test_explanation_section_still_renders(self):
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertContains(response, "Đơn giải trình")
+        self.assertIn("explanation_requests", response.context)
+
+    def test_every_section_has_a_full_review_page_link(self):
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("approval-hub"))
+
+        self.assertContains(response, reverse("request-view"))
+        self.assertContains(response, reverse("request-attendance-view"))
+        self.assertContains(response, reverse("shift-request-view"))
+        self.assertContains(response, reverse("late-early-request-list"))
+        self.assertContains(response, reverse("overtime-request-list"))
+        self.assertContains(response, reverse("explanation-request-list"))
+        self.assertContains(response, reverse("remote-request-list"))
+
+
+class RemoteRequestFullPageTests(TestCase):
+    """Phase UI-4G.1: /duyet-don/remote/ — the full review page for
+    RemoteWorkRequest, showing every status, scoped through the same
+    _visible_employees(request) as the rest of the hub."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.company = make_company("Remote Full Page Co")
+        leader_group, _ = Group.objects.get_or_create(name=LEADER_ROLE)
+
+        cls.leader_user = make_user("remote_fullpage_leader")
+        cls.leader = make_employee(
+            company=cls.company,
+            email="remote-fullpage-leader@test.joydigi",
+            user=cls.leader_user,
+        )
+        CompanyGroupAssignment.objects.create(
+            user=cls.leader_user, company=cls.company, group=leader_group
+        )
+        cls.worker_user = make_user("remote_fullpage_worker")
+        cls.worker = make_employee(
+            company=cls.company,
+            email="remote-fullpage-worker@test.joydigi",
+            user=cls.worker_user,
+        )
+        cls.worker.employee_work_info.reporting_manager_id = cls.leader
+        cls.worker.employee_work_info.save(update_fields=["reporting_manager_id"])
+
+        cls.other_company = make_company("Remote Full Page Other Co")
+        cls.other_leader_user = make_user("remote_fullpage_other_leader")
+        cls.other_leader = make_employee(
+            company=cls.other_company,
+            email="remote-fullpage-other-leader@test.joydigi",
+            user=cls.other_leader_user,
+        )
+        CompanyGroupAssignment.objects.create(
+            user=cls.other_leader_user,
+            company=cls.other_company,
+            group=leader_group,
+        )
+        cls.other_worker = make_employee(
+            company=cls.other_company,
+            email="remote-fullpage-other-worker@test.joydigi",
+        )
+        cls.other_worker.employee_work_info.reporting_manager_id = cls.other_leader
+        cls.other_worker.employee_work_info.save(
+            update_fields=["reporting_manager_id"]
+        )
+
+    def _make(self, employee, **overrides):
+        defaults = {
+            "employee_id": employee,
+            "start_date": date.today() + timedelta(days=1),
+            "end_date": date.today() + timedelta(days=2),
+            "description": "Chăm sóc con nhỏ tại nhà.",
+            "approved": False,
+            "canceled": False,
+        }
+        defaults.update(overrides)
+        return RemoteWorkRequest.objects.create(**defaults)
+
+    def test_authorized_leader_can_access(self):
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("remote-request-list"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_ordinary_employee_denied(self):
+        self.client.force_login(self.worker_user)
+        response = self.client.get(reverse("remote-request-list"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_unrelated_manager_sees_nothing(self):
+        self._make(self.worker)
+        self.client.force_login(self.other_leader_user)
+        response = self.client.get(reverse("remote-request-list"))
+        self.assertEqual(list(response.context["requests"]), [])
+
+    def test_cross_company_request_does_not_appear(self):
+        self._make(self.other_worker)
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("remote-request-list"))
+        self.assertEqual(list(response.context["requests"]), [])
+
+    def test_default_filter_is_all(self):
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("remote-request-list"))
+        self.assertEqual(response.context["status"], "all")
+
+    def test_pending_approved_and_rejected_all_appear_together(self):
+        pending = self._make(self.worker)
+        approved = self._make(self.worker, approved=True)
+        rejected = self._make(self.worker, canceled=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("remote-request-list"))
+
+        ids = [item.id for item in response.context["requests"]]
+        self.assertIn(pending.id, ids)
+        self.assertIn(approved.id, ids)
+        self.assertIn(rejected.id, ids)
+        self.assertContains(response, "Chờ duyệt")
+        self.assertContains(response, "Đã duyệt")
+        self.assertContains(response, "Đã từ chối")
+
+    def test_pending_status_filter(self):
+        pending = self._make(self.worker)
+        self._make(self.worker, approved=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(
+            reverse("remote-request-list"), {"status": "pending"}
+        )
+
+        ids = [item.id for item in response.context["requests"]]
+        self.assertEqual(ids, [pending.id])
+
+    def test_approved_status_filter(self):
+        self._make(self.worker)
+        approved = self._make(self.worker, approved=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(
+            reverse("remote-request-list"), {"status": "approved"}
+        )
+
+        ids = [item.id for item in response.context["requests"]]
+        self.assertEqual(ids, [approved.id])
+
+    def test_rejected_status_filter(self):
+        self._make(self.worker)
+        rejected = self._make(self.worker, canceled=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(
+            reverse("remote-request-list"), {"status": "rejected"}
+        )
+
+        ids = [item.id for item in response.context["requests"]]
+        self.assertEqual(ids, [rejected.id])
+
+    def test_pending_has_approve_and_reject_actions(self):
+        pending = self._make(self.worker)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("remote-request-list"))
+
+        self.assertContains(
+            response,
+            reverse("remote-request-approve", kwargs={"id": pending.id}),
+        )
+        self.assertContains(
+            response,
+            reverse("remote-request-reject", kwargs={"id": pending.id}),
+        )
+
+    def test_approved_has_no_approve_or_reject_action(self):
+        approved = self._make(self.worker, approved=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("remote-request-list"))
+
+        self.assertNotContains(
+            response,
+            reverse("remote-request-approve", kwargs={"id": approved.id}),
+        )
+        self.assertNotContains(
+            response,
+            reverse("remote-request-reject", kwargs={"id": approved.id}),
+        )
+        self.assertContains(response, "Đã xử lý")
+
+    def test_rejected_has_no_approve_or_reject_action(self):
+        rejected = self._make(self.worker, canceled=True)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.get(reverse("remote-request-list"))
+
+        self.assertNotContains(
+            response,
+            reverse("remote-request-approve", kwargs={"id": rejected.id}),
+        )
+        self.assertNotContains(
+            response,
+            reverse("remote-request-reject", kwargs={"id": rejected.id}),
+        )
+
+    def test_approve_from_full_page_does_not_touch_employee_work_type(self):
+        before_work_type_id = self.worker.employee_work_info.work_type_id_id
+        pending = self._make(self.worker)
+
+        self.client.force_login(self.leader_user)
+        self.client.post(
+            reverse("remote-request-approve", kwargs={"id": pending.id}),
+            HTTP_REFERER=reverse("remote-request-list"),
+        )
+
+        self.worker.employee_work_info.refresh_from_db()
+        self.assertEqual(
+            self.worker.employee_work_info.work_type_id_id, before_work_type_id
+        )
+
+    def test_approve_from_full_page_redirects_back_to_full_page(self):
+        pending = self._make(self.worker)
+
+        self.client.force_login(self.leader_user)
+        response = self.client.post(
+            reverse("remote-request-approve", kwargs={"id": pending.id}),
+            HTTP_REFERER=reverse("remote-request-list"),
+        )
+
+        self.assertRedirects(response, reverse("remote-request-list"))

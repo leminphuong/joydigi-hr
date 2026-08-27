@@ -444,6 +444,23 @@
                         </div>
                         {{ form.is_encashable.errors }}
                     </div>
+
+                    <!-- Phase LEAVE-7A.2: is_active — a disabled type is
+                         excluded from the mobile app's create-form list
+                         (GET /leave/leave-type/?is_active=true) but its
+                         existing history stays intact (PROTECT FK). -->
+                    <div class="flex items-center justify-between mb-2 resetContainer form-input-items">
+                        <div
+                            class="flex items-center gap-1 pb-2 overflow-visible relative"
+                            style="display: ruby"
+                        >
+                            <label class="text-xs font-medium" for="id_is_active">{{ form.is_active.label }}</label>
+                        </div>
+                        <div class="oh-switch">
+                            {{ form.is_active }}
+                        </div>
+                        {{ form.is_active.errors }}
+                    </div>
                 </div>
             </div>
         </div>

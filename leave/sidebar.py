@@ -34,6 +34,11 @@ SUBMENUS = [
         "accessibility": "leave.sidebar.leave_request_accessibility",
     },
     {
+        "menu": _("Loại nghỉ phép"),
+        "redirect": reverse_lazy("leave-settings-view"),
+        "accessibility": "leave.sidebar.leave_type_accessibility",
+    },
+    {
         "menu": _("Xin cấp ngày nghỉ"),
         "redirect": reverse_lazy("leave-allocation-request-view"),
     },
@@ -77,6 +82,14 @@ def leave_request_accessibility(request, submenu, user_perms, *args, **kwargs):
         or is_leave_approval_manager(request.user)
         or is_reportingmanager(request.user)
     )
+
+
+def leave_type_accessibility(request, submenu, user_perms, *args, **kwargs):
+    # Phase LEAVE-7A.2: same permission the existing LeaveType CRUD
+    # views already require (`leave.view_leavetype` — see
+    # `leave/cbv/leave_types.py`) — an ordinary employee with no prior
+    # LeaveType permission must not see this menu item appear.
+    return request.user.has_perm("leave.view_leavetype")
 
 
 def assign_accessibility(request, submenu, user_perm, *args, **kwargs):

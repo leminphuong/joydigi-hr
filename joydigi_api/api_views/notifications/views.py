@@ -3,7 +3,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ...api_serializers.notifications.serializers import NotificationSerializer
+from ...api_serializers.notifications.serializers import (
+    NotificationPreferenceSerializer,
+    NotificationSerializer,
+)
+from ...models import NotificationPreference
 
 # Create your views here.
 
@@ -60,3 +64,42 @@ class NotificationBulkDelUnreadMessageView(APIView):
         obj = request.user.notifications.unread()
         obj.mark_all_as_deleted()
         return Response({"status": "deleted"}, status=200)
+
+
+class NotificationSettingsView(APIView):
+    """Phase UI-5C.1: per-user in-app notification preference.
+
+    Identity always comes from `request.user` — there is no path for a
+    client to read or update another user's row (no user/employee/
+    company id is ever accepted from the request body; the serializer
+    doesn't even expose those fields). The row is created lazily on
+    first access with `all_notifications_enabled=True`, so an existing
+    user who has never touched this setting keeps receiving
+    notifications exactly as before.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        preference, _ = NotificationPreference.objects.get_or_create(
+            user=request.user
+        )
+        serializer = NotificationPreferenceSerializer(preference)
+        return Response(serializer.data, status=200)
+
+    def _update(self, request):
+        preference, _ = NotificationPreference.objects.get_or_create(
+            user=request.user
+        )
+        serializer = NotificationPreferenceSerializer(
+            preference, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=200)
+
+    def patch(self, request):
+        return self._update(request)
+
+    def put(self, request):
+        return self._update(request)

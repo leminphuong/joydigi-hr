@@ -215,6 +215,11 @@ urlpatterns = [
         name="employee-archive",
     ),
     path(
+        "employee-force-mobile-logout/<int:obj_id>/",
+        views.employee_force_mobile_logout,
+        name="employee-force-mobile-logout",
+    ),
+    path(
         "replace-employee/<int:emp_id>/",
         views.replace_employee,
         name="replace-employee",

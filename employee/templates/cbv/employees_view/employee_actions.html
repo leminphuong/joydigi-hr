@@ -57,6 +57,19 @@
 	</button>
 	{% endif %}
 
+	{% if perms.employee.change_employee or request.user|check_manager:instance %}
+		<button
+			type="button"
+			hx-confirm="{% trans 'Bạn có chắc muốn đăng xuất tài khoản này khỏi thiết bị?' %}"
+			hx-post="{% url 'employee-force-mobile-logout' instance.id %}"
+			hx-target="#relatedModel"
+			class="oh-btn oh-btn--light-bkg oh-btn--sq-sm"
+			title="{% trans 'Đăng xuất khỏi thiết bị' %}"
+		>
+			<ion-icon name="log-out-outline"></ion-icon>
+		</button>
+	{% endif %}
+
 	{% if perms.employee.delete_employee %}
 		{% if instance.is_active %}
 			<button

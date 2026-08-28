@@ -1,68 +1,327 @@
 {% load i18n %}
-<div>
-    {% include "generic/joydigi_form.html" %}
-</div>
-<script>
-    $("#id_is_active_parent_div").hide();
+{% comment %}
+Phase LEAVE-7A.5 — "Chỉ định nghỉ phép" modal.
 
+Purpose-built layout for THIS modal only. It deliberately no longer
+includes `generic/joydigi_form.html`, because that renderer emitted the
+shared `JoydigiMultiSelectWidget` whose CSS capped the Select2 selection
+box at `max-height: 70px` with `overflow-y: auto` — the tiny nested
+scrollbar seen in production — and absolutely-positioned a "Filter"
+control on top of the select, which opened a second modal-inside-a-modal
+(nav + filter tags + table + pagination). That widget is shared by 19
+form fields across attendance/base/employee/joydigi_documents/leave, so
+it is left completely untouched; only this template changes.
+
+Contract preserved exactly (the view reads POST directly, see
+`leave/cbv/leave_types.py::LeaveTypeAssignForm.form_valid`):
+  * `employee_id`      — repeated once per selected employee
+  * `leave_days_<id>`  — per-employee day count, blank => leave type total
+Employee eligibility/company scoping still comes from the unmodified
+`form.fields.employee_id.queryset` (LeaveOneAssignForm already excludes
+already-assigned employees). No form, view, model, API or permission
+change.
+{% endcomment %}
+
+<style>
+    #assignLeaveModal .assign-leave__list {
+        max-height: 340px;
+        overflow-y: auto;
+        border: 1px solid #e6e7eb;
+        border-radius: 8px;
+    }
+    #assignLeaveModal .assign-leave__row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-bottom: 1px solid #f1f2f4;
+        cursor: pointer;
+    }
+    #assignLeaveModal .assign-leave__row:last-child { border-bottom: 0; }
+    #assignLeaveModal .assign-leave__row:hover { background: #fafafb; }
+    #assignLeaveModal .assign-leave__row input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        cursor: pointer;
+    }
+    #assignLeaveModal .assign-leave__name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        color: #1f2937;
+    }
+    #assignLeaveModal .assign-leave__code {
+        flex-shrink: 0;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: #f3f4f6;
+        color: #6b7280;
+        font-size: 0.75rem;
+    }
+    #assignLeaveModal .assign-leave__toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 10px 0 6px;
+    }
+    #assignLeaveModal .assign-leave__meta {
+        color: #6b7280;
+        font-size: 0.78rem;
+    }
+    #assignLeaveModal .assign-leave__search { position: relative; }
+    #assignLeaveModal .assign-leave__search input {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 0.5rem 0.75rem 0.5rem 2rem;
+        border: 1px solid #e6e7eb;
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+    #assignLeaveModal .assign-leave__search input:focus {
+        border-color: #e54f38;
+        outline: none;
+    }
+    #assignLeaveModal .assign-leave__search i {
+        position: absolute;
+        top: 50%;
+        left: 10px;
+        transform: translateY(-50%);
+        opacity: 0.45;
+        font-size: 0.8rem;
+    }
+    #assignLeaveModal .assign-leave__empty {
+        display: none;
+        padding: 24px 14px;
+        color: #6b7280;
+        font-size: 0.85rem;
+        text-align: center;
+    }
+    #assignLeaveModal .assign-leave__footer {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid #eef2f6;
+    }
+    #assignLeaveModal .assign-leave__days th,
+    #assignLeaveModal .assign-leave__days td {
+        padding: 6px 8px;
+        border-bottom: 1px solid #f1f2f4;
+        font-size: 0.85rem;
+        text-align: left;
+    }
+    @media (max-width: 640px) {
+        #assignLeaveModal .assign-leave__row { flex-wrap: wrap; }
+        #assignLeaveModal .assign-leave__footer { flex-direction: column-reverse; }
+        #assignLeaveModal .assign-leave__footer .oh-btn { width: 100%; }
+    }
+</style>
+
+<div id="assignLeaveModal">
+    <div class="oh-modal__dialog-header">
+        <h2 class="text-md font-semibold" id="createTitle">{% trans "Chỉ định nghỉ phép" %}</h2>
+        <button
+            type="button"
+            class="oh-modal__close--custom"
+            onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')"
+            aria-label="{% trans 'Đóng' %}"
+        >
+            <ion-icon name="close-outline" role="img" class="md hydrated"></ion-icon>
+        </button>
+    </div>
+
+    <form
+        id="assignLeaveForm"
+        hx-post="{{ request.path }}?{{ request.GET.urlencode }}"
+        {% if request.META.HTTP_HX_TARGET %}hx-target="#{{ request.META.HTTP_HX_TARGET }}"{% endif %}
+        hx-swap="{% if hx_target == 'this' %}outerHTML{% else %}innerHTML{% endif %}"
+        hx-encoding="multipart/form-data"
+        novalidate
+    >
+        <div class="oh-modal__dialog-body">
+            <p class="assign-leave__meta" style="margin-bottom: 14px;">
+                {% trans "Chọn nhân viên được áp dụng loại nghỉ phép này." %}
+            </p>
+
+            {% if form.non_field_errors %}
+                <div class="js-non-field-errors">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <label class="oh-label required-star" for="assignLeaveSearch">{% trans "Nhân viên" %}</label>
+
+            <div class="assign-leave__search">
+                <i class="fas fa-search"></i>
+                <input
+                    type="text"
+                    id="assignLeaveSearch"
+                    autocomplete="off"
+                    placeholder="{% trans 'Tìm theo tên hoặc mã nhân viên' %}"
+                    aria-label="{% trans 'Tìm theo tên hoặc mã nhân viên' %}"
+                >
+            </div>
+
+            <div class="assign-leave__toolbar">
+                <label class="assign-leave__meta" style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <input type="checkbox" id="assignLeaveSelectAll">
+                    {% trans "Chọn tất cả" %}
+                </label>
+                <span class="assign-leave__meta" id="assignLeaveCount"></span>
+            </div>
+
+            <div class="assign-leave__list" id="assignLeaveList">
+                {% for employee in form.fields.employee_id.queryset %}
+                    <label
+                        class="assign-leave__row"
+                        data-name="{{ employee.get_full_name|lower }}"
+                        data-code="{{ employee.badge_id|default_if_none:''|lower }}"
+                    >
+                        <input
+                            type="checkbox"
+                            name="employee_id"
+                            value="{{ employee.id }}"
+                            data-employee-name="{{ employee.get_full_name }}"
+                        >
+                        <span class="assign-leave__name">{{ employee.get_full_name }}</span>
+                        {% if employee.badge_id %}
+                            <span class="assign-leave__code">{{ employee.badge_id }}</span>
+                        {% endif %}
+                    </label>
+                {% empty %}
+                    <div class="assign-leave__meta" style="padding: 24px 14px; text-align: center;">
+                        {% trans "Không có nhân viên nào khả dụng để chỉ định." %}
+                    </div>
+                {% endfor %}
+                <div class="assign-leave__empty" id="assignLeaveEmpty">
+                    {% trans "Không tìm thấy nhân viên phù hợp." %}
+                </div>
+            </div>
+
+            {% if form.employee_id.errors %}{{ form.employee_id.errors }}{% endif %}
+
+            <div id="leaveDaysTableContainer"></div>
+
+            <div class="assign-leave__footer">
+                <button
+                    type="button"
+                    class="oh-btn oh-btn--light"
+                    onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')"
+                >
+                    {% trans "Hủy" %}
+                </button>
+                <button type="submit" class="oh-btn oh-btn--secondary" id="assignLeaveSubmit" disabled>
+                    {% trans "Lưu chỉ định" %}
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
     (function () {
-        var defaultLeaveDays = parseInt({{ default_leave_days|default:0 }}, 10) || 0;
+        // `total_days` is a float, so it can render locale-formatted
+        // (e.g. "12,0"). Parse defensively instead of inlining it raw.
+        var defaultLeaveDays = parseInt(String("{{ default_leave_days|default:0 }}").replace(/[^0-9]/g, ""), 10) || 0;
         var leaveDaysValues = {};
 
-        function renderLeaveDaysTable() {
-            var selected = $("#id_employee_id").val() || [];
-            var $container = $("#leaveDaysTableContainer");
+        var $root = $("#assignLeaveModal");
+        var $list = $root.find("#assignLeaveList");
+        var $rows = $list.find(".assign-leave__row");
+        var $empty = $root.find("#assignLeaveEmpty");
+        var $search = $root.find("#assignLeaveSearch");
+        var $selectAll = $root.find("#assignLeaveSelectAll");
+        var $count = $root.find("#assignLeaveCount");
+        var $submit = $root.find("#assignLeaveSubmit");
 
+        function checkedBoxes() {
+            return $rows.find("input[type='checkbox']:checked");
+        }
+
+        function visibleRows() {
+            return $rows.filter(function () { return $(this).css("display") !== "none"; });
+        }
+
+        function renderLeaveDays() {
+            var $container = $root.find("#leaveDaysTableContainer");
             $container.find("input.leave-days-input").each(function () {
                 leaveDaysValues[$(this).data("employee-id")] = $(this).val();
             });
 
-            if (!selected.length) {
+            var $checked = checkedBoxes();
+            if (!$checked.length) {
                 $container.html("");
                 return;
             }
 
             var rows = "";
-            selected.forEach(function (id) {
-                var name = $("#id_employee_id option[value='" + id + "']").text();
+            $checked.each(function () {
+                var id = $(this).val();
+                var name = $(this).data("employee-name");
                 var value = leaveDaysValues[id] !== undefined ? leaveDaysValues[id] : defaultLeaveDays;
                 rows +=
-                    '<tr>' +
-                    '<td class="p-2">' + name + '</td>' +
-                    '<td class="p-2">' +
-                    '<input type="number" step="1" min="0" inputmode="numeric" pattern="[0-9]*" ' +
-                    'class="oh-input w-100 leave-days-input" ' +
-                    'data-employee-id="' + id + '" name="leave_days_' + id + '" value="' + value + '">' +
-                    '</td>' +
-                    '</tr>';
+                    '<tr><td>' + $("<div>").text(name).html() + '</td>' +
+                    '<td><input type="number" step="1" min="0" inputmode="numeric" pattern="[0-9]*" ' +
+                    'class="oh-input w-100 leave-days-input" data-employee-id="' + id + '" ' +
+                    'name="leave_days_' + id + '" value="' + value + '"></td></tr>';
             });
 
             $container.html(
-                '<label class="oh-label d-block mt-3">{% trans "Leave Days" %}</label>' +
-                '<table class="w-100" style="border-collapse: collapse;">' +
-                '<thead><tr>' +
-                '<th class="p-2 text-start">{% trans "Employee" %}</th>' +
-                '<th class="p-2 text-start">{% trans "Leave Days" %}</th>' +
-                '</tr></thead>' +
-                '<tbody>' + rows + '</tbody>' +
-                '</table>'
+                '<label class="oh-label d-block mt-3">{% trans "Số ngày phép" %}</label>' +
+                '<table class="w-100 assign-leave__days" style="border-collapse: collapse;">' +
+                '<thead><tr><th>{% trans "Nhân viên" %}</th><th>{% trans "Số ngày" %}</th></tr></thead>' +
+                '<tbody>' + rows + '</tbody></table>'
             );
         }
 
-        if (!$("#leaveDaysTableContainer").length) {
-            $("#id_employee_id_parent_div").after('<div id="leaveDaysTableContainer" class="col-12"></div>');
+        function syncState() {
+            var selected = checkedBoxes().length;
+            $count.text(selected
+                ? "{% trans 'Đã chọn' %}: " + selected + " {% trans 'nhân viên' %}"
+                : "{% trans 'Hiển thị' %} " + visibleRows().length + " {% trans 'nhân viên' %}");
+            $submit.prop("disabled", selected === 0);
+
+            var $vis = visibleRows();
+            var visChecked = $vis.find("input[type='checkbox']:checked").length;
+            $selectAll.prop("checked", $vis.length > 0 && visChecked === $vis.length);
+            renderLeaveDays();
         }
 
-        $(document).on("change", "#id_employee_id", renderLeaveDaysTable);
-        $(document).on("input", "#leaveDaysTableContainer .leave-days-input", function () {
-            var digitsOnly = $(this).val().replace(/[^0-9]/g, "");
-            $(this).val(digitsOnly);
+        $search.on("input", function () {
+            var q = $(this).val().toLowerCase().trim();
+            $rows.each(function () {
+                var $r = $(this);
+                var hit = !q
+                    || ($r.data("name") + "").indexOf(q) !== -1
+                    || ($r.data("code") + "").indexOf(q) !== -1;
+                $r.toggle(hit);
+            });
+            $empty.toggle(visibleRows().length === 0 && $rows.length > 0);
+            syncState();
         });
-        $(document).on("keydown", "#leaveDaysTableContainer .leave-days-input", function (e) {
+
+        $selectAll.on("change", function () {
+            var on = $(this).is(":checked");
+            visibleRows().find("input[type='checkbox']").prop("checked", on);
+            syncState();
+        });
+
+        $list.on("change", "input[type='checkbox']", syncState);
+
+        $root.on("input", ".leave-days-input", function () {
+            $(this).val($(this).val().replace(/[^0-9]/g, ""));
+        });
+        $root.on("keydown", ".leave-days-input", function (e) {
             if (e.key === "." || e.key === "-" || e.key === "e" || e.key === "+") {
                 e.preventDefault();
             }
         });
-        setTimeout(renderLeaveDaysTable, 300);
+
+        syncState();
     })();
 </script>

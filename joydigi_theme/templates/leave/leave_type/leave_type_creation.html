@@ -148,30 +148,46 @@
             margin-left: auto;
             margin-right: auto;
         }
+
+        .form-section-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: #9ca3af;
+            text-transform: uppercase;
+            margin: 1.1rem 0 0.6rem;
+            padding-bottom: 0.35rem;
+            border-bottom: 1px solid #eef2f6;
+        }
+        .form-section-title:first-child {
+            margin-top: 0;
+        }
     </style>
 
     <div class="bg-white p-5 pe-2 pt-3 rounded-md shadow-card leave-type-form-card">
-        <h3 class="text-lg font-semibold mb-3">{% trans "Create Leave Type" %}</h3>
+        <h3 class="text-lg font-semibold mb-3">{% trans "Tạo loại nghỉ phép" %}</h3>
         <form method="post" enctype="multipart/form-data" id="mainform">
             {% csrf_token %}
             <div class="grid grid-cols-12 gap-4">
                 <div class="col-span-12 md:col-span-6 rounded-md border border-dark-50 p-5">
+                    <p class="form-section-title">{% trans "THÔNG TIN CƠ BẢN" %}</p>
                     <div class="form-input-items">
-                        <label class="text-xs font-medium required-star">{% trans "Name" %}</label>
+                        <label class="text-xs font-medium required-star">{% trans "Tên loại nghỉ" %}</label>
                         {{ form.name }}
                         {{ form.name.errors }}
                     </div>
 
                     <div class="form-input-items">
-                        <label class="text-xs font-medium">{% trans "Is Paid" %}</label>
+                        <label class="text-xs font-medium">{% trans "Được trả tiền" %}</label>
                         {{ form.payment }}
                         {{ form.payment.errors }}
                     </div>
 
+                    <p class="form-section-title">{% trans "GIỚI HẠN NGÀY NGHỈ" %}</p>
                     <!-- Limit Leave days Toggle -->
                     <div class="flex items-center justify-between mb-2 resetContainer form-input-items">
                         <div class="flex items-center gap-1 pb-2 overflow-visible relative" style="display: ruby">
-                            <label class="text-xs font-medium" for="id_reset">{% trans "Limit Leave Days" %}</label>
+                            <label class="text-xs font-medium" for="id_reset">{% trans "Giới hạn số ngày nghỉ phép" %}</label>
                             <span
                                 class="oh-info"
                                 title='{% trans "Do you want to limit leave days for this leave type?" %}'
@@ -184,7 +200,7 @@
                     </div>
                     <div class="form-input-items">
                         <div class="totalDaysContainer" style="display: block">
-                            <label class="text-xs font-medium" for="">{% trans "Total Days" %}</label>
+                            <label class="text-xs font-medium" for="">{% trans "Tổng số ngày" %}</label>
                             {{ form.count|add_class:"mb-3 text-color-600 px-3 p-2 placeholder:text-xs w-full border border-dark-50 rounded-md focus-visible:outline-0 placeholder:text-dark-100 text-xs transition duration-300 focus:border-primary-600" }}
                             {{ form.count.errors }}
                         </div>
@@ -203,7 +219,7 @@
                     <!-- Reset Leave Toggle -->
                     <div class="flex items-center justify-between mb-2 resetContainer form-input-items">
                         <div class="flex items-center gap-1 pb-2 overflow-visible relative" style="display: ruby">
-                            <label class="text-xs font-medium" for="id_reset">{% trans "Reset" %}</label>
+                            <label class="text-xs font-medium" for="id_reset">{% trans "Cài lại" %}</label>
                             <span
                                 class="oh-info"
                                 title='{% trans "Do you need to reset leaves based on conditions?" %}'
@@ -332,8 +348,9 @@
                 <!-- right col -->
                 <div class="col-span-12 md:col-span-6">
                     <div class="p-5 rounded-md border border-dark-50">
+                        <p class="form-section-title">{% trans "THÔNG TIN CƠ BẢN" %}</p>
                         <div class="form-input-items">
-                            <label class="text-xs font-medium mb-2 block">{% trans "Icon" %}</label>
+                            <label class="text-xs font-medium mb-2 block">{% trans "Biểu tượng" %}</label>
                             <div class="w-24 flex flex-col items-center flex-shrink-0 emp-photo-wrap">
                                 <label for="id_icon" class="emp-photo-zone w-20 h-20 border-2 border-dashed border-secondary-300 rounded-xl flex items-center justify-center bg-secondary-50 overflow-hidden cursor-pointer transition-colors" id="iconDropZone">
                                     <img
@@ -354,9 +371,10 @@
                                 {{ form.icon.errors }}
                             </div>
                         </div>
+                        <p class="form-section-title">{% trans "QUY TẮC YÊU CẦU" %}</p>
                         <div class="flex items-center justify-between mb-2 resetContainer form-input-items">
                             <div class="flex items-center gap-1 pb-2 overflow-visible relative" style="display: ruby">
-                                <label class="text-xs font-medium" for="id_approval">{% trans "Require Approval" %}</label>
+                                <label class="text-xs font-medium" for="id_approval">{% trans "Yêu cầu phê duyệt" %}</label>
                             </div>
                             <div class="oh-switch">
                                 <input type="checkbox" class="oh-switch__checkbox toggle-control yesOrNo" id="id_approval" checked>
@@ -366,7 +384,7 @@
 
                         <div class="flex items-center justify-between mb-2 resetContainer form-input-items">
                             <div class="flex items-center gap-1 pb-2 overflow-visible relative" style="display: ruby">
-                                <label class="text-xs font-medium" for="id_attachment">{% trans "Require Attachment" %}</label>
+                                <label class="text-xs font-medium" for="id_attachment">{% trans "Yêu cầu đính kèm" %}</label>
                             </div>
                             <div class="oh-switch">
                                 <input type="checkbox" class="oh-switch__checkbox toggle-control yesOrNo" id="id_attachment">
@@ -376,7 +394,7 @@
 
                         <div class="flex items-center justify-between mb-2 resetContainer form-input-items">
                             <div class="flex items-center gap-1 pb-2 overflow-visible relative" style="display: ruby">
-                                <label class="text-xs font-medium" for="id_exclude_comp_leave">{% trans "Exclude Company Holidays" %}</label>
+                                <label class="text-xs font-medium" for="id_exclude_comp_leave">{% trans "Loại trừ ngày nghỉ công ty" %}</label>
                             </div>
                             <div class="oh-switch">
                                 <input
@@ -390,7 +408,7 @@
 
                         <div class="flex items-center justify-between mb-2 resetContainer form-input-items">
                             <div class="flex items-center gap-1 pb-2 overflow-visible relative" style="display: ruby">
-                                <label class="text-xs font-medium" for="id_exclude_public_leave">{% trans "Exclude Holidays" %}</label>
+                                <label class="text-xs font-medium" for="id_exclude_public_leave">{% trans "Loại trừ ngày lễ" %}</label>
                             </div>
                             <div class="oh-switch">
                                 <input
@@ -404,7 +422,7 @@
 
                         <div class="flex items-center justify-between mb-2 resetContainer form-input-items">
                             <div class="flex items-center gap-1 pb-2 overflow-visible relative" style="display: ruby">
-                                <label class="text-xs font-medium" for="id_is_encashable">{% trans "Is Encashable" %}</label>
+                                <label class="text-xs font-medium" for="id_is_encashable">{% trans "Có thể đổi thành tiền mặt" %}</label>
                             </div>
                             <div class="oh-switch">
                                 {{ form.is_encashable }}
@@ -412,13 +430,14 @@
                             {{ form.is_encashable.errors }}
                         </div>
 
+                        <p class="form-section-title">{% trans "TRẠNG THÁI" %}</p>
                         <!-- Phase LEAVE-7A.2: is_active — a disabled type is
                              excluded from the mobile app's create-form list
                              (GET /leave/leave-type/?is_active=true) but its
                              existing history stays intact (PROTECT FK). -->
                         <div class="flex items-center justify-between mb-2 resetContainer form-input-items">
                             <div class="flex items-center gap-1 pb-2 overflow-visible relative" style="display: ruby">
-                                <label class="text-xs font-medium" for="id_is_active">{% trans "Is Active" %}</label>
+                                <label class="text-xs font-medium" for="id_is_active">{% trans "Đang hoạt động" %}</label>
                             </div>
                             <div class="oh-switch">
                                 {{ form.is_active }}
@@ -429,13 +448,20 @@
                 </div>
             </div>
             <hr class="mt-5 mb-3 d-flex flex-row-reverse" style="color: #cdd5df">
-            <div class="flex gap-1 justify-end pt-3 mt-3">
+            <div class="flex gap-2 justify-end pt-3 mt-3">
+                <a
+                    href="{% url 'type-view' %}"
+                    class="oh-btn oh-btn--light mt-4 mb-4"
+                    role="button"
+                >
+                    {% trans "Hủy" %}
+                </a>
                 <button
                     type="submit"
                     class="oh-btn oh-onboarding-card__button mt-4 oh-btn--secondary oh-btn--shadow mb-4"
                     role="button"
                 >
-                    {% trans "Save" %}
+                    {% trans "Lưu loại nghỉ phép" %}
                 </button>
             </div>
             <div hidden>{{ form.require_approval }}</div>

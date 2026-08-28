@@ -10,6 +10,15 @@ from base.context_processors import white_labelling_company
 from employee.models import Employee
 from joydigi.urls import urlpatterns
 
+# Phase UI-7B.1: `joydigi_audit.middleware.RESOURCE_LABELS` is the
+# already-established Vietnamese-label source for these exact route
+# names (used for audit-log resource names) — reused here instead of
+# inventing a second, breadcrumb-only label table.
+try:
+    from joydigi_audit.middleware import RESOURCE_LABELS
+except ImportError:  # pragma: no cover - joydigi_audit is always installed
+    RESOURCE_LABELS = {}
+
 
 def is_valid_uuid(uuid_string):
     try:
@@ -39,8 +48,20 @@ def _resolve_menu_section(path, menus):
     the Employees list submenu). Returns (section_label, submenu_redirect)
     for the longest/most specific matching submenu, or None if nothing
     matches (e.g. settings pages, which aren't part of the main sidebar).
+
+    Phase UI-7B.1: falls back to a same-first-path-segment match when no
+    submenu's redirect is an exact/prefix match — this is what a page
+    like `/leave/type-creation/` needs: it's a genuine sibling of the
+    "Loại nghỉ phép" submenu's own redirect (`/leave/type-view/`), not a
+    sub-path of it, so the exact/prefix check alone never resolves a
+    section for it (or for any other create/update/detail page that
+    lives beside, not under, its section's canonical list URL).
     """
     best = None
+    fallback = None
+    stripped = path.strip("/")
+    path_first_segment = stripped.split("/")[0] if stripped else None
+
     for menu in menus or []:
         for submenu in menu.get("submenu", []):
             redirect = submenu.get("redirect") or ""
@@ -49,7 +70,14 @@ def _resolve_menu_section(path, menus):
             if path == redirect or path.startswith(redirect):
                 if best is None or len(redirect) > len(best[1]):
                     best = (str(menu.get("menu", "")), redirect)
-    return best
+            elif fallback is None and path_first_segment:
+                redirect_stripped = redirect.strip("/")
+                redirect_first_segment = (
+                    redirect_stripped.split("/")[0] if redirect_stripped else None
+                )
+                if redirect_first_segment == path_first_segment:
+                    fallback = (str(menu.get("menu", "")), redirect)
+    return best or fallback
 
 
 BREADCRUMB_URL_NAMES = {
@@ -67,6 +95,13 @@ BREADCRUMB_URL_NAMES = {
     "performance-settings-view": "Configuration",
     "user-group-view": "Roles and Permissions",
     "employee-permission-assign": "Roles and Permissions",
+    # Phase LEAVE-7A.3 / UI-7B.1: these are real path segments (not
+    # URL names — see `RESOURCE_LABELS` above for that lookup), so
+    # they still need an entry here even though the pages themselves
+    # were already labeled for the audit log.
+    "type-view": "Loại nghỉ phép",
+    "type-creation": "Thêm loại nghỉ phép",
+    "type-update": "Cập nhật loại nghỉ phép",
 }
 
 sidebar_urls = [
@@ -379,6 +414,29 @@ def breadcrumbs(request):
                 request.session["breadcrumbs"].clear()
                 request.session["breadcrumbs"].append(first_path)
 
+        # Phase UI-7B.1 (root cause fix): the two blocks above only
+        # reset when the current page happens to be listed in the
+        # hardcoded `sidebar_urls` allowlist — any page missing from
+        # that list (e.g. the checkin-portal's `cham-cong-hom-nay/`,
+        # `duyet-don/`, or the LeaveType create/update pages) never
+        # triggered a reset, so the session-stored `breadcrumbs` list
+        # just kept growing across completely unrelated page visits
+        # for the rest of the session. This is a general, list-free
+        # replacement: whichever top-level *section* (or, for pages
+        # outside any sidebar section, first path segment) the
+        # previous request belonged to is compared against the
+        # current one, and a change always resets — for any page,
+        # present or future, without needing manual list maintenance.
+        current_root_key = (
+            current_section[0] if current_section else (parts[0] if parts else None)
+        )
+        if parts and current_root_key != request.session.get("breadcrumb_root_key"):
+            first_path = breadcrumbs[0]
+            request.session["breadcrumbs"].clear()
+            request.session["breadcrumbs"].append(first_path)
+        if parts:
+            request.session["breadcrumb_root_key"] = current_root_key
+
         for i, item in enumerate(parts):
             path = path + item + "/"
             parsed_url = urlparse(path)
@@ -407,9 +465,22 @@ def breadcrumbs(request):
                 if required_perms:
                     clickable = all(request.user.has_perm(p) for p in required_perms)
 
+            # Phase UI-7B.1: prefer the canonical Vietnamese label already
+            # established for audit-log resource names (keyed by URL
+            # *name*, e.g. "today-attendance" -> "Chấm công hôm nay") —
+            # covers every checkin-portal page and several main-sidebar
+            # ones without a second label table. `BREADCRUMB_URL_NAMES`
+            # (keyed by the raw path *segment*, e.g. "type-view") is the
+            # fallback for anything not in that list.
+            resolved_name = BREADCRUMB_URL_NAMES.get(item, item)
+            if found:
+                resolved_name = RESOURCE_LABELS.get(
+                    getattr(resolver_match, "url_name", None) or "", resolved_name
+                )
+
             new_dict = {
                 "url": path,
-                "name": BREADCRUMB_URL_NAMES.get(item, item),
+                "name": resolved_name,
                 "found": found,
                 "clickable": clickable,
             }

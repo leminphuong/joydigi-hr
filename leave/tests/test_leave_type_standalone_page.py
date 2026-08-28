@@ -68,33 +68,26 @@ class LeaveTypeStandalonePageRoutingTests(TestCase):
         self.assertNotIn(response.status_code, (301, 302))
 
     def test_sidebar_points_to_standalone_page(self):
+        # Phase LEAVE-7A.3A: the real top-level sidebar link (see
+        # `test_leave_type_top_level_sidebar.py`) — no longer a
+        # `leave/sidebar.py` SUBMENUS entry.
         response = self.client.get(reverse("type-view"))
-        sidebar = response.context["sidebar"]
-        leave_menu = next(m for m in sidebar if m["app"] == "leave")
-        entry = next(
-            item
-            for item in leave_menu["submenu"]
-            if str(item["menu"]) == "Loại nghỉ phép"
+        self.assertIn(
+            f'href="{reverse("type-view")}"', response.content.decode()
         )
-        self.assertEqual(str(entry["redirect"]), reverse("type-view"))
 
     def test_sidebar_does_not_point_to_leave_settings_view(self):
         response = self.client.get(reverse("type-view"))
-        sidebar = response.context["sidebar"]
-        leave_menu = next(m for m in sidebar if m["app"] == "leave")
-        entry = next(
-            item
-            for item in leave_menu["submenu"]
-            if str(item["menu"]) == "Loại nghỉ phép"
+        self.assertNotIn(
+            f'href="{reverse("leave-settings-view")}"',
+            response.content.decode(),
         )
-        self.assertNotEqual(str(entry["redirect"]), reverse("leave-settings-view"))
 
     def test_no_duplicate_menu_entry(self):
         response = self.client.get(reverse("type-view"))
-        sidebar = response.context["sidebar"]
-        leave_menu = next(m for m in sidebar if m["app"] == "leave")
-        labels = [str(item["menu"]) for item in leave_menu["submenu"]]
-        self.assertEqual(labels.count("Loại nghỉ phép"), 1)
+        self.assertEqual(
+            response.content.decode().count('data-menu="Loại nghỉ phép"'), 1
+        )
 
 
 class LeaveTypeStandalonePagePermissionTests(TestCase):
@@ -104,25 +97,18 @@ class LeaveTypeStandalonePagePermissionTests(TestCase):
         self.company = make_company("Standalone Perm Co")
         self.client = Client()
 
-    def _menu_labels_for(self, user):
-        self.client.force_login(user)
-        response = self.client.get(reverse("type-view"))
-        if response.status_code != 200:
-            return None, response
-        leave_menu = next(
-            (m for m in response.context["sidebar"] if m["app"] == "leave"), None
-        )
-        labels = (
-            {str(i["menu"]) for i in leave_menu["submenu"]} if leave_menu else set()
-        )
-        return labels, response
+    # Menu-visibility coverage (superuser / permitted / denied) now
+    # lives in `test_leave_type_top_level_sidebar.py`, against the
+    # actual rendered top-level link — this class only covers page
+    # access itself.
 
     def test_superuser_sees_page_and_menu(self):
         user = make_user("standalone_super", is_superuser=True)
         make_employee(company=self.company, email="s1@test.joydigi", user=user)
-        labels, response = self._menu_labels_for(user)
+        self.client.force_login(user)
+        response = self.client.get(reverse("type-view"))
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Loại nghỉ phép", labels)
+        self.assertIn('data-menu="Loại nghỉ phép"', response.content.decode())
 
     def test_user_with_permission_sees_page_and_menu(self):
         user = make_user("standalone_permitted")
@@ -131,9 +117,10 @@ class LeaveTypeStandalonePagePermissionTests(TestCase):
             content_type__app_label="leave", codename="view_leavetype"
         )
         user.user_permissions.add(perm)
-        labels, response = self._menu_labels_for(user)
+        self.client.force_login(user)
+        response = self.client.get(reverse("type-view"))
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Loại nghỉ phép", labels)
+        self.assertIn('data-menu="Loại nghỉ phép"', response.content.decode())
 
     def test_user_without_permission_cannot_access_or_see_menu(self):
         user = make_user("standalone_denied")

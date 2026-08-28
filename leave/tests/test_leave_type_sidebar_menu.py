@@ -1,18 +1,20 @@
-"""Phase LEAVE-7A.2A: reproduce (or rule out) the reported "Loại nghỉ
-phép" sidebar item missing on production, using the real, deployed
-code path — `joydigi.config.get_MENUS` (a template context processor,
-registered in `TEMPLATES[0]["OPTIONS"]["context_processors"]`, run on
-every authenticated page render) -> `sidebar(request)` ->
-`importlib.import_module("leave.sidebar")` -> `SUBMENUS` loop ->
-per-entry `accessibility` check.
+"""Phase LEAVE-7A.2A (superseded by LEAVE-7A.3A — see below): originally
+reproduced the reported "Loại nghỉ phép" sidebar item missing on
+production, using `joydigi.config.get_MENUS` -> `sidebar(request)` ->
+`importlib.import_module("leave.sidebar")` -> `SUBMENUS` loop.
 
-Every other test touching this menu entry so far (`test_leave_type_
-admin_ui.py`) only called `leave_type_accessibility` directly — never
-exercised the actual sidebar-assembly pipeline a real page load goes
-through. This file closes that gap.
+Phase LEAVE-7A.3A moved "Loại nghỉ phép" out of that SUBMENUS registry
+entirely, into a permanent top-level link in the actual rendered
+sidebar (`joydigi_theme/components/sidebar/top_menu.html` — see
+`test_leave_type_top_level_sidebar.py` for that coverage). This file
+now only proves the `leave/sidebar.py` registry itself — still used by
+`joydigi_crumbs` for breadcrumb section-label resolution, per
+UI-7B.1 — stays intact and does NOT carry a duplicate "Loại nghỉ
+phép" entry alongside the new top-level link.
 """
 
 from django.test import Client, TestCase
+from django.urls import reverse
 
 from joydigi.testkit import make_company, make_employee, make_user
 
@@ -29,22 +31,18 @@ def _submenu_labels(leave_menu):
 
 
 class LeaveTypeSidebarMenuRenderTests(TestCase):
-    """Exercises the exact context processor a real page load runs,
-    for a superuser and for a non-superuser holding the specific
-    permission — both are legitimate "admin" shapes this app supports,
-    and Django superuser status bypasses `has_perm` backend checks
-    entirely, which a mocked user object cannot verify."""
-
     def setUp(self):
         self.company = make_company("Sidebar Menu Co")
         self.client = Client()
 
-    def _get_sidebar(self, username="sidebar_probe"):
+    def _get_sidebar(self):
         response = self.client.get("/leave/user-request-view/")
         self.assertEqual(response.status_code, 200)
         return response.context["sidebar"]
 
-    def test_superuser_sees_loai_nghi_phep_in_the_real_rendered_sidebar(self):
+    def test_leave_type_not_in_the_submenu_registry(self):
+        # By design since Phase LEAVE-7A.3A — it lives as a top-level
+        # link now, not a "Nghỉ phép" submenu entry.
         admin = make_user("sidebar_super", is_superuser=True)
         make_employee(
             company=self.company, email="sidebar_super@test.joydigi", user=admin
@@ -57,73 +55,30 @@ class LeaveTypeSidebarMenuRenderTests(TestCase):
         self.assertIsNotNone(
             leave_menu, "the 'Nghỉ phép' top-level menu did not render at all"
         )
-        self.assertIn("Loại nghỉ phép", _submenu_labels(leave_menu))
+        self.assertNotIn("Loại nghỉ phép", _submenu_labels(leave_menu))
 
-    def test_user_with_view_leavetype_permission_sees_it(self):
-        from django.contrib.auth.models import Permission
-
-        user = make_user("sidebar_permitted")
+    def test_other_nghi_phep_submenu_entries_still_render(self):
+        admin = make_user("sidebar_other_entries", is_superuser=True)
         make_employee(
-            company=self.company, email="sidebar_permitted@test.joydigi", user=user
-        )
-        perm = Permission.objects.get(
-            content_type__app_label="leave", codename="view_leavetype"
-        )
-        user.user_permissions.add(perm)
-        self.client.force_login(user)
-
-        sidebar = self._get_sidebar()
-        leave_menu = _leave_menu(sidebar)
-
-        self.assertIsNotNone(leave_menu)
-        self.assertIn("Loại nghỉ phép", _submenu_labels(leave_menu))
-
-    def test_user_without_the_permission_does_not_see_it(self):
-        user = make_user("sidebar_denied")
-        make_employee(
-            company=self.company, email="sidebar_denied@test.joydigi", user=user
-        )
-        self.client.force_login(user)
-
-        sidebar = self._get_sidebar()
-        leave_menu = _leave_menu(sidebar)
-
-        if leave_menu is not None:
-            self.assertNotIn("Loại nghỉ phép", _submenu_labels(leave_menu))
-
-    def test_no_duplicate_entry(self):
-        admin = make_user("sidebar_dup_check", is_superuser=True)
-        make_employee(
-            company=self.company, email="sidebar_dup_check@test.joydigi", user=admin
+            company=self.company,
+            email="sidebar_other_entries@test.joydigi",
+            user=admin,
         )
         self.client.force_login(admin)
 
         sidebar = self._get_sidebar()
         leave_menu = _leave_menu(sidebar)
-        labels = [str(item["menu"]) for item in leave_menu["submenu"]]
-        self.assertEqual(labels.count("Loại nghỉ phép"), 1)
+        labels = _submenu_labels(leave_menu)
 
-    def test_menu_target_url_resolves_to_the_leave_types_page(self):
-        # Phase LEAVE-7A.3: the sidebar now points at the standalone
-        # `type-view` page directly, not the merged `leave-settings-view`
-        # (see `test_leave_type_standalone_page.py` for the full
-        # standalone-page test suite).
-        from django.urls import reverse
+        self.assertIn("Đơn nghỉ của tôi", labels)
+        self.assertIn("Duyệt đơn nghỉ", labels)
 
+    def test_type_view_resolves_and_returns_200(self):
         admin = make_user("sidebar_url_check", is_superuser=True)
         make_employee(
             company=self.company, email="sidebar_url_check@test.joydigi", user=admin
         )
         self.client.force_login(admin)
 
-        sidebar = self._get_sidebar()
-        leave_menu = _leave_menu(sidebar)
-        entry = next(
-            item
-            for item in leave_menu["submenu"]
-            if str(item["menu"]) == "Loại nghỉ phép"
-        )
-        self.assertEqual(str(entry["redirect"]), reverse("type-view"))
-
-        response = self.client.get(entry["redirect"])
+        response = self.client.get(reverse("type-view"))
         self.assertEqual(response.status_code, 200)

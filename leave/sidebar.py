@@ -34,14 +34,6 @@ SUBMENUS = [
         "accessibility": "leave.sidebar.leave_request_accessibility",
     },
     {
-        # Phase LEAVE-7A.3: points at the standalone page again
-        # (`type-view` — `LeaveTypeView`, which no longer redirects
-        # into Leave Settings), not the merged settings page.
-        "menu": _("Loại nghỉ phép"),
-        "redirect": reverse_lazy("type-view"),
-        "accessibility": "leave.sidebar.leave_type_accessibility",
-    },
-    {
         "menu": _("Xin cấp ngày nghỉ"),
         "redirect": reverse_lazy("leave-allocation-request-view"),
     },
@@ -92,6 +84,19 @@ def leave_type_accessibility(request, submenu, user_perms, *args, **kwargs):
     # views already require (`leave.view_leavetype` — see
     # `leave/cbv/leave_types.py`) — an ordinary employee with no prior
     # LeaveType permission must not see this menu item appear.
+    #
+    # Phase LEAVE-7A.3A: "Loại nghỉ phép" is no longer a SUBMENUS entry
+    # of the "Nghỉ phép" collapsible group — it's rendered as its own
+    # permanent, non-collapsible top-level `<li>` directly in
+    # `templates/sidebar.html` (the only way to get a flat, always-
+    # visible link in this sidebar's markup — every `SUBMENUS` entry
+    # registered the normal way is nested one level under a
+    # collapsible parent `MENU`, by that template's own design). This
+    # function is kept — and still covered by its own tests — as the
+    # single source of truth for the permission check
+    # (`leave.view_leavetype`); the template calls it the same way via
+    # `{% if perms.leave.view_leavetype %}`, which resolves to the
+    # exact same `user.has_perm(...)` check, superuser bypass included.
     return request.user.has_perm("leave.view_leavetype")
 
 

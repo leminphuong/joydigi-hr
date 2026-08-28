@@ -1,5 +1,8 @@
 {% load static basefilters %}
 {% with checkin_admin=request.user|is_checkin_admin checkin_leader=request.user|is_checkin_leader %}
+{# Phase LEAVE-7A.3A: this is the *actual* rendered production sidebar — #}
+{# `leave/sidebar.py`'s MENU/SUBMENUS registry (and its own `templates/sidebar.html` #}
+{# renderer) is a separate, legacy mechanism this theme's `index.html` never includes. #}
 
 {% if not checkin_leader %}
 <a href="{% url 'view-my-attendance' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Bảng công của tôi" hx-get="{% url 'view-my-attendance' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
@@ -29,6 +32,14 @@
     {% pending_checkin_approvals request.user as approval_count %}
     {% if approval_count %}<span class="rounded-full bg-red-500 px-2 py-0.5 text-xs font-semibold text-white">{{ approval_count }}</span>{% endif %}
 </a>
+{% endif %}
+{% if perms.leave.view_leavetype %}
+<a href="{% url 'type-view' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Loại nghỉ phép" hx-get="{% url 'type-view' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+    <img src="{% static 'images/ui/leave.svg' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
+    <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Loại nghỉ phép</span>
+</a>
+{% endif %}
+{% if checkin_leader %}
 <a href="{% url 'attendance-monthly-summary' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Bảng chấm công" hx-get="{% url 'attendance-monthly-summary' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
     <img src="{% static 'images/ui/attendance.png' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
     <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Bảng chấm công</span>

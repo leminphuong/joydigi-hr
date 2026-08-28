@@ -97,6 +97,20 @@
         border-color: {{ theme_obj.primary_500|default:"#F7C8C1" }};
     }
 
+    .form-section-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: #9ca3af;
+        text-transform: uppercase;
+        margin: 1.1rem 0 0.6rem;
+        padding-bottom: 0.35rem;
+        border-bottom: 1px solid #eef2f6;
+    }
+    .form-section-title:first-child {
+        margin-top: 0;
+    }
+
     .form-input-items input:focus,
     .form-input-items select:focus,
     .form-input-items textarea:focus {
@@ -123,7 +137,7 @@
     class="bg-white p-5 pe-2 pt-3 rounded-md shadow-card m-auto"
     style="width: 70%; padding: 2%"
 >
-    <h3 class="text-lg font-semibold mb-3">{% trans "Create Leave Type" %}</h3>
+    <h3 class="text-lg font-semibold mb-3">{{ title|default:_("Cập nhật loại nghỉ phép") }}</h3>
     <form
         method="post"
         action="{{request.path}}"
@@ -133,6 +147,7 @@
         {% csrf_token %}
         <div class="grid grid-cols-12 gap-4">
             <div class="col-span-12 md:col-span-6 rounded-md border border-dark-50 p-5">
+                <p class="form-section-title">{% trans "THÔNG TIN CƠ BẢN" %}</p>
                 <div class="form-input-items">
                     <label class="text-xs font-medium required-star">{{ form.name.label }}</label>
                     {{ form.name }} {{ form.name.errors }}
@@ -148,6 +163,7 @@
                 </div>
                 <div hidden>{{ form.payment }}</div>
 
+                <p class="form-section-title">{% trans "GIỚI HẠN NGÀY NGHỈ" %}</p>
                 <!-- Limit Leave days Toggle -->
                 <div class="flex items-center justify-between mb-2 resetContainer form-input-items">
                     <div
@@ -340,8 +356,9 @@
             <!-- right col -->
             <div class="col-span-12 md:col-span-6">
                 <div class="p-5 rounded-md border border-dark-50">
+                    <p class="form-section-title">{% trans "THÔNG TIN CƠ BẢN" %}</p>
                     <div class="form-input-items">
-                        <label class="text-xs font-medium mb-2 block">{% trans "Icon" %}</label>
+                        <label class="text-xs font-medium mb-2 block">{% trans "Biểu tượng" %}</label>
                         <div class="w-24 flex flex-col items-center flex-shrink-0 emp-photo-wrap">
                             <label for="id_icon" class="emp-photo-zone w-20 h-20 border-2 border-dashed border-secondary-300 rounded-xl flex items-center justify-center bg-secondary-50 overflow-hidden cursor-pointer transition-colors" id="iconDropZone">
                                 <img
@@ -363,6 +380,7 @@
                             {{ form.icon.errors }}
                         </div>
                     </div>
+                    <p class="form-section-title">{% trans "QUY TẮC YÊU CẦU" %}</p>
                     <div class="flex items-center justify-between mb-2 resetContainer form-input-items">
                         <div
                             class="flex items-center gap-1 pb-2 overflow-visible relative"
@@ -445,6 +463,7 @@
                         {{ form.is_encashable.errors }}
                     </div>
 
+                    <p class="form-section-title">{% trans "TRẠNG THÁI" %}</p>
                     <!-- Phase LEAVE-7A.2: is_active — a disabled type is
                          excluded from the mobile app's create-form list
                          (GET /leave/leave-type/?is_active=true) but its
@@ -465,13 +484,20 @@
             </div>
         </div>
         <hr class="mt-5 mb-3 d-flex flex-row-reverse" style="color: #cdd5df">
-        <div class="flex gap-1 justify-end pt-3 mt-3">
+        <div class="flex gap-2 justify-end pt-3 mt-3">
+            <a
+                href="{% url 'type-view' %}"
+                class="oh-btn oh-btn--light mt-4 mb-4"
+                role="button"
+            >
+                {% trans "Hủy" %}
+            </a>
             <button
                 type="submit"
                 class="oh-btn oh-onboarding-card__button mt-4 oh-btn--secondary oh-btn--shadow mb-4"
                 role="button"
             >
-                {% trans "Save" %}
+                {% trans "Lưu thay đổi" %}
             </button>
         </div>
         <div hidden>{{ form.require_approval }}</div>

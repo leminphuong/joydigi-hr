@@ -558,6 +558,17 @@ class LeaveType(JoydigiModel):
             return f'<span class="oh-badge oh-badge--info">{yes}</span>'
         return f'<span class="oh-badge oh-badge--secondary">{no}</span>'
 
+    def attachment_display(self):
+        """
+        Phase LEAVE-7A.3: same badge convention as `approval_display`
+        above, for the standalone list's "Yêu cầu đính kèm" column.
+        """
+        yes = str(_("Yes"))
+        no = str(_("No"))
+        if self.require_attachment == "yes":
+            return f'<span class="oh-badge oh-badge--info">{yes}</span>'
+        return f'<span class="oh-badge oh-badge--secondary">{no}</span>'
+
     def carryforward_display(self):
         return dict(CARRYFORWARD_TYPE).get(self.carryforward_type, "—")
 

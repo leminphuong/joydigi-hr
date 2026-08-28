@@ -231,6 +231,34 @@ class UpdateLeaveTypeForm(ConditionForm):
         # above — `is_active` must also be explicitly rendered in
         # `leave_type_form_fragment.html`.
         exclude = ["conditions"]
+        # Phase LEAVE-7A.3: `leave_type_form_fragment.html` renders
+        # each field via `{{ form.<field>.label }}` — scoped to this
+        # form only (not the model's verbose_name, which would also
+        # change the Django admin and any other form using LeaveType).
+        labels = {
+            "name": _("Tên loại nghỉ"),
+            "payment_type": _("Được trả tiền"),
+            "payment_percentage": _("Tỷ lệ trả lương (%)"),
+            "limit_leave": _("Giới hạn số ngày nghỉ phép"),
+            "count": _("Tổng số ngày"),
+            "reset": _("Cài lại"),
+            "reset_based": _("Chu kỳ cài lại"),
+            "reset_month": _("Tháng cài lại"),
+            "reset_day": _("Ngày cài lại"),
+            "reset_weekend": _("Ngày trong tuần cài lại"),
+            "custom_reset_days": _("Số ngày cài lại tùy chỉnh"),
+            "carryforward_type": _("Loại chuyển tiếp"),
+            "carryforward_max": _("Số ngày chuyển tiếp tối đa"),
+            "carryforward_expire_in": _("Số kỳ hết hạn chuyển tiếp"),
+            "carryforward_expire_period": _("Đơn vị hết hạn chuyển tiếp"),
+            "carryforward_expire_date": _("Ngày hết hạn chuyển tiếp"),
+            "require_approval": _("Yêu cầu phê duyệt"),
+            "require_attachment": _("Yêu cầu đính kèm"),
+            "exclude_company_leave": _("Loại trừ ngày nghỉ công ty"),
+            "exclude_holiday": _("Loại trừ ngày lễ"),
+            "is_encashable": _("Có thể đổi thành tiền mặt"),
+            "is_active": _("Đang hoạt động"),
+        }
         widgets = {
             "period_in": forms.HiddenInput(),
             "total_days": forms.HiddenInput(),

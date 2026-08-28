@@ -132,14 +132,16 @@ def leave_type_creation(request):
     if request.method == "POST":
         form = LeaveTypeForm(request.POST, request.FILES)
         if form.is_valid():
-            leave_type = form.save()
-            messages.success(request, _("New leave type Created.."))
-            update_url = reverse("type-update", kwargs={"id": leave_type.id})
+            form.save()
+            messages.success(request, _("Đã tạo loại nghỉ phép thành công."))
+            # Phase LEAVE-7A.3: redirect to the standalone list page,
+            # not the just-created type's own edit page.
+            list_url = reverse("type-view")
             if is_htmx:
                 response = HttpResponse("", status=200)
-                response["HX-Redirect"] = update_url
+                response["HX-Redirect"] = list_url
                 return response
-            return redirect(update_url)
+            return redirect(list_url)
     return render(request, "leave/leave_type/leave_type_creation.html", {"form": form})
 
 
@@ -281,7 +283,7 @@ def leave_type_update(request, id, **kwargs):
         )
         if form_data.is_valid():
             form_data.save()
-            messages.success(request, _("Leave type is updated successfully.."))
+            messages.success(request, _("Đã cập nhật loại nghỉ phép thành công."))
             if is_htmx:
                 response = HttpResponse("", status=200)
                 response["HX-Trigger"] = json.dumps(
@@ -292,7 +294,7 @@ def leave_type_update(request, id, **kwargs):
         form = form_data
     context = {
         "form": form,
-        "title": _("Update Leave Type"),
+        "title": _("Cập nhật loại nghỉ phép"),
         "post_url": request.get_full_path(),
         "is_htmx": is_htmx,
     }

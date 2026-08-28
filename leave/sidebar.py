@@ -34,8 +34,11 @@ SUBMENUS = [
         "accessibility": "leave.sidebar.leave_request_accessibility",
     },
     {
+        # Phase LEAVE-7A.3: points at the standalone page again
+        # (`type-view` — `LeaveTypeView`, which no longer redirects
+        # into Leave Settings), not the merged settings page.
         "menu": _("Loại nghỉ phép"),
-        "redirect": reverse_lazy("leave-settings-view"),
+        "redirect": reverse_lazy("type-view"),
         "accessibility": "leave.sidebar.leave_type_accessibility",
     },
     {

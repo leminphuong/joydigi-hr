@@ -34,14 +34,14 @@ from notifications.signals import notify
 @method_decorator(permission_required(perm="leave.view_leavetype"), name="dispatch")
 class LeaveTypeView(TemplateView):
     """
-    Standalone Leave Types page. Migrated into Configuration; redirect direct
-    visits to the merged settings page.
+    Phase LEAVE-7A.3: standalone "Loại nghỉ phép" page — the sidebar
+    now links here directly instead of the merged Leave Settings page
+    (that page still exists, unchanged, for its other tab). This was
+    previously redirecting to `leave-settings-view`; now renders its
+    own template again, exactly as it did before that merge.
     """
 
     template_name = "cbv/leave_types/leave_type_home.html"
-
-    def get(self, request, *args, **kwargs):
-        return redirect("leave-settings-view")
 
 
 @method_decorator(login_required, name="dispatch")
@@ -58,14 +58,16 @@ class LeaveTypeListView(JoydigiListView):
     filter_class = LeaveTypeFilter
     model = LeaveType
 
+    # Phase LEAVE-7A.3: trimmed/relabeled to the standalone page's
+    # requested minimal column set — every value here is an existing
+    # model field or an already-existing (or, for "Yêu cầu đính kèm",
+    # directly analogous) display method; nothing invented.
     columns = [
-        (_("Leave Type"), "name", "get_avatar"),
-        (_("Payment"), "payment_type_display"),
-        (_("Total Days"), "count"),
-        (_("Approval"), "approval_display"),
-        (_("Carry Forward"), "carryforward_display"),
-        (_("Encashable"), "encashable"),
-        (_("Conditions"), "conditions_display"),
+        (_("Tên loại nghỉ"), "name", "get_avatar"),
+        (_("Được trả tiền"), "payment_type_display"),
+        (_("Tổng số ngày"), "count"),
+        (_("Yêu cầu phê duyệt"), "approval_display"),
+        (_("Yêu cầu đính kèm"), "attachment_display"),
         (_("Trạng thái"), "status_display"),
     ]
 

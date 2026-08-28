@@ -2,7 +2,7 @@ import contextlib
 
 from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.models import AnonymousUser
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import Http404, QueryDict
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
@@ -163,7 +163,23 @@ class LeaveTypeGetCreateAPIView(APIView):
 
     # @method_decorator(permission_required('leave.view_leavetype', raise_exception=True), name='dispatch')
     def get(self, request):
+        # Phase LEAVE-7A.4: `LeaveType.objects` is a
+        # `JoydigiCompanyManager`, but its scoping only kicks in when
+        # `get_selected_company()` (a ContextVar set by the *web*
+        # session's company switcher) has a value — a JWT-authenticated
+        # mobile request has no such session, so that manager silently
+        # returns every company's types unfiltered. Scoped here
+        # explicitly to the requesting employee's own company instead
+        # (plus any genuinely global, company-less type), matching the
+        # same `Q(company) | Q(isnull=True)` semantics the manager
+        # itself uses for the web case.
         leave_type = LeaveType.objects.all()
+        employee = getattr(request.user, "employee_get", None)
+        company = employee.get_company() if employee else None
+        if company:
+            leave_type = leave_type.filter(
+                Q(company_id=company) | Q(company_id__isnull=True)
+            )
         filterset = self.filterset_class(request.GET, queryset=leave_type)
         paginator = PageNumberPagination()
         page = paginator.paginate_queryset(filterset.qs, request)

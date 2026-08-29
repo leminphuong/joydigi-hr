@@ -225,7 +225,12 @@ class NoDeviceTimeAuthorityRemainsTests(TestCase):
             "joydigi_api/api_views/attendance/views.py", encoding="utf-8"
         ) as handle:
             source = handle.read()
-        # Exactly one capture per action, for the two actions.
-        self.assertEqual(source.count("django_timezone.localtime()"), 2)
+        # Exactly one capture per action, for the two actions. Counts the
+        # assignment form specifically: a bare substring count would also
+        # match the name appearing in a comment, which says nothing about
+        # how many clocks the code actually reads.
+        self.assertEqual(
+            source.count("current_datetime = django_timezone.localtime()"), 2
+        )
         self.assertEqual(source.count("current_date = current_datetime.date()"), 2)
         self.assertEqual(source.count("current_time = current_datetime.time()"), 2)

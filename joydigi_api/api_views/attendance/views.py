@@ -10,6 +10,13 @@ from django.db.models import Case, CharField, F, Q, Value, When
 from django.http import QueryDict
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
+# Phase ATT-TIME-2: aliased on purpose. This module already imports the
+# *stdlib* `datetime.timezone` on line 3, and the later
+# `from attendance.views.clock_in_out import *` re-binds the bare name
+# `timezone` to Django's. Depending on that shadowing order for
+# something as consequential as an attendance timestamp would be a trap,
+# so Django's helper is referenced by an unambiguous name.
+from django.utils import timezone as django_timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
@@ -116,9 +123,16 @@ class ClockInAPIView(APIView):
         if request.user.employee_get.check_online():
             return Response({"message": "Already clocked-in"}, status=400)
 
-        current_date = date.today()
-        current_time = datetime.now().time()
-        current_datetime = datetime.now()
+        # Phase ATT-TIME-2: one authoritative instant, read through
+        # `django.utils.timezone` so it follows the configured business
+        # timezone (Asia/Ho_Chi_Minh) rather than the raw process clock,
+        # and so the date and the time can never come from two separate
+        # reads that straddle midnight. `localtime()` returns an aware
+        # datetime, which is also what `AttendanceActivity.in_datetime`
+        # (a DateTimeField under USE_TZ=True) actually wants.
+        current_datetime = django_timezone.localtime()
+        current_date = current_datetime.date()
+        current_time = current_datetime.time()
 
         # Phase 6.1: no more legacy-geofencing fail-open block here —
         # that call always raised `AttributeError` against this
@@ -173,9 +187,11 @@ class ClockOutAPIView(APIView):
         if not request.user.employee_get.check_online():
             return Response({"message": "Already clocked-out"}, status=400)
 
-        current_date = date.today()
-        current_time = datetime.now().time()
-        current_datetime = datetime.now()
+        # Phase ATT-TIME-2: same single authoritative instant as
+        # `ClockInAPIView` — see the comment there.
+        current_datetime = django_timezone.localtime()
+        current_date = current_datetime.date()
+        current_time = current_datetime.time()
 
         # Phase 5.2: `perform_clock_out` is the pure-mutation half of the
         # web `clock_out()` helper (see its docstring) — it never renders

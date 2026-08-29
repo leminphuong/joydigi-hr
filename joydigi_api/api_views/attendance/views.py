@@ -109,72 +109,6 @@ def _attendance_evidence(request):
     return {key: data[key] for key in fields if data.get(key) not in (None, "")}
 
 
-# ---------------------------------------------------------------------
-# Phase ATT-TIME-2G — temporary diagnostics.
-#
-# Production still shows attendance times ~1h30m early even though the
-# code reads `django_timezone.localtime()` and the configured default is
-# Asia/Ho_Chi_Minh. These two log lines make the whole chain visible in
-# the normal Gunicorn/application log, so the failing link can be
-# identified without guessing:
-#
-#     what settings the running process actually has
-#       -> the instant it computed
-#         -> the values handed to `perform_clock_*`
-#           -> what ended up in the database row
-#
-# Deliberately observational: nothing here changes attendance behaviour.
-# Nothing sensitive is logged — no tokens, no verification proof, no
-# headers, cookies or request body; only an employee id, an attendance
-# row id, and time values.
-# ---------------------------------------------------------------------
-
-
-def _log_attendance_time_debug(
-    action, employee_id, current_datetime, current_date, current_time
-):
-    """What the request computed, before anything is written."""
-    logger.info(
-        "ATT_TIME_DEBUG action=%s employee_id=%s settings_timezone=%s "
-        "utc_now=%s local_datetime=%s attendance_date=%s attendance_time=%s",
-        action,
-        employee_id,
-        settings.TIME_ZONE,
-        django_timezone.now().isoformat(),
-        current_datetime.isoformat(),
-        current_date,
-        current_time,
-    )
-
-
-def _log_attendance_stored_debug(action, attendance):
-    """What the database actually holds afterwards.
-
-    Re-read from the database rather than trusting the in-memory object,
-    so the line is evidence of the stored row itself — that is the whole
-    point of comparing it against the computed values above.
-    """
-    if attendance is None:
-        logger.info(
-            "ATT_TIME_DEBUG action=%s stage=stored attendance_id=None", action
-        )
-        return
-    try:
-        attendance.refresh_from_db()
-    except Exception:  # pragma: no cover - diagnostics must never break a write
-        logger.exception("ATT_TIME_DEBUG action=%s stage=stored refresh failed", action)
-        return
-    logger.info(
-        "ATT_TIME_DEBUG action=%s stage=stored attendance_id=%s "
-        "stored_attendance_date=%s stored_clock_in=%s stored_clock_out=%s",
-        action,
-        attendance.id,
-        attendance.attendance_date,
-        attendance.attendance_clock_in,
-        attendance.attendance_clock_out,
-    )
-
-
 class ClockInAPIView(APIView):
     """
     Allows authenticated employees to clock in, determining the correct shift and attendance date, including handling night shifts.
@@ -200,14 +134,6 @@ class ClockInAPIView(APIView):
         current_date = current_datetime.date()
         current_time = current_datetime.time()
 
-        _log_attendance_time_debug(
-            "clock_in",
-            getattr(request.user.employee_get, "id", None),
-            current_datetime,
-            current_date,
-            current_time,
-        )
-
         # Phase 6.1: no more legacy-geofencing fail-open block here —
         # that call always raised `AttributeError` against this
         # synthetic `Request` (it has no `.data`), which the old bare
@@ -224,8 +150,6 @@ class ClockInAPIView(APIView):
                     evidence=_attendance_evidence(request),
                 )
             )
-
-        _log_attendance_stored_debug("clock_in", attendance)
 
         if not allowed:
             return Response(
@@ -269,14 +193,6 @@ class ClockOutAPIView(APIView):
         current_date = current_datetime.date()
         current_time = current_datetime.time()
 
-        _log_attendance_time_debug(
-            "clock_out",
-            getattr(request.user.employee_get, "id", None),
-            current_datetime,
-            current_date,
-            current_time,
-        )
-
         # Phase 5.2: `perform_clock_out` is the pure-mutation half of the
         # web `clock_out()` helper (see its docstring) — it never renders
         # a template, so a genuinely unexpected exception here is a real
@@ -295,8 +211,6 @@ class ClockOutAPIView(APIView):
                     evidence=_attendance_evidence(request),
                 )
             )
-
-        _log_attendance_stored_debug("clock_out", attendance)
 
         if not allowed:
             return Response(

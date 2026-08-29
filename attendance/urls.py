@@ -25,7 +25,6 @@ from attendance.cbv import (
     my_attendances,
 )
 from attendance.views import clock_in_out
-from attendance.views import time_debug
 from attendance.views import dashboard as attendance_dashboard
 from attendance.views import geofaceconfig, penalty, requests, search
 from base.forms import AttendanceAllowedIPForm
@@ -771,14 +770,6 @@ urlpatterns = [
         "attendance-rule-view/",
         views.attendance_rule_settings_view,
         name="attendance-rule-view",
-    ),
-    # Phase ATT-TIME-2H — TEMPORARY read-only diagnostic. Remove together
-    # with `attendance/views/time_debug.py` and its template once the
-    # production timezone discrepancy is explained.
-    path(
-        "attendance-time-debug/",
-        time_debug.attendance_time_debug_view,
-        name="attendance-time-debug",
     ),
     path(
         "track-late-come-early-out/",

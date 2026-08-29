@@ -546,13 +546,22 @@ def perform_clock_in(request):
             datetime_now = request.datetime
         if employee and work_info is not None:
             shift = work_info.shift_id
-            date_today = date.today()
+            # Phase ATT-TIME-2: date and time are both derived from the
+            # single `datetime_now` captured above rather than from
+            # separate `date.today()` / `datetime.now()` calls. Those
+            # two read the *process* clock (unaffected by
+            # `django.utils.timezone`) and, being independent reads,
+            # could also disagree across midnight — one call landing on
+            # 23:59:59 and the next on 00:00:00 would file the record
+            # under the wrong day. The per-request overrides below are
+            # unchanged, so biometric-device callers still win.
+            date_today = datetime_now.date()
             if request.__dict__.get("date"):
                 date_today = request.date
             attendance_date = date_today
             day = date_today.strftime("%A").lower()
             day = EmployeeShiftDay.objects.get(day=day)
-            now = datetime.now().strftime("%H:%M")
+            now = datetime_now.strftime("%H:%M")
             if request.__dict__.get("time"):
                 now = request.time.strftime("%H:%M")
             now_sec = strtime_seconds(now)
@@ -856,7 +865,9 @@ def perform_clock_out(request):
             datetime_now = request.datetime
         employee, work_info = employee_exists(request)
         shift = work_info.shift_id
-        date_today = date.today()
+        # Phase ATT-TIME-2: same single-captured-instant rule as
+        # `perform_clock_in` — see the comment there.
+        date_today = datetime_now.date()
         if request.__dict__.get("date"):
             date_today = request.date
         day = date_today.strftime("%A").lower()
@@ -872,7 +883,7 @@ def perform_clock_out(request):
                 attendance.attendance_day = EmployeeShiftDay.objects.get(day=day_name)
                 attendance.save(update_fields=["attendance_day"])
             day = attendance.attendance_day
-        now = datetime.now().strftime("%H:%M")
+        now = datetime_now.strftime("%H:%M")
         if request.__dict__.get("time"):
             now = request.time.strftime("%H:%M")
         minimum_hour, start_time_sec, end_time_sec = shift_schedule_today(

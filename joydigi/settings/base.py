@@ -292,14 +292,22 @@ WSGI_APPLICATION = "joydigi.wsgi.application"
 # INTERNATIONALIZATION
 # ========================================
 LANGUAGE_CODE = "vi"
-# Phase ATT-TIME-2: the business timezone is Vietnam. The previous
-# default (Asia/Kolkata, UTC+05:30) was inherited from the upstream
-# product and is 1h30m behind Asia/Ho_Chi_Minh (UTC+07:00) — on a POSIX
-# server Django exports this value as the process TZ
-# (`os.environ["TZ"]` + `time.tzset()` in django/conf/__init__.py), so
-# every server-stamped attendance wall-clock was written 1h30m early.
-# An explicit TIME_ZONE in the deployment .env still wins over this.
-TIME_ZONE = env("TIME_ZONE", default="Asia/Ho_Chi_Minh")
+# JoyDigi operates in Vietnam: attendance, shifts and every
+# server-stamped business timestamp are defined in Vietnam local time.
+#
+# Phase ATT-TIME-2I: this is deliberately a hardcoded business rule and
+# no longer `env("TIME_ZONE", ...)`. Production was found running
+# Asia/Kolkata (UTC+05:30) — the upstream product's default, left behind
+# in the deployment environment — which silently wrote every attendance
+# wall-clock 1h30m early. A value that shifts every recorded time in the
+# system is not a per-deployment knob, and a stale environment entry
+# must not be able to reintroduce that bug.
+#
+# Django exports this to the process clock itself on POSIX
+# (`os.environ["TZ"]` + `time.tzset()`, django/conf/__init__.py), so no
+# separate timezone mechanism is added here. No fixed offset is applied
+# anywhere; conversion is done by the IANA timezone database.
+TIME_ZONE = "Asia/Ho_Chi_Minh"
 USE_I18N = True
 USE_TZ = True
 

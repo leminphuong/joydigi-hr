@@ -20,12 +20,14 @@ from ..auth_tokens import (
     classify_refresh_subject,
     mint_token_pair,
 )
+from ..refresh_diagnostics import record_rejection
 
 logger = logging.getLogger(__name__)
 
 
-def _log_refresh_rejected(reason, user_id=None):
-    """Phase AUTH-6G.2: one structured line per *rejected* refresh.
+def _log_refresh_rejected(reason, user_id=None, detail=None):
+    """Phase AUTH-6G.2: one structured line per *rejected* refresh, plus
+    (AUTH-6G.3) one bounded entry an admin page can read back.
 
     Failures only — a successful refresh is unremarkable and logging it
     would only add noise. Never touches the raw token: the string is
@@ -33,10 +35,24 @@ def _log_refresh_rejected(reason, user_id=None):
     passed only when it came out of a token whose signature already
     verified.
     """
+    detail = detail or {}
+    token_version = detail.get("token_session_version")
+    current_version = detail.get("current_session_version")
+
     logger.warning(
-        "AUTH_REFRESH_REJECTED reason=%s user_id=%s status=401",
+        "AUTH_REFRESH_REJECTED reason=%s user_id=%s status=401 "
+        "token_session_version=%s current_session_version=%s",
         reason,
         user_id if user_id is not None else "-",
+        token_version if token_version is not None else "-",
+        current_version if current_version is not None else "-",
+    )
+    record_rejection(
+        reason=reason,
+        user_id=user_id,
+        status=401,
+        token_session_version=token_version,
+        current_session_version=current_version,
     )
 
 
@@ -147,12 +163,15 @@ class TokenRefreshAPIView(APIView):
                 status=401,
             )
 
-        user, reject_reason = classify_refresh_subject(refresh)
+        user, reject_reason, reject_detail = classify_refresh_subject(refresh)
         if user is None:
             # Safe to name the subject here: the signature verified, so
             # the claim is the server's own.
             _log_refresh_rejected(
-                reject_reason, refresh.get(api_settings.USER_ID_CLAIM)
+                reject_reason,
+                reject_detail.get("user_id")
+                or refresh.get(api_settings.USER_ID_CLAIM),
+                reject_detail,
             )
             return Response(
                 {"error": _("Session has ended. Please log in again.")},

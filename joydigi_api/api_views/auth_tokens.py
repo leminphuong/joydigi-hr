@@ -49,7 +49,7 @@ def resolve_refresh_subject(refresh):
     only need yes/no; the reasoning lives in `classify_refresh_subject`
     so the two can never disagree.
     """
-    user, _reason = classify_refresh_subject(refresh)
+    user, _reason, _detail = classify_refresh_subject(refresh)
     return user
 
 
@@ -85,23 +85,36 @@ REJECT_SESSION_REVOKED = "SESSION_VERSION_MISMATCH"
 def classify_refresh_subject(refresh):
     """Same decision as `resolve_refresh_subject`, but says *why*.
 
-    Returns `(user, reason)`: on success `(user, None)`; on failure
-    `(None, <REJECT_* constant>)`. The two functions must always agree —
-    `resolve_refresh_subject` is now a thin wrapper over this one, so
-    they cannot drift apart.
+    Returns `(user, reason, detail)`: on success `(user, None, {})`; on
+    failure `(None, <REJECT_* constant>, {...})`. The two functions must
+    always agree — `resolve_refresh_subject` is a thin wrapper over this
+    one, so they cannot drift apart.
+
+    Phase AUTH-6G.3: `detail` carries the two integers that make a
+    revocation actionable — the version the token was minted with and
+    the one the account holds now. Integers only; the token itself is
+    never included.
     """
     User = get_user_model()
     try:
         user_id = refresh[api_settings.USER_ID_CLAIM]
     except KeyError:
-        return None, REJECT_USER_NOT_FOUND_CLAIM
+        return None, REJECT_USER_NOT_FOUND_CLAIM, {}
     try:
         user = User.objects.get(**{api_settings.USER_ID_FIELD: user_id})
     except User.DoesNotExist:
-        return None, REJECT_USER_NOT_FOUND
+        return None, REJECT_USER_NOT_FOUND, {"user_id": user_id}
     if not user.is_active:
-        return None, REJECT_USER_INACTIVE
+        return None, REJECT_USER_INACTIVE, {"user_id": user.id}
     token_version = refresh.get("session_version", 0)
     if token_version != user.session_version:
-        return None, REJECT_SESSION_REVOKED
-    return user, None
+        return (
+            None,
+            REJECT_SESSION_REVOKED,
+            {
+                "user_id": user.id,
+                "token_session_version": token_version,
+                "current_session_version": user.session_version,
+            },
+        )
+    return user, None, {}

@@ -65,7 +65,7 @@ class ClassificationTests(RefreshBase):
     """§10 K-N — each rejection reason is named correctly."""
 
     def test_a_valid_refresh_classifies_as_success(self):
-        user, reason = classify_refresh_subject(RefreshToken(self.refresh_token))
+        user, reason, _detail = classify_refresh_subject(RefreshToken(self.refresh_token))
         self.assertEqual(user, self.user)
         self.assertIsNone(reason)
 
@@ -84,7 +84,7 @@ class ClassificationTests(RefreshBase):
             session_version=999
         )
 
-        user, reason = classify_refresh_subject(token)
+        user, reason, _detail = classify_refresh_subject(token)
 
         self.assertIsNone(user)
         self.assertEqual(reason, REJECT_SESSION_REVOKED)
@@ -94,7 +94,7 @@ class ClassificationTests(RefreshBase):
         token = RefreshToken(self.refresh_token)
         type(self.user).objects.filter(pk=self.user.pk).update(is_active=False)
 
-        user, reason = classify_refresh_subject(token)
+        user, reason, _detail = classify_refresh_subject(token)
 
         self.assertIsNone(user)
         self.assertEqual(reason, REJECT_USER_INACTIVE)
@@ -104,7 +104,7 @@ class ClassificationTests(RefreshBase):
         self.employee.delete()
         type(self.user).objects.filter(pk=self.user.pk).delete()
 
-        user, reason = classify_refresh_subject(token)
+        user, reason, _detail = classify_refresh_subject(token)
 
         self.assertIsNone(user)
         self.assertEqual(reason, REJECT_USER_NOT_FOUND)

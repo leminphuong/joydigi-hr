@@ -41,6 +41,7 @@ from django.shortcuts import render
 
 from employee.models import Employee
 from joydigi.decorators import login_required, permission_required
+from joydigi_api.api_views.refresh_diagnostics import recent_rejections
 
 #: Only these keys are ever shown. `SIGNING_KEY`, `VERIFYING_KEY` and
 #: anything else in `SIMPLE_JWT` stay unread — an allow-list, so a new
@@ -151,6 +152,12 @@ def auth_session_debug_view(request):
         else:
             employee_row = _employee_row(employee)
 
+    # Phase AUTH-6G.3: when an employee is being inspected, narrow to
+    # their verified rejections — but rejections with no trusted subject
+    # (expired/malformed token) are kept, since hiding those would hide
+    # the very cases the filter cannot attribute.
+    filter_user_id = employee_row["user_id"] if employee_row else None
+
     return render(
         request,
         "attendance/auth_debug/auth_session_debug.html",
@@ -160,5 +167,7 @@ def auth_session_debug_view(request):
             "employee_row": employee_row,
             "lookup": lookup,
             "lookup_error": lookup_error,
+            "rejections": recent_rejections(user_id=filter_user_id),
+            "rejections_filtered": filter_user_id is not None,
         },
     )

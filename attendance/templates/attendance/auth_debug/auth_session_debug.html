@@ -156,6 +156,48 @@
   </table>
   </div>
 
+  <h5 class="mt-4">5. Trạng thái file chẩn đoán</h5>
+  {% if test_write_ok is True %}
+    <div class="alert alert-success">Ghi thử THÀNH CÔNG — worker production ghi và đọc lại được file.</div>
+  {% elif test_write_ok is False %}
+    <div class="alert alert-danger">
+      Ghi thử <strong>THẤT BẠI</strong>{% if test_write_error %}: <code>{{ test_write_error }}</code>{% endif %}
+      <br>Đây chính là lý do mục 4 trống dù refresh đã bị từ chối thật.
+    </div>
+  {% endif %}
+  <div style="overflow-x:auto;">
+  <table class="table table-bordered table-sm">
+    <tbody>
+      <tr><th style="width:300px;">DIAGNOSTIC_FILE_ABSOLUTE_PATH</th><td><code>{{ file_status.path|default:"—" }}</code></td></tr>
+      <tr {% if not file_status.parent_exists %}class="table-danger"{% endif %}>
+        <th>DIAGNOSTIC_PARENT_EXISTS</th><td><code>{{ file_status.parent_exists|yesno:"YES,NO" }}</code></td></tr>
+      <tr {% if not file_status.parent_writable %}class="table-danger"{% endif %}>
+        <th>DIAGNOSTIC_PARENT_WRITABLE</th><td><code>{{ file_status.parent_writable|yesno:"YES,NO" }}</code>
+          {% if not file_status.parent_writable %}<strong class="text-danger">← không ghi được: nguyên nhân mục 4 trống</strong>{% endif %}</td></tr>
+      <tr><th>DIAGNOSTIC_FILE_EXISTS</th><td><code>{{ file_status.file_exists|yesno:"YES,NO" }}</code></td></tr>
+      <tr><th>DIAGNOSTIC_FILE_READABLE</th><td><code>{{ file_status.file_readable|yesno:"YES,NO" }}</code></td></tr>
+      <tr><th>DIAGNOSTIC_FILE_WRITABLE</th><td><code>{{ file_status.file_writable|yesno:"YES,NO" }}</code></td></tr>
+      <tr><th>file_size_bytes</th><td><code>{{ file_status.file_size_bytes|default_if_none:"—" }}</code></td></tr>
+      <tr><th>last_file_modified_time (UTC)</th><td><code>{{ file_status.last_modified|default_if_none:"—" }}</code></td></tr>
+      <tr><th>events_read_count</th><td><code>{{ file_status.events_read_count }}</code></td></tr>
+      {% if file_status.error %}
+        <tr class="table-danger"><th>error</th><td><code>{{ file_status.error }}</code></td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+  </div>
+
+  <form method="post" class="mb-3">
+    {% csrf_token %}
+    <button type="submit" name="write_test_event" value="1" class="oh-btn oh-btn--secondary">
+      Ghi sự kiện kiểm tra
+    </button>
+    <span class="text-muted small ms-2">
+      Ghi một dòng <code>DIAGNOSTIC_TEST</code> tổng hợp — không liên quan token,
+      không ảnh hưởng đăng nhập, chỉ để kiểm tra worker có ghi/đọc được file.
+    </span>
+  </form>
+
   <p class="text-muted small mt-4">
     Trang chẩn đoán tạm thời, chỉ đọc — không có thao tác nào thay đổi dữ
     liệu hay cấu hình, không nhận token, không hiển thị khoá bí mật hay biến

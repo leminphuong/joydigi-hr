@@ -50,6 +50,13 @@ TRIM_THRESHOLD = 200
 
 FILENAME = "auth_refresh_diagnostic.jsonl"
 
+#: Phase AUTH-6G.3A: a synthetic reason the admin page can write on
+#: demand, to prove the write->read->display chain works on production
+#: without waiting an hour for a real rejection. Deliberately defined
+#: here and NOT in `auth_tokens`' classifier: the refresh endpoint can
+#: never produce it, and no client can ever receive it.
+REASON_DIAGNOSTIC_TEST = "DIAGNOSTIC_TEST"
+
 #: Only these keys may ever be written. An allow-list, so a caller
 #: cannot accidentally hand this module a token to persist.
 ALLOWED_FIELDS = (
@@ -154,3 +161,87 @@ def recent_rejections(limit=MAX_EVENTS, user_id=None):
 
     events.reverse()
     return events[:limit]
+
+
+# ---------------------------------------------------------------------
+# Phase AUTH-6G.3A — why is the store empty?
+#
+# AUTH-6G.5 reproduced a real production rejection, yet the admin page
+# showed nothing. The write path swallows every error by design (a
+# diagnostic must never fail an employee's login), and the operator has
+# no SSH to read the traceback — so the failure is invisible.
+#
+# These helpers surface the file's runtime state on the page itself.
+# Everything is read-only: writability is probed with `os.access`, never
+# by creating a file.
+# ---------------------------------------------------------------------
+
+
+def file_status():
+    """Runtime facts about the store. Never raises."""
+    status = {
+        "path": None,
+        "parent_exists": False,
+        "parent_writable": False,
+        "file_exists": False,
+        "file_readable": False,
+        "file_writable": False,
+        "file_size_bytes": None,
+        "last_modified": None,
+        "events_read_count": 0,
+        "error": None,
+    }
+    try:
+        path = _path()
+        status["path"] = path
+        parent = os.path.dirname(path)
+        status["parent_exists"] = os.path.isdir(parent)
+        status["parent_writable"] = os.access(parent, os.W_OK)
+        status["file_exists"] = os.path.exists(path)
+        if status["file_exists"]:
+            status["file_readable"] = os.access(path, os.R_OK)
+            status["file_writable"] = os.access(path, os.W_OK)
+            status["file_size_bytes"] = os.path.getsize(path)
+            status["last_modified"] = datetime.fromtimestamp(
+                os.path.getmtime(path), timezone.utc
+            ).isoformat()
+        status["events_read_count"] = len(recent_rejections(limit=MAX_EVENTS))
+    except Exception as error:  # pragma: no cover - status must always render
+        status["error"] = type(error).__name__
+        logger.exception("AUTH_REFRESH_DIAGNOSTIC status failed")
+    return status
+
+
+def record_test_event():
+    """Writes one clearly-marked synthetic event and reports whether the
+    write actually landed.
+
+    Returns `(ok, detail)`. Unlike `record_rejection`, this one *does*
+    tell the caller what went wrong — the whole point is to make a silent
+    write failure visible to the admin who pressed the button.
+    """
+    before = file_status()
+    try:
+        path = _path()
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(
+                json.dumps(
+                    {
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "reason": REASON_DIAGNOSTIC_TEST,
+                        "user_id": None,
+                        "status": 0,
+                        "token_session_version": None,
+                        "current_session_version": None,
+                    }
+                )
+                + "\n"
+            )
+    except Exception as error:
+        logger.exception("AUTH_REFRESH_DIAGNOSTIC test write failed")
+        return False, f"{type(error).__name__}: {error}"
+
+    after = file_status()
+    if after["events_read_count"] > before["events_read_count"]:
+        return True, None
+    return False, "write reported success but the event did not read back"

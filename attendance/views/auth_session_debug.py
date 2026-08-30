@@ -41,7 +41,11 @@ from django.shortcuts import render
 
 from employee.models import Employee
 from joydigi.decorators import login_required, permission_required
-from joydigi_api.api_views.refresh_diagnostics import recent_rejections
+from joydigi_api.api_views.refresh_diagnostics import (
+    file_status,
+    recent_rejections,
+    record_test_event,
+)
 
 #: Only these keys are ever shown. `SIGNING_KEY`, `VERIFYING_KEY` and
 #: anything else in `SIMPLE_JWT` stay unread — an allow-list, so a new
@@ -134,6 +138,16 @@ def auth_session_debug_view(request):
     """`Employee.objects` is a `JoydigiCompanyManager`, so the lookup
     below stays inside whatever company scope this admin session already
     has — the page never widens visibility."""
+    # Phase AUTH-6G.3A: the only write this page can perform, and only
+    # via POST (a GET must never have a side effect). It writes a clearly
+    # marked synthetic event so an admin can prove the
+    # write -> read -> display chain works on production without waiting
+    # an hour for a real rejection.
+    test_write_ok = None
+    test_write_error = None
+    if request.method == "POST" and "write_test_event" in request.POST:
+        test_write_ok, test_write_error = record_test_event()
+
     lookup = (request.GET.get("employee_id") or "").strip()
 
     employee_row = None
@@ -169,5 +183,8 @@ def auth_session_debug_view(request):
             "lookup_error": lookup_error,
             "rejections": recent_rejections(user_id=filter_user_id),
             "rejections_filtered": filter_user_id is not None,
+            "file_status": file_status(),
+            "test_write_ok": test_write_ok,
+            "test_write_error": test_write_error,
         },
     )

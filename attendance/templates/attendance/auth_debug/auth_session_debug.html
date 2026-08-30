@@ -118,6 +118,44 @@
     </div>
   {% endif %}
 
+  <h5 class="mt-4">4. Refresh bị từ chối gần đây</h5>
+  <div class="alert alert-secondary small">
+    Diagnostic tạm thời. <strong>Không chứa token hoặc thông tin đăng nhập</strong> —
+    chỉ có thời điểm, lý do và vài số nguyên.
+    {% if rejections_filtered %}
+      Đang lọc theo nhân viên ở mục 3; các lần từ chối không xác định được
+      chủ thể (token hết hạn/hỏng) vẫn được hiển thị.
+    {% endif %}
+    <br>
+    <strong>Lưu ý:</strong> production chạy nhiều gunicorn worker. Bản ghi
+    được lưu vào một file dùng chung nên mọi worker đều thấy; nếu danh sách
+    trống ngay sau khi tái hiện lỗi, hãy bấm "Làm mới" vài lần.
+  </div>
+  <div style="overflow-x:auto;">
+  <table class="table table-bordered table-sm">
+    <thead>
+      <tr>
+        <th>Thời gian (UTC)</th><th>Lý do</th><th>User ID</th><th>HTTP</th>
+        <th>session_version trong token</th><th>session_version hiện tại</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in rejections %}
+        <tr {% if e.reason == 'SESSION_VERSION_MISMATCH' %}class="table-danger"{% endif %}>
+          <td><code>{{ e.timestamp }}</code></td>
+          <td><code>{{ e.reason }}</code></td>
+          <td><code>{{ e.user_id|default_if_none:"—" }}</code></td>
+          <td><code>{{ e.status }}</code></td>
+          <td><code>{{ e.token_session_version|default_if_none:"—" }}</code></td>
+          <td><code>{{ e.current_session_version|default_if_none:"—" }}</code></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-center text-muted">Chưa ghi nhận lần từ chối nào.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
   <p class="text-muted small mt-4">
     Trang chẩn đoán tạm thời, chỉ đọc — không có thao tác nào thay đổi dữ
     liệu hay cấu hình, không nhận token, không hiển thị khoá bí mật hay biến

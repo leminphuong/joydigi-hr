@@ -166,3 +166,7 @@ CLAUDE.md
 .mcp.json
 .mcp.safe.json
 .claudeignore
+
+# Phase AUTH-6G.3 — temporary runtime diagnostic written by
+# joydigi_api/api_views/refresh_diagnostics.py. Never commit it.
+auth_refresh_diagnostic.jsonl

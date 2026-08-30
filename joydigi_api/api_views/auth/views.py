@@ -1,17 +1,43 @@
+import logging
+
 from django.contrib.auth import authenticate
 from django.db.models import F
 from django.utils.translation import gettext_lazy as _
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.exceptions import ExpiredTokenError, TokenError
+from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from ...api_serializers.auth.serializers import (
     GetEmployeeSerializer,
     PasswordResetSerializer,
 )
-from ..auth_tokens import mint_token_pair, resolve_refresh_subject
+from ..auth_tokens import (
+    REJECT_TOKEN_EXPIRED,
+    REJECT_TOKEN_INVALID,
+    classify_refresh_subject,
+    mint_token_pair,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def _log_refresh_rejected(reason, user_id=None):
+    """Phase AUTH-6G.2: one structured line per *rejected* refresh.
+
+    Failures only — a successful refresh is unremarkable and logging it
+    would only add noise. Never touches the raw token: the string is
+    not decoded, echoed, hashed or stored anywhere, and `user_id` is
+    passed only when it came out of a token whose signature already
+    verified.
+    """
+    logger.warning(
+        "AUTH_REFRESH_REJECTED reason=%s user_id=%s status=401",
+        reason,
+        user_id if user_id is not None else "-",
+    )
 
 
 class LoginAPIView(APIView):
@@ -98,16 +124,36 @@ class TokenRefreshAPIView(APIView):
                 {"error": _("Refresh token is required.")}, status=400
             )
 
+        # Phase AUTH-6G.2: the two 401 branches below are classified for
+        # the server log only. The status code and the message are
+        # deliberately identical in both cases — an unauthenticated
+        # caller must not be able to tell a disabled account from a
+        # revoked session from a bad signature.
         try:
             refresh = RefreshToken(raw_refresh)
+        except ExpiredTokenError:
+            _log_refresh_rejected(REJECT_TOKEN_EXPIRED)
+            return Response(
+                {"error": _("Session has ended. Please log in again.")},
+                status=401,
+            )
         except TokenError:
+            # Signature/format/type failure. No user id is logged: the
+            # token never verified, so anything inside it is untrusted
+            # and must not be decoded just to name someone.
+            _log_refresh_rejected(REJECT_TOKEN_INVALID)
             return Response(
                 {"error": _("Session has ended. Please log in again.")},
                 status=401,
             )
 
-        user = resolve_refresh_subject(refresh)
+        user, reject_reason = classify_refresh_subject(refresh)
         if user is None:
+            # Safe to name the subject here: the signature verified, so
+            # the claim is the server's own.
+            _log_refresh_rejected(
+                reject_reason, refresh.get(api_settings.USER_ID_CLAIM)
+            )
             return Response(
                 {"error": _("Session has ended. Please log in again.")},
                 status=401,

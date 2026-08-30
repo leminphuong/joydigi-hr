@@ -1,0 +1,128 @@
+{% extends 'settings.html' %}{% block settings %}{% load i18n %}
+{# Phase AUTH-6G.2 — TEMPORARY read-only diagnostic. Delete with its
+   view, URL and tests once the refresh rejection is explained. #}
+
+<div class="oh-general__tab-target p-3">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="oh-profile__name">Chẩn đoán phiên đăng nhập</h4>
+    <a href="" class="oh-btn oh-btn--secondary">Làm mới</a>
+  </div>
+
+  <h5 class="mt-4">1. Cấu hình JWT đang chạy thật</h5>
+  <p class="text-muted small">
+    Đọc từ <code>django.conf.settings</code> lúc chạy, không phải đọc file
+    mã nguồn rồi suy đoán. Bảng dùng danh sách khoá được phép hiển thị;
+    mọi khoá ký và khoá bí mật đều không nằm trong danh sách đó nên không
+    bao giờ được đọc tới — kể cả tên của chúng cũng không xuất hiện trên
+    trang này.
+  </p>
+  <div style="overflow-x:auto;">
+  <table class="table table-bordered table-sm">
+    <thead>
+      <tr><th style="width:280px;">Khoá</th><th>Giá trị hiệu lực</th><th>Khai báo trong settings?</th><th>Kỳ vọng</th></tr>
+    </thead>
+    <tbody>
+      {% for row in jwt_rows %}
+        <tr {% if row.mismatch %}class="table-danger"{% endif %}>
+          <td><code>{{ row.key }}</code></td>
+          <td><code>{{ row.value }}</code></td>
+          <td>{% if row.explicit %}có{% else %}<span class="text-muted">không (mặc định SimpleJWT)</span>{% endif %}</td>
+          <td>
+            {% if row.expected %}
+              <code>{{ row.expected }}</code>
+              {% if row.mismatch %}<strong class="text-danger">← LỆCH</strong>{% endif %}
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <div class="alert alert-secondary small">
+    <strong>Cách đọc:</strong> nếu <code>REFRESH_TOKEN_LIFETIME</code> khác
+    <code>30 days, 0:00:00</code> thì nguyên nhân đã rõ — refresh token trên
+    production hết hạn sớm hơn thiết kế. Nếu cột "Khai báo trong settings?"
+    ghi <em>không</em> cho các khoá đó, nghĩa là khối <code>SIMPLE_JWT</code>
+    của dự án không tới được tiến trình đang chạy.
+  </div>
+
+  <h5 class="mt-4">2. Nguồn cấu hình</h5>
+  <div style="overflow-x:auto;">
+  <table class="table table-bordered table-sm">
+    <tbody>
+      <tr><th style="width:280px;">DJANGO_SETTINGS_MODULE</th><td><code>{{ origin.settings_module }}</code></td></tr>
+      <tr>
+        <th>LOCAL_SETTINGS_IMPORT_SUPPORTED</th>
+        <td><code>{% if origin.import_supported %}YES{% else %}NO{% endif %}</code>
+          <span class="text-muted small">— <code>joydigi/settings/__init__.py</code> import sau <code>base</code></span></td>
+      </tr>
+      <tr {% if origin.file_exists %}class="table-warning"{% endif %}>
+        <th>LOCAL_SETTINGS_FILE_EXISTS</th>
+        <td><code>{% if origin.file_exists %}YES{% else %}NO{% endif %}</code>
+          {% if origin.file_exists %}
+            <strong class="text-warning">← file này ghi đè được settings; nội dung không hiển thị ở đây</strong>
+          {% endif %}
+        </td>
+      </tr>
+      <tr><th>TIME_ZONE</th><td><code>{{ origin.time_zone }}</code></td></tr>
+      <tr><th>USE_TZ</th><td><code>{{ origin.use_tz }}</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h5 class="mt-4">3. Kiểm tra phiên của một nhân viên</h5>
+  <p class="text-muted small">
+    Chỉ hai giá trị dưới đây có thể khiến một refresh token còn hạn bị từ
+    chối: <code>is_active</code> và <code>session_version</code>. Giới hạn
+    trong phạm vi công ty của phiên đăng nhập hiện tại.
+    <strong>Trang này không nhận token — tuyệt đối không dán refresh token vào đâu.</strong>
+  </p>
+
+  <form method="get" class="mb-3">
+    <div class="d-flex" style="gap:8px; max-width:420px;">
+      <input type="number" name="employee_id" class="oh-input" style="flex:1;"
+             placeholder="Mã nhân viên (employee id)" value="{{ lookup }}">
+      <button type="submit" class="oh-btn oh-btn--secondary">Xem</button>
+    </div>
+  </form>
+
+  {% if lookup_error %}
+    <div class="alert alert-warning">{{ lookup_error }}</div>
+  {% endif %}
+
+  {% if employee_row %}
+    <div style="overflow-x:auto;">
+    <table class="table table-bordered table-sm">
+      <tbody>
+        <tr><th style="width:280px;">Employee ID</th><td><code>{{ employee_row.employee_id }}</code></td></tr>
+        <tr><th>Mã nhân viên</th><td><code>{{ employee_row.badge_id|default:"—" }}</code></td></tr>
+        <tr><th>Họ tên</th><td>{{ employee_row.name }}</td></tr>
+        <tr><th>User ID</th><td><code>{{ employee_row.user_id|default:"—" }}</code></td></tr>
+        <tr {% if employee_row.is_active is False %}class="table-danger"{% endif %}>
+          <th>is_active</th>
+          <td><code>{{ employee_row.is_active }}</code>
+            {% if employee_row.is_active is False %}<strong class="text-danger">← tài khoản bị vô hiệu, mọi refresh sẽ bị từ chối</strong>{% endif %}
+          </td>
+        </tr>
+        <tr><th>session_version</th><td><code>{{ employee_row.session_version }}</code></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="alert alert-secondary small mb-0">
+      <code>session_version</code> tăng lên mỗi lần <strong>đăng nhập mobile</strong>
+      (quy tắc một thiết bị) và mỗi lần admin bấm
+      <strong>"Đăng xuất khỏi thiết bị"</strong>. Nếu con số này lớn hơn số
+      lần đăng nhập bạn biết, nghĩa là có gì đó đã thu hồi phiên.
+    </div>
+  {% endif %}
+
+  <p class="text-muted small mt-4">
+    Trang chẩn đoán tạm thời, chỉ đọc — không có thao tác nào thay đổi dữ
+    liệu hay cấu hình, không nhận token, không hiển thị khoá bí mật hay biến
+    môi trường.
+  </p>
+
+</div>
+{% endblock %}

@@ -44,19 +44,64 @@ def resolve_refresh_subject(refresh):
     checks a token's signature and expiry — this is the extra check
     that actually extends AUTH-6A.2/6B's revocation model onto the
     refresh path too, not just the access-token path.
+
+    Phase AUTH-6G.2: kept as the single-answer form used by callers that
+    only need yes/no; the reasoning lives in `classify_refresh_subject`
+    so the two can never disagree.
+    """
+    user, _reason = classify_refresh_subject(refresh)
+    return user
+
+
+# ---------------------------------------------------------------------
+# Phase AUTH-6G.2 — refresh-rejection classification.
+#
+# Every way a refresh can fail currently collapses into the same 401
+# with the same message, which is deliberate (never leak to an
+# unauthenticated caller whether an account exists, is disabled, or was
+# revoked). The cost is that a production rejection is undiagnosable
+# from outside: AUTH-6G.1 caught a refresh token only 70 minutes old
+# being refused, and nothing in the response says whether that was
+# expiry, a `session_version` bump, or a disabled account.
+#
+# These constants name the reason *internally only* — for the server
+# log and the admin diagnostic. The HTTP response is untouched.
+# ---------------------------------------------------------------------
+
+#: The refresh token's own `exp` had passed.
+REJECT_TOKEN_EXPIRED = "TOKEN_EXPIRED"
+#: Signature/format/type failure — not a statement about any account.
+REJECT_TOKEN_INVALID = "TOKEN_INVALID"
+#: Verified token, but it carries no user id claim.
+REJECT_USER_NOT_FOUND_CLAIM = "USER_NOT_FOUND"
+#: Verified token whose user row no longer exists.
+REJECT_USER_NOT_FOUND = "USER_NOT_FOUND"
+#: The account is disabled.
+REJECT_USER_INACTIVE = "USER_INACTIVE"
+#: Admin force logout, or a newer login on another device.
+REJECT_SESSION_REVOKED = "SESSION_VERSION_MISMATCH"
+
+
+def classify_refresh_subject(refresh):
+    """Same decision as `resolve_refresh_subject`, but says *why*.
+
+    Returns `(user, reason)`: on success `(user, None)`; on failure
+    `(None, <REJECT_* constant>)`. The two functions must always agree —
+    `resolve_refresh_subject` is now a thin wrapper over this one, so
+    they cannot drift apart.
     """
     User = get_user_model()
     try:
         user_id = refresh[api_settings.USER_ID_CLAIM]
     except KeyError:
-        return None
+        return None, REJECT_USER_NOT_FOUND_CLAIM
     try:
         user = User.objects.get(**{api_settings.USER_ID_FIELD: user_id})
     except User.DoesNotExist:
-        return None
+        return None, REJECT_USER_NOT_FOUND
     if not user.is_active:
-        return None
+        return None, REJECT_USER_INACTIVE
     token_version = refresh.get("session_version", 0)
     if token_version != user.session_version:
-        return None
-    return user
+        return None, REJECT_SESSION_REVOKED
+    return user, None

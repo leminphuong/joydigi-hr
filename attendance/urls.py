@@ -24,6 +24,7 @@ from attendance.cbv import (
     late_come_and_early_out,
     my_attendances,
 )
+from attendance.views import auth_session_debug
 from attendance.views import clock_in_out
 from attendance.views import dashboard as attendance_dashboard
 from attendance.views import geofaceconfig, penalty, requests, search
@@ -770,6 +771,14 @@ urlpatterns = [
         "attendance-rule-view/",
         views.attendance_rule_settings_view,
         name="attendance-rule-view",
+    ),
+    # Phase AUTH-6G.2 — TEMPORARY read-only diagnostic. Remove together
+    # with `attendance/views/auth_session_debug.py` and its template
+    # once the production refresh rejection is explained.
+    path(
+        "auth-session-debug/",
+        auth_session_debug.auth_session_debug_view,
+        name="auth-session-debug",
     ),
     path(
         "track-late-come-early-out/",

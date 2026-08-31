@@ -57,6 +57,15 @@ def _log_refresh_rejected(reason, user_id=None, detail=None):
 
 
 class LoginAPIView(APIView):
+    # Phase AUTH-6H: an endpoint whose whole job is to *issue*
+    # credentials must never require credentials to reach it.
+    # `DEFAULT_AUTHENTICATION_CLASSES` applies `SessionVersionJWTAuthentication`
+    # globally, and DRF authenticates during `dispatch()` — before the
+    # view body — so a caller arriving with a stale `Authorization`
+    # header would be refused 401 without ever being allowed to log in.
+    # `AllowAny` does not help: it governs permission, which runs after
+    # authentication has already raised.
+    authentication_classes = ()
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -131,6 +140,26 @@ class TokenRefreshAPIView(APIView):
     change, exactly like any other un-rotated token in this backend.
     """
 
+    # Phase AUTH-6H — the production bug, fixed at its root.
+    #
+    # This endpoint authenticates its caller by the refresh token in the
+    # request body, and by nothing else. It must not also authenticate
+    # an `Authorization` header, because the header a client holds when
+    # it needs to refresh is, by definition, the expired access token —
+    # requiring a valid one to obtain a new one is circular, and makes
+    # refresh work only while it is not needed.
+    #
+    # `permission_classes = [AllowAny]` alone was not enough: DRF's
+    # `dispatch()` runs `perform_authentication()` *before*
+    # `check_permissions()`, so the global
+    # `SessionVersionJWTAuthentication` raised 401 on the stale header
+    # and this view's body never ran. That is why the AUTH-6G.3
+    # rejection recorder — which lives inside `post()` — stayed silent
+    # while production kept returning 401.
+    #
+    # Scoped deliberately to this view: every protected endpoint keeps
+    # authenticating exactly as before.
+    authentication_classes = ()
     permission_classes = [AllowAny]
 
     def post(self, request):

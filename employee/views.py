@@ -113,7 +113,6 @@ from employee.models import (
     NoteFiles,
 )
 from employee.services import account_deletion
-from joydigi_views.generic.cbv.views import JoydigiFormView
 from joydigi.decorators import (
     hx_request_required,
     logger,
@@ -2307,11 +2306,27 @@ def employee_delete_confirmation(request):
             )
 
         messages.success(request, _("Employee deleted"))
-        reload_target = request.GET.get("reload_target") or "#applyFilter"
-        return JoydigiFormView.HttpResponse(
-            targets_to_reload=[reload_target],
-            script="$('#deleteConfirmation').removeClass('oh-modal--show');",
-        )
+
+        # Phase EMPLOYEE-DELETE-REDIRECT-FIX-1 — send the browser to the list.
+        #
+        # Refreshing a fragment was not enough. Opening an employee pushes
+        # ``/employee/employee-view/<id>/`` into the address bar
+        # (``hx-push-url="{get_individual_url}"``), so after deleting from that
+        # screen the URL still named the row that had just been removed:
+        # reloading ran ``employee_view_individual``, both lookups failed and
+        # the page answered 404. Swapping the list into the container left that
+        # stale URL untouched, and left the deleted employee's profile on
+        # screen underneath it.
+        #
+        # ``HX-Redirect`` makes htmx perform a real navigation, which replaces
+        # the URL as well as the content. Plain POSTs — the API, tests, a form
+        # without htmx — get an ordinary redirect to the same place.
+        list_url = reverse("employee-view")
+        if request.headers.get("HX-Request") == "true":
+            response = HttpResponse(status=204)
+            response["HX-Redirect"] = list_url
+            return response
+        return redirect(list_url)
 
     return render(
         request,

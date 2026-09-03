@@ -38,7 +38,7 @@
 
             {{ work_form.non_field_errors }}
 
-            <!-- Department / Job Position / Job Role -->
+            <!-- Department / Job Position -->
             <div class="border border-[#ebebeb] rounded-md mb-5">
                 <h3 class="text-sm font-semibold bg-[#f3f3f3] px-3 py-3 text-[#333] flex items-center justify-between gap-2 flex-wrap rounded-t-md">
                     {% trans "Position" %}
@@ -53,11 +53,6 @@
                         <label class="block text-xs font-medium text-color-600 mb-1" for="id_job_position_id">{% trans "Job Position" %}</label>
                         {{ work_form.job_position_id|add_class:"emp-input w-full h-9 px-3 text-xs border border-secondary-200 rounded-md bg-white text-dark-500" }}
                         {{ work_form.job_position_id.errors }}
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-color-600 mb-1" for="id_job_role_id">{% trans "Job Role" %}</label>
-                        {{ work_form.job_role_id|add_class:"emp-input w-full h-9 px-3 text-xs border border-secondary-200 rounded-md bg-white text-dark-500" }}
-                        {{ work_form.job_role_id.errors }}
                     </div>
                 </div>
             </div>
@@ -147,7 +142,7 @@
                         {{ work_form.basic_salary.errors }}
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-color-600 mb-1" for="id_salary_hour">{% trans "Salary Per Hour" %}</label>
+                        <label class="block text-xs font-medium text-color-600 mb-1" for="id_salary_hour">{% trans "Lương ngày" %}</label>
                         {{ work_form.salary_hour|add_class:"emp-input w-full h-9 px-3 text-xs border border-secondary-200 rounded-md bg-white text-dark-500" }}
                         {{ work_form.salary_hour.errors }}
                     </div>

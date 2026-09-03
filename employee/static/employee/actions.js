@@ -386,53 +386,207 @@ $("#unArchiveEmployees").click(function (e) {
     }
 });
 
+/**
+ * Phase EMPLOYEE-BULK-DELETE-2 — two-stage permanent account deletion.
+ *
+ * The previous handler asked one yes/no question and posted straight to the
+ * delete endpoint, which answered "Success" whether or not anything was
+ * actually removed — and for any employee with attendance history, nothing
+ * was. The first request now only *previews*: the backend reports what each
+ * selected employee owns, and that summary is what the operator reads before
+ * typing the confirmation phrase back.
+ *
+ * None of this is trusted by the server. The counts are recomputed and the
+ * phrase is rebuilt from the validated selection on the delete call; this
+ * code exists to make the consequences visible, not to enforce them.
+ */
+function selectedEmployeeIdsForDelete() {
+    try {
+        return JSON.parse($("#selectedInstances").attr("data-ids") || "[]");
+    } catch (err) {
+        return [];
+    }
+}
+
+function bulkDeleteErrorHtml(errors) {
+    if (!errors || !errors.length) {
+        return "<p>Không thực hiện được thao tác xóa.</p>";
+    }
+    var items = errors.map(function (item) {
+        var who = item.name
+            ? item.name
+            : item.employee_id
+            ? "Mã " + item.employee_id
+            : "";
+        return "<li>" + (who ? "<strong>" + who + ":</strong> " : "") +
+            (item.message || item.code) + "</li>";
+    });
+    return "<p>Không có tài khoản nào bị xóa.</p><ul style='text-align:left'>" +
+        items.join("") + "</ul>";
+}
+
+function bulkDeletePreviewHtml(data) {
+    var parts = ["<p>Bạn đã chọn <strong>" + data.selected_count +
+        "</strong> nhân viên.</p>"];
+
+    var withHistory = data.employees.filter(function (row) {
+        return row.total_owned_records > 0;
+    });
+    if (withHistory.length) {
+        parts.push("<div style='text-align:left;max-height:220px;overflow:auto'>");
+        withHistory.forEach(function (row) {
+            var lines = [];
+            if (row.attendance_count) {
+                lines.push("<li>" + row.attendance_count + " bản ghi chấm công</li>");
+            }
+            if (row.request_count) {
+                lines.push("<li>" + row.request_count + " đơn từ</li>");
+            }
+            if (row.document_count) {
+                lines.push("<li>" + row.document_count + " chứng từ</li>");
+            }
+            if (row.other_owned_records) {
+                lines.push("<li>" + row.other_owned_records + " bản ghi khác</li>");
+            }
+            parts.push("<p style='margin:6px 0 2px'><strong>" + row.name +
+                "</strong></p><ul style='margin:0'>" + lines.join("") + "</ul>");
+        });
+        parts.push("</div>");
+    }
+
+    parts.push("<p style='text-align:left;margin-top:10px'>Toàn bộ tài khoản " +
+        "đăng nhập và dữ liệu thuộc về các nhân viên đã chọn sẽ bị " +
+        "<strong>xóa vĩnh viễn</strong>.<br>Dữ liệu công ty, phòng ban, ca làm " +
+        "việc và cấu hình dùng chung sẽ không bị xóa.</p>");
+
+    parts.push("<p style='text-align:left;margin-top:10px'>Để xác nhận, gõ " +
+        "chính xác:<br><code>" + data.confirmation_phrase + "</code></p>");
+    parts.push("<input id='bulkDeleteConfirmInput' class='swal2-input' " +
+        "autocomplete='off' placeholder='" + data.confirmation_phrase + "'>");
+
+    return parts.join("");
+}
+
+function runBulkEmployeeDelete(ids, phrase) {
+    $.ajax({
+        type: "POST",
+        url: "/employee/employee-bulk-delete/",
+        data: {
+            csrfmiddlewaretoken: getCookie("csrftoken"),
+            action: "delete",
+            ids: JSON.stringify(ids),
+            confirmation: phrase,
+        },
+        success: function (response) {
+            // The backend is the only authority on what happened: it reports
+            // success only when every selected account was deleted inside one
+            // transaction.
+            if (response && response.success) {
+                $("#view-container").html(`<div class="animated-background"></div>`);
+                location.reload(); // Reload the current page
+            } else {
+                Swal.fire({
+                    title: "Xóa tài khoản thất bại",
+                    html: bulkDeleteErrorHtml(response && response.errors),
+                    icon: "error",
+                    confirmButtonText: i18nMessages.close,
+                });
+            }
+        },
+        error: function (jqXHR) {
+            var payload = jqXHR.responseJSON;
+            Swal.fire({
+                title: "Xóa tài khoản thất bại",
+                html: bulkDeleteErrorHtml(payload && payload.errors),
+                icon: "error",
+                confirmButtonText: i18nMessages.close,
+            });
+        },
+    });
+}
+
 $("#deleteEmployees").click(function (e) {
     e.preventDefault();
-    ids = [];
-    ids.push($("#selectedInstances").attr("data-ids"));
-    ids = JSON.parse($("#selectedInstances").attr("data-ids"));
+    var ids = selectedEmployeeIdsForDelete();
     if (ids.length === 0) {
         Swal.fire({
             text: i18nMessages.noRowsSelected,
             icon: "warning",
             confirmButtonText: i18nMessages.close,
         });
-    } else {
-        Swal.fire({
-            text: i18nMessages.confirmBulkDelete,
-            icon: "error",
-            showCancelButton: true,
-            confirmButtonColor: "#d33",
-            cancelButtonColor: "#6c757d",
-            confirmButtonText: i18nMessages.confirm,
-            cancelButtonText: i18nMessages.cancel,
-        }).then(function (result) {
-            if (result.isConfirmed) {
-                e.preventDefault();
-                $("#view-container").html(`<div class="animated-background"></div>`);
-
-                ids = [];
-                ids.push($("#selectedInstances").attr("data-ids"));
-                ids = JSON.parse($("#selectedInstances").attr("data-ids"));
-
-                $.ajax({
-                    type: "POST",
-                    url: "/employee/employee-bulk-delete/",
-                    data: {
-                        csrfmiddlewaretoken: getCookie("csrftoken"),
-                        ids: JSON.stringify(ids),
-                    },
-                    success: function (response, textStatus, jqXHR) {
-                        if (jqXHR.status === 200) {
-                            location.reload(); // Reload the current page
-                        } else {
-                            // console.log("Unexpected HTTP status:", jqXHR.status);
-                        }
-                    },
-                });
-            }
-        });
+        return;
     }
+
+    // Stage 1 — ask the server what deleting this selection would destroy.
+    // This request changes nothing.
+    $.ajax({
+        type: "POST",
+        url: "/employee/employee-bulk-delete/",
+        data: {
+            csrfmiddlewaretoken: getCookie("csrftoken"),
+            action: "preview",
+            ids: JSON.stringify(ids),
+        },
+        success: function (data) {
+            if (!data || !data.success) {
+                Swal.fire({
+                    title: "Không thể xóa",
+                    html: bulkDeleteErrorHtml(data && data.errors),
+                    icon: "error",
+                    confirmButtonText: i18nMessages.close,
+                });
+                return;
+            }
+
+            // Stage 2 — the destructive button stays disabled until the
+            // phrase matches exactly, so the confirmation cannot be dismissed
+            // by reflex.
+            Swal.fire({
+                title: "Xóa tài khoản nhân viên?",
+                html: bulkDeletePreviewHtml(data),
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#d33",
+                cancelButtonColor: "#6c757d",
+                confirmButtonText: "Xóa vĩnh viễn",
+                cancelButtonText: i18nMessages.cancel,
+                focusConfirm: false,
+                didOpen: function () {
+                    var button = Swal.getConfirmButton();
+                    var input = document.getElementById(
+                        "bulkDeleteConfirmInput"
+                    );
+                    button.disabled = true;
+                    input.addEventListener("input", function () {
+                        button.disabled =
+                            input.value.trim() !== data.confirmation_phrase;
+                    });
+                    input.focus();
+                },
+                preConfirm: function () {
+                    var input = document.getElementById(
+                        "bulkDeleteConfirmInput"
+                    );
+                    return input ? input.value.trim() : "";
+                },
+            }).then(function (result) {
+                if (result.isConfirmed && result.value === data.confirmation_phrase) {
+                    // Re-read the selection: the ids sent are the ids the
+                    // count in the dialog was computed from.
+                    runBulkEmployeeDelete(ids, data.confirmation_phrase);
+                }
+            });
+        },
+        error: function (jqXHR) {
+            var payload = jqXHR.responseJSON;
+            Swal.fire({
+                title: "Không thể xóa",
+                html: bulkDeleteErrorHtml(payload && payload.errors),
+                icon: "error",
+                confirmButtonText: i18nMessages.close,
+            });
+        },
+    });
 });
 
 $("#select-all-fields").change(function () {

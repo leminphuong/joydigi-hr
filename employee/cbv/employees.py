@@ -773,7 +773,7 @@ class EmployeeCard(JoydigiCardView):
                     "accessibility": "employee.cbv.accessibility.action_accessible",
                     "attrs": """
                         onclick="event.stopPropagation()"
-                        hx-get="{get_delete_url}?model=employee.Employee&pk={pk}"
+                        hx-get="{get_delete_url}?pk={pk}"
                         data-toggle="oh-modal-toggle"
                         data-target="#deleteConfirmation"
                         hx-target="#deleteConfirmationBody"

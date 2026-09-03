@@ -28,12 +28,6 @@
                     {{work_form.employee_type_id}}
                     </div>
                 </div>
-                <div class="col-md-6 mb-2">
-                    <div class="form-outline mb-4">
-                    {{work_form.job_role_id.errors}}
-                    {{work_form.job_role_id}}
-                    </div>
-                </div>
                 <div class="col-md-6 mb-4">
                     {{work_form.reporting_manager_id.errors}}
                     {{work_form.reporting_manager_id}}
@@ -120,35 +114,6 @@
                     {{bank_form.branch.errors}}
                     <div class="form-outline mb-4">{{bank_form.branch}}</div>
                     </div>
-                    <div class="col-md-6 mb-2">
-                    {{bank_form.any_other_code1.errors}}
-                    <div class="form-outline mb-4">{{bank_form.any_other_code1}}</div>
-                    </div>
-                </div>
-                <div class="mb-4">
-                    {{bank_form.address.errors}}
-                    {{bank_form.address}}
-
-                </div>
-                <div class="mb-4">
-                    {{bank_form.country.errors}}
-                    {{bank_form.country}}
-
-                </div>
-                <div class="mb-4">
-
-                    {{bank_form.state.errors}}
-                    {{bank_form.state}}
-                </div>
-                <div class="mb-4">
-
-                    {{bank_form.city.errors}}
-                    {{bank_form.city}}
-                </div>
-                <div class="mb-4">
-
-                    {{bank_form.any_other_code2.errors}}
-                    {{bank_form.any_other_code2}}
                 </div>
                 {% if perms.employee.change_employeebankdetails %}
                 {% if form.instance.employee_bank_details %}

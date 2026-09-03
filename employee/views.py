@@ -112,6 +112,8 @@ from employee.models import (
     EmployeeWorkInformation,
     NoteFiles,
 )
+from employee.services import account_deletion
+from joydigi_views.generic.cbv.views import JoydigiFormView
 from joydigi.decorators import (
     hx_request_required,
     logger,
@@ -2186,77 +2188,286 @@ def employee_update(request, obj_id):
 @permission_required("employee.delete_employee")
 @require_http_methods(["POST"])
 def employee_delete(request, obj_id):
+    """Delete one employee account and the data that employee owns.
+
+    Phase EMPLOYEE-SINGLE-DELETE-ALIGN-1 routed this through the same service
+    as the bulk action instead of leaving a second deletion implementation
+    here. Previously it called ``user.delete()`` directly, which meant:
+
+    * anyone with a single attendance row could not be deleted at all — one
+      of seventeen ``PROTECT`` relations raised ``ProtectedError`` and the
+      operator saw a list of model names with no way forward, while the bulk
+      action on the same employee succeeded;
+    * none of the account protections applied, so an administrator could
+      delete their own account, or a superuser's, from the row action;
+    * no transaction, so a failure part-way could leave the user deleted with
+      the employee behind, or owned rows half removed.
+
+    The ownership rules, the cross-employee detaching and the transaction all
+    live in ``account_deletion`` and are not restated here — that is the point
+    of the change. The URL, the ``view`` query parameter, the POST-only rule
+    and the redirect targets are unchanged, so existing templates keep working.
     """
-    This method is used to delete employee
-    args:
-        id  : employee id
-    """
+    view = request.POST.get("view")
+
+    ids, parse_error = account_deletion.parse_ids([obj_id])
+    if parse_error is not None:
+        messages.error(request, parse_error["message"])
+        return JoydigiRedirect(request, fallback_url=f"/view={view}")
+
+    employees, errors = account_deletion.validate(request, ids)
+    if errors:
+        # Same wording the bulk action returns, so an operator who meets a
+        # refusal gets one explanation regardless of which control they used.
+        for error in errors:
+            messages.error(request, error["message"])
+        return JoydigiRedirect(request, fallback_url=f"/view={view}")
 
     try:
-        view = request.POST.get("view")
-        employee = Employee.objects.get(id=obj_id)
-        if apps.is_installed("payroll"):
-            if employee.contract_set.all().exists():
-                contracts = employee.contract_set.all()
-                for contract in contracts:
-                    if contract.contract_status != "active":
-                        contract.delete()
-        user = employee.employee_user_id
-        try:
-            user.delete()
-        except AttributeError:
-            employee.delete()
-        messages.success(request, _("Employee deleted"))
-
-    except Employee.DoesNotExist:
-        messages.error(request, _("Employee not found."))
-    except ProtectedError as e:
+        account_deletion.delete_employees(employees)
+    except ProtectedError as exc:
+        # Kept for the case the service cannot resolve: a relation added later
+        # that blocks and is not owned by the employee. The transaction has
+        # already rolled back, so nothing was deleted.
         model_verbose_names_set = set()
-        for obj in e.protected_objects:
+        for obj in exc.protected_objects:
             model_verbose_names_set.add(__(obj._meta.verbose_name.capitalize()))
         model_names_str = ", - ".join(model_verbose_names_set)
-        error_message = _("- {}.".format(model_names_str))
-        error_message = str(error_message)
-        request.session["error_message"] = error_message
+        request.session["error_message"] = str(_("- {}.".format(model_names_str)))
         return redirect(reverse("employee-view") + "?error_message=true")
+    except account_deletion.BlockedRelation as exc:
+        request.session["error_message"] = str(exc)
+        return redirect(reverse("employee-view") + "?error_message=true")
+
+    messages.success(request, _("Employee deleted"))
     return JoydigiRedirect(request, fallback_url=f"/view={view}")
 
 
 @login_required
 @permission_required("employee.delete_employee")
-def employee_bulk_delete(request):
+@require_http_methods(["GET", "POST"])
+def employee_delete_confirmation(request):
+    """Employee-only replacement for the generic delete confirmation.
+
+    Phase EMPLOYEE-CBV-SAFE-DELETE-1. The live employee page used
+    ``generic-delete``, whose confirmation view deletes every object it
+    collects — *including* the ones the schema marks ``PROTECT``. For an
+    ``Employee`` those protected objects are other people's records: a
+    subordinate's ``EmployeeWorkInformation`` and any ``Attendance`` the
+    departing employee merely approved. A scratch-database probe confirmed
+    both were destroyed.
+
+    This is an adapter, not a second deletion engine. It renders a
+    confirmation body into the same modal and then hands the work to
+    ``account_deletion`` — the same service the row action and the bulk action
+    already use, with the same ownership rules, the same account protections
+    and the same transaction. Every other model keeps using ``generic-delete``
+    unchanged.
     """
-    This method is used to delete set of Employee instances
-    """
-    ids = json.loads(request.POST.get("ids", "[]"))
-    if not ids:
-        messages.error(request, _("No IDs provided."))
-    deleted_count = 0
-    employees = Employee.objects.filter(id__in=ids).select_related("employee_user_id")
-    for employee in employees:
-        try:
-            if apps.is_installed("payroll"):
-                if employee.contract_set.all().exists():
-                    contracts = employee.contract_set.all()
-                    for contract in contracts:
-                        if contract.contract_status != "active":
-                            contract.delete()
-            user = employee.employee_user_id
-            user.delete()
-            deleted_count += 1
-        except Employee.DoesNotExist:
-            messages.error(request, _("Employee not found."))
-        except ProtectedError:
-            messages.error(
-                request, _("You cannot delete %(employee)s.") % {"employee": employee}
-            )
-    if deleted_count > 0:
-        messages.success(
+    ids, parse_error = account_deletion.parse_ids(
+        [request.GET.get("pk")] if request.GET.get("pk") else []
+    )
+    if parse_error is not None:
+        return render(
             request,
-            _("%(deleted_count)s employees deleted.")
-            % {"deleted_count": deleted_count},
+            "cbv/employees_view/employee_delete_confirmation.html",
+            {"errors": [parse_error]},
         )
-    return JsonResponse({"message": "Success"})
+
+    employees, errors = account_deletion.validate(request, ids)
+    if errors:
+        # Refused on GET as well as POST, so the operator is told why before
+        # they reach the confirm button rather than after.
+        return render(
+            request,
+            "cbv/employees_view/employee_delete_confirmation.html",
+            {"errors": errors},
+        )
+
+    rows, _total = account_deletion.preview(employees)
+
+    if request.method == "POST":
+        try:
+            account_deletion.delete_employees(employees)
+        except (ProtectedError, account_deletion.BlockedRelation) as exc:
+            # The transaction has rolled back; nothing was deleted.
+            return render(
+                request,
+                "cbv/employees_view/employee_delete_confirmation.html",
+                {
+                    "errors": [
+                        {
+                            "code": "BLOCKED",
+                            "message": str(exc),
+                            "employee_id": None,
+                            "name": None,
+                        }
+                    ]
+                },
+            )
+
+        messages.success(request, _("Employee deleted"))
+        reload_target = request.GET.get("reload_target") or "#applyFilter"
+        return JoydigiFormView.HttpResponse(
+            targets_to_reload=[reload_target],
+            script="$('#deleteConfirmation').removeClass('oh-modal--show');",
+        )
+
+    return render(
+        request,
+        "cbv/employees_view/employee_delete_confirmation.html",
+        {"rows": rows},
+    )
+
+
+def _bulk_delete_payload(request):
+    """Accept either a JSON body or the form-encoded fields the existing
+    jQuery caller posts, so the endpoint keeps working from both."""
+    if "application/json" in (request.content_type or ""):
+        try:
+            body = json.loads(request.body or b"{}")
+        except (ValueError, UnicodeDecodeError):
+            return None
+        if not isinstance(body, dict):
+            return None
+        return body
+    try:
+        ids = json.loads(request.POST.get("ids") or "[]")
+    except ValueError:
+        return None
+    return {
+        "action": request.POST.get("action"),
+        "ids": ids,
+        "confirmation": request.POST.get("confirmation", ""),
+    }
+
+
+@login_required
+@permission_required("employee.delete_employee")
+@require_http_methods(["POST"])
+def employee_bulk_delete(request):
+    """Permanently delete employee accounts and the data they own.
+
+    Phase EMPLOYEE-BULK-DELETE-2 repaired this endpoint rather than adding a
+    second one beside it. What it used to do — loop, ``user.delete()``, catch
+    ``ProtectedError``, continue, and answer ``{"message": "Success"}`` no
+    matter what — could half-empty a batch and still report success. Anyone
+    who had ever clocked in could not be deleted at all, because seventeen
+    ``PROTECT`` relations stood in the way.
+
+    Two stages now. ``preview`` reports exactly what would be destroyed;
+    ``delete`` re-derives that same picture server-side and requires the
+    operator to have typed the phrase back. The browser's numbers are never
+    accepted as input, and the whole batch is one transaction.
+
+    ``@require_http_methods(["POST"])`` was missing here while its siblings
+    ``employee_delete`` and ``employee_bulk_archive`` both had it — a GET
+    could trigger the deletion.
+    """
+    payload = _bulk_delete_payload(request)
+    if payload is None:
+        return JsonResponse(
+            {
+                "success": False,
+                "deleted_count": 0,
+                "errors": [
+                    {
+                        "code": "BAD_PAYLOAD",
+                        "message": str(_("Dữ liệu gửi lên không hợp lệ.")),
+                        "employee_id": None,
+                        "name": None,
+                    }
+                ],
+            },
+            status=400,
+        )
+
+    # Anything other than an explicit "delete" is treated as a preview: a
+    # stale cached script that has not learned the two-stage contract then
+    # reads the impact instead of destroying data.
+    action = "delete" if payload.get("action") == "delete" else "preview"
+
+    ids, parse_error = account_deletion.parse_ids(payload.get("ids"))
+    if parse_error is not None:
+        return JsonResponse(
+            {"success": False, "deleted_count": 0, "errors": [parse_error]},
+            status=400,
+        )
+
+    employees, errors = account_deletion.validate(request, ids)
+    if errors:
+        # Nothing is deleted when any single selection is invalid: a partial
+        # batch is worse than a refusal, because the operator cannot tell
+        # from the list which accounts survived.
+        return JsonResponse(
+            {"success": False, "deleted_count": 0, "errors": errors}, status=400
+        )
+
+    rows, total_records = account_deletion.preview(employees)
+    phrase = account_deletion.confirmation_phrase(len(employees))
+
+    if action == "preview":
+        return JsonResponse(
+            {
+                "success": True,
+                "action": "preview",
+                "selected_count": len(employees),
+                "employees": rows,
+                "total_records_to_delete": total_records,
+                "confirmation_phrase": phrase,
+            }
+        )
+
+    # The phrase is compared against one built from the *validated* count,
+    # not from anything the browser sent.
+    if (payload.get("confirmation") or "").strip() != phrase:
+        return JsonResponse(
+            {
+                "success": False,
+                "deleted_count": 0,
+                "errors": [
+                    {
+                        "code": "CONFIRMATION_MISMATCH",
+                        "message": str(
+                            _("Chuỗi xác nhận không đúng. Cần gõ: %(phrase)s")
+                        )
+                        % {"phrase": phrase},
+                        "employee_id": None,
+                        "name": None,
+                    }
+                ],
+            },
+            status=400,
+        )
+
+    try:
+        result = account_deletion.delete_employees(employees)
+    except (ProtectedError, account_deletion.BlockedRelation) as exc:
+        # The transaction has already rolled back; nothing was deleted.
+        return JsonResponse(
+            {
+                "success": False,
+                "deleted_count": 0,
+                "errors": [
+                    {
+                        "code": "BLOCKED",
+                        "message": str(exc),
+                        "employee_id": None,
+                        "name": None,
+                    }
+                ],
+            },
+            status=409,
+        )
+
+    messages.success(
+        request,
+        _("%(deleted_count)s employees deleted.")
+        % {"deleted_count": result["deleted_count"]},
+    )
+    return JsonResponse(
+        {"success": True, "deleted_count": result["deleted_count"]}
+    )
 
 
 @login_required

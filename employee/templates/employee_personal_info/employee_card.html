@@ -115,7 +115,7 @@
                     {% if perms.employee.delete_employee %}
                       <li class="oh-dropdown__item">
                         <form action="{% url 'employee-delete' emp.id %}?view=card" method="post"
-                          onsubmit="return confirm('{% trans "All non-active contracts of the employee will also be deleted. Do you want to continue ?" %}')">
+                          onsubmit="return confirm('{% trans "Xóa vĩnh viễn tài khoản nhân viên này? Toàn bộ dữ liệu thuộc về nhân viên (chấm công, đơn từ, chứng từ) sẽ bị xóa vĩnh viễn. Dữ liệu công ty, phòng ban, ca làm việc và cấu hình dùng chung sẽ không bị xóa." %}')">
                           {% csrf_token %}
                           <button type="submit" class="oh-dropdown__link oh-dropdown__link--danger">{% trans "Delete" %}</button>
                         </form>

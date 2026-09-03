@@ -187,6 +187,13 @@ urlpatterns = [
         "employee-delete/<int:obj_id>/", views.employee_delete, name="employee-delete"
     ),
     path(
+        # Phase EMPLOYEE-CBV-SAFE-DELETE-1 — the employee page's own delete
+        # confirmation, so Employee no longer goes through generic-delete.
+        "employee-delete-confirmation/",
+        views.employee_delete_confirmation,
+        name="employee-delete-confirmation",
+    ),
+    path(
         "employee-bulk-update/",
         views.view_employee_bulk_update,
         name="employee-bulk-update",

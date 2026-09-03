@@ -356,7 +356,17 @@ class EmployeeWorkInformationForm(ModelForm):
 
         model = EmployeeWorkInformation
         fields = "__all__"
-        exclude = ("employee_id", "additional_info", "experience")
+        # Phase EMPLOYEE-FORM-CLEANUP-1 — "Vai trò công việc" (job_role_id) is
+        # dropped from the form, not from the model, so existing rows keep
+        # their value and nothing else that reads it breaks. Excluding it here
+        # is also what removes its validation: leaving the field in and only
+        # hiding it in the template would still refuse to save.
+        exclude = (
+            "employee_id",
+            "additional_info",
+            "experience",
+            "job_role_id",
+        )
 
         widgets = {
             "date_joining": DateInput(attrs={"type": "date"}),
@@ -366,6 +376,10 @@ class EmployeeWorkInformationForm(ModelForm):
     def __init__(self, *args, disable=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["email"].widget.attrs["autocomplete"] = "email"
+        # The stored number is a plain amount — nothing in the codebase
+        # multiplies it by hours — so the change from "per hour" to "per day"
+        # is a change of meaning only. See the phase report.
+        self.fields["salary_hour"].label = _("Lương ngày")
 
         self.fields["job_position_id"].widget.attrs.update(
             {
@@ -461,7 +475,14 @@ class EmployeeWorkInformationUpdateForm(ModelForm):
         #     "basic_salary",
         #     "salary_hour",
         # ]
-        exclude = ("employee_id", "experience", "additional_info")
+        # Phase EMPLOYEE-FORM-CLEANUP-1 — same exclusion as the create form,
+        # so the add and edit screens agree.
+        exclude = (
+            "employee_id",
+            "experience",
+            "additional_info",
+            "job_role_id",
+        )
 
         widgets = {
             "date_joining": DateInput(attrs={"type": "date"}),
@@ -470,6 +491,7 @@ class EmployeeWorkInformationUpdateForm(ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["salary_hour"].label = _("Lương ngày")
         self.fields["department_id"].widget.attrs.update(
             {
                 "hx-target": "#id_job_position_id_parent_div",
@@ -499,30 +521,28 @@ class EmployeeBankDetailsForm(ModelForm):
     Form for EmployeeBankDetails model
     """
 
-    address = forms.CharField(widget=forms.Textarea(attrs={"rows": 2, "cols": 40}))
-
     class Meta:
         """
         Meta class to add the additional info
         """
 
         model = EmployeeBankDetails
+        # Phase EMPLOYEE-FORM-CLEANUP-1 — everything from "Mã ngân hàng số 1"
+        # downwards was dropped: the two bank codes and the whole bank-address
+        # block. Listing only the surviving fields is what removes their
+        # validation as well; the declared ``address = forms.CharField(...)``
+        # that used to sit above this Meta was required by default and would
+        # have blocked every save once the input disappeared from the page.
+        # The model columns are untouched, so stored values survive.
         fields = (
             "bank_name",
             "account_number",
             "branch",
-            "any_other_code1",
-            "address",
-            "country",
-            "state",
-            "city",
-            "any_other_code2",
         )
         exclude = ["employee_id", "is_active", "additional_info"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["address"].widget.attrs["autocomplete"] = "address"
         for visible in self.visible_fields():
             visible.field.widget.attrs["class"] = "oh-input w-100"
 
@@ -542,7 +562,13 @@ class EmployeeBankDetailsUpdateForm(ModelForm):
         """
 
         model = EmployeeBankDetails
-        fields = "__all__"
+        # Same set as EmployeeBankDetailsForm so the add and edit screens
+        # cannot drift apart.
+        fields = (
+            "bank_name",
+            "account_number",
+            "branch",
+        )
         exclude = ["employee_id", "is_active", "additional_info"]
 
     def __init__(self, *args, **kwargs):

@@ -1,0 +1,93 @@
+{% load i18n %}
+{# Phase EMPLOYEE-CBV-SAFE-DELETE-1 — Employee-only replacement for the
+   generic delete confirmation body.
+
+   The generic one lists every related and *protected* object and then deletes
+   them all, which for an Employee meant destroying a colleague's attendance
+   because the departing employee had approved it. This body shows only what
+   the account-deletion service will actually touch, and its form posts to the
+   Employee-specific endpoint that goes through that service.
+
+   Same modal chrome and classes as generic/delete_confirmation.html so the
+   dialog looks unchanged to the operator. #}
+
+<div class="oh-modal__dialog-header">
+    <span class="oh-modal__dialog-title" id="deleteConfirmationLabel">
+        {% trans "Xóa tài khoản nhân viên" %}
+    </span>
+    <button
+        class="oh-modal__close--custom"
+        onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')"
+        aria-label="{% trans 'Close' %}"
+    >
+        <ion-icon name="close-outline" role="img" class="md hydrated"></ion-icon>
+    </button>
+</div>
+
+<div class="oh-modal__dialog-body">
+    {% if errors %}
+        <div class="alert alert-danger mb-0">
+            <ul class="mb-0">
+                {% for error in errors %}
+                    <li>
+                        {% if error.name %}<strong>{{ error.name }}:</strong> {% endif %}
+                        {{ error.message }}
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% else %}
+        <p class="mb-2">
+            <strong>{% trans "Xóa vĩnh viễn tài khoản nhân viên này?" %}</strong>
+        </p>
+
+        {% for row in rows %}
+            <p class="mb-1">{{ row.name }}</p>
+            {% if row.total_owned_records %}
+                <ul>
+                    {% if row.attendance_count %}
+                        <li>{{ row.attendance_count }} {% trans "bản ghi chấm công" %}</li>
+                    {% endif %}
+                    {% if row.request_count %}
+                        <li>{{ row.request_count }} {% trans "đơn từ" %}</li>
+                    {% endif %}
+                    {% if row.document_count %}
+                        <li>{{ row.document_count }} {% trans "chứng từ" %}</li>
+                    {% endif %}
+                    {% if row.other_owned_records %}
+                        <li>{{ row.other_owned_records }} {% trans "bản ghi khác" %}</li>
+                    {% endif %}
+                </ul>
+            {% else %}
+                <p class="text-muted small">{% trans "Chưa có dữ liệu phát sinh." %}</p>
+            {% endif %}
+        {% endfor %}
+
+        <p class="mb-2">
+            {% trans "Toàn bộ dữ liệu thuộc về nhân viên (chấm công, đơn từ, chứng từ) sẽ bị xóa vĩnh viễn." %}
+            <br>
+            {% trans "Dữ liệu công ty, phòng ban, ca làm việc và cấu hình dùng chung sẽ không bị xóa." %}
+        </p>
+
+        <form
+            hx-post="{% url 'employee-delete-confirmation' %}?{{ request.GET.urlencode }}"
+            hx-target="#deleteConfirmationBody"
+        >
+            <div class="d-flex justify-content-end">
+                <div>
+                    <div class="mt-2">
+                        <input type="checkbox" required name="confirm" id="confirmEmployeeDelete">
+                        <label for="confirmEmployeeDelete">
+                            {% trans "Tôi hiểu thao tác này không thể hoàn tác" %}
+                        </label>
+                    </div>
+                    <div class="mt-3 text-end">
+                        <button type="submit" class="oh-btn oh-btn--danger">
+                            {% trans "Xóa vĩnh viễn" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    {% endif %}
+</div>

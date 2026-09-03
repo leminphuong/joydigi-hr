@@ -573,10 +573,17 @@ class Employee(models.Model):
         return url
 
     def get_delete_url(self):
+        """Delete URL for this employee.
+
+        Phase EMPLOYEE-CBV-SAFE-DELETE-1 moved Employee off ``generic-delete``.
+        That view deletes the objects it collects as ``PROTECT`` as well, which
+        for an employee are other people's records — a subordinate's work
+        information and any attendance this employee only approved. Employee
+        deletion now goes through ``employee.services.account_deletion``, which
+        detaches those instead. Only ``Employee`` is redirected; every other
+        model keeps its own ``get_delete_url``.
         """
-        This method to get delete  url
-        """
-        url = reverse_lazy("generic-delete")
+        url = reverse_lazy("employee-delete-confirmation")
         return url
 
     def employee_actions(self):

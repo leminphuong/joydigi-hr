@@ -15,6 +15,8 @@ directly — a test that bypassed the endpoint would have passed against the
 broken wiring too.
 """
 
+import json
+import re
 from datetime import date, time
 
 from django.contrib.auth.models import Group, Permission
@@ -125,7 +127,11 @@ class ManagerDeletionThroughTheActiveEndpointTests(CbvDeleteBase):
     def test_deleting_the_manager_leaves_the_subordinate_intact(self):
         response = self.confirm_delete(self.manager.id)
 
-        self.assertEqual(response.status_code, 200)
+        # Phase EMPLOYEE-DELETE-REDIRECT-FIX-1: a successful delete now sends
+        # the caller to the list instead of answering in place, so the browser
+        # cannot be left on the deleted employee's URL.
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("employee-view"))
 
         # A: gone, account and all.
         self.assertFalse(Employee.objects.filter(pk=self.manager.pk).exists())
@@ -174,6 +180,109 @@ class ManagerDeletionThroughTheActiveEndpointTests(CbvDeleteBase):
         self.assertIn("cấu hình dùng chung sẽ không bị xóa", body)
         # A GET must never delete.
         self.assertTrue(Employee.objects.filter(pk=self.manager.pk).exists())
+
+
+class RedirectAfterDeleteTests(CbvDeleteBase):
+    """Phase EMPLOYEE-DELETE-REDIRECT-FIX-1.
+
+    Opening an employee pushes ``/employee/employee-view/<id>/`` into the
+    address bar. Deleting from there used to refresh only the list fragment,
+    so the URL kept naming the row that had just been removed and a plain F5
+    answered 404. These tests follow that exact sequence.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.target = self.employee("cbv_redirect_a")
+        self.bystander = self.employee("cbv_redirect_b")
+        self.individual_url = f"/employee/employee-view/{self.target.id}/"
+        self.list_url = reverse("employee-view")
+
+    def test_the_individual_page_is_reachable_before_the_delete(self):
+        """Establishes the starting state the bug depended on."""
+        response = self.client.get(self.individual_url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_an_htmx_delete_tells_the_browser_to_navigate_to_the_list(self):
+        response = self.client.post(
+            f"{CONFIRM_URL}?pk={self.target.id}",
+            {"confirm": "on"},
+            headers={"hx-request": "true"},
+        )
+
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.headers.get("HX-Redirect"), self.list_url)
+        self.assertNotIn(
+            str(self.target.id),
+            response.headers.get("HX-Redirect", ""),
+            msg="the redirect still carries the deleted employee id",
+        )
+
+    def test_a_plain_post_redirects_to_the_list(self):
+        response = self.client.post(
+            f"{CONFIRM_URL}?pk={self.target.id}", {"confirm": "on"}
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], self.list_url)
+
+    def test_refreshing_the_destination_returns_200_not_404(self):
+        """The whole point: the URL the browser ends on must still work."""
+        self.client.post(
+            f"{CONFIRM_URL}?pk={self.target.id}",
+            {"confirm": "on"},
+            headers={"hx-request": "true"},
+        )
+
+        refreshed = self.client.get(self.list_url)
+
+        self.assertEqual(refreshed.status_code, 200)
+        self.assertFalse(Employee.objects.filter(pk=self.target.pk).exists())
+
+    def test_the_old_individual_url_is_what_used_to_break(self):
+        """Kept as a statement of the failure being avoided: that URL does
+        404 after the delete, which is why the browser must not stay on it."""
+        self.client.post(
+            f"{CONFIRM_URL}?pk={self.target.id}",
+            {"confirm": "on"},
+            headers={"hx-request": "true"},
+        )
+
+        stale = self.client.get(self.individual_url)
+
+        self.assertEqual(stale.status_code, 404)
+
+    def test_the_list_after_deletion_drops_a_and_keeps_b(self):
+        self.client.post(
+            f"{CONFIRM_URL}?pk={self.target.id}",
+            {"confirm": "on"},
+            headers={"hx-request": "true"},
+        )
+
+        listing = self.client.get(
+            "/employee/employees-list/", headers={"hx-request": "true"}
+        )
+        body = listing.content.decode()
+
+        self.assertEqual(listing.status_code, 200)
+        select_ids = re.search(r'data-select-ids="([^"]*)"', body)
+        self.assertIsNotNone(select_ids)
+        offered = json.loads(select_ids.group(1))
+        self.assertNotIn(self.target.id, offered)
+        self.assertIn(self.bystander.id, offered)
+
+    def test_a_refused_delete_does_not_redirect(self):
+        """Only a successful deletion navigates away; a refusal has to stay
+        in the modal so the operator can read why."""
+        response = self.client.post(
+            f"{CONFIRM_URL}?pk={self.admin.id}",
+            {"confirm": "on"},
+            headers={"hx-request": "true"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("HX-Redirect", response.headers)
+        self.assertIn("Không thể tự xóa", response.content.decode())
 
 
 class OwnedDataTests(CbvDeleteBase):

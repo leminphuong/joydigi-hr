@@ -2453,6 +2453,95 @@ def job_position(request):
     )
 
 
+
+# ---------------------------------------------------------------------------
+# Phase EMPLOYEE-TYPE-INLINE-MANAGE-1 — inline "+ Thêm ..." from the employee
+# work form.
+#
+# Scoped to `?dynamic=true` on purpose. The standalone settings pages keep the
+# redirect-and-reload behaviour they have always had — there the whole page
+# *is* the list being updated. Inside the employee form a redirect would throw
+# away everything the operator has typed but not yet saved, so these answer
+# with out-of-band swaps instead.
+# ---------------------------------------------------------------------------
+
+#: Must stay identical to what EmployeeWorkInformationForm renders, so a
+#: select rebuilt after a create keeps behaving exactly like the original.
+DYNAMIC_ONCHANGE = {
+    "employee_type_id": "onDynamicOptionSelect(this, 'dynamicEmployeeType');",
+    "job_position_id": (
+        "if (onDynamicOptionSelect(this, 'dynamicJobPosition')) "
+        "{ jobChange($(this)); }"
+    ),
+    "shift_id": "onDynamicOptionSelect(this, 'dynamicShift');",
+}
+
+DYNAMIC_SELECT_CLASS = (
+    "oh-select emp-input w-full h-9 px-3 text-xs border border-secondary-200 "
+    "rounded-md bg-white text-dark-500"
+)
+
+
+def dynamic_scope_company(request):
+    """The company being worked in, or None when the session is "all"."""
+    selected = request.session.get("selected_company")
+    if not selected or selected == "all":
+        return None
+    return Company.objects.filter(id=selected).first()
+
+
+def dynamic_posted_companies(request, scoped_company):
+    """Companies the new row should belong to.
+
+    A specific company in the switcher is used automatically. Under "All my
+    companies" nothing is assumed — the operator has to say which company the
+    option applies to, rather than it being attached to all of them.
+    """
+    posted = (
+        request.POST.getlist("company_id")
+        if hasattr(request.POST, "getlist")
+        else []
+    )
+    if posted:
+        return posted
+    if scoped_company is not None:
+        return [str(scoped_company.pk)]
+    return []
+
+
+# Labels come from ``str(obj)``, not the raw name column: JobPosition renders
+# as "Position - (Department)" in the form, so rebuilding the select from the
+# bare field would silently drop the department suffix until the next full page
+# load.
+def dynamic_option_response(
+    request,
+    *,
+    field_name,
+    select_id,
+    options,
+    created_id,
+    add_label,
+    empty_label,
+    placeholder,
+    onchange="",
+):
+    """Rebuild one select with the new row selected, and close the modal."""
+    return render(
+        request,
+        "base/dynamic_create/option_created_oob.html",
+        {
+            "field_name": field_name,
+            "select_id": select_id,
+            "options": list(options),
+            "created_id": created_id,
+            "add_label": add_label,
+            "empty_label": empty_label,
+            "placeholder": placeholder,
+            "onchange": onchange,
+            "select_class": DYNAMIC_SELECT_CLASS,
+        },
+    )
+
 @login_required
 @hx_request_required
 @permission_required("base.add_jobposition")
@@ -2462,9 +2551,46 @@ def job_position_creation(request):
     """
     dynamic = request.GET.get("dynamic") if request.GET.get("dynamic") else ""
     form = JobPositionMultiForm()
+    scoped_company = dynamic_scope_company(request)
+
+    if dynamic and request.method == "GET" and scoped_company is not None:
+        form = JobPositionMultiForm(initial={"company_id": [scoped_company.pk]})
+
     if request.method == "POST":
         form = JobPositionMultiForm(request.POST)
-        if form.is_valid():
+        if dynamic:
+            companies = dynamic_posted_companies(request, scoped_company)
+            if not companies:
+                form.add_error(
+                    "company_id",
+                    _("Đang ở phạm vi nhiều công ty — hãy chọn công ty áp dụng."),
+                )
+            # Duplicates are already refused by JobPositionMultiForm.clean(),
+            # which checks the name against every selected department.
+            if form.is_valid():
+                # This form's save() returns the queryset it created, one row
+                # per selected department, and skips save_m2m - so the company
+                # links have to be attached here.
+                created = form.save()
+                company_objects = Company.objects.filter(id__in=companies)
+                for position in created:
+                    position.company_id.add(*company_objects)
+                first = created.first()
+                messages.success(
+                    request, _("Job Position has been created successfully!")
+                )
+                return dynamic_option_response(
+                    request,
+                    field_name="job_position_id",
+                    select_id="id_job_position_id",
+                    options=[(o.pk, str(o)) for o in JobPosition.objects.all()],
+                    created_id=first.pk if first else None,
+                    add_label=_("+ Thêm vị trí công việc mới"),
+                    empty_label=_("---Chọn Vị trí công việc---"),
+                    placeholder=_("Vị trí công việc"),
+                    onchange=DYNAMIC_ONCHANGE["job_position_id"],
+                )
+        elif form.is_valid():
             form.save()
             messages.success(request, _("Job Position has been created successfully!"))
             return JoydigiRedirect(request)
@@ -3169,73 +3295,45 @@ def employee_type_create(request):
     dynamic = request.GET.get("dynamic")
     form = EmployeeTypeForm()
     types = EmployeeType.objects.all()
-
-    # Phase EMPLOYEE-TYPE-INLINE-MANAGE-1 — the inline flow opened from the
-    # employee work form. Scoped to `?dynamic=true` on purpose: the standalone
-    # settings page keeps the redirect-and-reload behaviour it has always had,
-    # because there the whole page *is* the list being updated. Inside the
-    # employee form a redirect would throw away everything the operator has
-    # typed but not yet saved.
-    selected_company = request.session.get("selected_company")
-    scoped_company = None
-    if selected_company and selected_company != "all":
-        scoped_company = Company.objects.filter(id=selected_company).first()
+    scoped_company = dynamic_scope_company(request)
 
     if dynamic and request.method == "GET" and scoped_company is not None:
-        # Pre-tick the company being worked in; the operator can still change
-        # it. When the session is "All my companies" nothing is pre-selected,
-        # so a company has to be chosen deliberately rather than guessed.
         form = EmployeeTypeForm(initial={"company_id": [scoped_company.pk]})
 
     if request.method == "POST":
         form = EmployeeTypeForm(request.POST)
         if dynamic:
+            companies = dynamic_posted_companies(request, scoped_company)
             name = (request.POST.get("employee_type") or "").strip()
-            companies = form.data.getlist("company_id") if hasattr(
-                form.data, "getlist"
-            ) else []
-            if not companies and scoped_company is not None:
-                companies = [str(scoped_company.pk)]
-
             if not companies:
                 form.add_error(
                     "company_id",
                     _("Đang ở phạm vi nhiều công ty — hãy chọn công ty áp dụng."),
                 )
-            elif name:
-                # Duplicate check within the chosen scope. The model has no
-                # unique constraint, so two identical names in one company are
-                # possible unless this refuses them.
-                clash = (
-                    EmployeeType._base_manager.filter(
-                        employee_type__iexact=name, company_id__in=companies
-                    )
-                    .distinct()
-                    .first()
+            elif name and EmployeeType._base_manager.filter(
+                employee_type__iexact=name, company_id__in=companies
+            ).exists():
+                # The model has no unique constraint, so without this two
+                # identical names could live in one company.
+                form.add_error(
+                    "employee_type",
+                    _("Loại nhân viên này đã tồn tại trong công ty đã chọn."),
                 )
-                if clash is not None:
-                    form.add_error(
-                        "employee_type",
-                        _("Loại nhân viên này đã tồn tại trong công ty đã chọn."),
-                    )
 
             if form.is_valid():
                 instance = form.save()
-                if scoped_company is not None:
-                    instance.company_id.add(scoped_company)
+                instance.company_id.add(*Company.objects.filter(id__in=companies))
                 messages.success(request, _("Employee type created."))
-                return render(
+                return dynamic_option_response(
                     request,
-                    "base/employee_type/employee_type_created_oob.html",
-                    {
-                        "employee_types": EmployeeType.objects.all(),
-                        "created_id": instance.pk,
-                        "can_create": True,
-                        "select_class": (
-                            "oh-select emp-input w-full h-9 px-3 text-xs border "
-                            "border-secondary-200 rounded-md bg-white text-dark-500"
-                        ),
-                    },
+                    field_name="employee_type_id",
+                    select_id="id_employee_type_id",
+                    options=[(o.pk, str(o)) for o in EmployeeType.objects.all()],
+                    created_id=instance.pk,
+                    add_label=_("+ Thêm loại nhân viên mới"),
+                    empty_label=_("---Chọn Loại nhân viên---"),
+                    placeholder=_("Loại nhân viên"),
+                    onchange=DYNAMIC_ONCHANGE["employee_type_id"],
                 )
         elif form.is_valid():
             form.save()
@@ -3303,9 +3401,47 @@ def employee_shift_create(request):
     dynamic = request.GET.get("dynamic")
     form = EmployeeShiftForm()
     shifts = EmployeeShift.objects.all()
+    scoped_company = dynamic_scope_company(request)
+
+    if dynamic and request.method == "GET" and scoped_company is not None:
+        form = EmployeeShiftForm(initial={"company_id": [scoped_company.pk]})
+
     if request.method == "POST":
         form = EmployeeShiftForm(request.POST)
-        if form.is_valid():
+        if dynamic:
+            companies = dynamic_posted_companies(request, scoped_company)
+            name = (request.POST.get("employee_shift") or "").strip()
+            if not companies:
+                form.add_error(
+                    "company_id",
+                    _("Đang ở phạm vi nhiều công ty — hãy chọn công ty áp dụng."),
+                )
+            elif name and EmployeeShift._base_manager.filter(
+                employee_shift__iexact=name, company_id__in=companies
+            ).exists():
+                form.add_error(
+                    "employee_shift",
+                    _("Ca làm việc này đã tồn tại trong công ty đã chọn."),
+                )
+
+            if form.is_valid():
+                instance = form.save()
+                instance.company_id.add(*Company.objects.filter(id__in=companies))
+                messages.success(
+                    request, _("Employee Shift has been created successfully!")
+                )
+                return dynamic_option_response(
+                    request,
+                    field_name="shift_id",
+                    select_id="id_shift_id",
+                    options=[(o.pk, str(o)) for o in EmployeeShift.objects.all()],
+                    created_id=instance.pk,
+                    add_label=_("+ Thêm ca làm việc mới"),
+                    empty_label=_("---Chọn Ca làm việc---"),
+                    placeholder=_("Ca làm việc"),
+                    onchange=DYNAMIC_ONCHANGE["shift_id"],
+                )
+        elif form.is_valid():
             form.save()
             form = EmployeeShiftForm()
             messages.success(

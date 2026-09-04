@@ -163,29 +163,44 @@
 </div>
 
 <script>
-    // Phase EMPLOYEE-TYPE-INLINE-MANAGE-1 — the "+ Thêm loại nhân viên mới"
-    // row. Selecting an action must not leave the action selected: the value
-    // is put back to whatever was chosen before, then the hidden trigger opens
-    // the create modal. Without the revert, cancelling the modal would leave
-    // the form about to submit "create" as the employee type.
-    function onEmployeeTypeSelect(select) {
+    // Phase EMPLOYEE-TYPE-INLINE-MANAGE-1 — the "+ Thêm ..." action rows.
+    //
+    // Selecting an action must not leave the action selected: the value is put
+    // back to whatever was chosen before, then the hidden trigger opens the
+    // create modal. Without the revert, cancelling the modal would leave the
+    // form about to submit "create" as a real foreign key.
+    //
+    // Returns false for the action row and true otherwise, so a select that
+    // already had its own handler (job position drives the job-role dropdown
+    // via jobChange) can chain: `if (onDynamicOptionSelect(...)) { ... }`.
+    function onDynamicOptionSelect(select, triggerId) {
         if (select.value !== "create") {
             select.dataset.previousValue = select.value;
-            return;
+            return true;
         }
         select.value = select.dataset.previousValue || "";
-        var trigger = document.getElementById("dynamicEmployeeType");
+        var trigger = document.getElementById(triggerId);
         if (trigger) {
             trigger.click();
         }
+        return false;
     }
 
-    document.addEventListener("DOMContentLoaded", function () {
-        var select = document.getElementById("id_employee_type_id");
-        if (select) {
-            select.dataset.previousValue = select.value;
-        }
-    });
+    function rememberSelectedOptions() {
+        ["id_employee_type_id", "id_job_position_id", "id_shift_id"].forEach(
+            function (id) {
+                var select = document.getElementById(id);
+                if (select) {
+                    select.dataset.previousValue = select.value;
+                }
+            }
+        );
+    }
+
+    document.addEventListener("DOMContentLoaded", rememberSelectedOptions);
+    // The selects are replaced by out-of-band swaps after a create, so the
+    // remembered value has to be refreshed once htmx has settled.
+    document.body.addEventListener("htmx:afterSettle", rememberSelectedOptions);
 
     function onDynamicCreate(value, id) {
       if (value === "create") {

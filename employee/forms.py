@@ -359,7 +359,12 @@ class AddNewOptionSelect(forms.Select):
     instance's selected value all keep working untouched.
     """
 
-    add_label = _("+ Thêm loại nhân viên mới")
+    add_label = ""
+
+    def __init__(self, *args, add_label="", **kwargs):
+        super().__init__(*args, **kwargs)
+        if add_label:
+            self.add_label = add_label
 
     def optgroups(self, name, value, attrs=None):
         groups = super().optgroups(name, value, attrs)
@@ -463,7 +468,7 @@ class EmployeeWorkInformationForm(ModelForm):
                             ("create", _("Create New {} ").format(translated_label))
                         ]
 
-        self._allow_inline_employee_type_create()
+        self._allow_inline_create()
 
     def clean(self):
         cleaned_data = super().clean()
@@ -471,27 +476,60 @@ class EmployeeWorkInformationForm(ModelForm):
             del self.errors["employee_id"]
         return cleaned_data
 
-    def _allow_inline_employee_type_create(self):
-        """Show the "+ Thêm loại nhân viên mới" row only to someone who could
-        actually use it.
+    #: field name -> (permission, id of the hidden modal trigger already in
+    #: the work-details template, label of the action row).
+    INLINE_CREATE_FIELDS = (
+        (
+            "employee_type_id",
+            "base.add_employeetype",
+            "dynamicEmployeeType",
+            _("+ Thêm loại nhân viên mới"),
+        ),
+        (
+            "job_position_id",
+            "base.add_jobposition",
+            "dynamicJobPosition",
+            _("+ Thêm vị trí công việc mới"),
+        ),
+        (
+            "shift_id",
+            "base.add_employeeshift",
+            "dynamicShift",
+            _("+ Thêm ca làm việc mới"),
+        ),
+    )
+
+    def _allow_inline_create(self):
+        """Show each "+ Thêm ..." row only to someone who could actually use it.
 
         This is presentation only — hiding a control is not a permission
-        check. ``base.views.employee_type_create`` carries
-        ``@permission_required("base.add_employeetype")`` and is what actually
-        refuses an unauthorised create.
+        check. Each create view carries its own ``@permission_required`` and is
+        what actually refuses an unauthorised create.
         """
         request = getattr(joydigi_middlewares._thread_locals, "request", None)
         user = getattr(request, "user", None)
         if user is None or not user.is_authenticated:
             return
-        if not user.has_perm("base.add_employeetype"):
-            return
-        field = self.fields.get("employee_type_id")
-        if field is None or not isinstance(field, forms.ModelChoiceField):
-            return
-        attrs = dict(field.widget.attrs)
-        attrs["onchange"] = "onEmployeeTypeSelect(this);"
-        field.widget = AddNewOptionSelect(attrs=attrs, choices=field.widget.choices)
+
+        for name, perm, trigger, add_label in self.INLINE_CREATE_FIELDS:
+            if not user.has_perm(perm):
+                continue
+            field = self.fields.get(name)
+            if field is None or not isinstance(field, forms.ModelChoiceField):
+                continue
+            attrs = dict(field.widget.attrs)
+            # `job_position_id` already carries `jobChange($(this))`, which
+            # repopulates the job-role dropdown. Chain rather than replace: the
+            # guard returns False only for the action row, so the original
+            # handler keeps running for every real selection.
+            existing = (attrs.get("onchange") or "").strip().rstrip(";")
+            guard = f"onDynamicOptionSelect(this, '{trigger}')"
+            attrs["onchange"] = (
+                f"if ({guard}) {{ {existing}; }}" if existing else f"{guard};"
+            )
+            field.widget = AddNewOptionSelect(
+                attrs=attrs, choices=field.widget.choices, add_label=add_label
+            )
 
     def as_p(self, *args, **kwargs):
         context = {"form": self}

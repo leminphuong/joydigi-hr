@@ -163,6 +163,30 @@
 </div>
 
 <script>
+    // Phase EMPLOYEE-TYPE-INLINE-MANAGE-1 — the "+ Thêm loại nhân viên mới"
+    // row. Selecting an action must not leave the action selected: the value
+    // is put back to whatever was chosen before, then the hidden trigger opens
+    // the create modal. Without the revert, cancelling the modal would leave
+    // the form about to submit "create" as the employee type.
+    function onEmployeeTypeSelect(select) {
+        if (select.value !== "create") {
+            select.dataset.previousValue = select.value;
+            return;
+        }
+        select.value = select.dataset.previousValue || "";
+        var trigger = document.getElementById("dynamicEmployeeType");
+        if (trigger) {
+            trigger.click();
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        var select = document.getElementById("id_employee_type_id");
+        if (select) {
+            select.dataset.previousValue = select.value;
+        }
+    });
+
     function onDynamicCreate(value, id) {
       if (value === "create") {
         $(id)[0].click();

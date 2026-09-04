@@ -344,6 +344,35 @@ class EmployeeForm(ModelForm):
         return badge_id
 
 
+class AddNewOptionSelect(forms.Select):
+    """A ``<select>`` that carries one extra action row at the bottom.
+
+    Phase EMPLOYEE-TYPE-INLINE-MANAGE-1. The options themselves still come
+    from the queryset — this only appends a fixed *action* whose value is
+    ``"create"``, which the page's ``onDynamicCreate`` hook already knows how
+    to turn into "open the create modal". Nothing about the data is hard-coded.
+
+    Implemented as a widget rather than by rewriting the field into a plain
+    ``ChoiceField`` (the approach the older, dead ``field_names`` block in
+    ``EmployeeWorkInformationForm`` took): the field stays a
+    ``ModelChoiceField``, so its queryset, company scoping and the bound
+    instance's selected value all keep working untouched.
+    """
+
+    add_label = _("+ Thêm loại nhân viên mới")
+
+    def optgroups(self, name, value, attrs=None):
+        groups = super().optgroups(name, value, attrs)
+        index = len(groups)
+        option = self.create_option(
+            name, "create", self.add_label, False, index, attrs=attrs
+        )
+        # Never let the action row be mistaken for a stored value.
+        option["attrs"]["data-action"] = "create"
+        groups.append((None, [option], index))
+        return groups
+
+
 class EmployeeWorkInformationForm(ModelForm):
     """
     Form for EmployeeWorkInformation model
@@ -434,11 +463,35 @@ class EmployeeWorkInformationForm(ModelForm):
                             ("create", _("Create New {} ").format(translated_label))
                         ]
 
+        self._allow_inline_employee_type_create()
+
     def clean(self):
         cleaned_data = super().clean()
         if "employee_id" in self.errors:
             del self.errors["employee_id"]
         return cleaned_data
+
+    def _allow_inline_employee_type_create(self):
+        """Show the "+ Thêm loại nhân viên mới" row only to someone who could
+        actually use it.
+
+        This is presentation only — hiding a control is not a permission
+        check. ``base.views.employee_type_create`` carries
+        ``@permission_required("base.add_employeetype")`` and is what actually
+        refuses an unauthorised create.
+        """
+        request = getattr(joydigi_middlewares._thread_locals, "request", None)
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated:
+            return
+        if not user.has_perm("base.add_employeetype"):
+            return
+        field = self.fields.get("employee_type_id")
+        if field is None or not isinstance(field, forms.ModelChoiceField):
+            return
+        attrs = dict(field.widget.attrs)
+        attrs["onchange"] = "onEmployeeTypeSelect(this);"
+        field.widget = AddNewOptionSelect(attrs=attrs, choices=field.widget.choices)
 
     def as_p(self, *args, **kwargs):
         context = {"form": self}

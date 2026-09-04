@@ -1,0 +1,46 @@
+{% load i18n %}
+{% comment %}
+Phase EMPLOYEE-TYPE-INLINE-MANAGE-1 — reply to a create posted from the
+work-form modal, shared by employee type, job position and shift.
+
+Two out-of-band swaps and nothing else, so the work form the operator is in
+the middle of filling in is never re-rendered and never loses its unsaved
+values:
+
+  1. the target select, rebuilt from the company-scoped queryset with the
+     newly created row selected;
+  2. the modal body, emptied.
+
+Options come from `options`, which the view read from the database — no value
+is written into this template.
+{% endcomment %}
+
+<select name="{{ field_name }}"
+        id="{{ select_id }}"
+        hx-swap-oob="true"
+        class="{{ select_class }}"
+        placeholder="{{ placeholder }}"
+        {% if onchange %}onchange="{{ onchange|safe }}"{% endif %}>
+    <option value="" disabled>{{ empty_label }}</option>
+    {% for option in options %}
+        <option value="{{ option.0 }}"{% if option.0 == created_id %} selected{% endif %}>{{ option.1 }}</option>
+    {% endfor %}
+    {% if add_label %}
+        <option value="create" data-action="create">{{ add_label }}</option>
+    {% endif %}
+</select>
+
+<div id="dynamicCreateModalBody" hx-swap-oob="true"></div>
+
+<script>
+    (function () {
+        var modal = document.getElementById("dynamicCreateModal");
+        if (modal) {
+            modal.classList.remove("oh-modal--show");
+        }
+        var select = document.getElementById("{{ select_id }}");
+        if (select) {
+            select.dataset.previousValue = select.value;
+        }
+    })();
+</script>

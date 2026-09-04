@@ -20,7 +20,7 @@ duplicate it simply could not see.
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from base.models import Company, Department, JobPosition
+from base.models import Company, Department, EmployeeType, JobPosition
 
 #: New companies. ``Company`` is unique on (company, address), and ``hq`` stays
 #: False so the existing headquarters is left as the only one.
@@ -38,6 +38,11 @@ NEW_COMPANIES = [
 
 NEW_DEPARTMENTS = ["SEO", "YOUTUBE"]
 
+#: Phase EMPLOYEE-TYPE-PROBATION-1. ``EmployeeWorkInformation.employee_type_id``
+#: is a foreign key to this table, not a ``choices`` list, so a new option is a
+#: row — no migration, and nothing to add to a template.
+NEW_EMPLOYEE_TYPES = ["Nhân viên thử việc"]
+
 #: ``JobPosition.department_id`` is NOT NULL, and the employee form filters
 #: positions by the chosen department (``/employee/get-job-positions-hx``), so
 #: each new position has to name the department it belongs under.
@@ -50,8 +55,8 @@ NEW_JOB_POSITIONS = [
 class Command(BaseCommand):
     help = (
         "Add the SEO/YOUTUBE departments, the Nhân viên SEO/Editor job "
-        "positions and the JDG MEDIA company. Idempotent; existing data is "
-        "never changed or removed."
+        "positions, the JDG MEDIA company and the Nhân viên thử việc employee "
+        "type. Idempotent; existing data is never changed or removed."
     )
 
     def add_arguments(self, parser):
@@ -63,8 +68,19 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
-        created = {"companies": [], "departments": [], "positions": [], "links": 0}
-        existing = {"companies": [], "departments": [], "positions": []}
+        created = {
+            "companies": [],
+            "departments": [],
+            "positions": [],
+            "employee_types": [],
+            "links": 0,
+        }
+        existing = {
+            "companies": [],
+            "departments": [],
+            "positions": [],
+            "employee_types": [],
+        }
 
         with transaction.atomic():
             for spec in NEW_COMPANIES:
@@ -133,6 +149,20 @@ class Command(BaseCommand):
                     obj.company_id.add(*companies)
                     created["links"] += obj.company_id.count() - before
 
+            for name in NEW_EMPLOYEE_TYPES:
+                obj = EmployeeType._base_manager.filter(employee_type=name).first()
+                if obj is not None:
+                    existing["employee_types"].append(name)
+                elif dry_run:
+                    created["employee_types"].append(name)
+                else:
+                    obj = EmployeeType.objects.create(employee_type=name)
+                    created["employee_types"].append(name)
+                if obj is not None and not dry_run:
+                    before = obj.company_id.count()
+                    obj.company_id.add(*companies)
+                    created["links"] += obj.company_id.count() - before
+
             if dry_run:
                 transaction.set_rollback(True)
 
@@ -141,6 +171,7 @@ class Command(BaseCommand):
             ("Công ty", "companies"),
             ("Phòng ban", "departments"),
             ("Vị trí công việc", "positions"),
+            ("Loại nhân viên", "employee_types"),
         ):
             if created[key]:
                 self.stdout.write(

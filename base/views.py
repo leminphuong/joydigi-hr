@@ -3169,9 +3169,75 @@ def employee_type_create(request):
     dynamic = request.GET.get("dynamic")
     form = EmployeeTypeForm()
     types = EmployeeType.objects.all()
+
+    # Phase EMPLOYEE-TYPE-INLINE-MANAGE-1 — the inline flow opened from the
+    # employee work form. Scoped to `?dynamic=true` on purpose: the standalone
+    # settings page keeps the redirect-and-reload behaviour it has always had,
+    # because there the whole page *is* the list being updated. Inside the
+    # employee form a redirect would throw away everything the operator has
+    # typed but not yet saved.
+    selected_company = request.session.get("selected_company")
+    scoped_company = None
+    if selected_company and selected_company != "all":
+        scoped_company = Company.objects.filter(id=selected_company).first()
+
+    if dynamic and request.method == "GET" and scoped_company is not None:
+        # Pre-tick the company being worked in; the operator can still change
+        # it. When the session is "All my companies" nothing is pre-selected,
+        # so a company has to be chosen deliberately rather than guessed.
+        form = EmployeeTypeForm(initial={"company_id": [scoped_company.pk]})
+
     if request.method == "POST":
         form = EmployeeTypeForm(request.POST)
-        if form.is_valid():
+        if dynamic:
+            name = (request.POST.get("employee_type") or "").strip()
+            companies = form.data.getlist("company_id") if hasattr(
+                form.data, "getlist"
+            ) else []
+            if not companies and scoped_company is not None:
+                companies = [str(scoped_company.pk)]
+
+            if not companies:
+                form.add_error(
+                    "company_id",
+                    _("Đang ở phạm vi nhiều công ty — hãy chọn công ty áp dụng."),
+                )
+            elif name:
+                # Duplicate check within the chosen scope. The model has no
+                # unique constraint, so two identical names in one company are
+                # possible unless this refuses them.
+                clash = (
+                    EmployeeType._base_manager.filter(
+                        employee_type__iexact=name, company_id__in=companies
+                    )
+                    .distinct()
+                    .first()
+                )
+                if clash is not None:
+                    form.add_error(
+                        "employee_type",
+                        _("Loại nhân viên này đã tồn tại trong công ty đã chọn."),
+                    )
+
+            if form.is_valid():
+                instance = form.save()
+                if scoped_company is not None:
+                    instance.company_id.add(scoped_company)
+                messages.success(request, _("Employee type created."))
+                return render(
+                    request,
+                    "base/employee_type/employee_type_created_oob.html",
+                    {
+                        "employee_types": EmployeeType.objects.all(),
+                        "created_id": instance.pk,
+                        "can_create": True,
+                        "select_class": (
+                            "oh-select emp-input w-full h-9 px-3 text-xs border "
+                            "border-secondary-200 rounded-md bg-white text-dark-500"
+                        ),
+                    },
+                )
+        elif form.is_valid():
             form.save()
             form = EmployeeTypeForm()
             messages.success(request, _("Employee type created."))

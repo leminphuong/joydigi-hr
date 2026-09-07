@@ -123,8 +123,10 @@ delegated from `document` in the shell, which HTMX does not swap.
           {% for cell in row.cells %}
             <td class="wk-col-day{% if cell.is_off_day %} wk-weekend{% endif %}">
               {% if cell.clock_in or cell.clock_out %}
-                {# Only the timestamps that exist are shown. A missing one is
-                   left out rather than filled with a placeholder. #}
+                {% comment %}
+                  Only the timestamps that exist are shown. A missing one is
+                  left out rather than filled with a placeholder.
+                {% endcomment %}
                 <div class="wk-day">
                   {% if cell.clock_in %}
                     <div class="wk-day__time">
@@ -137,10 +139,11 @@ delegated from `document` in the shell, which HTMX does not swap.
                     </div>
                   {% endif %}
                   {% if cell.worked_on_off_day %}
-                    {# Clocked in on a holiday / week-off. Shown so the day is
-                       not mistaken for an ordinary working day — it is not
-                       counted in "Số công", exactly as the monthly table has
-                       it. #}
+                    {% comment %}
+                      Clocked in on a holiday / week-off. Shown so the day is
+                      not mistaken for an ordinary working day — it is not
+                      counted in "Số công", exactly as the monthly table has it.
+                    {% endcomment %}
                     <div class="wk-chip wk-chip--tiny" style="background:rgba(154,163,173,.16);color:#6b7280;">
                       {% if cell.bucket == 'holiday' %}{% trans "Lễ" %}{% else %}{% trans "Ngày nghỉ" %}{% endif %}
                     </div>
@@ -212,10 +215,11 @@ delegated from `document` in the shell, which HTMX does not swap.
   </div>
 {% endif %}
 
-{# ── Card list modal ──────────────────────────────────────────────────────
-   One dialog, one hidden list per card. The title and the count are copied
-   from whichever card was clicked, so the labels are defined once, above.
-   View only: no employee detail, no calendar, no actions.                 #}
+{% comment %}
+  Card list modal. One dialog, one hidden list per card. The title and the
+  count are copied from whichever card was clicked, so the labels are defined
+  once, above. View only: no employee detail, no calendar, no actions.
+{% endcomment %}
 <div class="oh-modal" id="wk-card-modal" role="dialog" aria-modal="true"
      aria-hidden="true" aria-labelledby="wk-card-modal-title">
   <div class="oh-modal__dialog wk-modal__dialog">

@@ -365,17 +365,77 @@ def _page_size(request):
 # ---------------------------------------------------------------------------
 
 
+def _grid_context(request, from_date, to_date):
+    """Everything ``weekly_table_partial.html`` needs to draw itself.
+
+    Used by both entry points so the first paint and every later HTMX swap go
+    through exactly the same code: the full page renders this partial inline
+    (no waiting on a second request), and the HTMX endpoint renders it on its
+    own. Presentation plumbing only — the numbers still come from
+    ``weekly_summary_totals`` and ``build_weekly_grid`` untouched.
+
+    Order matters: the employee queryset is filtered, then paginated, and only
+    the resulting page is handed to ``build_weekly_grid``. The cards are
+    computed separately over the full filtered set, so describing the filter
+    costs a fixed number of queries rather than a grid nobody renders.
+    """
+    employees = _filtered_employees(request)
+    totals = weekly_summary_totals(from_date, to_date, employees)
+    total_row_count = totals["employees"]
+
+    per_page = _page_size(request)
+    if per_page:
+        page = Paginator(employees, per_page).get_page(request.GET.get("page"))
+    else:
+        # `paginator_qry` has no size argument; using it here keeps the shared
+        # per-user default — and every other screen that calls it — untouched.
+        page = paginator_qry(employees, request.GET.get("page"))
+
+    rows, days = build_weekly_grid(from_date, to_date, page.object_list)
+
+    # Percentages shown under each card: arithmetic on numbers already counted
+    # above — no new rule about who is late or absent, only "how many of them".
+    def _pct(value):
+        if not total_row_count:
+            return None
+        return round(value * 100.0 / total_row_count, 1)
+
+    return {
+        "rows": rows,
+        "page": page,
+        "days": days,
+        "totals": totals,
+        "from_date": from_date,
+        "to_date": to_date,
+        "week": from_date.isoformat(),
+        "total_row_count": total_row_count,
+        "percentages": {
+            "with_attendance": _pct(totals["with_attendance"]),
+            "late": _pct(totals["late"]),
+            "on_leave": _pct(totals["on_leave"]),
+            "absent": _pct(totals["absent"]),
+        },
+        "per_page": per_page,
+        "page_size_choices": PAGE_SIZE_CHOICES,
+        "pd": _querystring(request, drop=("page", "per_page")),
+    }
+
+
 @login_required
 @checkin_leader_required
 def attendance_weekly_summary(request):
-    """Full-page shell for the weekly mode. The grid loads over HTMX."""
+    """Full page for the weekly mode.
+
+    The cards and the grid are rendered server-side, in this response — the
+    page is complete when it arrives. HTMX is only used afterwards, to update
+    them when a filter, the week, the page or the page size changes.
+    """
     from_date, to_date = parse_week(request.GET.get("week"), _today())
     prev_monday = from_date - datetime.timedelta(days=7)
     next_monday = from_date + datetime.timedelta(days=7)
 
-    return render(
-        request,
-        "attendance/weekly_summary/weekly_summary.html",
+    context = _grid_context(request, from_date, to_date)
+    context.update(
         {
             "week": from_date.isoformat(),
             "from_date": from_date,
@@ -399,7 +459,11 @@ def attendance_weekly_summary(request):
             # who would only get a 403 is worse than not showing it.
             "can_export": is_checkin_admin(request.user),
             "export_qs": _export_querystring(request, from_date, to_date),
-        },
+        }
+    )
+
+    return render(
+        request, "attendance/weekly_summary/weekly_summary.html", context
     )
 
 
@@ -409,56 +473,13 @@ def attendance_weekly_summary(request):
 def attendance_weekly_summary_table(request):
     """HTMX partial — the summary cards plus the weekly grid.
 
-    Order matters: the employee queryset is filtered, then paginated, and only
-    the resulting page is handed to ``build_weekly_grid``. The cards are
-    computed separately over the full filtered set, so describing the filter
-    costs a fixed number of queries rather than a grid nobody renders.
+    Same content the full page already rendered inline; this endpoint exists to
+    refresh it in place when a filter changes.
     """
     from_date, to_date = parse_week(request.GET.get("week"), _today())
-
-    employees = _filtered_employees(request)
-    totals = weekly_summary_totals(from_date, to_date, employees)
-    total_row_count = totals["employees"]
-
-    per_page = _page_size(request)
-    if per_page:
-        page = Paginator(employees, per_page).get_page(request.GET.get("page"))
-    else:
-        # `paginator_qry` has no size argument; using it here keeps the shared
-        # per-user default — and every other screen that calls it — untouched.
-        page = paginator_qry(employees, request.GET.get("page"))
-
-    rows, days = build_weekly_grid(from_date, to_date, page.object_list)
-
-    # Percentages shown under each card: arithmetic on numbers already counted
-    # above — no new rule about who is late or absent, only "how many of them".
-    def _pct(value):
-        if not total_row_count:
-            return None
-        return round(value * 100.0 / total_row_count, 1)
-
-    percentages = {
-        "with_attendance": _pct(totals["with_attendance"]),
-        "late": _pct(totals["late"]),
-        "on_leave": _pct(totals["on_leave"]),
-        "absent": _pct(totals["absent"]),
-    }
 
     return render(
         request,
         "attendance/weekly_summary/weekly_table_partial.html",
-        {
-            "rows": rows,
-            "page": page,
-            "days": days,
-            "totals": totals,
-            "from_date": from_date,
-            "to_date": to_date,
-            "week": from_date.isoformat(),
-            "total_row_count": total_row_count,
-            "percentages": percentages,
-            "per_page": per_page,
-            "page_size_choices": PAGE_SIZE_CHOICES,
-            "pd": _querystring(request, drop=("page", "per_page")),
-        },
+        _grid_context(request, from_date, to_date),
     )

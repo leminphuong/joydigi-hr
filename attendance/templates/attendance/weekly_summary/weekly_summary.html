@@ -48,9 +48,6 @@ The modal reuses the global `oh-modal` component rather than inventing one.
     transition: border-color .16s, box-shadow .16s, transform .16s;
   }
   .wk-card:hover { border-color: var(--wk-primary); box-shadow: 0 2px 10px rgba(16,24,40,.07); }
-  /* Placeholder shown for the moment before the first HTMX load lands. */
-  .wk-card--skeleton { cursor: default; }
-  .wk-card--skeleton:hover { border-color: #e8eaed; box-shadow: none; }
   .wk-card:active { transform: translateY(1px); }
   .wk-card:focus-visible { outline: none; border-color: var(--wk-primary); box-shadow: 0 0 0 3px var(--wk-ring); }
   .wk-card__icon {
@@ -185,11 +182,6 @@ The modal reuses the global `oh-modal` component rather than inventing one.
           <a class="wk-tab" href="{% url 'attendance-monthly-summary' %}">{% trans "Theo tháng" %}</a>
         </div>
         <div class="flex gap-2">
-          {# Reuses the existing export endpoint unchanged — it takes a date
-             range, so the current week's bounds are passed straight through and
-             the produced file keeps exactly the format it has today. That
-             endpoint is admin-only, so a leader is not shown a button that
-             would only answer 403. #}
           {% if can_export %}
             <a class="oh-btn oh-btn--secondary-outline wk-action"
                href="{% url 'attendance-monthly-summary-export' %}?{{ export_qs }}">
@@ -203,10 +195,15 @@ The modal reuses the global `oh-modal` component rather than inventing one.
       </div>
     </div>
 
+    {% comment %}
+      The form drives UPDATES only. The first paint needs no request at all:
+      the cards and the grid are rendered server-side into #wk-table-container
+      below. Nothing the user must see depends on a client-side round trip.
+    {% endcomment %}
     <form id="wk-filter-form"
           hx-get="{% url 'attendance-weekly-summary-table' %}"
           hx-target="#wk-table-container"
-          hx-trigger="load, change from:#wk-filter-form, search-submit"
+          hx-trigger="change from:#wk-filter-form, search-submit"
           hx-push-url="false">
 
       <div class="wk-toolbar mb-3">
@@ -241,10 +238,14 @@ The modal reuses the global `oh-modal` component rather than inventing one.
       </div>
     </form>
 
+    {% comment %}
+      Rendered inline by the view, from the same context the HTMX endpoint
+      uses. No `hx-trigger="load"`, no placeholder: the first paint carries the
+      real cards and the real grid. Later swaps replace the contents of this
+      element in place.
+    {% endcomment %}
     <div id="wk-table-container">
-      <div class="wk-cards mb-3">
-        {% for _ in "12345" %}<div class="wk-card wk-card--skeleton" aria-hidden="true"><div class="wk-card__icon wk-t-total">&nbsp;</div><div class="wk-card__body"><div class="wk-card__label">&nbsp;</div><div class="wk-card__value">&hellip;</div></div></div>{% endfor %}
-      </div>
+      {% include "attendance/weekly_summary/weekly_table_partial.html" %}
     </div>
 
   </div>

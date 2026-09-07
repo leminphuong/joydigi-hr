@@ -32,7 +32,7 @@ from base.forms import AttendanceAllowedIPForm
 from base.models import AttendanceAllowedIP
 from base.views import add_remove_dynamic_fields
 
-from .views import summary, views
+from .views import summary, views, weekly
 
 urlpatterns = [
     path("face/", face_views.face_attendance_page, name="face-attendance"),
@@ -1035,6 +1035,18 @@ urlpatterns = [
         "dashboard/api/overview/",
         att_dashboard.attendance_overview,
         name="attendance-dashboard-overview",
+    ),
+    # Weekly mode (ATTENDANCE-WEEKLY-UI-1) — sits beside the monthly summary,
+    # which keeps its own URLs and behaviour untouched.
+    path(
+        "weekly-summary/",
+        weekly.attendance_weekly_summary,
+        name="attendance-weekly-summary",
+    ),
+    path(
+        "weekly-summary/table/",
+        weekly.attendance_weekly_summary_table,
+        name="attendance-weekly-summary-table",
     ),
     # Monthly summary (HR-188 / HR-190)
     path(

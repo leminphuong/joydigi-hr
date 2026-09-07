@@ -1,0 +1,334 @@
+{% extends 'index.html' %}
+{% load i18n %}
+{% block content %}
+{% comment %}
+Phase ATTENDANCE-WEEKLY-UI-1 — "Theo tuần" mode.
+Phase ATTENDANCE-WEEKLY-UI-2 — presentation pass: tab wording, card hierarchy,
+clickable cards opening a name list, filter-bar polish.
+
+An additional screen beside the existing monthly table, not a replacement:
+/attendance/monthly-summary/ keeps its URL, its view and every feature it had.
+The tab strip below simply links the two.
+
+Colours come from the theme JOYDIGI already serves: `--primary-600` is defined
+on :root by index.html from the company's own theme, so a company with a custom
+primary gets it here too. Every rule is prefixed `wk-` and lives in this
+template, so no global stylesheet is touched and no other page is affected.
+The modal reuses the global `oh-modal` component rather than inventing one.
+{% endcomment %}
+
+<style>
+  .wk-page {
+    --wk-primary: var(--primary-600, #E54F38);
+    --wk-primary-soft: color-mix(in srgb, var(--wk-primary) 10%, transparent);
+    --wk-ring: color-mix(in srgb, var(--wk-primary) 25%, transparent);
+  }
+
+  /* ── Header / tabs ───────────────────────────────────────────────────── */
+  .wk-tabs { display: inline-flex; gap: 4px; background: #f1f2f4; padding: 4px; border-radius: 10px; }
+  .wk-tab {
+    padding: 7px 18px; border-radius: 8px; font-size: .85rem; font-weight: 600;
+    color: #55606b; text-decoration: none; white-space: nowrap; transition: .18s;
+  }
+  .wk-tab:hover { color: #2f3740; }
+  .wk-tab--active { background: #fff; color: var(--wk-primary); box-shadow: 0 1px 2px rgba(16,24,40,.08); }
+  .wk-tab:focus-visible { outline: 2px solid var(--wk-primary); outline-offset: 1px; }
+
+  /* ── Summary cards ───────────────────────────────────────────────────── */
+  .wk-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 1180px) { .wk-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 820px)  { .wk-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px)  { .wk-cards { grid-template-columns: 1fr; } }
+
+  /* A card is a real <button>: keyboard, Enter/Space and focus come for free. */
+  .wk-card {
+    display: flex; align-items: center; gap: 13px; width: 100%;
+    padding: 15px 17px; border: 1px solid #e8eaed; border-radius: 12px; background: #fff;
+    font: inherit; color: inherit; text-align: left; cursor: pointer;
+    transition: border-color .16s, box-shadow .16s, transform .16s;
+  }
+  .wk-card:hover { border-color: var(--wk-primary); box-shadow: 0 2px 10px rgba(16,24,40,.07); }
+  /* Placeholder shown for the moment before the first HTMX load lands. */
+  .wk-card--skeleton { cursor: default; }
+  .wk-card--skeleton:hover { border-color: #e8eaed; box-shadow: none; }
+  .wk-card:active { transform: translateY(1px); }
+  .wk-card:focus-visible { outline: none; border-color: var(--wk-primary); box-shadow: 0 0 0 3px var(--wk-ring); }
+  .wk-card__icon {
+    width: 40px; height: 40px; flex: 0 0 40px; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+  }
+  .wk-card__body { min-width: 0; }
+  .wk-card__label { font-size: .78rem; color: #6b7280; line-height: 1.2; margin-bottom: 3px; }
+  .wk-card__value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; color: #1f2937; }
+  .wk-card__pct { font-size: .72rem; font-weight: 600; color: #9aa3ad; }
+
+  /* Status hues. Deliberately muted and few, so the grid does not turn into a
+     colour chart. The "total" tile follows the company's own primary. */
+  .wk-t-total   { background: var(--wk-primary-soft); color: var(--wk-primary); }
+  .wk-t-present { background: rgba(22,163,74,.10);  color: #16a34a; }
+  .wk-t-late    { background: rgba(217,119,6,.12);  color: #d97706; }
+  .wk-t-leave   { background: rgba(37,99,235,.10);  color: #2563eb; }
+  .wk-t-absent  { background: rgba(220,38,38,.10);  color: #dc2626; }
+
+  /* ── Filter bar ──────────────────────────────────────────────────────── */
+  .wk-toolbar {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+    padding: 14px 16px; border: 1px solid #e8eaed; border-radius: 12px; background: #fff;
+  }
+  .wk-field { display: flex; flex-direction: column; gap: 5px; }
+  .wk-field__label { font-size: .74rem; font-weight: 600; color: #6b7280; }
+  .wk-control {
+    height: 38px; padding: 0 12px; font-size: .84rem;
+    border: 1px solid #e3e5e8; border-radius: 8px; background: #fff; color: #1f2937;
+  }
+  .wk-control:focus { outline: none; border-color: var(--wk-primary); box-shadow: 0 0 0 3px var(--wk-ring); }
+  .wk-weeknav { display: flex; align-items: center; gap: 6px; }
+  .wk-weeknav a {
+    width: 34px; height: 38px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid #e3e5e8; border-radius: 8px; color: #55606b; text-decoration: none;
+  }
+  .wk-weeknav a:hover { border-color: var(--wk-primary); color: var(--wk-primary); }
+  .wk-weeknav a:focus-visible { outline: none; border-color: var(--wk-primary); box-shadow: 0 0 0 3px var(--wk-ring); }
+
+  /* ── Table ───────────────────────────────────────────────────────────── */
+  .wk-tablewrap { overflow-x: auto; border: 1px solid #e8eaed; border-radius: 12px; background: #fff; }
+  .wk-table { width: 100%; min-width: 1040px; border-collapse: separate; border-spacing: 0; font-size: .82rem; }
+  .wk-table thead th {
+    position: sticky; top: 0; z-index: 3;
+    background: #f7f8f9; color: #55606b; font-weight: 600; text-align: center;
+    padding: 10px 10px; border-bottom: 1px solid #e8eaed; white-space: nowrap;
+  }
+  .wk-table thead th.wk-col-name, .wk-table thead th.wk-col-idx { text-align: left; }
+  .wk-table tbody td { padding: 9px 10px; border-bottom: 1px solid #f1f2f4; text-align: center; vertical-align: middle; }
+  .wk-table tbody tr:last-child td { border-bottom: none; }
+  .wk-table tbody tr:hover td { background: #fafbfc; }
+  .wk-col-idx  { width: 52px; }
+  .wk-col-name { text-align: left; min-width: 190px; }
+  .wk-col-dept { text-align: left; min-width: 130px; }
+  .wk-col-day  { min-width: 78px; }
+  .wk-weekend  { background: #fbfbfc; }
+  .wk-table thead th.wk-weekend { background: #f2f3f5; }
+
+  /* Name column stays readable while the days scroll under it. */
+  .wk-table .wk-col-idx, .wk-table .wk-col-name { position: sticky; background: #fff; z-index: 2; }
+  .wk-table .wk-col-idx  { left: 0; }
+  .wk-table .wk-col-name { left: 52px; box-shadow: 1px 0 0 #f1f2f4; }
+  .wk-table thead th.wk-col-idx, .wk-table thead th.wk-col-name { background: #f7f8f9; z-index: 4; }
+  .wk-table tbody tr:hover .wk-col-idx, .wk-table tbody tr:hover .wk-col-name { background: #fafbfc; }
+  /* A very narrow phone should spend its width on the days, not the name. */
+  @media (max-width: 520px) {
+    .wk-col-name { min-width: 140px; }
+    .wk-table .wk-col-name { left: 44px; }
+    .wk-col-idx, .wk-table .wk-col-idx { width: 44px; }
+  }
+
+  .wk-day { display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.25; }
+  .wk-day__time { font-variant-numeric: tabular-nums; color: #1f2937; }
+  .wk-day__time--out { color: #6b7280; }
+  .wk-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+  .wk-muted { color: #9aa3ad; }
+
+  .wk-chip {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: .7rem; font-weight: 600; white-space: nowrap;
+  }
+  .wk-chip--tiny { font-size: .64rem; padding: 1px 6px; }
+  .wk-action { height: 38px; display: inline-flex; align-items: center; gap: 6px; }
+  .wk-pagebtn {
+    min-width: 30px; height: 30px; padding: 0 8px; display: inline-flex;
+    align-items: center; justify-content: center; border: 1px solid #e3e5e8;
+    border-radius: 7px; font-size: .78rem; color: #55606b; text-decoration: none; background: #fff;
+  }
+  .wk-pagebtn:hover { border-color: var(--wk-primary); color: var(--wk-primary); }
+  .wk-pagebtn--active { background: var(--wk-primary); border-color: var(--wk-primary); color: #fff; }
+  .wk-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .74rem; color: #6b7280; }
+  .wk-legend span { display: inline-flex; align-items: center; }
+
+  /* ── Card list modal (reuses the global .oh-modal component) ─────────── */
+  .wk-modal__dialog { max-width: 520px; }
+  .wk-modal__meta { font-size: .78rem; color: #6b7280; margin-top: 2px; }
+  .wk-modal__scroll { max-height: min(60vh, 460px); overflow-y: auto; margin-top: 10px; }
+  .wk-modal__item {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding: 9px 2px; border-bottom: 1px solid #f1f2f4; font-size: .86rem;
+  }
+  .wk-modal__item:last-child { border-bottom: none; }
+  .wk-modal__badge { font-size: .72rem; color: #9aa3ad; flex: 0 0 auto; }
+  .wk-modal__more { padding: 10px 2px 0; font-size: .78rem; color: #6b7280; font-style: italic; }
+  .wk-modal__empty { padding: 28px 2px; text-align: center; color: #9aa3ad; font-size: .86rem; }
+
+  /* ── Dark mode (project convention: body.dark) ───────────────────────── */
+  body.dark .wk-card,
+  body.dark .wk-toolbar,
+  body.dark .wk-tablewrap { background: #23272b; border-color: #343a40; }
+  body.dark .wk-table thead th { background: #2a2f34; color: #c9ced3; border-color: #343a40; }
+  body.dark .wk-table tbody td { border-color: #2f343a; }
+  body.dark .wk-table .wk-col-idx, body.dark .wk-table .wk-col-name { background: #23272b; }
+  body.dark .wk-card__value, body.dark .wk-day__time { color: #e6e9ec; }
+  body.dark .wk-tabs { background: #2a2f34; }
+  body.dark .wk-tab--active { background: #23272b; }
+  body.dark .wk-control { background: #23272b; border-color: #343a40; color: #e6e9ec; }
+  body.dark .wk-modal__item { border-color: #2f343a; }
+</style>
+
+<div class="oh-wrapper wk-page">
+  <div class="oh-container" style="padding-top:1.25rem;">
+
+    <div class="flex flex-wrap justify-between items-start gap-3 mb-3">
+      <div>
+        <h3 class="text-lg font-semibold" style="margin:0;">{% trans "Bảng chấm công" %}</h3>
+        <div class="text-sm" style="color:#6b7280;">{% trans "Theo dõi và quản lý chấm công nhân sự" %}</div>
+      </div>
+      <div class="flex items-center gap-3 flex-wrap">
+        <div class="wk-tabs">
+          <a class="wk-tab wk-tab--active" href="{% url 'attendance-weekly-summary' %}">{% trans "Theo tuần" %}</a>
+          <a class="wk-tab" href="{% url 'attendance-monthly-summary' %}">{% trans "Theo tháng" %}</a>
+        </div>
+        <div class="flex gap-2">
+          {# Reuses the existing export endpoint unchanged — it takes a date
+             range, so the current week's bounds are passed straight through and
+             the produced file keeps exactly the format it has today. That
+             endpoint is admin-only, so a leader is not shown a button that
+             would only answer 403. #}
+          {% if can_export %}
+            <a class="oh-btn oh-btn--secondary-outline wk-action"
+               href="{% url 'attendance-monthly-summary-export' %}?{{ export_qs }}">
+              <ion-icon name="download-outline"></ion-icon>{% trans "Xuất Excel" %}
+            </a>
+          {% endif %}
+          <button type="submit" form="wk-filter-form" class="oh-btn oh-btn--secondary wk-action">
+            <ion-icon name="funnel-outline"></ion-icon>{% trans "Bộ lọc" %}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <form id="wk-filter-form"
+          hx-get="{% url 'attendance-weekly-summary-table' %}"
+          hx-target="#wk-table-container"
+          hx-trigger="load, change from:#wk-filter-form, search-submit"
+          hx-push-url="false">
+
+      <div class="wk-toolbar mb-3">
+        <div class="wk-field">
+          <label class="wk-field__label" for="wk-week">{% trans "Tuần" %}</label>
+          <div class="wk-weeknav">
+            {# Stepping a week carries the current filters with it. #}
+            <a href="?{{ prev_week_qs }}" title="{% trans 'Tuần trước' %}"
+               aria-label="{% trans 'Tuần trước' %}">&#8249;</a>
+            <input class="wk-control" type="date" id="wk-week" name="week" value="{{ week }}">
+            <a href="?{{ next_week_qs }}" title="{% trans 'Tuần sau' %}"
+               aria-label="{% trans 'Tuần sau' %}">&#8250;</a>
+          </div>
+        </div>
+
+        <div class="wk-field">
+          <label class="wk-field__label" for="wk-dept">{% trans "Phòng ban" %}</label>
+          <select class="wk-control" id="wk-dept" name="department_id">
+            <option value="">{% trans "Tất cả" %}</option>
+            {% for department in departments %}
+              <option value="{{ department.id }}"{% if department.id in selected_departments %} selected{% endif %}>{{ department.department }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="wk-field" style="flex:1 1 220px; min-width:200px;">
+          <label class="wk-field__label" for="wk-search">{% trans "Tìm kiếm" %}</label>
+          <input class="wk-control" id="wk-search" name="search" value="{{ search }}"
+                 placeholder="{% trans 'Tìm kiếm nhân sự...' %}" autocomplete="off">
+        </div>
+
+      </div>
+    </form>
+
+    <div id="wk-table-container">
+      <div class="wk-cards mb-3">
+        {% for _ in "12345" %}<div class="wk-card wk-card--skeleton" aria-hidden="true"><div class="wk-card__icon wk-t-total">&nbsp;</div><div class="wk-card__body"><div class="wk-card__label">&nbsp;</div><div class="wk-card__value">&hellip;</div></div></div>{% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Debounced search: the form's hx-trigger listens for `search-submit`, so
+  // typing does not fire a request per keystroke.
+  (function () {
+    var input = document.getElementById("wk-search");
+    if (!input) { return; }
+    var timer = null;
+    input.addEventListener("input", function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        document.getElementById("wk-filter-form")
+                .dispatchEvent(new Event("search-submit"));
+      }, 350);
+    });
+  })();
+
+  // Summary-card list modal.
+  //
+  // The cards and the modal both live inside #wk-table-container, which HTMX
+  // replaces on every filter, week step, page and page-size change. So the
+  // handlers are delegated from `document` and bound exactly once here, in the
+  // shell, which HTMX never swaps — binding them to the card nodes themselves
+  // would work until the first swap and then silently stop.
+  (function () {
+    var MODAL_ID = "wk-card-modal";
+    var lastTrigger = null;
+
+    function modal() { return document.getElementById(MODAL_ID); }
+
+    function openList(card) {
+      var box = modal();
+      if (!box) { return; }
+      var key = card.getAttribute("data-wk-card");
+
+      var label = card.querySelector(".wk-card__label");
+      var value = card.querySelector(".wk-card__value");
+      var titleEl = document.getElementById("wk-card-modal-title");
+      var countEl = document.getElementById("wk-card-modal-count");
+      if (titleEl) { titleEl.textContent = label ? label.textContent.trim() : ""; }
+      if (countEl) { countEl.textContent = value ? value.textContent.trim() : ""; }
+
+      var lists = box.querySelectorAll("[data-wk-list]");
+      for (var i = 0; i < lists.length; i++) {
+        lists[i].hidden = lists[i].getAttribute("data-wk-list") !== key;
+      }
+
+      lastTrigger = card;
+      box.classList.add("oh-modal--show");
+      box.setAttribute("aria-hidden", "false");
+      var close = box.querySelector("[data-wk-modal-close]");
+      if (close) { close.focus(); }
+    }
+
+    function closeList() {
+      var box = modal();
+      if (!box || !box.classList.contains("oh-modal--show")) { return; }
+      box.classList.remove("oh-modal--show");
+      box.setAttribute("aria-hidden", "true");
+      if (lastTrigger && document.body.contains(lastTrigger)) { lastTrigger.focus(); }
+      lastTrigger = null;
+    }
+
+    document.addEventListener("click", function (event) {
+      var target = event.target;
+      if (!target || !target.closest) { return; }
+
+      var card = target.closest("[data-wk-card]");
+      if (card) { openList(card); return; }
+
+      if (target.closest("[data-wk-modal-close]")) { closeList(); return; }
+
+      // Backdrop: the overlay itself, never the dialog inside it.
+      var box = modal();
+      if (box && target === box) { closeList(); }
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" || event.key === "Esc") { closeList(); }
+    });
+  })();
+</script>
+{% endblock %}

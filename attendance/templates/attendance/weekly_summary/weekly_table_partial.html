@@ -1,0 +1,254 @@
+{% load i18n %}
+{% comment %}
+Phase ATTENDANCE-WEEKLY-UI-1 — cards + weekly grid, swapped in over HTMX.
+Phase ATTENDANCE-WEEKLY-UI-2 — the cards became buttons that open the list of
+employees they stand for.
+
+Every value here is rendered from what the view returned; the template computes
+nothing and assumes nothing. `cell.bucket` is the classification
+`attendance.period` produced — the same one the monthly table counts with — so
+this file only decides how each bucket is drawn.
+
+`rows` is the current page's grid; `page` is the paginator for it; `totals`
+describes the whole filtered set, and `totals.lists` holds the employees behind
+each card, in card order. The card counts are always the true totals; only the
+rendered names are capped, with the remainder stated.
+
+The modal lives here, next to the cards it belongs to, so an HTMX swap replaces
+both together and they can never disagree. Its open/close handlers are
+delegated from `document` in the shell, which HTMX does not swap.
+{% endcomment %}
+
+<div class="wk-cards mb-3">
+  <button type="button" class="wk-card" data-wk-card="employees">
+    <span class="wk-card__icon wk-t-total"><ion-icon name="people-outline"></ion-icon></span>
+    <span class="wk-card__body">
+      <span class="wk-card__label" style="display:block;">{% trans "Tổng nhân sự" %}</span>
+      <span class="wk-card__value" style="display:block;">{{ totals.employees }}</span>
+    </span>
+  </button>
+
+  <button type="button" class="wk-card" data-wk-card="with_attendance">
+    <span class="wk-card__icon wk-t-present"><ion-icon name="checkmark-circle-outline"></ion-icon></span>
+    <span class="wk-card__body">
+      <span class="wk-card__label" style="display:block;">{% trans "Đã chấm công" %}</span>
+      <span class="flex items-baseline gap-2">
+        <span class="wk-card__value">{{ totals.with_attendance }}</span>
+        {% if percentages.with_attendance is not None %}<span class="wk-card__pct">{{ percentages.with_attendance }}%</span>{% endif %}
+      </span>
+    </span>
+  </button>
+
+  <button type="button" class="wk-card" data-wk-card="late">
+    <span class="wk-card__icon wk-t-late"><ion-icon name="time-outline"></ion-icon></span>
+    <span class="wk-card__body">
+      <span class="wk-card__label" style="display:block;">{% trans "Đi muộn" %}</span>
+      <span class="flex items-baseline gap-2">
+        <span class="wk-card__value">{{ totals.late }}</span>
+        {% if percentages.late is not None %}<span class="wk-card__pct">{{ percentages.late }}%</span>{% endif %}
+      </span>
+    </span>
+  </button>
+
+  <button type="button" class="wk-card" data-wk-card="on_leave">
+    <span class="wk-card__icon wk-t-leave"><ion-icon name="document-text-outline"></ion-icon></span>
+    <span class="wk-card__body">
+      <span class="wk-card__label" style="display:block;">{% trans "Nghỉ phép" %}</span>
+      <span class="flex items-baseline gap-2">
+        <span class="wk-card__value">{{ totals.on_leave }}</span>
+        {% if percentages.on_leave is not None %}<span class="wk-card__pct">{{ percentages.on_leave }}%</span>{% endif %}
+      </span>
+    </span>
+  </button>
+
+  <button type="button" class="wk-card" data-wk-card="absent">
+    <span class="wk-card__icon wk-t-absent"><ion-icon name="close-circle-outline"></ion-icon></span>
+    <span class="wk-card__body">
+      <span class="wk-card__label" style="display:block;">{% trans "Vắng mặt" %}</span>
+      <span class="flex items-baseline gap-2">
+        <span class="wk-card__value">{{ totals.absent }}</span>
+        {% if percentages.absent is not None %}<span class="wk-card__pct">{{ percentages.absent }}%</span>{% endif %}
+      </span>
+    </span>
+  </button>
+</div>
+
+<div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+  <div class="text-sm font-semibold">
+    {% trans "Danh sách chấm công tuần" %}
+    <span class="wk-muted" style="font-weight:400;">
+      {{ from_date|date:"d/m/Y" }} – {{ to_date|date:"d/m/Y" }}
+    </span>
+  </div>
+  <div class="wk-legend">
+    <span><i class="wk-dot" style="background:#16a34a"></i>{% trans "Đủ giờ" %}</span>
+    <span><i class="wk-dot" style="background:#d97706"></i>{% trans "Đi muộn" %}</span>
+    <span><i class="wk-dot" style="background:#eab308"></i>{% trans "Về sớm" %}</span>
+    <span><i class="wk-dot" style="background:#2563eb"></i>{% trans "Nghỉ phép" %}</span>
+    <span><i class="wk-dot" style="background:#dc2626"></i>{% trans "Vắng" %}</span>
+    <span><i class="wk-dot" style="background:#9aa3ad"></i>{% trans "Ngày nghỉ" %}</span>
+  </div>
+</div>
+
+{% if rows %}
+<div class="wk-tablewrap">
+  <table class="wk-table">
+    <thead>
+      <tr>
+        <th class="wk-col-idx">{% trans "STT" %}</th>
+        <th class="wk-col-name">{% trans "Họ và tên" %}</th>
+        <th class="wk-col-dept">{% trans "Phòng ban" %}</th>
+        {% for day in days %}
+          <th class="wk-col-day{% if day.is_weekend %} wk-weekend{% endif %}">
+            <div>{{ day.label }}</div>
+            <div class="wk-muted" style="font-weight:400;">{{ day.short }}</div>
+          </th>
+        {% endfor %}
+        <th>{% trans "Tổng giờ" %}</th>
+        <th>{% trans "Số công" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td class="wk-col-idx wk-muted">{{ forloop.counter0|add:page.start_index }}</td>
+          <td class="wk-col-name">
+            <div style="font-weight:600;">{{ row.employee.get_full_name }}</div>
+            {% if row.employee.badge_id %}
+              <div class="wk-muted" style="font-size:.72rem;">{{ row.employee.badge_id }}</div>
+            {% endif %}
+          </td>
+          <td class="wk-col-dept">{{ row.department|default:"—" }}</td>
+
+          {% for cell in row.cells %}
+            <td class="wk-col-day{% if cell.is_off_day %} wk-weekend{% endif %}">
+              {% if cell.clock_in or cell.clock_out %}
+                {# Only the timestamps that exist are shown. A missing one is
+                   left out rather than filled with a placeholder. #}
+                <div class="wk-day">
+                  {% if cell.clock_in %}
+                    <div class="wk-day__time">
+                      <i class="wk-dot" style="background:{% if cell.is_late %}#d97706{% elif cell.is_early %}#eab308{% elif cell.bucket == 'present' %}#16a34a{% else %}#9aa3ad{% endif %}"></i>{{ cell.clock_in|time:"H:i" }}
+                    </div>
+                  {% endif %}
+                  {% if cell.clock_out %}
+                    <div class="wk-day__time wk-day__time--out">
+                      {% if not cell.clock_in %}<i class="wk-dot" style="background:{% if cell.is_early %}#eab308{% else %}#9aa3ad{% endif %}"></i>{% endif %}{{ cell.clock_out|time:"H:i" }}
+                    </div>
+                  {% endif %}
+                  {% if cell.worked_on_off_day %}
+                    {# Clocked in on a holiday / week-off. Shown so the day is
+                       not mistaken for an ordinary working day — it is not
+                       counted in "Số công", exactly as the monthly table has
+                       it. #}
+                    <div class="wk-chip wk-chip--tiny" style="background:rgba(154,163,173,.16);color:#6b7280;">
+                      {% if cell.bucket == 'holiday' %}{% trans "Lễ" %}{% else %}{% trans "Ngày nghỉ" %}{% endif %}
+                    </div>
+                  {% elif cell.is_remote %}
+                    <div class="wk-chip wk-chip--tiny" style="background:rgba(37,99,235,.10);color:#2563eb;">{% trans "Từ xa" %}</div>
+                  {% endif %}
+                </div>
+              {% elif cell.bucket == 'paid_leave' %}
+                <span class="wk-chip" style="background:rgba(37,99,235,.10);color:#2563eb;">{% trans "Nghỉ phép" %}</span>
+              {% elif cell.bucket == 'unpaid_leave' %}
+                <span class="wk-chip" style="background:rgba(37,99,235,.10);color:#2563eb;">{% trans "Nghỉ KL" %}</span>
+              {% elif cell.bucket == 'holiday' %}
+                <span class="wk-chip" style="background:rgba(154,163,173,.16);color:#6b7280;">{% trans "Lễ" %}</span>
+              {% elif cell.bucket == 'week_off' %}
+                <span class="wk-muted">{% trans "Nghỉ" %}</span>
+              {% elif cell.bucket == 'absent' %}
+                <span class="wk-chip" style="background:rgba(220,38,38,.10);color:#dc2626;">{% trans "Vắng" %}</span>
+              {% else %}
+                <span class="wk-muted">--</span>
+              {% endif %}
+            </td>
+          {% endfor %}
+
+          <td style="font-variant-numeric:tabular-nums;">{{ row.worked_label }}</td>
+          <td style="font-weight:600;">{{ row.day_count }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="flex flex-wrap justify-between items-center gap-2 mt-3">
+  <div class="text-sm wk-muted">
+    {% blocktrans with start=page.start_index end=page.end_index total=total_row_count %}Hiển thị {{ start }} - {{ end }} trong tổng số {{ total }} nhân sự{% endblocktrans %}
+  </div>
+  <div class="flex items-center gap-1 flex-wrap">
+    {% if page.has_previous %}
+      <a class="wk-pagebtn" href="#" hx-target="#wk-table-container"
+         hx-get="{% url 'attendance-weekly-summary-table' %}?{{ pd }}&per_page={{ per_page }}&page={{ page.previous_page_number }}">&#8249;</a>
+    {% endif %}
+    {% for number in page.paginator.page_range %}
+      {% if number == page.number %}
+        <span class="wk-pagebtn wk-pagebtn--active">{{ number }}</span>
+      {% elif number > page.number|add:'-3' and number < page.number|add:'3' %}
+        <a class="wk-pagebtn" href="#" hx-target="#wk-table-container"
+           hx-get="{% url 'attendance-weekly-summary-table' %}?{{ pd }}&per_page={{ per_page }}&page={{ number }}">{{ number }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page.has_next %}
+      <a class="wk-pagebtn" href="#" hx-target="#wk-table-container"
+         hx-get="{% url 'attendance-weekly-summary-table' %}?{{ pd }}&per_page={{ per_page }}&page={{ page.next_page_number }}">&#8250;</a>
+    {% endif %}
+
+    <select class="wk-control ml-2" style="height:30px;padding:0 8px;font-size:.78rem;"
+            hx-get="{% url 'attendance-weekly-summary-table' %}?{{ pd }}"
+            hx-target="#wk-table-container" name="per_page">
+      {% for size in page_size_choices %}
+        <option value="{{ size }}"{% if size == page.paginator.per_page %} selected{% endif %}>{{ size }} / trang</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+{% else %}
+  <div class="wk-tablewrap" style="padding:48px 16px;text-align:center;">
+    <div style="font-size:2rem;line-height:1;">🗓️</div>
+    <div class="mt-2" style="font-weight:600;">{% trans "Không có nhân sự nào" %}</div>
+    <div class="wk-muted text-sm">{% trans "Thử đổi tuần, phòng ban hoặc từ khoá tìm kiếm." %}</div>
+  </div>
+{% endif %}
+
+{# ── Card list modal ──────────────────────────────────────────────────────
+   One dialog, one hidden list per card. The title and the count are copied
+   from whichever card was clicked, so the labels are defined once, above.
+   View only: no employee detail, no calendar, no actions.                 #}
+<div class="oh-modal" id="wk-card-modal" role="dialog" aria-modal="true"
+     aria-hidden="true" aria-labelledby="wk-card-modal-title">
+  <div class="oh-modal__dialog wk-modal__dialog">
+    <div class="oh-modal__dialog-header">
+      <h5 class="oh-modal__dialog-title" id="wk-card-modal-title"></h5>
+      <div class="wk-modal__meta">
+        <span id="wk-card-modal-count"></span> {% trans "nhân sự" %}
+      </div>
+      <button type="button" class="oh-modal__close" data-wk-modal-close
+              aria-label="{% trans 'Đóng' %}">&times;</button>
+    </div>
+    <div class="oh-modal__dialog-body">
+      {% for list in totals.lists %}
+        <div data-wk-list="{{ list.key }}" hidden>
+          {% if list.names %}
+            <div class="wk-modal__scroll">
+              {% for person in list.names %}
+                <div class="wk-modal__item">
+                  <span>{{ person.name }}</span>
+                  {% if person.badge %}<span class="wk-modal__badge">{{ person.badge }}</span>{% endif %}
+                </div>
+              {% endfor %}
+            </div>
+            {% if list.more %}
+              <div class="wk-modal__more">
+                {% blocktrans with more=list.more %}Và {{ more }} nhân sự khác{% endblocktrans %}
+              </div>
+            {% endif %}
+          {% else %}
+            <div class="wk-modal__empty">{% trans "Không có nhân sự" %}</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>

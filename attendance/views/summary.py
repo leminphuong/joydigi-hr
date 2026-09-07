@@ -27,6 +27,10 @@ from attendance.models import (
     AttendanceLateComeEarlyOut,
     AttendanceSummaryHours,
 )
+from attendance.period import (
+    build_period_context,
+    classify_employee_period,
+)
 from base.methods import (
     filtersubordinatesemployeemodel,
     get_company_leave_dates,
@@ -121,209 +125,27 @@ def build_monthly_summary(from_date, to_date, employee_qs):
         total_working   : int — working days in the range (excl. company/public holidays)
         summary_totals  : dict — fleet-wide aggregated counts
     """
-    from leave.models import LeaveRequest  # local import to avoid circular
-
-    # -- 1. Working days (respects CompanyLeaves + public Holidays) ----------
-    working_data = get_working_days(from_date, to_date)
-    total_working = working_data["total_working_days"]
-    off_dates = working_data["company_leave_dates"]  # combined, used for leave counting
-
-    # -- 1b. Public holidays (separate column) --------------------------------
-    holiday_dates_set = set(
-        d for d in get_holiday_dates(from_date, to_date) if from_date <= d <= to_date
-    )
-    total_holidays = len(holiday_dates_set)
-
-    # -- 1c. Company leave dates (fallback week-off when no roster) -----------
-    raw_cl = list(
-        set(
-            get_company_leave_dates(from_date.year)
-            + get_company_leave_dates(to_date.year)
-        )
-    )
-    total_company_leaves = len([d for d in raw_cl if from_date <= d <= to_date])
-
-    # -- 2. Attendance per employee (single DB hit, hour-based) ---------------
-    # Fetch worked seconds + minimum per record; classify as full (1.0),
-    # half (0.5), or absent (0.0) using the default grace time.
-    # Using values() + Python loop instead of annotate(Count()) avoids the
-    # GROUP BY join-multiplication caused by JoydigiCompanyManager's work-info
-    # join.
-    from attendance.methods.utils import strtime_seconds as _strtime_secs
-    from attendance.models import GraceTime as _GraceTime
-
+    # Everything the per-date rules depend on — attendance, approved leave,
+    # roster week-offs, HR conflict resolutions, manually edited hours, shift
+    # schedules, holidays, company leaves — batch-loaded in a fixed number of
+    # queries. Extracted to ``attendance.period`` in
+    # ATTENDANCE-WEEKLY-UI-1-FIX-1 so the weekly grid applies these identical
+    # rules instead of carrying its own partial copy of them.
     emp_pks = list(employee_qs.values_list("pk", flat=True))
+    ctx = build_period_context(from_date, to_date, emp_pks)
 
-    grace_secs = 0
-    _dg = _GraceTime.objects.filter(is_default=True, is_active=True).first()
-    if _dg:
-        grace_secs = _dg.allowed_time_in_secs or 0
+    total_working = ctx.total_working
+    holiday_dates_set = ctx.holiday_dates
 
-    att_records = Attendance.objects.filter(
-        employee_id__in=emp_pks,
-        attendance_date__range=(from_date, to_date),
-    ).values(
-        "employee_id_id",
-        "at_work_second",
-        "overtime_second",
-        "minimum_hour",
-        "attendance_date",
-        "attendance_overtime_approve",
-    )
+    att_dates_map = ctx.att_dates_map
+    att_date_secs_map = ctx.att_secs_map
+    att_date_ot_secs_map = ctx.att_ot_secs_map
+    att_date_ot_approved_map = ctx.att_ot_approved_map
+    hours_override_map = ctx.hours_override_map
+    leave_dates_per_emp = ctx.leave_dates_map
 
-    att_dates_map = defaultdict(set)  # {emp_pk: set(dates)} — conflict detection
-    att_date_value_map = defaultdict(dict)  # {emp_pk: {date: 0.5|1.0}} — per-date value
-    att_date_secs_map = defaultdict(
-        dict
-    )  # {emp_pk: {date: at_work_second}} — raw seconds
-    # {emp_pk: {date: overtime_second}} — already computed per-record as
-    # max(0, at_work_second - minimum_hour), with minimum_hour forced to
-    # "00:00" on days with no shift schedule (holiday/company leave) — so
-    # unscheduled days are entirely overtime.
-    att_date_ot_secs_map = defaultdict(dict)
-    # {emp_pk: {date: bool}} — whether overtime on that date is approved;
-    # used to stop flagging holiday/week-off attendance as a conflict once
-    # its overtime has been approved (nothing left to action).
-    att_date_ot_approved_map = defaultdict(dict)
-    for _r in att_records:
-        _pk = _r["employee_id_id"]
-        _date = _r["attendance_date"]
-        _worked = _r["at_work_second"] or 0
-        _min_secs = _strtime_secs(_r["minimum_hour"]) if _r.get("minimum_hour") else 0
-        if _min_secs > 0:
-            _eff_min = max(0, _min_secs - grace_secs)
-            if _worked >= _eff_min:
-                _val = 1.0
-            elif _worked >= _min_secs / 2:
-                _val = 0.5
-            else:
-                _val = 0.0  # hours too low — attendance exists but doesn't count
-        else:
-            _val = 1.0
-        att_dates_map[_pk].add(_date)
-        att_date_value_map[_pk][_date] = _val
-        att_date_secs_map[_pk][_date] = _worked
-        att_date_ot_secs_map[_pk][_date] = _r["overtime_second"] or 0
-        att_date_ot_approved_map[_pk][_date] = bool(_r["attendance_overtime_approve"])
-
-    # -- 2b. Batch-load shift schedules for hours computation -----------------
-    from base.models import EmployeeShiftSchedule
-    from employee.models import EmployeeWorkInformation as _EWI
-
-    _DAY_NAMES = [
-        "monday",
-        "tuesday",
-        "wednesday",
-        "thursday",
-        "friday",
-        "saturday",
-        "sunday",
-    ]
-
-    emp_shift_map = {}  # {emp_pk: shift_pk or None}
-    for _wi in _EWI.objects.filter(employee_id__in=emp_pks).values(
-        "employee_id_id", "shift_id_id"
-    ):
-        emp_shift_map[_wi["employee_id_id"]] = _wi["shift_id_id"]
-
-    shift_pk_set = {v for v in emp_shift_map.values() if v}
-    shift_day_secs = defaultdict(dict)  # {shift_pk: {day_name: seconds}}
-    if shift_pk_set:
-        for _ss in (
-            EmployeeShiftSchedule.objects.filter(shift_id__in=shift_pk_set)
-            .select_related("day")
-            .values("shift_id_id", "day__day", "minimum_working_hour")
-        ):
-            _spk = _ss["shift_id_id"]
-            _day = _ss["day__day"]
-            _secs = (
-                _strtime_secs(_ss["minimum_working_hour"])
-                if _ss["minimum_working_hour"]
-                else 0
-            )
-            shift_day_secs[_spk][_day] = _secs
-
-    # -- 2c. Load existing manually-edited hours (never overwritten by compute) --
-    hours_override_map = {}  # {emp_pk: hours_second}
-    for _h in AttendanceSummaryHours.objects.filter(
-        employee_id__in=emp_pks,
-        from_date=from_date,
-        to_date=to_date,
-        is_manually_edited=True,
-    ).values("employee_id_id", "hours_second"):
-        hours_override_map[_h["employee_id_id"]] = _h["hours_second"]
-
-    # -- 2d. Per-day manual hours from the calendar editor --------------------
-    daily_manual_map = defaultdict(dict)  # {emp_pk: {date: hours_second}}
-    for _dh in AttendanceDailyHours.objects.filter(
-        employee_id__in=emp_pks,
-        date__range=(from_date, to_date),
-        is_manually_edited=True,
-    ).values("employee_id_id", "date", "hours_second"):
-        daily_manual_map[_dh["employee_id_id"]][_dh["date"]] = _dh["hours_second"]
-
-    # -- 3. Approved leave requests overlapping the range (single DB hit) ----
-    leave_qs = (
-        LeaveRequest.objects.filter(
-            employee_id__in=emp_pks,
-            status="approved",
-            start_date__lte=to_date,
-        )
-        .filter(
-            # end_date null means single-day leave starting at start_date
-            end_date__isnull=False,
-            end_date__gte=from_date,
-        )
-        .select_related("leave_type_id")
-    )
-    # Also include single-day leaves (end_date is null) within range
-    single_day_qs = LeaveRequest.objects.filter(
-        employee_id__in=emp_pks,
-        status="approved",
-        start_date__range=(from_date, to_date),
-        end_date__isnull=True,
-    ).select_related("leave_type_id")
-    from itertools import chain
-
-    all_leaves = list(chain(leave_qs, single_day_qs))
-
-    # Per-employee per-date leave tracking (paid / unpaid, for conflict detection)
-    leave_dates_per_emp = defaultdict(set)
-    paid_day_dates_per_emp = defaultdict(set)  # {emp_pk: set(paid-leave dates)}
-    unpaid_day_dates_per_emp = defaultdict(set)  # {emp_pk: set(unpaid-leave dates)}
-    for _lr in all_leaves:
-        _s = max(_lr.start_date, from_date)
-        _e = min(_lr.end_date or _lr.start_date, to_date)
-        for _d in _iter_dates(_s, _e):
-            leave_dates_per_emp[_lr.employee_id_id].add(_d)
-            if _lr.leave_type_id.payment == "paid":
-                paid_day_dates_per_emp[_lr.employee_id_id].add(_d)
-            else:
-                unpaid_day_dates_per_emp[_lr.employee_id_id].add(_d)
-
-    # -- 4. Roster-based week-off per employee (single DB hit) ---------------
-    roster_qs = Roster.objects.filter(
-        employee_id__in=emp_pks,
-        date__range=(from_date, to_date),
-    ).values("employee_id", "is_off", "date")
-    roster_has = set()
-    roster_off_dates = defaultdict(set)  # {emp_pk: set(week_off_dates)}
-    for entry in roster_qs:
-        pk = entry["employee_id"]
-        roster_has.add(pk)
-        if entry["is_off"]:
-            roster_off_dates[pk].add(entry["date"])
-
-    # -- 5. Batch-fetch conflict resolutions (with type) for all employees ----
-    from attendance.models import AttendanceConflictResolution
-
-    resolutions_per_emp = defaultdict(dict)  # {emp_pk: {date: resolution_str}}
-    for r in AttendanceConflictResolution.objects.filter(
-        date__range=(from_date, to_date),
-    ).values("employee_id_id", "date", "resolution"):
-        resolutions_per_emp[r["employee_id_id"]][r["date"]] = r["resolution"]
     # Flat date-set form kept for conflict-resolution count logic
-    resolutions_by_emp = {pk: set(d.keys()) for pk, d in resolutions_per_emp.items()}
+    resolutions_by_emp = {pk: set(d.keys()) for pk, d in ctx.resolutions_map.items()}
 
     # -- 6. Build per-employee rows using per-date iteration -----------------
     # This is the only correct way to apply HR overrides to summary counts.
@@ -334,21 +156,6 @@ def build_monthly_summary(from_date, to_date, employee_qs):
     total_holiday = 0
     total_conflicts = 0
 
-    off_set = frozenset(off_dates)  # company leaves + public holidays
-    company_off_dates = {d for d in raw_cl if from_date <= d <= to_date}
-    all_dates_in_range = list(_iter_dates(from_date, to_date))
-
-    # Resolution → (bucket, value) for direct overrides
-    _RES_BUCKET = {
-        "full_present": ("present", 1.0),
-        "half_present": ("present", 0.5),
-        "absent": ("absent", 1.0),
-        "paid_leave": ("paid_leave", 1.0),
-        "unpaid_leave": ("unpaid_leave", 1.0),
-        "holiday": ("holiday", 1.0),
-        "week_off": ("week_off", 1.0),
-    }
-
     emp_computed_hours = {}  # {emp_pk: hours_second} — filled per employee below
     hours_upsert = []  # AttendanceSummaryHours instances to bulk-upsert
 
@@ -356,100 +163,21 @@ def build_monthly_summary(from_date, to_date, employee_qs):
         "employee_work_info__department_id",
         "employee_work_info__job_position_id",
     ):
-        _att_vals = att_date_value_map.get(emp.pk, {})
+        # The per-date classification now lives in ``attendance.period``,
+        # shared with the weekly grid: same order, same precedence, same
+        # accumulators as when this loop owned the rules itself.
+        _day_rows, _day_totals = classify_employee_period(emp.pk, ctx)
+
+        present = _day_totals["present"]
+        paid_leave = _day_totals["paid_leave"]
+        unpaid_leave = _day_totals["unpaid_leave"]
+        week_off = _day_totals["week_off"]
+        holiday_c = _day_totals["holiday"]
+        absent = _day_totals["absent"]
+        hours_second = _day_totals["hours_second"]
+
         _att_secs = att_date_secs_map.get(emp.pk, {})
-        _paid_dates = paid_day_dates_per_emp.get(emp.pk, set())
-        _unpaid_dates = unpaid_day_dates_per_emp.get(emp.pk, set())
-        _emp_off = (
-            roster_off_dates.get(emp.pk, set())
-            if emp.pk in roster_has
-            else company_off_dates
-        )
-        _resolutions = resolutions_per_emp.get(emp.pk, {})
-        _shift_pk = emp_shift_map.get(emp.pk)
-        _shift_sched = shift_day_secs.get(_shift_pk, {}) if _shift_pk else {}
-        _daily_hrs = daily_manual_map.get(emp.pk, {})  # per-day manual overrides
-
-        present = paid_leave = unpaid_leave = week_off = holiday_c = absent = 0.0
-        hours_second = 0
-
-        for d in all_dates_in_range:
-            res = _resolutions.get(d)
-
-            # Direct HR override — use as-is
-            bucket_info = _RES_BUCKET.get(res)
-            if bucket_info is not None:
-                bucket, val = bucket_info
-                if bucket == "present":
-                    present += val
-                elif bucket == "paid_leave":
-                    paid_leave += val
-                elif bucket == "unpaid_leave":
-                    unpaid_leave += val
-                elif bucket == "absent":
-                    absent += val
-                elif bucket == "holiday":
-                    holiday_c += val
-                elif bucket == "week_off":
-                    week_off += val
-
-                # Hours for regularized present days (per-day manual override wins)
-                if bucket == "present":
-                    _day_name = _DAY_NAMES[d.weekday()]
-                    _full_secs = _shift_sched.get(_day_name, 0) or 28800  # 8h default
-                    _day_manual = _daily_hrs.get(d)
-                    hours_second += (
-                        _day_manual
-                        if _day_manual is not None
-                        else int(_full_secs * val)
-                    )
-                continue
-
-            if res == "partial_hours":
-                # Count as present proportionally: actual_secs / shift_min (capped at 1.0)
-                _actual_secs = _att_secs.get(d, 0)
-                _day_name = _DAY_NAMES[d.weekday()]
-                _full_secs = _shift_sched.get(_day_name, 0) or 28800
-                val = (
-                    min(1.0, _actual_secs / _full_secs)
-                    if _full_secs > 0
-                    else (1.0 if _actual_secs > 0 else 0.0)
-                )
-                present += val
-                if val < 1.0:
-                    absent += 1.0 - val
-                _day_manual = _daily_hrs.get(d)
-                hours_second += _day_manual if _day_manual is not None else _actual_secs
-                continue
-
-            # Legacy "attendance" / "leave" — fall through to natural
-            # No resolution — natural computation
-            if d in _att_vals:
-                val = _att_vals[d]
-                if d in holiday_dates_set:
-                    holiday_c += 1.0  # HO — attendance on holiday
-                elif d in _emp_off:
-                    week_off += 1.0  # WO — attendance on week-off
-                else:
-                    present += val
-                    # Half-day (0.5) or zero-hour: remaining fraction is absent
-                    if val < 1.0:
-                        absent += 1.0 - val
-                # Actual hours (per-day manual override wins)
-                _day_manual = _daily_hrs.get(d)
-                hours_second += (
-                    _day_manual if _day_manual is not None else _att_secs.get(d, 0)
-                )
-            elif d in _paid_dates:
-                paid_leave += 1.0
-            elif d in _unpaid_dates:
-                unpaid_leave += 1.0
-            elif d in holiday_dates_set:
-                holiday_c += 1.0
-            elif d in _emp_off:
-                week_off += 1.0
-            elif d not in off_set:
-                absent += 1.0  # working day with no activity
+        _emp_off = ctx.employee_off_dates(emp.pk)
 
         # Conflict detection (uses raw data, not overrides). Attendance on a
         # holiday/week-off only counts as a conflict while its overtime is

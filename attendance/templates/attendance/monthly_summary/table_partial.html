@@ -261,14 +261,6 @@
     <div class="ms-stat-card__label">Nhân viên</div>
     <p class="ms-stat-card__value" style="color:#6c757d;">{{ summary_totals.total_employees }}</p>
   </div>
-  <div class="ms-stat-card" style="border-top: 3px solid #28a745;">
-    <div class="ms-stat-card__label">Tổng ngày có mặt</div>
-    <p class="ms-stat-card__value" style="color:#28a745;">{{ summary_totals.total_present|floatformat:"-1" }}</p>
-  </div>
-  <div class="ms-stat-card" style="border-top: 3px solid #dc3545;">
-    <div class="ms-stat-card__label">Tổng ngày vắng / thiếu giờ ra</div>
-    <p class="ms-stat-card__value" style="color:#dc3545;">{{ summary_totals.total_absent|floatformat:"-1" }}</p>
-  </div>
   <div class="ms-stat-card" style="border-top: 3px solid #0d6efd;">
     <div class="ms-stat-card__label">Nghỉ có lương</div>
     <p class="ms-stat-card__value" style="color:#0d6efd;">{{ summary_totals.total_paid_leave }}</p>
@@ -281,20 +273,10 @@
     <div class="ms-stat-card__label">Ngày làm việc</div>
     <p class="ms-stat-card__value ms-working-days-val">{{ total_working }}</p>
   </div>
-  <div class="ms-stat-card" style="border-top: 3px solid #6610f2;">
-    <div class="ms-stat-card__label">Ngày nghỉ hằng tuần</div>
-    <p class="ms-stat-card__value" style="color:#6610f2;">{{ summary_totals.week_off }}</p>
-  </div>
   <div class="ms-stat-card" style="border-top: 3px solid #20c997;">
     <div class="ms-stat-card__label">Ngày nghỉ lễ</div>
     <p class="ms-stat-card__value" style="color:#20c997;">{{ summary_totals.holiday }}</p>
   </div>
-  {% if summary_totals.total_conflicts %}
-  <div class="ms-stat-card" style="border-top: 3px solid #e85d04;">
-    <div class="ms-stat-card__label">Dữ liệu trùng</div>
-    <p class="ms-stat-card__value" style="color:#e85d04;">{{ summary_totals.total_conflicts }}</p>
-  </div>
-  {% endif %}
 </div>
 
 {% if rows %}
@@ -556,16 +538,6 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
             <span class="oh-column-config__label">Phòng ban</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="department" checked></span>
           </li>
-          <li class="oh-column-config__item is-draggable" data-label="Có mặt">
-            <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">Có mặt</span>
-            <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="present" checked></span>
-          </li>
-          <li class="oh-column-config__item is-draggable" data-label="Vắng mặt">
-            <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">Vắng mặt</span>
-            <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="absent" checked></span>
-          </li>
           <li class="oh-column-config__item is-draggable" data-label="Nghỉ có lương">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
             <span class="oh-column-config__label">Nghỉ có lương</span>
@@ -581,20 +553,10 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
             <span class="oh-column-config__label">Ngày làm việc</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="working_days" checked></span>
           </li>
-          <li class="oh-column-config__item is-draggable" data-label="Ngày nghỉ hằng tuần">
-            <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">Ngày nghỉ hằng tuần</span>
-            <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="week_off" checked></span>
-          </li>
           <li class="oh-column-config__item is-draggable" data-label="Ngày nghỉ lễ">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
             <span class="oh-column-config__label">Ngày nghỉ lễ</span>
             <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="holiday" checked></span>
-          </li>
-          <li class="oh-column-config__item is-draggable" data-label="Dữ liệu trùng">
-            <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
-            <span class="oh-column-config__label">Dữ liệu trùng</span>
-            <span class="oh-table__checkbox"><input type="checkbox" class="custom-checkbox ms-col-toggle" data-col="conflicts" checked></span>
           </li>
           <li class="oh-column-config__item is-draggable" data-label="Đã làm việc">
             <span class="oh-column-config__handle" aria-hidden="true"><ion-icon name="reorder-two-outline"></ion-icon></span>
@@ -679,30 +641,6 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                 <span>Phòng ban</span>
               </div>
             </th>
-            <th data-col="present" style="text-align:center;">
-              <div class="flex gap-1.5 items-center justify-center cursor-pointer"
-                   hx-get="{% url 'attendance-monthly-summary-table' %}?{{ pd }}&sort=present&dir={% if sort_key == 'present' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
-                   hx-target="#summary-table-container" hx-swap="innerHTML">
-                <span class="text-xs flex items-center text-primary-600">
-                  {% if sort_key == "present" and sort_dir == "asc" %}<i class="fa-solid fa-arrow-down"></i>
-                  {% elif sort_key == "present" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
-                  {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
-                </span>
-                <span>Có mặt</span>
-              </div>
-            </th>
-            <th data-col="absent" style="text-align:center;" title="Vắng mặt hoặc thiếu giờ ra">
-              <div class="flex gap-1.5 items-center justify-center cursor-pointer"
-                   hx-get="{% url 'attendance-monthly-summary-table' %}?{{ pd }}&sort=absent&dir={% if sort_key == 'absent' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
-                   hx-target="#summary-table-container" hx-swap="innerHTML">
-                <span class="text-xs flex items-center text-primary-600">
-                  {% if sort_key == "absent" and sort_dir == "asc" %}<i class="fa-solid fa-arrow-down"></i>
-                  {% elif sort_key == "absent" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
-                  {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
-                </span>
-                <span>Vắng mặt</span>
-              </div>
-            </th>
             <th data-col="paid_leave" style="text-align:center;">
               <div class="flex gap-1.5 items-center justify-center cursor-pointer"
                    hx-get="{% url 'attendance-monthly-summary-table' %}?{{ pd }}&sort=paid_leave&dir={% if sort_key == 'paid_leave' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
@@ -728,18 +666,6 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
               </div>
             </th>
             <th data-col="working_days" style="text-align:center;">Ngày làm việc</th>
-            <th data-col="week_off" style="text-align:center;">
-              <div class="flex gap-1.5 items-center justify-center cursor-pointer"
-                   hx-get="{% url 'attendance-monthly-summary-table' %}?{{ pd }}&sort=week_off&dir={% if sort_key == 'week_off' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
-                   hx-target="#summary-table-container" hx-swap="innerHTML">
-                <span class="text-xs flex items-center text-primary-600">
-                  {% if sort_key == "week_off" and sort_dir == "asc" %}<i class="fa-solid fa-arrow-down"></i>
-                  {% elif sort_key == "week_off" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
-                  {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
-                </span>
-                <span>Nghỉ hằng tuần</span>
-              </div>
-            </th>
             <th data-col="holiday" style="text-align:center;">
               <div class="flex gap-1.5 items-center justify-center cursor-pointer"
                    hx-get="{% url 'attendance-monthly-summary-table' %}?{{ pd }}&sort=holiday&dir={% if sort_key == 'holiday' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
@@ -750,24 +676,6 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
                   {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
                 </span>
                 <span>Ngày nghỉ lễ</span>
-              </div>
-            </th>
-            <th data-col="conflicts" style="text-align:center;">
-              <div class="flex gap-1.5 items-center justify-center cursor-pointer"
-                   hx-get="{% url 'attendance-monthly-summary-table' %}?{{ pd }}&sort=conflicts&dir={% if sort_key == 'conflicts' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
-                   hx-target="#summary-table-container" hx-swap="innerHTML">
-                <span class="text-xs flex items-center text-primary-600">
-                  {% if sort_key == "conflicts" and sort_dir == "asc" %}<i class="fa-solid fa-arrow-down"></i>
-                  {% elif sort_key == "conflicts" and sort_dir == "desc" %}<i class="fa-solid fa-arrow-up"></i>
-                  {% else %}<i class="fa-solid fa-arrow-up"></i><i class="fa-solid fa-arrow-down"></i>{% endif %}
-                </span>
-                <span>Dữ liệu trùng</span>
-                {% if summary_totals.total_conflicts %}
-                  <span style="display:inline-flex;align-items:center;justify-content:center;
-                               min-width:16px;height:16px;padding:0 4px;margin-left:2px;
-                               border-radius:8px;background:#bd652e;color:#fff;
-                               font-size:.68rem;font-weight:700;vertical-align:middle;">{{ summary_totals.total_conflicts }}</span>
-                {% endif %}
               </div>
             </th>
             <th data-col="worked" style="text-align:center;">
@@ -852,42 +760,12 @@ reloadSelectedCount($('.count_msAttendance'),'selectedInstances');">
             <td style="font-size:.78rem;">{{ row.employee.badge_id|default:"&mdash;" }}</td>
             <td>{{ row.employee.employee_work_info.department_id.department|default:"&mdash;" }}</td>
             <td class="ms-metric-cell" style="text-align:center;font-weight:600;"
-                data-url="{% url 'attendance-monthly-summary-detail' %}?employee_id={{ row.employee.pk }}&from_date={{ from_date }}&to_date={{ to_date }}&metric=present">{{ row.present|floatformat:"-1" }}</td>
-            <td class="ms-metric-cell" style="text-align:center;font-weight:600;"
-                data-url="{% url 'attendance-monthly-summary-detail' %}?employee_id={{ row.employee.pk }}&from_date={{ from_date }}&to_date={{ to_date }}&metric=absent">{{ row.absent|floatformat:"-1" }}</td>
-            <td class="ms-metric-cell" style="text-align:center;font-weight:600;"
                 data-url="{% url 'attendance-monthly-summary-detail' %}?employee_id={{ row.employee.pk }}&from_date={{ from_date }}&to_date={{ to_date }}&metric=paid_leave">{{ row.paid_leave }}</td>
             <td class="ms-metric-cell" style="text-align:center;font-weight:600;"
                 data-url="{% url 'attendance-monthly-summary-detail' %}?employee_id={{ row.employee.pk }}&from_date={{ from_date }}&to_date={{ to_date }}&metric=unpaid_leave">{{ row.unpaid_leave }}</td>
             <td style="text-align:center;">{{ row.total_working }}</td>
             <td class="ms-metric-cell" style="text-align:center;font-weight:600;"
-                data-url="{% url 'attendance-monthly-summary-detail' %}?employee_id={{ row.employee.pk }}&from_date={{ from_date }}&to_date={{ to_date }}&metric=week_off">{{ row.week_off }}</td>
-            <td class="ms-metric-cell" style="text-align:center;font-weight:600;"
                 data-url="{% url 'attendance-monthly-summary-detail' %}?employee_id={{ row.employee.pk }}&from_date={{ from_date }}&to_date={{ to_date }}&metric=holiday">{{ row.holiday }}</td>
-            {% if row.conflict_days %}
-            <td class="ms-metric-cell" style="text-align:center;font-weight:600;"
-                data-url="{% url 'attendance-monthly-summary-detail' %}?employee_id={{ row.employee.pk }}&from_date={{ from_date }}&to_date={{ to_date }}&metric=conflict">
-              {% if row.resolved_conflicts == row.conflict_days %}
-                {# All resolved: green number + âœ" #}
-                <span style="color:#30a180;" title="Đã xử lý toàn bộ {{ row.conflict_days }} dữ liệu trùng">
-                  {{ row.conflict_days }} <span style="font-size:.7rem;">&#10003;</span>
-                </span>
-              {% elif row.resolved_conflicts %}
-                {# Partial: amber total + green fraction #}
-                <span title="{{ row.conflict_days }} dữ liệu trùng, đã xử lý {{ row.resolved_conflicts }}">
-                  <span style="color:#bd652e;">{{ row.conflict_days }}</span>
-                  <span style="color:#30a180;font-size:.72rem;margin-left:2px;">({{ row.resolved_conflicts }}&#10003;)</span>
-                </span>
-              {% else %}
-                {# None resolved: amber number #}
-                <span style="color:#bd652e;" title="{{ row.conflict_days }} dữ liệu trùng chưa xử lý">
-                  {{ row.conflict_days }}
-                </span>
-              {% endif %}
-            </td>
-            {% else %}
-            <td style="text-align:center;color:#ced4da;font-size:.78rem;">&mdash;</td>
-            {% endif %}
             <td style="text-align:center;font-weight:600;font-size:.82rem;">{{ row.worked_label }}</td>
             <td style="text-align:center;font-weight:600;font-size:.82rem;">{{ row.regular_label }}</td>
             <td style="text-align:center;font-size:.82rem;height:auto !important;padding:6px 16px !important;"

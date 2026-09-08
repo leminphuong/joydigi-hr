@@ -73,22 +73,23 @@ delegated from `document` in the shell, which HTMX does not swap.
   </button>
 </div>
 
-<div class="flex flex-wrap justify-between items-center gap-2 mb-2">
-  <div class="text-sm font-semibold">
-    {% trans "Danh sách chấm công tuần" %}
-    <span class="wk-muted" style="font-weight:400;">
-      {{ from_date|date:"d/m/Y" }} – {{ to_date|date:"d/m/Y" }}
-    </span>
+<div class="wk-panel">
+  <div class="wk-panel__head">
+    <div class="wk-panel__title">
+      {% trans "Danh sách chấm công tuần" %}
+      <span class="wk-panel__range">
+        {{ from_date|date:"d/m/Y" }} – {{ to_date|date:"d/m/Y" }}
+      </span>
+    </div>
+    <div class="wk-legend">
+      <span><i class="wk-dot wk-dot--present"></i>{% trans "Đủ giờ" %}</span>
+      <span><i class="wk-dot wk-dot--late"></i>{% trans "Đi muộn" %}</span>
+      <span><i class="wk-dot wk-dot--early"></i>{% trans "Về sớm" %}</span>
+      <span><i class="wk-dot wk-dot--leave"></i>{% trans "Nghỉ phép" %}</span>
+      <span><i class="wk-dot wk-dot--absent"></i>{% trans "Vắng" %}</span>
+      <span><i class="wk-dot wk-dot--off"></i>{% trans "Ngày nghỉ" %}</span>
+    </div>
   </div>
-  <div class="wk-legend">
-    <span><i class="wk-dot" style="background:#16a34a"></i>{% trans "Đủ giờ" %}</span>
-    <span><i class="wk-dot" style="background:#d97706"></i>{% trans "Đi muộn" %}</span>
-    <span><i class="wk-dot" style="background:#eab308"></i>{% trans "Về sớm" %}</span>
-    <span><i class="wk-dot" style="background:#2563eb"></i>{% trans "Nghỉ phép" %}</span>
-    <span><i class="wk-dot" style="background:#dc2626"></i>{% trans "Vắng" %}</span>
-    <span><i class="wk-dot" style="background:#9aa3ad"></i>{% trans "Ngày nghỉ" %}</span>
-  </div>
-</div>
 
 {% if rows %}
 <div class="wk-tablewrap">
@@ -100,25 +101,25 @@ delegated from `document` in the shell, which HTMX does not swap.
         <th class="wk-col-dept">{% trans "Phòng ban" %}</th>
         {% for day in days %}
           <th class="wk-col-day{% if day.is_weekend %} wk-weekend{% endif %}">
-            <div>{{ day.label }}</div>
-            <div class="wk-muted" style="font-weight:400;">{{ day.short }}</div>
+            <div class="wk-th-day">{{ day.label }}</div>
+            <div class="wk-th-date">{{ day.short }}</div>
           </th>
         {% endfor %}
-        <th>{% trans "Tổng giờ" %}</th>
-        <th>{% trans "Số công" %}</th>
+        <th class="wk-col-sum">{% trans "Tổng giờ" %}</th>
+        <th class="wk-col-sum wk-col-sum--days">{% trans "Số công" %}</th>
       </tr>
     </thead>
     <tbody>
       {% for row in rows %}
         <tr>
-          <td class="wk-col-idx wk-muted">{{ forloop.counter0|add:page.start_index }}</td>
+          <td class="wk-col-idx wk-idx">{{ forloop.counter0|add:page.start_index }}</td>
           <td class="wk-col-name">
-            <div style="font-weight:600;">{{ row.employee.get_full_name }}</div>
+            <div class="wk-emp__name">{{ row.employee.get_full_name }}</div>
             {% if row.employee.badge_id %}
-              <div class="wk-muted" style="font-size:.72rem;">{{ row.employee.badge_id }}</div>
+              <div class="wk-emp__badge">{{ row.employee.badge_id }}</div>
             {% endif %}
           </td>
-          <td class="wk-col-dept">{{ row.department|default:"—" }}</td>
+          <td class="wk-col-dept"><span class="wk-dept">{{ row.department|default:"—" }}</span></td>
 
           {% for cell in row.cells %}
             <td class="wk-col-day{% if cell.is_off_day %} wk-weekend{% endif %}">
@@ -130,13 +131,11 @@ delegated from `document` in the shell, which HTMX does not swap.
                 <div class="wk-day">
                   {% if cell.clock_in %}
                     <div class="wk-day__time">
-                      <i class="wk-dot" style="background:{% if cell.is_late %}#d97706{% elif cell.is_early %}#eab308{% elif cell.bucket == 'present' %}#16a34a{% else %}#9aa3ad{% endif %}"></i>{{ cell.clock_in|time:"H:i" }}
+                      <i class="wk-dot {% if cell.is_late %}wk-dot--late{% elif cell.is_early %}wk-dot--early{% elif cell.bucket == 'present' %}wk-dot--present{% else %}wk-dot--off{% endif %}"></i>{{ cell.clock_in|time:"H:i" }}
                     </div>
                   {% endif %}
                   {% if cell.clock_out %}
-                    <div class="wk-day__time wk-day__time--out">
-                      {% if not cell.clock_in %}<i class="wk-dot" style="background:{% if cell.is_early %}#eab308{% else %}#9aa3ad{% endif %}"></i>{% endif %}{{ cell.clock_out|time:"H:i" }}
-                    </div>
+                    <div class="wk-day__time wk-day__time--out">{{ cell.clock_out|time:"H:i" }}</div>
                   {% endif %}
                   {% if cell.worked_on_off_day %}
                     {% comment %}
@@ -144,39 +143,39 @@ delegated from `document` in the shell, which HTMX does not swap.
                       not mistaken for an ordinary working day — it is not
                       counted in "Số công", exactly as the monthly table has it.
                     {% endcomment %}
-                    <div class="wk-chip wk-chip--tiny" style="background:rgba(154,163,173,.16);color:#6b7280;">
+                    <span class="wk-st wk-st--holiday wk-st--tiny">
                       {% if cell.bucket == 'holiday' %}{% trans "Lễ" %}{% else %}{% trans "Ngày nghỉ" %}{% endif %}
-                    </div>
+                    </span>
                   {% elif cell.is_remote %}
-                    <div class="wk-chip wk-chip--tiny" style="background:rgba(37,99,235,.10);color:#2563eb;">{% trans "Từ xa" %}</div>
+                    <span class="wk-st wk-st--leave wk-st--tiny">{% trans "Từ xa" %}</span>
                   {% endif %}
                 </div>
               {% elif cell.bucket == 'paid_leave' %}
-                <span class="wk-chip" style="background:rgba(37,99,235,.10);color:#2563eb;">{% trans "Nghỉ phép" %}</span>
+                <span class="wk-st wk-st--leave">{% trans "Nghỉ phép" %}</span>
               {% elif cell.bucket == 'unpaid_leave' %}
-                <span class="wk-chip" style="background:rgba(37,99,235,.10);color:#2563eb;">{% trans "Nghỉ KL" %}</span>
+                <span class="wk-st wk-st--leave">{% trans "Nghỉ KL" %}</span>
               {% elif cell.bucket == 'holiday' %}
-                <span class="wk-chip" style="background:rgba(154,163,173,.16);color:#6b7280;">{% trans "Lễ" %}</span>
+                <span class="wk-st wk-st--holiday">{% trans "Lễ" %}</span>
               {% elif cell.bucket == 'week_off' %}
-                <span class="wk-muted">{% trans "Nghỉ" %}</span>
+                <span class="wk-st wk-st--off">{% trans "Nghỉ" %}</span>
               {% elif cell.bucket == 'absent' %}
-                <span class="wk-chip" style="background:rgba(220,38,38,.10);color:#dc2626;">{% trans "Vắng" %}</span>
+                <span class="wk-st wk-st--absent">{% trans "Vắng" %}</span>
               {% else %}
                 <span class="wk-muted">--</span>
               {% endif %}
             </td>
           {% endfor %}
 
-          <td style="font-variant-numeric:tabular-nums;">{{ row.worked_label }}</td>
-          <td style="font-weight:600;">{{ row.day_count }}</td>
+          <td class="wk-col-sum wk-total">{{ row.worked_label }}</td>
+          <td class="wk-col-sum wk-col-sum--days wk-days">{{ row.day_count }}</td>
         </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 
-<div class="flex flex-wrap justify-between items-center gap-2 mt-3">
-  <div class="text-sm wk-muted">
+<div class="wk-panel__foot">
+  <div class="wk-panel__count">
     {% blocktrans with start=page.start_index end=page.end_index total=total_row_count %}Hiển thị {{ start }} - {{ end }} trong tổng số {{ total }} nhân sự{% endblocktrans %}
   </div>
   <div class="flex items-center gap-1 flex-wrap">
@@ -197,7 +196,7 @@ delegated from `document` in the shell, which HTMX does not swap.
          hx-get="{% url 'attendance-weekly-summary-table' %}?{{ pd }}&per_page={{ per_page }}&page={{ page.next_page_number }}">&#8250;</a>
     {% endif %}
 
-    <select class="wk-control ml-2" style="height:30px;padding:0 8px;font-size:.78rem;"
+    <select class="wk-control wk-perpage ml-2"
             hx-get="{% url 'attendance-weekly-summary-table' %}?{{ pd }}"
             hx-target="#wk-table-container" name="per_page">
       {% for size in page_size_choices %}
@@ -208,12 +207,13 @@ delegated from `document` in the shell, which HTMX does not swap.
 </div>
 
 {% else %}
-  <div class="wk-tablewrap" style="padding:48px 16px;text-align:center;">
+  <div style="padding:48px 16px;text-align:center;">
     <div style="font-size:2rem;line-height:1;">🗓️</div>
     <div class="mt-2" style="font-weight:600;">{% trans "Không có nhân sự nào" %}</div>
     <div class="wk-muted text-sm">{% trans "Thử đổi tuần, phòng ban hoặc từ khoá tìm kiếm." %}</div>
   </div>
 {% endif %}
+</div>{# /.wk-panel #}
 
 {% comment %}
   Card list modal. One dialog, one hidden list per card. The title and the

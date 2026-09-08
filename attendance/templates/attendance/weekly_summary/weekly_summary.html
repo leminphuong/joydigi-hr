@@ -87,59 +87,161 @@ The modal reuses the global `oh-modal` component rather than inventing one.
   .wk-weeknav a:hover { border-color: var(--wk-primary); color: var(--wk-primary); }
   .wk-weeknav a:focus-visible { outline: none; border-color: var(--wk-primary); box-shadow: 0 0 0 3px var(--wk-ring); }
 
-  /* ── Table ───────────────────────────────────────────────────────────── */
-  .wk-tablewrap { overflow-x: auto; border: 1px solid #e8eaed; border-radius: 12px; background: #fff; }
-  .wk-table { width: 100%; min-width: 1040px; border-collapse: separate; border-spacing: 0; font-size: .82rem; }
-  .wk-table thead th {
-    position: sticky; top: 0; z-index: 3;
-    background: #f7f8f9; color: #55606b; font-weight: 600; text-align: center;
-    padding: 10px 10px; border-bottom: 1px solid #e8eaed; white-space: nowrap;
+  /* ── "Danh sách chấm công tuần" panel ────────────────────────────────── */
+  .wk-panel {
+    border: 1px solid #e5e8ea; border-radius: 12px; background: #fff;
+    overflow: hidden; box-shadow: 0 1px 2px rgba(16,24,40,.04);
   }
-  .wk-table thead th.wk-col-name, .wk-table thead th.wk-col-idx { text-align: left; }
-  .wk-table tbody td { padding: 9px 10px; border-bottom: 1px solid #f1f2f4; text-align: center; vertical-align: middle; }
-  .wk-table tbody tr:last-child td { border-bottom: none; }
-  .wk-table tbody tr:hover td { background: #fafbfc; }
-  .wk-col-idx  { width: 52px; }
-  .wk-col-name { text-align: left; min-width: 190px; }
-  .wk-col-dept { text-align: left; min-width: 130px; }
-  .wk-col-day  { min-width: 78px; }
-  .wk-weekend  { background: #fbfbfc; }
-  .wk-table thead th.wk-weekend { background: #f2f3f5; }
+  .wk-panel__head {
+    display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between;
+    gap: 12px 24px; padding: 18px 20px; border-bottom: 1px solid #eaecee;
+  }
+  .wk-panel__title { font-size: 16px; font-weight: 700; color: #16202b; line-height: 1.35; }
+  .wk-panel__range { display: block; font-size: 12px; font-weight: 400; color: #7b848d; margin-top: 3px; }
+  .wk-panel__foot {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 10px 16px; padding: 14px 20px; border-top: 1px solid #eaecee; background: #fcfcfd;
+  }
+  .wk-panel__count { font-size: 12px; color: #6b7280; }
 
-  /* Name column stays readable while the days scroll under it. */
+  .wk-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; color: #55606b; }
+  .wk-legend span { display: inline-flex; align-items: center; white-space: nowrap; }
+  .wk-legend .wk-dot { width: 7px; height: 7px; margin-right: 7px; }
+
+  /* ── Table ───────────────────────────────────────────────────────────── */
+  /* Readability beats fitting: the columns keep their size and this element
+     scrolls sideways when the viewport is too narrow. Never the page. */
+  .wk-tablewrap { overflow-x: auto; }
+  .wk-table {
+    width: 100%; min-width: 1250px; border-collapse: separate; border-spacing: 0;
+    color: #2b3540;
+  }
+
+  /* Header */
+  .wk-table thead th {
+    position: sticky; top: 0; z-index: 3; height: 56px;
+    background: #f8f9fa; color: #55606b; font-weight: 600; text-align: center;
+    padding: 8px 12px; border-bottom: 1px solid #dfe3e6; white-space: nowrap;
+    vertical-align: middle; line-height: 1.3; font-size: 13px;
+  }
+  .wk-table thead th.wk-col-idx,
+  .wk-table thead th.wk-col-name { text-align: left; padding-left: 14px; }
+  .wk-table thead th.wk-col-dept { text-align: left; padding-left: 12px; }
+  .wk-th-day  { font-size: 14px; font-weight: 700; color: #2b3540; }
+  .wk-th-date { font-size: 11px; font-weight: 400; color: #98a1aa; margin-top: 3px; }
+
+  /* Body. These selectors are deliberately as specific as the generic cell
+     rule below them — a bare `.wk-col-name` loses to `.wk-table tbody td`
+     and the name column silently ends up centred. */
+  .wk-table tbody td {
+    padding: 10px 12px; height: 60px; vertical-align: middle; text-align: center;
+    border-bottom: 1px solid #edeff1; font-size: 13px;
+  }
+  .wk-table tbody tr:last-child td { border-bottom: none; }
+  .wk-table tbody tr:hover td { background: #f8fafb; }
+  .wk-table tbody td.wk-col-idx  { text-align: center; }
+  .wk-table tbody td.wk-col-name { text-align: left; padding-left: 14px; padding-right: 14px; }
+  .wk-table tbody td.wk-col-dept { text-align: left; padding-left: 12px; padding-right: 12px; }
+  /* Column rules stay whisper-thin so the grid never reads as a spreadsheet. */
+  .wk-table td.wk-col-day, .wk-table th.wk-col-day,
+  .wk-table td.wk-col-sum, .wk-table th.wk-col-sum { border-left: 1px solid #f3f5f6; }
+
+  .wk-col-idx  { width: 55px;  min-width: 55px; }
+  .wk-col-name { width: 210px; min-width: 210px; }
+  .wk-col-dept { width: 150px; min-width: 150px; }
+  .wk-col-day  { width: 92px;  min-width: 92px; }
+  .wk-col-sum  { width: 95px;  min-width: 95px; background: #fafbfc; }
+  .wk-col-sum--days { width: 85px; min-width: 85px; }
+  .wk-table thead th.wk-col-sum { background: #f1f3f5; }
+
+  /* Weekend: a neutral step darker, never a colour. */
+  .wk-weekend { background: #f6f7f8; }
+  .wk-table thead th.wk-weekend { background: #ebedef; }
+
+  /* Frozen columns read as a frozen area: solid fill plus a soft edge. */
   .wk-table .wk-col-idx, .wk-table .wk-col-name { position: sticky; background: #fff; z-index: 2; }
   .wk-table .wk-col-idx  { left: 0; }
-  .wk-table .wk-col-name { left: 52px; box-shadow: 1px 0 0 #f1f2f4; }
-  .wk-table thead th.wk-col-idx, .wk-table thead th.wk-col-name { background: #f7f8f9; z-index: 4; }
-  .wk-table tbody tr:hover .wk-col-idx, .wk-table tbody tr:hover .wk-col-name { background: #fafbfc; }
-  /* A very narrow phone should spend its width on the days, not the name. */
-  @media (max-width: 520px) {
-    .wk-col-name { min-width: 140px; }
-    .wk-table .wk-col-name { left: 44px; }
-    .wk-col-idx, .wk-table .wk-col-idx { width: 44px; }
+  .wk-table .wk-col-name { left: 55px; box-shadow: 3px 0 6px rgba(16,24,40,.06); }
+  .wk-table thead th.wk-col-idx, .wk-table thead th.wk-col-name { background: #f8f9fa; z-index: 4; }
+  .wk-table tbody tr:hover .wk-col-idx, .wk-table tbody tr:hover .wk-col-name { background: #f8fafb; }
+  /* A very narrow phone spends its width on the days, not on the name. */
+  @media (max-width: 560px) {
+    .wk-col-name { width: 170px; min-width: 170px; }
+    .wk-table .wk-col-name { left: 46px; }
+    .wk-col-idx, .wk-table .wk-col-idx { width: 46px; min-width: 46px; }
   }
 
-  .wk-day { display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.25; }
-  .wk-day__time { font-variant-numeric: tabular-nums; color: #1f2937; }
-  .wk-day__time--out { color: #6b7280; }
-  .wk-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; }
-  .wk-muted { color: #9aa3ad; }
-
-  .wk-chip {
-    display: inline-block; padding: 2px 8px; border-radius: 999px;
-    font-size: .7rem; font-weight: 600; white-space: nowrap;
+  .wk-idx { color: #98a1aa; font-variant-numeric: tabular-nums; font-size: 13px; }
+  /* The employee is the row's anchor, so it carries the strongest weight and
+     colour; the department sits a step back from it. */
+  .wk-emp__name { font-size: 15px; font-weight: 600; color: #16202b; line-height: 1.4; }
+  .wk-emp__badge { font-size: 11px; color: #98a1aa; line-height: 1.4; margin-top: 2px; }
+  .wk-dept {
+    font-size: 13px; font-weight: 400; color: #78818b; line-height: 1.4;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; word-break: break-word;
   }
-  .wk-chip--tiny { font-size: .64rem; padding: 1px 6px; }
+
+  /* ── Daily cell: two real lines, never a badge for a clock time ─────── */
+  /* An inline-flex block centres as a unit inside the cell while its two lines
+     stay left-aligned to each other — so the dots form one straight column
+     down the week instead of drifting with each time's width. */
+  .wk-day {
+    display: inline-flex; flex-direction: column; align-items: flex-start;
+    justify-content: center; line-height: 1.35; text-align: left;
+  }
+  .wk-day__time {
+    font-size: 14px; font-weight: 500; color: #2b3540;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  /* Indented by the dot's box (7px wide + 6px gap) so the clock-out sits
+     exactly under the clock-in. */
+  .wk-day__time--out {
+    font-size: 12.5px; font-weight: 400; color: #98a1aa; padding-left: 13px;
+  }
+  .wk-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .wk-dot--present { background: #16a34a; }
+  .wk-dot--late    { background: #d97706; }
+  .wk-dot--early   { background: #eab308; }
+  .wk-dot--leave   { background: #2563eb; }
+  .wk-dot--absent  { background: #dc2626; }
+  .wk-dot--off     { background: #9aa3ad; }
+  .wk-muted { color: #98a1aa; }
+
+  /* Status pills: readable, but never loud enough that a week of absences
+     turns the grid into a block of red. */
+  /* Every badge shares one shape and rhythm, so "Vắng", "Nghỉ phép", "Lễ" and
+     "Từ xa" sit on the same baseline and never fight each other. */
+  .wk-st {
+    display: inline-block; border-radius: 999px; font-weight: 600;
+    font-size: 11px; padding: 3px 9px; line-height: 1.45; white-space: nowrap;
+    vertical-align: middle;
+  }
+  .wk-st--absent { background: rgba(220,38,38,.09);   color: #c62b2b; }
+  .wk-st--leave  { background: rgba(37,99,235,.09);   color: #2563eb; }
+  .wk-st--holiday{ background: rgba(107,114,128,.10); color: #6b7280; }
+  /* "Nghỉ" is the quietest state on the grid: plain muted text, no pill. */
+  .wk-st--off    { background: none; color: #a3abb3; font-weight: 400; font-size: 12.5px; padding: 0; }
+  .wk-st--tiny   { font-size: 11px; padding: 1px 8px; margin-top: 3px; }
+
+  .wk-table tbody td.wk-total {
+    font-size: 14px; font-weight: 600; color: #16202b; font-variant-numeric: tabular-nums;
+  }
+  .wk-table tbody td.wk-days {
+    font-size: 14px; font-weight: 700; color: #0f1720; font-variant-numeric: tabular-nums;
+  }
+
   .wk-action { height: 38px; display: inline-flex; align-items: center; gap: 6px; }
   .wk-pagebtn {
-    min-width: 30px; height: 30px; padding: 0 8px; display: inline-flex;
-    align-items: center; justify-content: center; border: 1px solid #e3e5e8;
-    border-radius: 7px; font-size: .78rem; color: #55606b; text-decoration: none; background: #fff;
+    min-width: 34px; height: 34px; padding: 0 10px; display: inline-flex;
+    align-items: center; justify-content: center; border: 1px solid #e0e4e7;
+    border-radius: 8px; font-size: 13px; color: #55606b; text-decoration: none; background: #fff;
   }
   .wk-pagebtn:hover { border-color: var(--wk-primary); color: var(--wk-primary); }
   .wk-pagebtn--active { background: var(--wk-primary); border-color: var(--wk-primary); color: #fff; }
-  .wk-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .74rem; color: #6b7280; }
-  .wk-legend span { display: inline-flex; align-items: center; }
+  .wk-pagebtn--active:hover { color: #fff; }
+  .wk-pagebtn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--wk-ring); }
+  .wk-perpage { height: 34px; padding: 0 10px; font-size: 13px; }
 
   /* ── Card list modal (reuses the global .oh-modal component) ─────────── */
   .wk-modal__dialog { max-width: 520px; }
@@ -157,10 +259,20 @@ The modal reuses the global `oh-modal` component rather than inventing one.
   /* ── Dark mode (project convention: body.dark) ───────────────────────── */
   body.dark .wk-card,
   body.dark .wk-toolbar,
-  body.dark .wk-tablewrap { background: #23272b; border-color: #343a40; }
+  body.dark .wk-panel { background: #23272b; border-color: #343a40; }
+  body.dark .wk-panel__head, body.dark .wk-panel__foot { border-color: #2f343a; }
+  body.dark .wk-panel__foot { background: #21262a; }
+  body.dark .wk-panel__title { color: #e6e9ec; }
   body.dark .wk-table thead th { background: #2a2f34; color: #c9ced3; border-color: #343a40; }
+  body.dark .wk-table thead th.wk-weekend,
+  body.dark .wk-table thead th.wk-col-sum { background: #2e343a; }
   body.dark .wk-table tbody td { border-color: #2f343a; }
+  body.dark .wk-weekend, body.dark .wk-col-sum { background: #262b2f; }
   body.dark .wk-table .wk-col-idx, body.dark .wk-table .wk-col-name { background: #23272b; }
+  body.dark .wk-table tbody tr:hover td,
+  body.dark .wk-table tbody tr:hover .wk-col-idx,
+  body.dark .wk-table tbody tr:hover .wk-col-name { background: #282d32; }
+  body.dark .wk-emp__name, body.dark .wk-total, body.dark .wk-days { color: #e6e9ec; }
   body.dark .wk-card__value, body.dark .wk-day__time { color: #e6e9ec; }
   body.dark .wk-tabs { background: #2a2f34; }
   body.dark .wk-tab--active { background: #23272b; }

@@ -3,12 +3,15 @@
 import threading
 
 from django.apps import apps
+from django.db import transaction
 from django.db.models.signals import post_migrate, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 
+from employee.models import Employee, EmployeeWorkInformation
+
 from joydigi.methods import get_joydigi_model_class
-from leave.models import LeaveRequest, LeaveRequestConditionApproval
+from leave.models import AvailableLeave, LeaveRequest, LeaveRequestConditionApproval, LeaveType
 
 if apps.is_installed("attendance"):
 
@@ -125,6 +128,81 @@ def add_missing_leave_to_workrecords(sender, **kwargs):
 
     except Exception as e:
         print(f"Error in leave/work records sync: {e}")
+
+
+@receiver(post_save, sender=LeaveType)
+def assign_new_leave_type_to_employees(sender, instance, created, **kwargs):
+    """A newly created leave type reaches its company's employees immediately.
+
+    Hooked on the model rather than on a view because a leave type can be
+    created from several places — the web form, the REST API, a data import —
+    and every one of them must end up with the same assignments. Only the
+    `created` case fires: editing an existing type must not silently re-open
+    balances that an admin has deliberately removed.
+
+    Work happens after the surrounding transaction commits, so a rolled-back
+    leave-type creation cannot leave assignments behind.
+    """
+    if not created:
+        return
+
+    def _assign():
+        from leave.services import assignable_employees, ensure_available_leave
+
+        with transaction.atomic():
+            for employee in assignable_employees(instance):
+                ensure_available_leave(employee, instance)
+
+    transaction.on_commit(_assign)
+
+
+@receiver(post_save, sender=Employee)
+def assign_leave_types_to_new_employee(sender, instance, created, **kwargs):
+    """A new employee starts with every leave type their company offers.
+
+    The mirror of `assign_new_leave_type_to_employees`. Note this fires on the
+    Employee row itself, which is written before `EmployeeWorkInformation` —
+    so at this point the employee usually has no company yet and only global
+    (company-less) types match. `assign_leave_types_on_work_info` below closes
+    that gap once the company is known.
+    """
+    if not created:
+        return
+
+    def _assign():
+        from leave.services import assignable_leave_types, ensure_available_leave
+
+        with transaction.atomic():
+            for leave_type in assignable_leave_types(instance):
+                ensure_available_leave(instance, leave_type)
+
+    transaction.on_commit(_assign)
+
+
+@receiver(post_save, sender=EmployeeWorkInformation)
+def assign_leave_types_on_work_info(sender, instance, **kwargs):
+    """Fill in the company-scoped types once an employee's company is known.
+
+    An employee's company lives on their work information, which is saved
+    after the employee itself and can be changed later. Runs on every save
+    (not just `created`) so a transfer between companies also picks up the new
+    company's types. `ensure_available_leave` is idempotent, so re-running
+    costs nothing and never disturbs a balance that already exists — and
+    nothing is removed here: taking a leave type away from someone stays a
+    deliberate, manual act.
+    """
+    employee = instance.employee_id
+    if employee is None:
+        return
+
+    def _assign():
+        from leave.services import assignable_leave_types, ensure_available_leave
+
+        with transaction.atomic():
+            for leave_type in assignable_leave_types(employee):
+                ensure_available_leave(employee, leave_type)
+
+    transaction.on_commit(_assign)
 
 
 @receiver(post_save, sender=LeaveRequestConditionApproval)

@@ -25,7 +25,7 @@ force an artificial oversized string: the 33-character value is the
 actual translated production string.
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 from django.test import TestCase
 from django.utils.translation import gettext, override
@@ -124,11 +124,7 @@ class ClockOutWorkRecordsMessageLengthTests(TestCase):
             minimum_hour="08:00",
             start_time=0,
             end_time=1,
-            # Backdated past the 30-minute minimum introduced by Phase
-            # ATTENDANCE-CHECKOUT-FINAL-WORKTIME-2. Still a short day
-            # (well under half the 08:00 minimum), which is what this
-            # fixture is for.
-            in_datetime=datetime.now() - timedelta(minutes=45),
+            in_datetime=datetime.now(),
         )
 
     def test_checkout_with_worked_time_under_half_minimum_succeeds(self):

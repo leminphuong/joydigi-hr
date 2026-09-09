@@ -94,6 +94,34 @@ def iter_dates(start, end):
         current += datetime.timedelta(days=1)
 
 
+#: Saturday and Sunday, as ``date.weekday()`` reports them.
+WEEKEND_WEEKDAYS = frozenset({5, 6})
+
+
+def is_weekend(value):
+    """
+    Whether a date is a Saturday or a Sunday.
+
+    Phase ATTENDANCE-WEEKEND-GLOBAL-OFF-RULE-1: the company does not work
+    weekends, full stop. That used to be expressed as configuration — a
+    ``CompanyLeaves`` "weekly off day" row, or a ``Roster`` entry per
+    employee per date — which meant a company that had never filled it in
+    (or a roster that had simply run out of published weeks) counted every
+    Saturday and Sunday as an unexplained absence for everyone.
+
+    The calendar is the source of truth instead. Configuration still adds
+    to it: a roster or company-leave entry can still mark a Wednesday off,
+    and existing weekend rows remain harmless because the union already
+    contains those dates.
+    """
+    return value.weekday() in WEEKEND_WEEKDAYS
+
+
+def weekend_dates(from_date, to_date):
+    """Every Saturday and Sunday in an inclusive date range."""
+    return {d for d in iter_dates(from_date, to_date) if is_weekend(d)}
+
+
 def attendance_day_value(worked_seconds, minimum_hour, grace_secs):
     """How much of a day one attendance record is worth: 1.0, 0.5 or 0.0.
 
@@ -145,17 +173,26 @@ class PeriodContext:
         "roster_off_dates",
         "resolutions_map",
         "approved_ot_secs_map",
+        "weekend_off_dates",
     )
 
     def employee_off_dates(self, emp_pk):
         """Week-off dates for one employee.
 
-        Roster is authoritative when the employee has any roster entry in the
-        range; employees with no roster fall back to the company leave dates.
+        Every weekend in the range, always — see :func:`is_weekend`. On top
+        of that, a roster is authoritative for the employee's other days off
+        when they have any roster entry in the range; employees with no
+        roster fall back to the company leave dates.
+
+        The weekend is a union, not a fallback, so a roster that happens to
+        omit a Saturday (or stops before the period ends) can no longer make
+        that Saturday look like a working day nobody turned up for.
         """
         if emp_pk in self.roster_has:
-            return self.roster_off_dates.get(emp_pk, set())
-        return self.company_off_dates
+            configured = self.roster_off_dates.get(emp_pk, set())
+        else:
+            configured = self.company_off_dates
+        return configured | self.weekend_off_dates
 
 
 def build_period_context(from_date, to_date, emp_pks):
@@ -172,10 +209,21 @@ def build_period_context(from_date, to_date, emp_pks):
     ctx.to_date = to_date
     ctx.dates = list(iter_dates(from_date, to_date))
 
+    # -- 0. Weekends ----------------------------------------------------------
+    # Read straight off the calendar, so no company/roster configuration is
+    # needed for a Saturday to be a Saturday.
+    ctx.weekend_off_dates = weekend_dates(from_date, to_date)
+
     # -- 1. Working days (respects CompanyLeaves + public Holidays) ----------
     working_data = get_working_days(from_date, to_date)
-    ctx.total_working = working_data["total_working_days"]
-    ctx.off_dates = working_data["company_leave_dates"]
+    ctx.off_dates = set(working_data["company_leave_dates"]) | ctx.weekend_off_dates
+    # `get_working_days` counts every date the company hasn't configured as a
+    # leave, so without this a 31-day month would report 31 standard working
+    # days instead of 22. Recomputed here rather than inside
+    # `base.methods.get_working_days`, which other apps share.
+    ctx.total_working = len(
+        [d for d in ctx.dates if d not in ctx.off_dates]
+    )
 
     # -- 1b. Public holidays --------------------------------------------------
     ctx.holiday_dates = set(

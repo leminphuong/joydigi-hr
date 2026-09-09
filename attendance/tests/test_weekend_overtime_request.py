@@ -31,6 +31,7 @@ from attendance.methods.worktime import (
     overtime_request_seconds,
 )
 from attendance.models import Attendance, AttendanceActivity, OvertimeRequest
+from attendance.period import is_weekend, weekend_dates
 from attendance.views.clock_in_out import perform_clock_in, perform_clock_out
 from attendance.views.summary import build_monthly_summary
 from base.models import (
@@ -42,6 +43,7 @@ from base.models import (
     EmployeeShiftDay,
     EmployeeShiftSchedule,
     Holidays,
+    Roster,
     WorkType,
 )
 from employee.models import Employee, EmployeeWorkInformation
@@ -564,3 +566,200 @@ class OvertimeRequestAPIValidationTests(WeekendOvertimeBaseTest):
         self.assertFalse(
             OvertimeRequest.objects.filter(employee_id=other).exists()
         )
+
+
+class WeekendIsOffWithoutAnyConfigurationTests(WeekendOvertimeBaseTest):
+    """
+    Phase ATTENDANCE-WEEKEND-GLOBAL-OFF-RULE-1.
+
+    A Saturday is a Saturday whether or not anyone filled in a `CompanyLeaves`
+    row or published a roster covering that week. Before this, a company that
+    had configured neither counted every weekend as an unexplained absence for
+    every employee — and a roster that had simply run out of published weeks
+    did the same from the day it ended.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        # The whole point of this class: no weekly-off configuration at all.
+        CompanyLeaves.objects.all().delete()
+
+    def test_no_weekly_off_configuration_exists(self):
+        self.assertFalse(CompanyLeaves.objects.exists())
+
+    def test_a_saturday_with_nothing_recorded_is_a_week_off_not_an_absence(self):
+        row = self.summary(self.saturday())
+        self.assertEqual(row["week_off"], 1)
+        self.assertEqual(row["present"], 0.0)
+        self.assertEqual(row["absent"], 0.0)
+        self.assertEqual(row["overtime_seconds"], 0)
+
+    def test_a_sunday_with_nothing_recorded_is_a_week_off_not_an_absence(self):
+        sunday = self.saturday() + timedelta(days=1)
+        row = self.summary(sunday)
+        self.assertEqual(row["week_off"], 1)
+        self.assertEqual(row["present"], 0.0)
+        self.assertEqual(row["absent"], 0.0)
+
+    def test_a_full_week_counts_five_working_days_and_two_off(self):
+        saturday = self.saturday()
+        monday = saturday - timedelta(days=5)
+        row = self.summary(monday, saturday + timedelta(days=1))
+        self.assertEqual(row["week_off"], 2)
+        self.assertEqual(row["absent"], 5.0)
+        self.assertEqual(row["total_working"], 5)
+
+    def test_a_weekday_with_nothing_recorded_is_still_an_absence(self):
+        # The rule covers weekends only — it must not quietly excuse a
+        # missing weekday too.
+        row = self.summary(self.weekday())
+        self.assertEqual(row["absent"], 1.0)
+        self.assertEqual(row["week_off"], 0)
+
+    def test_an_approved_saturday_request_shows_with_no_configuration(self):
+        saturday = self.saturday()
+        self.request_for(saturday, (9, 0), (12, 0))
+        row = self.summary(saturday)
+        self.assertEqual(row["ot_week_off_seconds"], 3 * HOUR)
+        self.assertEqual(row["week_off"], 1)
+        self.assertEqual(row["present"], 0.0)
+        self.assertEqual(row["absent"], 0.0)
+
+    def test_a_full_saturday_request_is_seven_hours_with_no_configuration(self):
+        saturday = self.saturday()
+        self.request_for(saturday, (9, 0), (17, 0))
+        self.assertEqual(self.summary(saturday)["ot_week_off_seconds"], 7 * HOUR)
+
+    def test_an_approved_sunday_request_shows_too(self):
+        sunday = self.saturday() + timedelta(days=1)
+        self.request_for(sunday, (13, 0), (17, 0))
+        row = self.summary(sunday)
+        self.assertEqual(row["ot_week_off_seconds"], 4 * HOUR)
+        self.assertEqual(row["week_off"], 1)
+
+    def test_a_pending_request_contributes_nothing(self):
+        saturday = self.saturday()
+        self.request_for(saturday, (9, 0), (12, 0), approved=False)
+        self.assertEqual(self.summary(saturday)["ot_week_off_seconds"], 0)
+
+    def test_a_cancelled_request_contributes_nothing(self):
+        saturday = self.saturday()
+        overtime = self.request_for(saturday, (9, 0), (12, 0))
+        overtime.canceled = True
+        overtime.approved = False
+        overtime.save()
+        row = self.summary(saturday)
+        self.assertEqual(row["ot_week_off_seconds"], 0)
+        self.assertEqual(row["week_off"], 1)
+        self.assertEqual(row["absent"], 0.0)
+
+    def test_two_approved_weekend_requests_still_add_up(self):
+        saturday = self.saturday()
+        self.request_for(saturday, (9, 0), (12, 0))
+        self.request_for(saturday, (13, 0), (17, 0))
+        self.assertEqual(self.summary(saturday)["ot_week_off_seconds"], 7 * HOUR)
+
+    def test_no_attendance_or_activity_is_created(self):
+        saturday = self.saturday()
+        self.request_for(saturday, (9, 0), (12, 0))
+        self.summary(saturday)
+        self.assertFalse(
+            Attendance.objects.filter(
+                employee_id=self.employee, attendance_date=saturday
+            ).exists()
+        )
+        self.assertFalse(
+            AttendanceActivity.objects.filter(employee_id=self.employee).exists()
+        )
+
+    def test_a_weekday_request_still_adds_nothing(self):
+        day = self.weekday()
+        self.clock(day, (8, 0), (18, 0))
+        before = self.summary(day)
+        self.request_for(day, (17, 0), (18, 0))
+        after = self.summary(day)
+        self.assertEqual(after["ot_regular_seconds"], before["ot_regular_seconds"])
+        self.assertEqual(after["ot_regular_seconds"], HOUR)
+        self.assertEqual(after["present"], 1.0)
+
+    def test_a_holiday_falling_on_a_saturday_keeps_holiday_precedence(self):
+        saturday = self.saturday()
+        Holidays.objects.create(
+            name="Ngày lễ", start_date=saturday, end_date=saturday,
+            is_specific=False, company_id=self.company,
+        )
+        self.request_for(saturday, (9, 0), (12, 0))
+        row = self.summary(saturday)
+        self.assertEqual(row["ot_holiday_seconds"], 3 * HOUR)
+        self.assertEqual(row["ot_week_off_seconds"], 0)
+
+    def test_an_existing_company_leave_row_remains_harmless(self):
+        # Deployments that already configured Saturday/Sunday must keep
+        # working — the weekend is a union, so the duplicate is a no-op.
+        leave = CompanyLeaves.objects.create(
+            based_on_week=None, based_on_week_day="5"
+        )
+        leave.company_id.add(self.company)
+        saturday = self.saturday()
+        self.request_for(saturday, (9, 0), (12, 0))
+        row = self.summary(saturday)
+        self.assertEqual(row["week_off"], 1)
+        self.assertEqual(row["ot_week_off_seconds"], 3 * HOUR)
+
+    def test_a_roster_that_omits_the_weekend_no_longer_causes_absences(self):
+        # A published roster used to be authoritative on its own, so a
+        # Saturday it did not mark off read as a working day nobody attended.
+        saturday = self.saturday()
+        Roster.objects.create(
+            employee=self.employee, date=saturday, shift=self.shift,
+            is_off=False, is_published=True,
+        )
+        row = self.summary(saturday)
+        self.assertEqual(row["week_off"], 1)
+        self.assertEqual(row["absent"], 0.0)
+
+    def test_a_roster_day_off_midweek_is_still_honoured(self):
+        # Configuration still adds to the calendar rule rather than being
+        # replaced by it.
+        day = self.weekday()
+        Roster.objects.create(
+            employee=self.employee, date=day, shift=self.shift,
+            is_off=True, is_published=True,
+        )
+        row = self.summary(day)
+        self.assertEqual(row["week_off"], 1)
+        self.assertEqual(row["absent"], 0.0)
+
+    def test_historical_attendance_is_untouched(self):
+        old_day = self.weekday() - timedelta(days=45)
+        attendance = Attendance.objects.create(
+            employee_id=self.employee, attendance_date=old_day,
+            shift_id=self.shift, attendance_worked_hour="09:00",
+            minimum_hour="08:00",
+        )
+        self.summary(old_day, self.weekday())
+        attendance.refresh_from_db()
+        self.assertEqual(attendance.attendance_worked_hour, "09:00")
+
+
+class WeekendHelperTests(TestCase):
+    """The calendar rule itself, with no database involved."""
+
+    def test_saturday_and_sunday_are_weekends(self):
+        self.assertTrue(is_weekend(date(2026, 9, 5)))  # Saturday
+        self.assertTrue(is_weekend(date(2026, 9, 6)))  # Sunday
+        for day in range(7, 12):  # Monday-Friday
+            self.assertFalse(is_weekend(date(2026, 9, day)))
+
+    def test_a_range_yields_exactly_its_weekend_dates(self):
+        found = weekend_dates(date(2026, 9, 1), date(2026, 9, 30))
+        self.assertEqual(len(found), 8)  # September 2026: 4 Saturdays, 4 Sundays
+        self.assertTrue(all(d.weekday() >= 5 for d in found))
+
+        # October 2026 starts on a Thursday, so it has one more Saturday.
+        october = weekend_dates(date(2026, 10, 1), date(2026, 10, 31))
+        self.assertEqual(len(october), 9)  # 5 Saturdays, 4 Sundays
+
+    def test_a_single_weekday_range_yields_nothing(self):
+        self.assertEqual(weekend_dates(date(2026, 9, 9), date(2026, 9, 9)), set())

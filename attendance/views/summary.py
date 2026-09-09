@@ -32,6 +32,8 @@ from attendance.models import (
 from attendance.period import (
     build_period_context,
     classify_employee_period,
+    is_weekend,
+    weekend_dates,
 )
 from base.methods import (
     filtersubordinatesemployeemodel,
@@ -902,7 +904,13 @@ def attendance_monthly_summary_detail(request):
 
     elif metric == "absent":
         working_data = get_working_days(from_date, to_date)
-        off_set = set(working_data["company_leave_dates"])
+        # Weekends are off regardless of what is configured — see
+        # `attendance.period.is_weekend`. Without this the drill-down would
+        # list every Saturday and Sunday as a day the employee failed to
+        # turn up for.
+        off_set = set(working_data["company_leave_dates"]) | weekend_dates(
+            from_date, to_date
+        )
         working_dates = {d for d in _iter_dates(from_date, to_date) if d not in off_set}
 
         present_dates = set(
@@ -1036,6 +1044,9 @@ def attendance_monthly_summary_detail(request):
                 )
             )
             week_off_set = {d for d in _raw_cl if from_date <= d <= to_date}
+        # Weekends are off regardless of what is configured — see
+        # `attendance.period.is_weekend`.
+        week_off_set |= weekend_dates(from_date, to_date)
 
         # Build conflict records
         conflict_records = []
@@ -1123,6 +1134,9 @@ def attendance_monthly_summary_detail(request):
             )
             _wo_dates = {d for d in _raw_cl if from_date <= d <= to_date}
             context["source"] = "company"
+        # Weekends are off regardless of what is configured — see
+        # `attendance.period.is_weekend`.
+        _wo_dates |= weekend_dates(from_date, to_date)
 
         # Include resolution="week_off" dates not already in the list
         for _d, _res in resolution_map.items():
@@ -1234,6 +1248,9 @@ def _build_calendar_context(emp, from_date, to_date):
             )
         )
         week_off_dates = {d for d in raw_cl if from_date <= d <= to_date}
+    # Weekends are off regardless of what is configured — see
+    # `attendance.period.is_weekend`.
+    week_off_dates |= weekend_dates(from_date, to_date)
 
     # -- Worked / Regular / Overtime totals for this employee over the range -
     # Overtime splits into three sources: worked beyond minimum_hour on a
@@ -1750,7 +1767,9 @@ def attendance_monthly_summary_conflict_resolve(request):
             conflict_label = _h.name
     if not conflict_type:
         _roster = Roster.objects.filter(employee_id=emp, date=date, is_off=True).first()
-        if _roster:
+        # Weekends are off regardless of what is configured — see
+        # `attendance.period.is_weekend`.
+        if _roster or is_weekend(date):
             conflict_type = "week_off_ot" if att_row else "week_off"
         else:
             _raw_cl = list(set(get_company_leave_dates(date.year)))

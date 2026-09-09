@@ -1052,8 +1052,27 @@ def perform_clock_out(request):
                 .order_by("id", "attendance_date")
                 .last()
             )
+            # `.entire()` on the re-fetch, and only on the re-fetch.
+            # `JoydigiCompanyManager` appends `.distinct()` whenever a
+            # company is selected — which `CompanyMiddleware` does on every
+            # request, API calls included — and PostgreSQL rejects
+            # `SELECT DISTINCT ... FOR UPDATE` outright ("FOR UPDATE is not
+            # allowed with DISTINCT clause"), so every real check-out was
+            # answering 500. SQLite ignores `select_for_update` entirely, so
+            # neither the local database nor the test suite could ever
+            # surface it.
+            #
+            # This widens nothing: `latest` above was found through the
+            # company-scoped manager AND filtered to the authenticated
+            # employee, so `latest.pk` is a row this caller has already been
+            # shown. Re-fetching that exact primary key only takes the lock
+            # on it. The unscoped manager must never be used to *find* an
+            # attendance row.
             attendance = (
-                Attendance.objects.select_for_update().filter(pk=latest.pk).first()
+                Attendance.objects.entire()
+                .select_for_update()
+                .filter(pk=latest.pk)
+                .first()
                 if latest is not None
                 else None
             )

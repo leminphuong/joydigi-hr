@@ -16,7 +16,9 @@ face and the scheduler all use, so proving it here proves it for all four.
 """
 
 from datetime import date, datetime, time, timedelta
+from unittest import mock
 
+from django.db.models.query import QuerySet
 from django.test import TestCase
 from django.utils import timezone
 
@@ -37,6 +39,7 @@ from base.models import (
     WorkType,
 )
 from employee.models import Employee, EmployeeWorkInformation
+from joydigi.joydigi_middlewares import set_selected_company
 
 HOUR = 3600
 
@@ -527,3 +530,291 @@ class ActivityAggregationTests(TestCase):
             self._Activity(self.day, (13, 0), None),
         ]
         self.assertEqual(activities_worked_seconds(activities), 3 * HOUR)
+
+
+class CheckOutRowLockTests(TestCase):
+    """
+    The row lock taken during check-out must not carry a DISTINCT clause.
+
+    `JoydigiCompanyManager` appends `.distinct()` whenever a company is
+    selected — which `CompanyMiddleware` does on every request, API calls
+    included. PostgreSQL rejects `SELECT DISTINCT ... FOR UPDATE` outright,
+    so a lock taken through the scoped manager made every real check-out
+    answer 500.
+
+    SQLite drops `select_for_update` on the floor, so no amount of
+    exercising the check-out flow locally can catch this. These tests
+    inspect the query Django *builds* instead of what SQLite chooses to
+    execute — the one thing that is identical on both backends.
+    """
+
+    def setUp(self):
+        # A company must be selected for the manager to add DISTINCT at all,
+        # which is the state every authenticated request actually runs in.
+        set_selected_company("1")
+        self.addCleanup(set_selected_company, None)
+
+    def test_the_lock_queryset_still_asks_for_a_row_lock(self):
+        # Dropping the lock would "fix" PostgreSQL by reintroducing the race
+        # between two concurrent check-outs. It must stay.
+        queryset = Attendance.objects.entire().select_for_update().filter(pk=1)
+        self.assertTrue(queryset.query.select_for_update)
+
+    def test_the_lock_queryset_is_not_distinct(self):
+        queryset = Attendance.objects.entire().select_for_update().filter(pk=1)
+        self.assertFalse(
+            queryset.query.distinct,
+            "the locking re-fetch must go through .entire(); a DISTINCT here "
+            "makes PostgreSQL refuse the FOR UPDATE",
+        )
+
+    def test_the_scoped_manager_would_reintroduce_the_defect(self):
+        # Guard, not a wish: this is exactly the query the fixed line used to
+        # build. If someone drops `.entire()`, the assertion above starts
+        # failing and this one explains why.
+        queryset = Attendance.objects.select_for_update().filter(pk=1)
+        self.assertTrue(
+            queryset.query.distinct,
+            "the company-scoped manager is expected to add DISTINCT — if it "
+            "no longer does, .entire() may no longer be needed here",
+        )
+
+    def test_the_lock_taken_during_a_real_check_out_is_not_distinct(self):
+        """
+        The guard that actually catches a revert.
+
+        The three assertions above describe the ORM contract; this one watches
+        `perform_clock_out` itself. It records the state of every queryset the
+        flow calls `select_for_update()` on — which is where the DISTINCT
+        either is or isn't — so dropping `.entire()` from the production line
+        fails here, on SQLite, without needing PostgreSQL to reject it.
+        """
+        company, shift, employee, attendance, moment = self._open_day_for_lock()
+
+        distinct_flags = []
+        original = QuerySet.select_for_update
+
+        def spy(self, *args, **kwargs):
+            distinct_flags.append(self.query.distinct)
+            return original(self, *args, **kwargs)
+
+        with mock.patch.object(QuerySet, "select_for_update", spy):
+            _result, allowed, reason = perform_clock_out(
+                self._request_for(employee, moment)
+            )
+
+        self.assertTrue(allowed, reason)
+        self.assertEqual(
+            len(distinct_flags), 1, "check-out should take exactly one row lock"
+        )
+        self.assertFalse(
+            distinct_flags[0],
+            "the queryset being locked carried DISTINCT — PostgreSQL refuses "
+            "SELECT DISTINCT ... FOR UPDATE, so this is the production 500",
+        )
+
+    def _request_for(self, employee, moment):
+        user = type(employee.employee_user_id).objects.get(
+            pk=employee.employee_user_id.pk
+        )
+        return Request(
+            user=user, date=moment.date(), time=moment.time(),
+            datetime=moment, trusted_device=True,
+        )
+
+    def _open_day_for_lock(self):
+        """A company-scoped employee with an open attendance day."""
+        company = Company.objects.create(
+            company="Lock Corp %s" % Company.objects.count(), hq=True,
+            address="x", country="VN", state="HN", city="HN", zip="10000",
+        )
+        set_selected_company(str(company.pk))
+        shift = EmployeeShift.objects.create(
+            employee_shift="Lock Shift %s" % EmployeeShift.objects.count()
+        )
+        shift.company_id.add(company)
+        work_type = WorkType.objects.create(
+            work_type="Office %s" % WorkType.objects.count()
+        )
+        work_type.company_id.add(company)
+        today = timezone.localtime().date()
+        shift_day = EmployeeShiftDay.objects.filter(
+            day=today.strftime("%A").lower()
+        ).first()
+        schedule = EmployeeShiftSchedule.objects.create(
+            day=shift_day, shift_id=shift, minimum_working_hour="08:00",
+            start_time=time(8, 0), end_time=time(17, 0),
+        )
+        schedule.company_id.add(company)
+
+        import uuid
+
+        tag = uuid.uuid4().hex[:10]
+        employee = Employee.objects.create(
+            employee_first_name="Lock", employee_last_name=tag,
+            email="lock%s@test.local" % tag, phone="9999999999",
+        )
+        info = EmployeeWorkInformation.objects.get(employee_id=employee)
+        info.company_id = company
+        info.shift_id = shift
+        info.work_type_id = work_type
+        info.save()
+
+        start = timezone.make_aware(datetime.combine(today, time(8, 0)))
+        AttendanceActivity.objects.create(
+            employee_id=employee, attendance_date=today, shift_day=shift_day,
+            clock_in_date=today, clock_in=time(8, 0), in_datetime=start,
+        )
+        attendance = Attendance.objects.create(
+            employee_id=employee, attendance_date=today, shift_id=shift,
+            attendance_day=shift_day, attendance_clock_in_date=today,
+            attendance_clock_in=time(8, 0), minimum_hour="08:00",
+        )
+        out = timezone.make_aware(datetime.combine(today, time(17, 0)))
+        return company, shift, employee, attendance, out
+
+    def test_the_flow_still_works_with_a_company_selected(self):
+        # End-to-end under the company scoping a real request carries, which
+        # no other check-out test exercises.
+        company = Company.objects.create(
+            company="Lock Corp", hq=True, address="x", country="VN",
+            state="HN", city="HN", zip="10000",
+        )
+        set_selected_company(str(company.pk))
+        shift = EmployeeShift.objects.create(employee_shift="Lock Shift")
+        shift.company_id.add(company)
+        work_type = WorkType.objects.create(work_type="Office")
+        work_type.company_id.add(company)
+        today = timezone.localtime().date()
+        shift_day = EmployeeShiftDay.objects.filter(
+            day=today.strftime("%A").lower()
+        ).first()
+        schedule = EmployeeShiftSchedule.objects.create(
+            day=shift_day, shift_id=shift, minimum_working_hour="08:00",
+            start_time=time(8, 0), end_time=time(17, 0),
+        )
+        schedule.company_id.add(company)
+
+        employee = Employee.objects.create(
+            employee_first_name="Lock", employee_last_name="Tester",
+            email="lock@test.local", phone="9999999999",
+        )
+        info = EmployeeWorkInformation.objects.get(employee_id=employee)
+        info.company_id = company
+        info.shift_id = shift
+        info.work_type_id = work_type
+        info.save()
+
+        def at(hour, minute=0):
+            return timezone.make_aware(
+                datetime.combine(today, time(hour, minute))
+            )
+
+        AttendanceActivity.objects.create(
+            employee_id=employee, attendance_date=today, shift_day=shift_day,
+            clock_in_date=today, clock_in=time(8, 0), in_datetime=at(8, 0),
+        )
+        attendance = Attendance.objects.create(
+            employee_id=employee, attendance_date=today, shift_id=shift,
+            attendance_day=shift_day, attendance_clock_in_date=today,
+            attendance_clock_in=time(8, 0), minimum_hour="08:00",
+        )
+
+        user = type(employee.employee_user_id).objects.get(
+            pk=employee.employee_user_id.pk
+        )
+        moment = at(17, 0)
+        result, allowed, reason = perform_clock_out(
+            Request(
+                user=user, date=moment.date(), time=moment.time(),
+                datetime=moment, trusted_device=True,
+            )
+        )
+        self.assertTrue(allowed, reason)
+        self.assertEqual(result.pk, attendance.pk)
+        attendance.refresh_from_db()
+        self.assertEqual(attendance.checkout_count, 1)
+        self.assertEqual(attendance.attendance_worked_hour, "08:00")
+
+
+class CheckOutCompanyIsolationTests(TestCase):
+    """
+    Using the unscoped manager for the lock must not become a way to reach
+    another company's attendance.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.today = timezone.localtime().date()
+        cls.shift_day = EmployeeShiftDay.objects.filter(
+            day=cls.today.strftime("%A").lower()
+        ).first()
+
+    def _company(self, name, email):
+        company = Company.objects.create(
+            company=name, hq=True, address="x", country="VN",
+            state="HN", city="HN", zip="10000",
+        )
+        shift = EmployeeShift.objects.create(employee_shift="Shift " + name)
+        shift.company_id.add(company)
+        work_type = WorkType.objects.create(work_type="WT " + name)
+        work_type.company_id.add(company)
+        schedule = EmployeeShiftSchedule.objects.create(
+            day=self.shift_day, shift_id=shift, minimum_working_hour="08:00",
+            start_time=time(8, 0), end_time=time(17, 0),
+        )
+        schedule.company_id.add(company)
+        employee = Employee.objects.create(
+            employee_first_name=name, employee_last_name="Emp",
+            email=email, phone="9999999999",
+        )
+        info = EmployeeWorkInformation.objects.get(employee_id=employee)
+        info.company_id = company
+        info.shift_id = shift
+        info.work_type_id = work_type
+        info.save()
+        return company, shift, employee
+
+    def _open_day(self, employee, shift):
+        moment = timezone.make_aware(
+            datetime.combine(self.today, time(8, 0))
+        )
+        AttendanceActivity.objects.create(
+            employee_id=employee, attendance_date=self.today,
+            shift_day=self.shift_day, clock_in_date=self.today,
+            clock_in=time(8, 0), in_datetime=moment,
+        )
+        return Attendance.objects.create(
+            employee_id=employee, attendance_date=self.today, shift_id=shift,
+            attendance_day=self.shift_day, attendance_clock_in_date=self.today,
+            attendance_clock_in=time(8, 0), minimum_hour="08:00",
+        )
+
+    def test_one_company_cannot_check_out_anothers_attendance(self):
+        company_a, shift_a, emp_a = self._company("Alpha", "alpha@test.local")
+        _company_b, shift_b, emp_b = self._company("Beta", "beta@test.local")
+        att_a = self._open_day(emp_a, shift_a)
+        att_b = self._open_day(emp_b, shift_b)
+
+        set_selected_company(str(company_a.pk))
+        self.addCleanup(set_selected_company, None)
+
+        user = type(emp_a.employee_user_id).objects.get(
+            pk=emp_a.employee_user_id.pk
+        )
+        moment = timezone.make_aware(datetime.combine(self.today, time(17, 0)))
+        result, allowed, _reason = perform_clock_out(
+            Request(
+                user=user, date=moment.date(), time=moment.time(),
+                datetime=moment, trusted_device=True,
+            )
+        )
+
+        # Alpha's own day closed...
+        self.assertTrue(allowed)
+        self.assertEqual(result.pk, att_a.pk)
+        # ...and Beta's is untouched. The employee is server-derived, so the
+        # unscoped lock can only ever reach the caller's own row.
+        att_b.refresh_from_db()
+        self.assertIsNone(att_b.attendance_clock_out)
+        self.assertEqual(att_b.checkout_count, 0)

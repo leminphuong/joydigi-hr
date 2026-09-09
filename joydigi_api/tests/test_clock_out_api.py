@@ -17,7 +17,7 @@ mutation, never renders) + the existing `clock_out()` wrapper (calls
 view). `ClockOutAPIView` now calls `perform_clock_out()` directly.
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from unittest import mock
 
 from django.test import TestCase
@@ -59,12 +59,6 @@ class ClockOutAPITests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
-    # The check-in is backdated an hour because Phase
-    # ATTENDANCE-CHECKOUT-FINAL-WORKTIME-2 requires an employee to stay 30
-    # minutes before the day can be closed. These tests are about the
-    # check-out API's own behaviour, not that rule (which has its own
-    # coverage in `attendance/tests/test_checkout_worktime.py`), so they
-    # start from a shift that has genuinely been worked.
     def _clock_in(self, minimum_hour="08:00"):
         clock_in_attendance_and_activity(
             employee=self.employee,
@@ -76,7 +70,7 @@ class ClockOutAPITests(TestCase):
             minimum_hour=minimum_hour,
             start_time=0,
             end_time=1,
-            in_datetime=datetime.now() - timedelta(hours=1),
+            in_datetime=datetime.now(),
         )
 
     # A. valid clock-out
@@ -114,98 +108,26 @@ class ClockOutAPITests(TestCase):
         self.assertEqual(response.status_code, 200, response.data)
         mock_render.assert_not_called()
 
-    # B. a third check-out is refused.
-    #
-    # This test used to assert the *second* check-out was refused. Phase
-    # ATTENDANCE-CHECKOUT-FINAL-WORKTIME-2 deliberately changed that: an
-    # employee gets one correction, and the last check-out wins. The
-    # property worth keeping — that the API eventually stops accepting
-    # check-outs, and that a refused one mutates nothing — is asserted
-    # here at the new boundary.
-    def test_a_third_clock_out_returns_400_with_no_extra_mutation(self):
+    # B. already clocked-out
+    def test_already_clocked_out_returns_400_with_no_extra_mutation(self):
         self._clock_in()
         first = self.client.post("/api/attendance/clock-out/")
         self.assertEqual(first.status_code, 200, first.data)
+        attendance_after_first = Attendance.objects.get(
+            employee_id=self.employee, attendance_date=self.today
+        )
+        clock_out_after_first = attendance_after_first.attendance_clock_out
 
         second = self.client.post("/api/attendance/clock-out/")
-        self.assertEqual(second.status_code, 200, second.data)
-        self.assertEqual(second.data["checkout_count"], 2)
 
+        self.assertEqual(second.status_code, 400)
+        self.assertIn("application/json", second["Content-Type"])
         attendance_after_second = Attendance.objects.get(
             employee_id=self.employee, attendance_date=self.today
         )
-        clock_out_after_second = attendance_after_second.attendance_clock_out
-
-        third = self.client.post("/api/attendance/clock-out/")
-
-        self.assertEqual(third.status_code, 400)
-        self.assertIn("application/json", third["Content-Type"])
-        self.assertEqual(third.data["code"], "CHECKOUT_LIMIT_REACHED")
-        attendance_after_third = Attendance.objects.get(
-            employee_id=self.employee, attendance_date=self.today
-        )
         self.assertEqual(
-            attendance_after_third.attendance_clock_out, clock_out_after_second
+            attendance_after_second.attendance_clock_out, clock_out_after_first
         )
-        self.assertEqual(attendance_after_third.checkout_count, 2)
-
-    # B2. the second check-out is the correction, not a new session.
-    def test_second_clock_out_moves_the_mark_without_adding_a_session(self):
-        from attendance.models import AttendanceActivity
-
-        self._clock_in()
-        self.client.post("/api/attendance/clock-out/")
-        activities_after_first = AttendanceActivity.objects.filter(
-            employee_id=self.employee
-        ).count()
-
-        second = self.client.post("/api/attendance/clock-out/")
-
-        self.assertEqual(second.status_code, 200, second.data)
-        self.assertEqual(
-            AttendanceActivity.objects.filter(employee_id=self.employee).count(),
-            activities_after_first,
-        )
-        self.assertEqual(
-            Attendance.objects.filter(
-                employee_id=self.employee, attendance_date=self.today
-            ).count(),
-            1,
-        )
-
-    # B3. the check-out response carries the authoritative counter, so the
-    # client never has to guess whether a correction remains.
-    def test_response_exposes_the_checkout_count(self):
-        self._clock_in()
-
-        response = self.client.post("/api/attendance/clock-out/")
-
-        self.assertEqual(response.data["checkout_count"], 1)
-
-    # B4. checking out too soon is refused and changes nothing.
-    def test_clock_out_before_thirty_minutes_is_refused(self):
-        clock_in_attendance_and_activity(
-            employee=self.employee,
-            date_today=self.today,
-            attendance_date=self.today,
-            day=self.day,
-            now="08:00",
-            shift=self.shift,
-            minimum_hour="08:00",
-            start_time=0,
-            end_time=1,
-            in_datetime=datetime.now(),
-        )
-
-        response = self.client.post("/api/attendance/clock-out/")
-
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.data["code"], "CHECKOUT_TOO_SOON")
-        attendance = Attendance.objects.get(
-            employee_id=self.employee, attendance_date=self.today
-        )
-        self.assertIsNone(attendance.attendance_clock_out)
-        self.assertEqual(attendance.checkout_count, 0)
 
     # C. checkout without any open attendance
     def test_checkout_without_open_attendance_returns_400(self):
@@ -241,7 +163,7 @@ class ClockOutAPITests(TestCase):
             minimum_hour="08:00",
             start_time=0,
             end_time=1,
-            in_datetime=datetime.now() - timedelta(hours=1),
+            in_datetime=datetime.now(),
         )
         self._clock_in()
 

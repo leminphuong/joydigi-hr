@@ -21,11 +21,13 @@ from django.shortcuts import render
 from django.utils.translation import gettext_lazy as _
 from xlsxwriter.utility import xl_range
 
+from attendance.methods.worktime import approved_overtime_seconds
 from attendance.models import (
     Attendance,
     AttendanceDailyHours,
     AttendanceLateComeEarlyOut,
     AttendanceSummaryHours,
+    OvertimeRequest,
 )
 from attendance.period import (
     build_period_context,
@@ -141,6 +143,7 @@ def build_monthly_summary(from_date, to_date, employee_qs):
     att_date_secs_map = ctx.att_secs_map
     att_date_ot_secs_map = ctx.att_ot_secs_map
     att_date_ot_approved_map = ctx.att_ot_approved_map
+    approved_ot_secs_map = ctx.approved_ot_secs_map
     hours_override_map = ctx.hours_override_map
     leave_dates_per_emp = ctx.leave_dates_map
 
@@ -224,16 +227,35 @@ def build_monthly_summary(from_date, to_date, employee_qs):
         #   - ot_week_off: any attendance on a week-off day (entirely OT)
         #   - ot_holiday:  any attendance on a holiday (entirely OT)
         _emp_ot_secs = att_date_ot_secs_map.get(emp.pk, {})
+        # Phase ATTENDANCE-WEEKEND-OT-REQUEST-IMPLEMENT-1: approved overtime
+        # requests, so a weekend worked on permission shows up even though
+        # nobody checked in. Only week-off and holiday dates consume this —
+        # on a normal working day an approved request stays what it always
+        # was, a permission, and NT keeps coming from real attendance alone.
+        _approved_ot = approved_ot_secs_map.get(emp.pk, {})
         ot_regular_seconds = ot_week_off_seconds = ot_holiday_seconds = 0
-        for _d, _wsec in _att_secs.items():
-            if _d in holiday_dates_set:
-                ot_holiday_seconds += _wsec
-            elif _d in _emp_off:
-                ot_week_off_seconds += _wsec
+        worked_seconds = 0
+        for _d in set(_att_secs) | set(_approved_ot):
+            _wsec = _att_secs.get(_d, 0)
+            if _d in holiday_dates_set or _d in _emp_off:
+                # Requests and attendance are never summed: an employee who
+                # both filed a request and physically checked in worked one
+                # day, not two. The larger of the two is credited, so an
+                # approved request can only ever add to what is already
+                # visible and never hides real recorded work.
+                _credit = max(_wsec, _approved_ot.get(_d, 0))
+                worked_seconds += _credit
+                # Existing precedence preserved: a date that is both a public
+                # holiday and a week-off counts as holiday, exactly as it
+                # already did for real attendance.
+                if _d in holiday_dates_set:
+                    ot_holiday_seconds += _credit
+                else:
+                    ot_week_off_seconds += _credit
             else:
+                worked_seconds += _wsec
                 ot_regular_seconds += _emp_ot_secs.get(_d, 0)
 
-        worked_seconds = sum(_att_secs.values())
         overtime_seconds = ot_regular_seconds + ot_week_off_seconds + ot_holiday_seconds
         regular_seconds = worked_seconds - overtime_seconds
 
@@ -1217,17 +1239,39 @@ def _build_calendar_context(emp, from_date, to_date):
     # Overtime splits into three sources: worked beyond minimum_hour on a
     # normal working day (ot_regular), any attendance on a week-off day
     # (entirely OT), and any attendance on a holiday (entirely OT).
+    # Phase ATTENDANCE-WEEKEND-OT-REQUEST-IMPLEMENT-1: same rule as
+    # `build_monthly_summary` — approved requests are credited on week-off and
+    # holiday dates only, and are never summed with real attendance.
+    cal_approved_ot = defaultdict(list)
+    for _row in OvertimeRequest.objects.filter(
+        employee_id=emp,
+        request_date__range=(from_date, to_date),
+        approved=True,
+        canceled=False,
+        is_active=True,
+    ).values("request_date", "start_time", "end_time"):
+        cal_approved_ot[_row["request_date"]].append(
+            (_row["start_time"], _row["end_time"])
+        )
+    cal_approved_ot_secs = {
+        _d: approved_overtime_seconds(_w) for _d, _w in cal_approved_ot.items()
+    }
+
     cal_worked_seconds = 0
     cal_ot_regular_seconds = cal_ot_week_off_seconds = cal_ot_holiday_seconds = 0
-    for _d, _r in att_map.items():
-        _wsec = _r["at_work_second"] or 0
-        cal_worked_seconds += _wsec
-        if _d in holiday_map:
-            cal_ot_holiday_seconds += _wsec
-        elif _d in week_off_dates:
-            cal_ot_week_off_seconds += _wsec
+    for _d in set(att_map) | set(cal_approved_ot_secs):
+        _r = att_map.get(_d) or {}
+        _wsec = _r.get("at_work_second") or 0
+        if _d in holiday_map or _d in week_off_dates:
+            _credit = max(_wsec, cal_approved_ot_secs.get(_d, 0))
+            cal_worked_seconds += _credit
+            if _d in holiday_map:
+                cal_ot_holiday_seconds += _credit
+            else:
+                cal_ot_week_off_seconds += _credit
         else:
-            cal_ot_regular_seconds += _r["overtime_second"] or 0
+            cal_worked_seconds += _wsec
+            cal_ot_regular_seconds += _r.get("overtime_second") or 0
     cal_overtime_seconds = (
         cal_ot_regular_seconds + cal_ot_week_off_seconds + cal_ot_holiday_seconds
     )

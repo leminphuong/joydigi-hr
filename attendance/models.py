@@ -319,6 +319,23 @@ class Attendance(JoydigiModel):
         null=True, blank=True, verbose_name=_("Overtime In Second")
     )
     approved_overtime_second = models.IntegerField(default=0)
+    # Phase ATTENDANCE-CHECKOUT-FINAL-WORKTIME-2: how many times the
+    # employee has manually checked out of *this* attendance day. The
+    # business rule allows one checkout plus exactly one correction
+    # ("final wins"), so 2 is the hard ceiling — enforced server-side in
+    # `perform_clock_out`, with the value exposed to clients only so the
+    # UI can stop offering an action the backend would reject anyway.
+    #
+    # Deliberately NOT touched by `save()`: it is incremented only on the
+    # checkout mutation path, so existing rows keep the 0 the migration
+    # gives them and no historical attendance is re-opened (a 0 on a past
+    # day is inert — second checkout is additionally gated on the row
+    # being dated today).
+    checkout_count = models.PositiveSmallIntegerField(
+        default=0,
+        editable=False,
+        verbose_name=_("Checkout Count"),
+    )
     is_validate_request = models.BooleanField(
         default=False, verbose_name=_("Is validate request")
     )

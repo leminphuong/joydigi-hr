@@ -561,6 +561,15 @@ class Request:
       exposed as both `.GET` and `.POST` so `_validate_checkin_source`
       can read it the same way it reads a real request, without this
       shim pretending to be a full Django/DRF `HttpRequest`.
+    - system_checkout: the check-out was initiated by the system, not by
+      the employee (currently only `attendance.scheduler.auto_punch_out`,
+      which closes rows for people who forgot). Exempts the caller from
+      the 30-minute minimum-shift lock — that rule exists to stop an
+      employee checking out moments after arriving, and an end-of-day
+      scheduled job that happened to fire within 30 minutes of a late
+      check-in must still be able to close the row rather than leaving
+      it open forever. It does NOT exempt the caller from the max-2
+      ceiling; see `Attendance.checkout_count`.
     """
 
     def __init__(
@@ -571,6 +580,7 @@ class Request:
         datetime,
         trusted_device=False,
         evidence=None,
+        system_checkout=False,
     ) -> None:
         self.user = user
         self.path = "/"
@@ -579,6 +589,7 @@ class Request:
         self.time = time
         self.datetime = datetime
         self.trusted_device = trusted_device
+        self.system_checkout = system_checkout
         self.GET = evidence or {}
         self.POST = evidence or {}
         self.META = META()

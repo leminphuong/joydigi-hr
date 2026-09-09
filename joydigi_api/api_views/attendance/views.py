@@ -184,9 +184,17 @@ class ClockOutAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        if not request.user.employee_get.check_online():
-            return Response({"message": "Already clocked-out"}, status=400)
-
+        # Phase ATTENDANCE-CHECKOUT-FINAL-WORKTIME-2: the
+        # `check_online()` pre-gate is gone. It answered a narrower
+        # question than this endpoint now needs — "is a row still open?"
+        # — and so rejected the legitimate second check-out (the one
+        # correction the business rule allows) before any business logic
+        # ran. `perform_clock_out` is now the single authority: it
+        # distinguishes an open day, a same-day correction, an
+        # already-finished day and a third attempt, and returns a
+        # specific `code` for each. Removing the duplicate gate also
+        # removes the chance of the two disagreeing.
+        #
         # Phase ATT-TIME-2: same single authoritative instant as
         # `ClockInAPIView` — see the comment there.
         current_datetime = django_timezone.localtime()
@@ -229,6 +237,10 @@ class ClockOutAPIView(APIView):
                     if attendance and attendance.attendance_clock_out
                     else None
                 ),
+                # Authoritative count so the client can stop offering an
+                # action the backend would reject. The client must read
+                # this rather than incrementing its own copy.
+                "checkout_count": attendance.checkout_count if attendance else None,
             },
             status=200,
         )
@@ -1671,7 +1683,13 @@ class OvertimeRequestListCreateAPIView(APIView):
 
     def post(self, request):
         employee = request.user.employee_get
-        serializer = self.serializer_class(data=request.data)
+        # The employee reaches the serializer through the context, not the
+        # payload: it is what the duplicate/overlap check compares against,
+        # and `employee_id` stays read-only so a client still cannot file a
+        # request on anyone else's behalf.
+        serializer = self.serializer_class(
+            data=request.data, context={"employee": employee}
+        )
         if serializer.is_valid():
             # employee_id is read_only on the serializer — never trusted
             # from the client — supplied here from the authenticated

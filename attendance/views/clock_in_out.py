@@ -17,6 +17,7 @@ from datetime import date, datetime, timedelta
 
 from django.contrib import messages
 from django.contrib.messages.api import MessageFailure
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse
 from django.utils import timezone
@@ -30,6 +31,7 @@ from attendance.methods.utils import (
     shift_schedule_today,
     strtime_seconds,
 )
+from attendance.methods.worktime import activities_worked_seconds
 from attendance.models import (
     Attendance,
     AttendanceActivity,
@@ -629,61 +631,220 @@ def perform_clock_in(request):
     return None, False, reason
 
 
-def clock_out_attendance_and_activity(employee, date_today, now, out_datetime=None):
-    """
-    Clock out the attendance and activity
-    args:
-        employee    : employee instance
-        date_today  : today date
-        now         : now
-    """
+CHECKOUT_MAX = 2
+"""One check-out plus exactly one correction. See `Attendance.checkout_count`."""
 
-    attendance_activities = AttendanceActivity.objects.filter(
+MIN_SECONDS_BEFORE_CHECKOUT = 30 * 60
+"""An employee must stay at least 30 minutes before the day can be closed."""
+
+
+def _day_activities(employee, attendance_date):
+    """
+    The day's activities, oldest first.
+
+    Explicit ordering: `AttendanceActivity.Meta.ordering` sorts by
+    `-attendance_date` first, so relying on the default would make
+    `.first()`/`.last()` mean the opposite of what this code needs.
+    """
+    return AttendanceActivity.objects.filter(
         employee_id=employee,
-    ).order_by("attendance_date", "id")
-    attendance_activity = None  # Initialize attendance_activity
+        attendance_date=attendance_date,
+    ).order_by("clock_in", "id")
 
-    if attendance_activities.filter(clock_out__isnull=True).exists():
-        attendance_activity = attendance_activities.filter(
-            clock_out__isnull=True
-        ).last()
-        attendance_activity.clock_out = out_datetime
-        attendance_activity.clock_out_date = date_today
-        attendance_activity.out_datetime = out_datetime
-        attendance_activity.save()
 
-        attendance_activities = attendance_activities.filter(
-            attendance_date=attendance_activity.attendance_date
+def _aware(value):
+    return timezone.make_aware(value) if timezone.is_naive(value) else value
+
+
+def first_check_in_datetime(attendance, activities):
+    """
+    Aware datetime of the day's first check-in, or None if unrecorded.
+
+    Prefers the activity's `in_datetime` (a real DateTimeField, seconds
+    included) over recombining `Attendance`'s separate date + time
+    columns, so the 30-minute lock compares against the exact recorded
+    instant.
+    """
+    first = activities.first()
+    if first is not None and first.in_datetime:
+        return _aware(first.in_datetime)
+    if attendance.attendance_clock_in and attendance.attendance_clock_in_date:
+        return _aware(
+            datetime.combine(
+                attendance.attendance_clock_in_date, attendance.attendance_clock_in
+            )
         )
-        # Here calculate the total durations between the attendance activities
+    return None
 
-        duration = 0
-        for activity in attendance_activities:
-            in_datetime, out_datetime = activity_datetime(activity)
-            difference = out_datetime - in_datetime
-            days_second = difference.days * 24 * 3600
-            seconds = difference.seconds
-            total_seconds = days_second + seconds
-            duration = duration + total_seconds
-        duration = format_time(duration)
-        # update clock out of attendance
-        attendance = Attendance.objects.filter(employee_id=employee).order_by(
-            "-attendance_date", "-id"
-        )[0]
-        attendance.attendance_clock_out = now + ":00"
-        attendance.attendance_clock_out_date = date_today
-        attendance.attendance_worked_hour = duration
-        # Overtime calculation
-        attendance.attendance_overtime = overtime_calculation(attendance)
 
-        # Validate the attendance as per the condition
-        attendance.attendance_validated = attendance_validate(attendance)
-        attendance.save()
+def last_check_out_datetime(attendance, activities):
+    """Aware datetime of the day's current check-out mark, or None."""
+    last = activities.filter(clock_out__isnull=False).last()
+    if last is not None and last.out_datetime:
+        return _aware(last.out_datetime)
+    if attendance.attendance_clock_out and attendance.attendance_clock_out_date:
+        return _aware(
+            datetime.combine(
+                attendance.attendance_clock_out_date, attendance.attendance_clock_out
+            )
+        )
+    return None
 
-        return attendance
 
-    logger.error("No attendance clock in activity found that needs clocking out.")
-    return
+def validate_clock_out(attendance, out_datetime, business_today, system_checkout=False):
+    """
+    Decide whether this check-out may proceed.
+
+    Returns `(is_correction, reason)`. `reason` is None when allowed;
+    otherwise it is the same `{"code", "message"}` shape every other
+    rejection in this module returns, so callers need no new handling.
+
+    `is_correction` distinguishes the two legitimate shapes of the same
+    action: closing an open day (check-out #1), and moving the mark of an
+    already-closed day to a later time (check-out #2, "final wins").
+    """
+    if attendance is None:
+        return False, {
+            "code": "NO_ACTIVE_ATTENDANCE",
+            "message": str(_("Không tìm thấy bản ghi chấm công để chấm công ra.")),
+        }
+
+    activities = _day_activities(attendance.employee_id, attendance.attendance_date)
+    count = attendance.checkout_count or 0
+
+    if count >= CHECKOUT_MAX:
+        return False, {
+            "code": "CHECKOUT_LIMIT_REACHED",
+            "message": str(_("Bạn đã chấm công ra tối đa 2 lần trong ngày hôm nay.")),
+        }
+
+    is_open = attendance.attendance_clock_out_date is None
+
+    if is_open:
+        check_in_at = first_check_in_datetime(attendance, activities)
+        if check_in_at is None:
+            return False, {
+                "code": "NO_ACTIVE_ATTENDANCE",
+                "message": str(_("Không tìm thấy giờ vào để tính giờ ra.")),
+            }
+        # The scheduled auto-punch-out closes rows for people who simply
+        # forgot; it must not be defeated by a rule aimed at employees
+        # checking out moments after arriving, or a late check-in would
+        # leave the row open forever.
+        if not system_checkout:
+            elapsed = (out_datetime - check_in_at).total_seconds()
+            if elapsed < MIN_SECONDS_BEFORE_CHECKOUT:
+                return False, {
+                    "code": "CHECKOUT_TOO_SOON",
+                    "message": str(
+                        _(
+                            "Bạn cần ở lại ít nhất 30 phút sau khi chấm công vào "
+                            "trước khi chấm công ra."
+                        )
+                    ),
+                }
+        return False, None
+
+    # --- the row is already closed: only a same-day correction qualifies ---
+
+    # Rows closed before this phase shipped (and rows closed by any path
+    # that does not maintain the counter) sit at 0. They are finished, not
+    # eligible for a correction: treating 0 as "one correction remaining"
+    # would retroactively re-open every historical attendance record.
+    if count != 1:
+        return False, {
+            "code": "ALREADY_CLOCKED_OUT",
+            "message": str(_("Bản ghi chấm công này đã kết thúc.")),
+        }
+
+    # Yesterday's finished day is history. Corrections are for the day in
+    # progress only — never a backfill mechanism.
+    if attendance.attendance_date != business_today:
+        return False, {
+            "code": "ALREADY_CLOCKED_OUT",
+            "message": str(_("Chỉ có thể cập nhật giờ ra của ngày hôm nay.")),
+        }
+
+    previous_out = last_check_out_datetime(attendance, activities)
+    if previous_out is not None and out_datetime <= previous_out:
+        return False, {
+            "code": "CHECKOUT_NOT_LATER",
+            "message": str(
+                _("Giờ ra mới phải muộn hơn giờ ra đã ghi nhận trước đó.")
+            ),
+        }
+
+    return True, None
+
+
+def clock_out_attendance_and_activity(
+    employee,
+    date_today,
+    now,
+    out_datetime=None,
+    attendance=None,
+    is_correction=False,
+):
+    """
+    Record the check-out on both the activity and the attendance row.
+
+    args:
+        employee      : employee instance
+        date_today    : the check-out's business date
+        now           : "HH:MM" of the check-out
+        out_datetime  : the authoritative check-out instant
+        attendance    : the Attendance row being closed/corrected
+        is_correction : True for check-out #2 (see below)
+
+    A correction moves the *existing* mark rather than opening a second
+    session. The rule the business asked for is "the last check-out wins":
+    08:00 in, 16:00 out, then 17:00 out must read as one 08:00-17:00 day
+    (8h paid), never as 08:00-16:00 plus a separate 16:00-17:00 stretch,
+    which the old per-activity sum would have totalled as 9h. So the same
+    activity row is rewritten in place — no new `AttendanceActivity`, no
+    new `Attendance`, nothing counted twice.
+
+    Returns the saved Attendance, or None if the expected activity row is
+    missing. Callers must treat None as a failure: see `perform_clock_out`.
+    """
+    if attendance is None:
+        return None
+
+    activities = _day_activities(employee, attendance.attendance_date)
+
+    if is_correction:
+        target = activities.filter(clock_out__isnull=False).last()
+    else:
+        target = activities.filter(clock_out__isnull=True).last()
+
+    if target is None:
+        logger.error(
+            "No attendance activity found to clock out (attendance=%s, "
+            "correction=%s).",
+            attendance.pk,
+            is_correction,
+        )
+        return None
+
+    target.clock_out = out_datetime
+    target.clock_out_date = date_today
+    target.out_datetime = out_datetime
+    target.save()
+
+    # Recomputed from scratch across the whole day, never accumulated on
+    # top of the previous value — that is what keeps a correction from
+    # double-counting the hours it replaces.
+    duration = activities_worked_seconds(activities.all())
+
+    attendance.attendance_clock_out = now + ":00"
+    attendance.attendance_clock_out_date = date_today
+    attendance.attendance_worked_hour = format_time(duration)
+    attendance.attendance_overtime = overtime_calculation(attendance)
+    attendance.attendance_validated = attendance_validate(attendance)
+    attendance.checkout_count = (attendance.checkout_count or 0) + 1
+    attendance.save()
+
+    return attendance
 
 
 def early_out_create(attendance):
@@ -872,26 +1033,81 @@ def perform_clock_out(request):
             date_today = request.date
         day = date_today.strftime("%A").lower()
         day = EmployeeShiftDay.objects.get(day=day)
-        attendance = (
-            Attendance.objects.filter(employee_id=employee)
-            .order_by("id", "attendance_date")
-            .last()
-        )
-        if attendance is not None:
-            if not attendance.attendance_day:
-                day_name = attendance.attendance_date.strftime("%A").lower()
-                attendance.attendance_day = EmployeeShiftDay.objects.get(day=day_name)
-                attendance.save(update_fields=["attendance_day"])
-            day = attendance.attendance_day
         now = datetime_now.strftime("%H:%M")
         if request.__dict__.get("time"):
             now = request.time.strftime("%H:%M")
-        minimum_hour, start_time_sec, end_time_sec = shift_schedule_today(
-            day=day, shift=shift
-        )
-        attendance = clock_out_attendance_and_activity(
-            employee=employee, date_today=date_today, now=now, out_datetime=datetime_now
-        )
+
+        # Everything from here to the counter increment runs in one
+        # transaction with the attendance row locked. Two check-out
+        # requests racing (a double tap, a retried mobile request) would
+        # otherwise both read `checkout_count == 1`, both pass validation
+        # and both write — producing a third check-out and a count of 3.
+        # `select_for_update` makes the second request wait for the first
+        # to commit, so it reads the already-incremented value and is
+        # rejected with CHECKOUT_LIMIT_REACHED like any other third
+        # attempt. (A no-op on SQLite, which serialises writes anyway.)
+        with transaction.atomic():
+            latest = (
+                Attendance.objects.filter(employee_id=employee)
+                .order_by("id", "attendance_date")
+                .last()
+            )
+            attendance = (
+                Attendance.objects.select_for_update().filter(pk=latest.pk).first()
+                if latest is not None
+                else None
+            )
+
+            if attendance is not None:
+                if not attendance.attendance_day:
+                    day_name = attendance.attendance_date.strftime("%A").lower()
+                    attendance.attendance_day = EmployeeShiftDay.objects.get(
+                        day=day_name
+                    )
+                    attendance.save(update_fields=["attendance_day"])
+                day = attendance.attendance_day
+
+            minimum_hour, start_time_sec, end_time_sec = shift_schedule_today(
+                day=day, shift=shift
+            )
+
+            is_correction, reason = validate_clock_out(
+                attendance,
+                out_datetime=datetime_now,
+                business_today=date_today,
+                system_checkout=bool(request.__dict__.get("system_checkout")),
+            )
+            if reason is not None:
+                _flash(messages.error, request, reason["message"])
+                return None, False, reason
+
+            attendance = clock_out_attendance_and_activity(
+                employee=employee,
+                date_today=date_today,
+                now=now,
+                out_datetime=datetime_now,
+                attendance=attendance,
+                is_correction=is_correction,
+            )
+
+        # Phase ATTENDANCE-CHECKOUT-FINAL-WORKTIME-2: never return
+        # `(None, True, ...)`. That combination used to be reachable —
+        # `clock_out_attendance_and_activity` returned None when it found
+        # no activity to close, and this function carried on to `return
+        # attendance, True, None`, so `ClockOutAPIView` answered HTTP 200
+        # "Clocked-Out" with `attendance_id: null` for a check-out that
+        # had written nothing at all. A caller must never be told a write
+        # succeeded when it did not.
+        if attendance is None:
+            reason = {
+                "code": "NO_ACTIVE_ATTENDANCE",
+                "message": str(
+                    _("Không tìm thấy hoạt động chấm công để ghi nhận giờ ra.")
+                ),
+            }
+            _flash(messages.error, request, reason["message"])
+            return None, False, reason
+
         _mark_outside_radius_request(attendance, checkin_source)
         if attendance:
             early_out_instance = attendance.late_come_early_out.filter(type="early_out")

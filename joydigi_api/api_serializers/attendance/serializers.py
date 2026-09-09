@@ -304,6 +304,53 @@ class OvertimeRequestSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"end_time": "End time must be after start time."}
             )
+
+        # Phase ATTENDANCE-WEEKEND-OT-REQUEST-IMPLEMENT-1: a weekend day's
+        # overtime total is now derived from every approved request on that
+        # date, so two requests covering the same hour would each claim it.
+        # Rejecting the overlap at creation keeps the data honest; the
+        # aggregation merges defensively as well, for rows written before
+        # this check existed.
+        #
+        # Adjacent windows are deliberately allowed — 09:00-12:00 followed by
+        # 12:00-13:00 describes two distinct stretches, and touching at a
+        # single instant is not a conflict.
+        employee = self.context.get("employee")
+        request_date = attrs.get(
+            "request_date", getattr(self.instance, "request_date", None)
+        )
+        if employee and request_date and start_time and end_time:
+            siblings = OvertimeRequest.objects.entire().filter(
+                employee_id=employee,
+                request_date=request_date,
+                canceled=False,
+                is_active=True,
+            )
+            if self.instance is not None:
+                siblings = siblings.exclude(pk=self.instance.pk)
+            for other in siblings:
+                if other.start_time == start_time and other.end_time == end_time:
+                    raise serializers.ValidationError(
+                        {
+                            "non_field_errors": [
+                                "Bạn đã có đơn làm thêm giờ trùng khớp cho "
+                                "khoảng thời gian này."
+                            ]
+                        }
+                    )
+                if other.start_time < end_time and start_time < other.end_time:
+                    raise serializers.ValidationError(
+                        {
+                            "non_field_errors": [
+                                "Khoảng thời gian này chồng lấn với đơn làm "
+                                "thêm giờ đã có (%s - %s)."
+                                % (
+                                    other.start_time.strftime("%H:%M"),
+                                    other.end_time.strftime("%H:%M"),
+                                )
+                            ]
+                        }
+                    )
         return attrs
 
     class Meta:

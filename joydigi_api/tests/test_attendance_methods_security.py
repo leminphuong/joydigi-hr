@@ -15,7 +15,7 @@ Covers:
   client-supplied
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from unittest import mock
 
 from django.core.cache import cache
@@ -98,7 +98,11 @@ class AttendanceSecurityTestCase(TestCase):
             minimum_hour="08:00",
             start_time=0,
             end_time=1,
-            in_datetime=datetime.now(),
+            # Backdated past the 30-minute minimum introduced by Phase
+            # ATTENDANCE-CHECKOUT-FINAL-WORKTIME-2. Still a short day
+            # (well under half the 08:00 minimum), which is what this
+            # fixture is for.
+            in_datetime=datetime.now() - timedelta(minutes=45),
         )
 
     def _make_location(self, company=None, **overrides):

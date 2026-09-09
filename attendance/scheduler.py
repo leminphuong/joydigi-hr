@@ -13,7 +13,7 @@ from base.backends import logger
 def auto_punch_out():
     from attendance.methods.utils import Request
     from attendance.models import Attendance, AttendanceActivity
-    from attendance.views.clock_in_out import clock_out
+    from attendance.views.clock_in_out import perform_clock_out
     from base.models import EmployeeShiftSchedule
 
     automatic_check_out_shifts = EmployeeShiftSchedule.objects.filter(
@@ -53,7 +53,22 @@ def auto_punch_out():
 
                 if combined_datetime < timezone.now():
                     try:
-                        clock_out(
+                        # Phase ATTENDANCE-CHECKOUT-FINAL-WORKTIME-2:
+                        # calls `perform_clock_out` rather than the
+                        # `clock_out` view. Same shared business logic,
+                        # minus the view's closing `render()` — which
+                        # needs a real HttpRequest and so raised on this
+                        # lightweight shim *after* the check-out had
+                        # already been written, turning every successful
+                        # auto-punch-out into a logged "error".
+                        #
+                        # This selects only rows with no clock-out yet
+                        # (see the queryset above), so it always takes the
+                        # check-out #1 path and leaves `checkout_count` at
+                        # 1 — the employee whose day it closed still has
+                        # their one manual correction to fix the assumed
+                        # time. It never consumes that correction.
+                        _attendance, allowed, reason = perform_clock_out(
                             Request(
                                 user=attendance.employee_id.employee_user_id,
                                 date=date,
@@ -62,8 +77,18 @@ def auto_punch_out():
                                 # Genuinely trusted: an internal scheduled
                                 # job, not user-facing input.
                                 trusted_device=True,
+                                # Exempt from the 30-minute minimum only:
+                                # a late check-in must not leave the row
+                                # open forever.
+                                system_checkout=True,
                             )
                         )
+                        if not allowed:
+                            logger.error(
+                                "auto_punch_out rejected for attendance %s: %s",
+                                attendance.pk,
+                                (reason or {}).get("code"),
+                            )
                     except Exception as e:
                         logger.error(f"auto_punch_out error: {e}")
 

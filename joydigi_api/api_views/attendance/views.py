@@ -1683,7 +1683,13 @@ class OvertimeRequestListCreateAPIView(APIView):
 
     def post(self, request):
         employee = request.user.employee_get
-        serializer = self.serializer_class(data=request.data)
+        # The employee reaches the serializer through the context, not the
+        # payload: it is what the duplicate/overlap check compares against,
+        # and `employee_id` stays read-only so a client still cannot file a
+        # request on anyone else's behalf.
+        serializer = self.serializer_class(
+            data=request.data, context={"employee": employee}
+        )
         if serializer.is_valid():
             # employee_id is read_only on the serializer — never trusted
             # from the client — supplied here from the authenticated

@@ -33,12 +33,14 @@ import datetime
 from collections import defaultdict
 
 from attendance.methods.utils import strtime_seconds
+from attendance.methods.worktime import approved_overtime_seconds
 from attendance.models import (
     Attendance,
     AttendanceConflictResolution,
     AttendanceDailyHours,
     AttendanceSummaryHours,
     GraceTime,
+    OvertimeRequest,
 )
 from base.methods import (
     get_company_leave_dates,
@@ -142,6 +144,7 @@ class PeriodContext:
         "roster_has",
         "roster_off_dates",
         "resolutions_map",
+        "approved_ot_secs_map",
     )
 
     def employee_off_dates(self, emp_pk):
@@ -316,6 +319,40 @@ def build_period_context(from_date, to_date, emp_pks):
         ctx.roster_has.add(entry["employee_id"])
         if entry["is_off"]:
             ctx.roster_off_dates[entry["employee_id"]].add(entry["date"])
+
+    # -- 4b. Approved overtime requests ---------------------------------------
+    # Phase ATTENDANCE-WEEKEND-OT-REQUEST-IMPLEMENT-1. An employee working a
+    # weekend does not check in — the day is a week-off — so there is no
+    # Attendance row for the overtime column to read. The approved requests
+    # themselves are the record, and they are read here rather than projected
+    # into a synthetic Attendance row: nothing is written, so approving twice
+    # cannot double-count, a cancellation drops out of the total on its own,
+    # and no row exists that a later reader could mistake for someone actually
+    # having been at work.
+    #
+    # Loaded for every date in the range; which dates are allowed to consume
+    # it (week-off / holiday only, never a normal working day) is decided by
+    # the caller — see `build_monthly_summary`. Classification (present /
+    # absent / week-off) never reads this map, so a request cannot change what
+    # kind of day it is.
+    ctx.approved_ot_secs_map = defaultdict(dict)
+    if emp_pks:
+        _windows = defaultdict(lambda: defaultdict(list))
+        for row in OvertimeRequest.objects.filter(
+            employee_id__in=emp_pks,
+            request_date__range=(from_date, to_date),
+            approved=True,
+            canceled=False,
+            is_active=True,
+        ).values("employee_id_id", "request_date", "start_time", "end_time"):
+            _windows[row["employee_id_id"]][row["request_date"]].append(
+                (row["start_time"], row["end_time"])
+            )
+        for emp_pk, by_date in _windows.items():
+            for date, windows in by_date.items():
+                seconds = approved_overtime_seconds(windows)
+                if seconds:
+                    ctx.approved_ot_secs_map[emp_pk][date] = seconds
 
     # -- 5. HR conflict resolutions -------------------------------------------
     ctx.resolutions_map = defaultdict(dict)

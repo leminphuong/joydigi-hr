@@ -75,6 +75,84 @@ def worked_seconds(start, end):
     return max(0, raw - lunch_overlap_seconds(start, end))
 
 
+def _time_to_seconds(value):
+    return value.hour * 3600 + value.minute * 60 + value.second
+
+
+def _lunch_overlap_in_day(start_secs, end_secs):
+    """Lunch overlap for a window expressed as seconds-since-midnight."""
+    return max(
+        0,
+        min(end_secs, _time_to_seconds(LUNCH_END))
+        - max(start_secs, _time_to_seconds(LUNCH_START)),
+    )
+
+
+def overtime_request_seconds(start_time, end_time):
+    """
+    Paid seconds for one approved overtime window, lunch excluded.
+
+    Phase ATTENDANCE-WEEKEND-OT-REQUEST-IMPLEMENT-1. Takes two
+    `datetime.time` values on a single day (`OvertimeRequest` is
+    explicitly scoped to one calendar day) and applies the same unpaid
+    12:00-13:00 rule the attendance path uses — so a request written as
+    09:00-17:00 is worth 7h, not 8h, exactly like a worked day of the
+    same span.
+
+    Deliberately independent of `perform_clock_in`/`perform_clock_out`:
+    an approved request is a granted permission, not a record of someone
+    physically arriving, and must never manufacture an
+    `AttendanceActivity`.
+    """
+    start = _time_to_seconds(start_time)
+    end = _time_to_seconds(end_time)
+    if end <= start:
+        return 0
+    return max(0, (end - start) - _lunch_overlap_in_day(start, end))
+
+
+def merge_time_windows(windows):
+    """
+    Overlapping/touching `(start_time, end_time)` pairs merged into the
+    fewest disjoint spans, as `(start_secs, end_secs)` sorted ascending.
+
+    The day's total is derived from *all* of an employee's approved
+    requests, so two requests covering the same hour must contribute
+    that hour once. Creation-time validation already rejects overlaps
+    (see `OvertimeRequestSerializer`), but data written before that
+    validation existed — or through the ORM, an import, or the admin —
+    can still overlap. Merging first makes the total correct by
+    construction rather than trusting the input.
+    """
+    spans = sorted(
+        (_time_to_seconds(start), _time_to_seconds(end))
+        for start, end in windows
+        if _time_to_seconds(end) > _time_to_seconds(start)
+    )
+    merged = []
+    for start, end in spans:
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
+def approved_overtime_seconds(windows):
+    """
+    One day's authoritative approved-overtime seconds.
+
+    Derived from the full set of that day's approved windows every time
+    it is asked for — never accumulated onto a previous value. That is
+    what makes approving the same request twice a no-op, and what makes
+    a cancellation fall out of the total on its own.
+    """
+    return sum(
+        max(0, (end - start) - _lunch_overlap_in_day(start, end))
+        for start, end in merge_time_windows(windows)
+    )
+
+
 def activities_worked_seconds(activities):
     """
     Total paid seconds across a day's `AttendanceActivity` rows.

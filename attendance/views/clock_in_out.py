@@ -30,7 +30,11 @@ from attendance.methods.utils import (
     shift_schedule_today,
     strtime_seconds,
 )
-from attendance.methods.workday_rules import is_early_out, is_late
+from attendance.methods.workday_rules import (
+    can_check_out_yet,
+    is_early_out,
+    is_late,
+)
 from attendance.methods.worktime import activities_worked_seconds
 from attendance.models import (
     Attendance,
@@ -637,6 +641,26 @@ def perform_clock_in(request):
     return None, False, reason
 
 
+def _activity_check_in_moment(activity):
+    """
+    When an open `AttendanceActivity` was actually checked in.
+
+    `in_datetime` is the authoritative stamp. Rows written before it existed
+    only carry the date and time separately, so those are combined and read
+    in the current timezone; anything else yields None and the 30-minute rule
+    then simply has no opinion.
+    """
+    if activity.in_datetime:
+        return activity.in_datetime
+    clock_in_date = activity.clock_in_date or activity.attendance_date
+    if not clock_in_date or not activity.clock_in:
+        return None
+    return timezone.make_aware(
+        datetime.combine(clock_in_date, activity.clock_in),
+        timezone.get_current_timezone(),
+    )
+
+
 def clock_out_attendance_and_activity(employee, date_today, now, out_datetime=None):
     """
     Clock out the attendance and activity
@@ -875,6 +899,36 @@ def perform_clock_out(request):
         if request.__dict__.get("datetime"):
             datetime_now = request.datetime
         employee, work_info = employee_exists(request)
+
+        # Phase ATTENDANCE-CHECKOUT-30MIN-SAFE-IMPLEMENT-1: someone must stay
+        # checked in for a full 30 minutes before they may check out. This sits
+        # here, above every write below — including the `attendance_day`
+        # backfill — so a refusal leaves the database exactly as it found it:
+        # the activity stays open, no clock-out is stored, no early-out or
+        # work record is created. It is a plain read plus a subtraction, with
+        # no row lock of any kind; see `test_checking_out_takes_no_row_lock`.
+        open_activity = (
+            AttendanceActivity.objects.filter(
+                employee_id=employee, clock_out__isnull=True
+            )
+            .order_by("attendance_date", "id")
+            .last()
+        )
+        if open_activity is not None and not can_check_out_yet(
+            _activity_check_in_moment(open_activity), datetime_now
+        ):
+            reason = {
+                "code": "CHECKOUT_TOO_SOON",
+                "message": str(
+                    _(
+                        "Bạn chỉ có thể chấm công ra sau 30 phút "
+                        "kể từ lúc chấm công vào."
+                    )
+                ),
+            }
+            _flash(messages.error, request, reason["message"])
+            return None, False, reason
+
         shift = work_info.shift_id
         # Phase ATT-TIME-2: same single-captured-instant rule as
         # `perform_clock_in` — see the comment there.

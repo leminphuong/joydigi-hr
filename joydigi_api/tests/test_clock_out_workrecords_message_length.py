@@ -25,9 +25,10 @@ force an artificial oversized string: the 33-character value is the
 actual translated production string.
 """
 
-from datetime import date, datetime
+from datetime import date, timedelta
 
 from django.test import TestCase
+from django.utils import timezone
 from django.utils.translation import gettext, override
 from rest_framework.test import APIClient
 
@@ -124,7 +125,10 @@ class ClockOutWorkRecordsMessageLengthTests(TestCase):
             minimum_hour="08:00",
             start_time=0,
             end_time=1,
-            in_datetime=datetime.now(),
+            # Checked in an hour ago: these fixtures exercise the clock-out
+            # response, and a check-out is now refused within 30 minutes
+            # of arriving (ATTENDANCE-CHECKOUT-30MIN-SAFE-IMPLEMENT-1).
+            in_datetime=timezone.localtime() - timedelta(hours=1),
         )
 
     def test_checkout_with_worked_time_under_half_minimum_succeeds(self):

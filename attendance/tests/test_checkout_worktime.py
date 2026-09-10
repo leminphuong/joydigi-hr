@@ -247,14 +247,16 @@ class CheckOutFlowTests(TestCase):
         self.assertEqual(activities.count(), before)
         self.assertEqual(activities.get().clock_out, time(17, 0))
 
-    def test_checking_out_immediately_after_arriving_is_allowed(self):
-        # The 30-minute minimum was part of the rolled-back feature. This
-        # records the restored behaviour rather than endorsing it.
+    def test_checking_out_immediately_after_arriving_is_refused(self):
+        # Phase ATTENDANCE-CHECKOUT-30MIN-SAFE-IMPLEMENT-1 reinstates a
+        # minimum wait, this time as a plain read-and-subtract with no row
+        # lock. The boundaries live in `test_checkout_min_duration`.
         row = self.check_in(self.at(8, 0))
-        _attendance, allowed, _reason = self.check_out(self.at(8, 5))
-        self.assertTrue(allowed)
+        _attendance, allowed, reason = self.check_out(self.at(8, 5))
+        self.assertFalse(allowed)
+        self.assertEqual(reason["code"], "CHECKOUT_TOO_SOON")
         row.refresh_from_db()
-        self.assertIsNotNone(row.attendance_clock_out)
+        self.assertIsNone(row.attendance_clock_out)
 
 
 class CheckOutCompanyIsolationTests(TestCase):

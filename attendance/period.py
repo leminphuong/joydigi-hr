@@ -33,6 +33,7 @@ import datetime
 from collections import defaultdict
 
 from attendance.methods.utils import strtime_seconds
+from attendance.methods.workday_rules import HALF_DAY_VALUE, is_half_day
 from attendance.methods.worktime import approved_overtime_seconds
 from attendance.models import (
     Attendance,
@@ -122,13 +123,24 @@ def weekend_dates(from_date, to_date):
     return {d for d in iter_dates(from_date, to_date) if is_weekend(d)}
 
 
-def attendance_day_value(worked_seconds, minimum_hour, grace_secs):
+def attendance_day_value(worked_seconds, minimum_hour, grace_secs, check_out=None):
     """How much of a day one attendance record is worth: 1.0, 0.5 or 0.0.
 
-    Full day once the worked time reaches the shift minimum less the grace
-    allowance, half a day at or above half the minimum, otherwise zero. A date
-    with no shift schedule at all (holiday / week-off) counts as a full day.
+    A day that ends before noon is worth half a day, whatever the worked
+    time says — Phase ATTENDANCE-WORKDAY-RULES-SAFE-IMPLEMENT-1. Someone who
+    leaves at 11:50 has worked a morning, and the company credits mornings
+    as half days rather than measuring them against a full day's minimum.
+
+    Otherwise the worked-time rules stand: a full day once the worked time
+    reaches the shift minimum less the grace allowance, half a day at or
+    above half the minimum, otherwise zero. A date with no shift schedule at
+    all (holiday / week-off) counts as a full day.
+
+    This decides *credit* only. `worked_seconds` is the real elapsed time
+    less the unpaid lunch hour and is never rewritten to match the credit.
     """
+    if is_half_day(check_out):
+        return HALF_DAY_VALUE
     minimum_secs = strtime_seconds(minimum_hour) if minimum_hour else 0
     if minimum_secs <= 0:
         return 1.0
@@ -276,7 +288,10 @@ def build_period_context(from_date, to_date, emp_pks):
             worked = record["at_work_second"] or 0
             ctx.att_dates_map[pk].add(date)
             ctx.att_value_map[pk][date] = attendance_day_value(
-                worked, record.get("minimum_hour"), ctx.grace_secs
+                worked,
+                record.get("minimum_hour"),
+                ctx.grace_secs,
+                check_out=record.get("attendance_clock_out"),
             )
             ctx.att_secs_map[pk][date] = worked
             ctx.att_detail_map[pk][date] = record

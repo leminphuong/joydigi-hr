@@ -30,6 +30,7 @@ from attendance.methods.utils import (
     shift_schedule_today,
     strtime_seconds,
 )
+from attendance.methods.workday_rules import is_early_out, is_late
 from attendance.methods.worktime import activities_worked_seconds
 from attendance.models import (
     Attendance,
@@ -384,7 +385,13 @@ def late_come(attendance, start_time, end_time, shift):
         elif now_sec > start_time:
             # Here  attendance or attendance activity for previous day night shift
             late_come_create(attendance)
-    elif start_time < now_sec:
+    # Phase ATTENDANCE-WORKDAY-RULES-SAFE-IMPLEMENT-1: on an ordinary day
+    # shift, lateness is a fixed clock time — on time through 08:30:59, late
+    # from 08:31:00 — rather than the shift's start plus whatever grace
+    # happens to be configured. The official start stays 08:00; the
+    # allowance is the rule. Night shifts keep the branch above, which reads
+    # the schedule, because a fixed morning boundary means nothing to them.
+    elif is_late(attendance.attendance_clock_in):
         late_come_create(attendance)
     return True
 
@@ -752,7 +759,11 @@ def early_out(attendance, start_time, end_time, shift):
         else:
             early_out_create(attendance)
         return
-    if end_time > now_sec:
+    # Phase ATTENDANCE-WORKDAY-RULES-SAFE-IMPLEMENT-1: on an ordinary day
+    # shift, leaving early is a fixed clock time — early before 16:30:00,
+    # not early from 16:30:00 — rather than "before the shift's end_time".
+    # The official end stays 17:00. Night shifts keep the branch above.
+    if is_early_out(clock_out_time):
         early_out_create(attendance)
     return
 

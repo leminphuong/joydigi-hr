@@ -17,13 +17,14 @@ mutation, never renders) + the existing `clock_out()` wrapper (calls
 view). `ClockOutAPIView` now calls `perform_clock_out()` directly.
 """
 
-from datetime import date, datetime
+from datetime import date, timedelta
 from unittest import mock
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from attendance.models import Attendance
+from attendance.models import Attendance, AttendanceActivity
 from attendance.views.clock_in_out import clock_in_attendance_and_activity
 from base.models import EmployeeShift, EmployeeShiftDay, EmployeeShiftSchedule
 from employee.models import EmployeeWorkInformation
@@ -59,7 +60,7 @@ class ClockOutAPITests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
-    def _clock_in(self, minimum_hour="08:00"):
+    def _clock_in(self, minimum_hour="08:00", in_datetime=None):
         clock_in_attendance_and_activity(
             employee=self.employee,
             date_today=self.today,
@@ -70,7 +71,10 @@ class ClockOutAPITests(TestCase):
             minimum_hour=minimum_hour,
             start_time=0,
             end_time=1,
-            in_datetime=datetime.now(),
+            # Checked in an hour ago by default: these fixtures exercise the
+            # clock-out response, and a check-out is now refused within 30
+            # minutes of arriving (ATTENDANCE-CHECKOUT-30MIN-SAFE-IMPLEMENT-1).
+            in_datetime=in_datetime or (timezone.localtime() - timedelta(hours=1)),
         )
 
     # A. valid clock-out
@@ -88,6 +92,29 @@ class ClockOutAPITests(TestCase):
         )
         self.assertIsNotNone(attendance.attendance_clock_out)
         self.assertEqual(response.data["attendance_id"], attendance.id)
+
+    # A2. the 30-minute minimum, over HTTP
+    def test_clocking_out_too_soon_returns_400_and_writes_nothing(self):
+        # Arrived five minutes ago, so the check-out is refused. The API
+        # already turns a refusal into a controlled 400 with a code and a
+        # message, which is why the rule needed no route or view change.
+        self._clock_in(in_datetime=timezone.localtime() - timedelta(minutes=5))
+
+        response = self.client.post("/api/attendance/clock-out/")
+
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertEqual(response.data["code"], "CHECKOUT_TOO_SOON")
+        self.assertIn("30", response.data["message"])
+
+        attendance = Attendance.objects.get(
+            employee_id=self.employee, attendance_date=self.today
+        )
+        self.assertIsNone(attendance.attendance_clock_out)
+        self.assertTrue(
+            AttendanceActivity.objects.filter(
+                employee_id=self.employee, clock_out__isnull=True
+            ).exists()
+        )
 
     # E. response content-type
     def test_response_content_type_is_json(self):
@@ -163,7 +190,10 @@ class ClockOutAPITests(TestCase):
             minimum_hour="08:00",
             start_time=0,
             end_time=1,
-            in_datetime=datetime.now(),
+            # Checked in an hour ago: these fixtures exercise the clock-out
+            # response, and a check-out is now refused within 30 minutes
+            # of arriving (ATTENDANCE-CHECKOUT-30MIN-SAFE-IMPLEMENT-1).
+            in_datetime=timezone.localtime() - timedelta(hours=1),
         )
         self._clock_in()
 

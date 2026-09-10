@@ -364,16 +364,19 @@ class WorkdayRulesThroughCheckOutTests(TestCase):
         self.assertEqual(row.attendance_worked_hour, "02:30")
         self.assertEqual(self.summary_row()["present"], 0.5)
 
-    def test_a_five_minute_morning_is_still_half_a_day(self):
-        # The rule is deliberately literal: any check-out before noon credits
-        # half a day, with no minimum worked time. Confirmed as the business
-        # decision in phase ATTENDANCE-WORKDAY-RULES-FINAL-VERIFY-COMMIT-1 —
-        # the worked hours stay honest at five minutes either way.
+    def test_a_short_morning_is_still_half_a_day(self):
+        # The credit rule is deliberately literal: any check-out before noon
+        # is worth half a day, with no minimum worked time — the business
+        # decision confirmed in ATTENDANCE-WORKDAY-RULES-FINAL-VERIFY-COMMIT-1.
+        # Thirty minutes here only because a check-out any sooner is now
+        # refused outright by ATTENDANCE-CHECKOUT-30MIN-SAFE-IMPLEMENT-1 and
+        # never reaches the credit question at all; the two rules are
+        # independent, and `test_checkout_min_duration` covers that one.
         row = self.check_in(self.at(8, 30))
-        self.check_out(self.at(8, 35))
+        self.check_out(self.at(9, 0))
         row.refresh_from_db()
-        self.assertEqual(row.attendance_worked_hour, "00:05")
-        self.assertEqual(row.at_work_second, 5 * 60)
+        self.assertEqual(row.attendance_worked_hour, "00:30")
+        self.assertEqual(row.at_work_second, 30 * 60)
         self.assertEqual(self.summary_row()["present"], 0.5)
 
     def test_the_last_second_before_noon_is_half_a_day(self):

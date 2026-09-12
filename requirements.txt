@@ -28,6 +28,7 @@ django-widget-tweaks
 djangorestframework==3.16.0
 djangorestframework-simplejwt==5.5.0
 et-xmlfile
+firebase-admin==6.9.0
 geopy
 google-api-python-client
 google-auth-oauthlib

@@ -170,3 +170,9 @@ CLAUDE.md
 # Phase AUTH-6G.3 — temporary runtime diagnostic written by
 # joydigi_api/api_views/refresh_diagnostics.py. Never commit it.
 auth_refresh_diagnostic.jsonl
+
+# Firebase Admin service account, written onto the server at deploy time
+# from the FIREBASE_SERVICE_ACCOUNT_JSON GitHub Actions secret. It is a
+# private key: it must never be committed. Only this file is ignored, so
+# anything else placed in secrets/ stays visible to review.
+secrets/firebase-service-account.json

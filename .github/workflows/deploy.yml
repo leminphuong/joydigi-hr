@@ -31,6 +31,93 @@ jobs:
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
+      # The Firebase Admin private key, installed before the deploy step so
+      # that the service restart at the end of it comes back up already able
+      # to send push notifications.
+      #
+      # The JSON travels over ssh stdin — never as a command argument, which
+      # would be visible in the server's process list, and never through
+      # echo, which would put a private key into the build log. `umask 077`
+      # means the file is not even briefly readable by anyone else between
+      # being created and being chmod'ed.
+      #
+      # Absent secret is not a failure: push simply stays disabled and the
+      # in-app notifications keep working, which is exactly how
+      # `joydigi_api/push.py` behaves without a credential.
+      - name: Install Firebase credential
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT_JSON" ]; then
+            echo "FIREBASE_SERVICE_ACCOUNT_JSON is not set." >&2
+            echo "Skipping: push stays disabled, in-app notifications unaffected." >&2
+            exit 0
+          fi
+
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" | ssh \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -i ~/.ssh/id_ed25519 \
+            "$VPS_USER@$VPS_HOST" \
+            'bash -s' <<'REMOTE'
+          set -eu
+          umask 077
+          CRED_DIR=/var/www/joydigi-hr/secrets
+          CRED="$CRED_DIR/firebase-service-account.json"
+
+          mkdir -p "$CRED_DIR"
+          chmod 700 "$CRED_DIR"
+
+          # Written to a temporary file first, so a transfer that dies
+          # halfway cannot leave a truncated credential in place of a
+          # working one.
+          TMP="$CRED.incoming"
+          cat > "$TMP"
+          python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$TMP"
+          chmod 600 "$TMP"
+          mv "$TMP" "$CRED"
+
+          echo "Firebase credential installed"
+          REMOTE
+
+      # Point Django at the credential. The line is rewritten rather than
+      # appended blindly, so deploying any number of times leaves exactly
+      # one FIREBASE_CREDENTIALS_FILE entry, and every other value already
+      # in .env — database, SECRET_KEY, ALLOWED_HOSTS — is carried across
+      # untouched.
+      - name: Configure FIREBASE_CREDENTIALS_FILE in .env
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -i ~/.ssh/id_ed25519 \
+            "$VPS_USER@$VPS_HOST" \
+            'bash -s' <<'REMOTE'
+          set -eu
+          umask 077
+          ENV_FILE=/var/www/joydigi-hr/.env
+          LINE="FIREBASE_CREDENTIALS_FILE=/var/www/joydigi-hr/secrets/firebase-service-account.json"
+
+          touch "$ENV_FILE"
+
+          # Rebuilding the file is what makes this idempotent: dropping any
+          # existing entry and re-adding one leaves no duplicates however
+          # many times it runs, and grep's output always ends in a newline
+          # so a file that was missing its final newline is fixed too.
+          TMP="$ENV_FILE.incoming"
+          grep -v '^FIREBASE_CREDENTIALS_FILE=' "$ENV_FILE" > "$TMP" || true
+          echo "$LINE" >> "$TMP"
+          chmod --reference="$ENV_FILE" "$TMP" 2>/dev/null || chmod 600 "$TMP"
+          mv "$TMP" "$ENV_FILE"
+
+          echo "FIREBASE_CREDENTIALS_FILE set in .env"
+          REMOTE
+
       - name: Deploy to VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -42,6 +129,36 @@ jobs:
             -i ~/.ssh/id_ed25519 \
             "$VPS_USER@$VPS_HOST" \
             "/usr/local/bin/deploy-joydigi-hr"
+
+      # Prove the credential landed and that Django can actually use it,
+      # without revealing any of it: only the permission bits and a boolean
+      # are ever printed.
+      - name: Verify Firebase credential
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -i ~/.ssh/id_ed25519 \
+            "$VPS_USER@$VPS_HOST" \
+            'bash -s' <<'REMOTE'
+          set -eu
+          CRED=/var/www/joydigi-hr/secrets/firebase-service-account.json
+
+          if [ ! -f "$CRED" ]; then
+            echo "No credential present; push notifications stay disabled."
+            exit 0
+          fi
+
+          echo "permissions: $(stat -c '%a %U:%G' "$CRED")"
+          python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$CRED"
+          echo "credential JSON is valid"
+
+          cd /var/www/joydigi-hr
+          ./venv/bin/python manage.py shell -c 'from joydigi_api import push; print("push configured:", push.is_configured())'
+          REMOTE
 
       - name: Verify website
         run: |

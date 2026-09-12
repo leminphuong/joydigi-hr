@@ -93,6 +93,22 @@ def auto_punch_out():
                         logger.error(f"auto_punch_out error: {e}")
 
 
+def end_of_day_checkout():
+    """
+    Remind people to check out, and close the sessions they forget.
+
+    Thin wrapper: the logic lives in `attendance.methods.end_of_day` so it
+    can be tested at an arbitrary instant instead of only at whatever time
+    the scheduler happens to fire.
+    """
+    from attendance.methods.end_of_day import process_end_of_day
+
+    try:
+        process_end_of_day()
+    except Exception as error:
+        logger.error(f"end_of_day_checkout error: {error}")
+
+
 def create_work_record():
     from attendance.models import WorkRecords
     from employee.models import Employee
@@ -156,6 +172,19 @@ if not any(
         minutes=5,
         misfire_grace_time=600,
         id="auto_punch_out",
+        replace_existing=True,
+    )
+    # Every minute, because the three end-of-day moments are minute-exact
+    # (effective end -5m, +10m, +15m) and a five-minute tick would drift
+    # a reminder by up to five minutes. The pass is cheap: it looks only
+    # at sessions still open today or yesterday, and does nothing at all
+    # until one of those moments is due.
+    scheduler.add_job(
+        end_of_day_checkout,
+        "interval",
+        minutes=1,
+        misfire_grace_time=300,
+        id="end_of_day_checkout",
         replace_existing=True,
     )
 

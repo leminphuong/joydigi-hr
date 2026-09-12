@@ -20,6 +20,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.templatetags.static import static
 from django.urls import reverse, reverse_lazy
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from PIL import Image
 
@@ -607,7 +608,18 @@ class Employee(models.Model):
 
     def check_online(self):
         """
-        This method is used to check if the user is in the list of online users.
+        Whether this employee is currently in a working session.
+
+        Yesterday's date is included only for night shifts, whose session
+        legitimately runs past midnight. For an ordinary day shift, a row
+        left open from yesterday means somebody forgot to check out — not
+        that they are still at work — and counting it would report them
+        online forever and refuse today's check-in with "Already
+        clocked-in" (Phase ATTENDANCE-PUSH-NOTIFICATION-FCM-SAFE-IMPLEMENT-1,
+        which removed the automatic end-of-day close: sessions now stay
+        open, so each day must stand on its own). The stale row is left
+        exactly as it is — this only changes which rows the question looks
+        at, never the data.
         """
         if apps.is_installed("attendance"):
             Attendance = get_joydigi_model_class("attendance", "attendance")
@@ -618,13 +630,19 @@ class Employee(models.Model):
                     not hasattr(request, "working_employees")
                     or request.working_employees is None
                 ):
-                    today = datetime.now().date()
+                    today = timezone.localdate()
                     yesterday = today - timedelta(days=1)
-                    working_employees = Attendance.objects.filter(
+                    open_attendances = Attendance.objects.filter(
                         attendance_date__gte=yesterday,
                         attendance_date__lte=today,
                         attendance_clock_out_date__isnull=True,
-                    ).values_list("employee_id", flat=True)
+                    ).select_related("attendance_day", "shift_id")
+                    working_employees = [
+                        attendance.employee_id_id
+                        for attendance in open_attendances
+                        if attendance.attendance_date == today
+                        or attendance.is_night_shift()
+                    ]
                     setattr(request, "working_employees", working_employees)
                 working_employees = request.working_employees
                 return self.pk in working_employees

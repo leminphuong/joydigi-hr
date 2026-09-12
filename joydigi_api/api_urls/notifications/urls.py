@@ -12,4 +12,5 @@ urlpatterns = [
     path("notifications/bulk-read/", views.NotificationBulkReadDelView.as_view()),
     path("notifications/bulk-delete/", views.NotificationBulkReadDelView.as_view()),
     path("notifications/settings/", views.NotificationSettingsView.as_view()),
+    path("notifications/device-token/", views.PushDeviceTokenView.as_view()),
 ]

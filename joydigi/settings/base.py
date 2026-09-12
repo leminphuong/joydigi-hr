@@ -37,6 +37,13 @@ CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 JOYDIGI_ENV = env("JOYDIGI_ENV", default="")
 REDIS_URL = env("REDIS_URL", default=None)
 
+# Firebase Cloud Messaging, used only to push the end-of-day check-out
+# reminders. Points at a service-account JSON file that is deliberately
+# NOT in the repository: set it in the deployment environment. Left unset,
+# push is simply skipped and the in-app notification still works — a
+# developer machine without the secret must never fail to start.
+FIREBASE_CREDENTIALS_FILE = env("FIREBASE_CREDENTIALS_FILE", default="")
+
 # In-process 1:1 face recognition. The model is loaded once per Django process.
 FACE_VERIFY_THRESHOLD = env.float("FACE_VERIFY_THRESHOLD", default=0.55)
 FACE_MODEL_NAME = env("FACE_MODEL_NAME", default="buffalo_l")

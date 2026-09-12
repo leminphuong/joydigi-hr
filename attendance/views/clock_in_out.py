@@ -914,8 +914,18 @@ def perform_clock_out(request):
             .order_by("attendance_date", "id")
             .last()
         )
-        if open_activity is not None and not can_check_out_yet(
-            _activity_check_in_moment(open_activity), datetime_now
+        # `system_checkout` exempts the scheduled end-of-day job (and the
+        # opt-in auto-punch-out) from this rule only. The minimum exists to
+        # stop an employee checking out moments after arriving; a day that
+        # began late must still be closed rather than left open into
+        # tomorrow. `Request.system_checkout` defaults to False, so no
+        # user-facing caller can reach this branch.
+        if (
+            open_activity is not None
+            and not getattr(request, "system_checkout", False)
+            and not can_check_out_yet(
+                _activity_check_in_moment(open_activity), datetime_now
+            )
         ):
             reason = {
                 "code": "CHECKOUT_TOO_SOON",

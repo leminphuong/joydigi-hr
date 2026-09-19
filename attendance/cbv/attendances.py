@@ -8,9 +8,11 @@ from typing import Any
 
 import django_filters
 from django.contrib import messages
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.urls import resolve, reverse, reverse_lazy
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
@@ -414,14 +416,66 @@ class OTAttendancesList(AttendancesListView):
     }
 
 
+def currently_open_attendance_ids(queryset):
+    """
+    The ids, within `queryset`, of sessions that are running right now.
+
+    A session is running when it has not been checked out and it belongs to
+    today — or to yesterday, but only for a night shift, whose working day
+    legitimately continues past midnight. That is the same per-row test
+    `Employee.check_online()` applies, down to calling the same
+    `Attendance.is_night_shift()`, so the Admin list and the mobile app
+    agree on who is currently at work.
+
+    A day shift left open yesterday is therefore not "running" — somebody
+    forgot to check out — and is neither listed as current nor changed.
+
+    Sessions awaiting approval (`is_validate_request`, e.g. a check-in from
+    outside the allowed radius) are left out on purpose: they already have
+    their own place in the approval workflow, and listing them beside
+    validated rows would suggest an approval that has not happened.
+
+    Only ids are returned, and only from the queryset passed in, so whatever
+    company and permission scoping that queryset carries still applies.
+    """
+    today = timezone.localdate()
+    yesterday = today - timedelta(days=1)
+    candidates = queryset.filter(
+        attendance_clock_out_date__isnull=True,
+        attendance_date__gte=yesterday,
+        attendance_date__lte=today,
+        is_validate_request=False,
+    ).select_related("attendance_day", "shift_id")
+    return [
+        attendance.pk
+        for attendance in candidates
+        if attendance.attendance_date == today or attendance.is_night_shift()
+    ]
+
+
 @method_decorator(login_required, name="dispatch")
 @method_decorator(manager_can_enter("attendance.view_attendance"), name="dispatch")
 class ValidatedAttendancesList(AttendancesListView):
     """
     validated tab
+
+    Also lists sessions that are open right now, so an employee who has
+    checked in is visible here straight away rather than only after they
+    check out and the day is validated. Those rows are not validated and are
+    not shown as such: they keep `attendance_validated=False`, carry the
+    "not validated" row marker, and the legend names them "Đang làm việc".
     """
 
     selected_instances_key_id = "validatedselectedInstances"
+
+    # The existing row-marker convention (see `attendance_request.py`,
+    # `my_attendances.py`). In this tab every not-validated row is, by
+    # construction, a session still running.
+    row_status_class = "validated-{attendance_validated}"
+    row_status_indications = [
+        ("validated--dot", _("Validated"), ""),
+        ("not-validated--dot", "Đang làm việc", ""),
+    ]
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -433,9 +487,13 @@ class ValidatedAttendancesList(AttendancesListView):
     def get_queryset(self):
 
         if not self.queryset:
-            self.queryset = super().get_queryset()
-            self.queryset = self.queryset.filter(
-                attendance_validated=True, employee_id__is_active=True
+            scoped = super().get_queryset().filter(employee_id__is_active=True)
+            # Open sessions are found inside the same company-scoped queryset
+            # and then pass through the same `filtersubordinates` below, so
+            # being open never widens what an Admin or manager may see.
+            self.queryset = scoped.filter(
+                Q(attendance_validated=True)
+                | Q(pk__in=currently_open_attendance_ids(scoped))
             )
             self.queryset = filtersubordinates(
                 self.request, self.queryset, "attendance.view_attendance"

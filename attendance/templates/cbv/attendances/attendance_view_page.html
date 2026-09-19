@@ -4,6 +4,25 @@
 
 {% block content %}
     <meta name="csrf-token" content="{{ csrf_token }}">
+    {# Row markers for the Validated tab: a validated day, or a session #}
+    {# still running ("Đang làm việc"). Same colours as the attendance #}
+    {# request page, so the two views read the same way. #}
+    <style>
+        .validated--dot {
+            background-color: yellowgreen;
+        }
+        .not-validated--dot {
+            background-color: rgba(128, 128, 128, 0.482);
+        }
+        .validated-True {
+            border-left: 3.4px solid yellowgreen !important;
+            border-radius: 4px 0 0 4px;
+        }
+        .validated-False {
+            border-left: 3.4px solid rgba(128, 128, 128, 0.482) !important;
+            border-radius: 4px 0 0 4px;
+        }
+    </style>
     {# Panel sizing for the tabs on this page is handled by the site-wide #}
     {# script in joydigi_theme/components/header_scripts.html. #}
     <div hx-get="{% url 'attendances-navbar-view' %}?{{ request.GET.urlencode }}" hx-trigger="load"></div>

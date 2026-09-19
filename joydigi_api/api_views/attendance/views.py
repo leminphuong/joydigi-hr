@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from django import template
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models import Case, CharField, F, Q, Value, When
@@ -109,6 +110,34 @@ def _attendance_evidence(request):
     return {key: data[key] for key in fields if data.get(key) not in (None, "")}
 
 
+def _request_employee(request):
+    """
+    The authenticated user's Employee, or None when the account has none.
+
+    `request.user.employee_get` raises rather than returning None for an
+    account with no linked employee (an admin-only login, a half-created
+    user), and the attendance endpoints used to let that surface as a 500.
+    """
+    try:
+        return request.user.employee_get
+    except ObjectDoesNotExist:
+        return None
+
+
+def _employee_missing_response():
+    """The controlled refusal for an account with no employee profile."""
+    return Response(
+        {
+            "code": "EMPLOYEE_PROFILE_MISSING",
+            "message": (
+                "Tài khoản của bạn chưa được liên kết với hồ sơ nhân viên. "
+                "Vui lòng liên hệ quản trị viên."
+            ),
+        },
+        status=400,
+    )
+
+
 class ClockInAPIView(APIView):
     """
     Allows authenticated employees to clock in, determining the correct shift and attendance date, including handling night shifts.
@@ -120,8 +149,17 @@ class ClockInAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        if request.user.employee_get.check_online():
-            return Response({"message": "Already clocked-in"}, status=400)
+        employee = _request_employee(request)
+        if employee is None:
+            return _employee_missing_response()
+        if employee.check_online():
+            return Response(
+                {
+                    "code": "ALREADY_CLOCKED_IN",
+                    "message": "Bạn đã chấm công vào rồi.",
+                },
+                status=400,
+            )
 
         # Phase ATT-TIME-2: one authoritative instant, read through
         # `django.utils.timezone` so it follows the configured business
@@ -184,8 +222,17 @@ class ClockOutAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        if not request.user.employee_get.check_online():
-            return Response({"message": "Already clocked-out"}, status=400)
+        employee = _request_employee(request)
+        if employee is None:
+            return _employee_missing_response()
+        if not employee.check_online():
+            return Response(
+                {
+                    "code": "ALREADY_CLOCKED_OUT",
+                    "message": "Bạn chưa chấm công vào, hoặc đã chấm công ra rồi.",
+                },
+                status=400,
+            )
 
         # Phase ATT-TIME-2: same single authoritative instant as
         # `ClockInAPIView` — see the comment there.
@@ -211,12 +258,32 @@ class ClockOutAPIView(APIView):
                     evidence=_attendance_evidence(request),
                 )
             )
+            if allowed and attendance is None:
+                # `perform_clock_out` found no open activity to close, so
+                # nothing was checked out — but it may already have written
+                # incidental fields (the `attendance_day` backfill) on the
+                # way there. Rolling this existing block back keeps a
+                # request that changed nothing from changing anything.
+                transaction.set_rollback(True)
 
         if not allowed:
             return Response(
                 {
                     "code": reason["code"] if reason else "VERIFICATION_REQUIRED",
                     "message": reason["message"] if reason else "Không thể chấm công ra.",
+                },
+                status=400,
+            )
+        if attendance is None:
+            # Never report "Clocked-Out" for a check-out that did not happen.
+            # This used to answer 200 with `attendance_id: null`, and the app
+            # showed success for a session that was still open.
+            return Response(
+                {
+                    "code": "NO_OPEN_ATTENDANCE",
+                    "message": (
+                        "Không tìm thấy phiên chấm công đang mở để chấm công ra."
+                    ),
                 },
                 status=400,
             )
@@ -1389,10 +1456,12 @@ class UserAttendanceView(APIView):
     serializer_class = UserAttendanceDetailedSerializer
 
     def get(self, request):
-        employee_id = request.user.employee_get.id
+        employee = _request_employee(request)
+        if employee is None:
+            return _employee_missing_response()
 
         attendance_queryset = Attendance.objects.filter(
-            employee_id=employee_id
+            employee_id=employee.id
         ).order_by("-attendance_date")
 
         paginator = PageNumberPagination()
@@ -1400,7 +1469,20 @@ class UserAttendanceView(APIView):
         page = paginator.paginate_queryset(attendance_queryset, request)
 
         serializer = self.serializer_class(page, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        response = paginator.get_paginated_response(serializer.data)
+        # The server's own answer to "is this person checked in right now",
+        # so the app renders it instead of guessing from the newest row.
+        # Deliberately the very `check_online()` the clock-in and clock-out
+        # gates use: one calculation, so the button the app shows is always
+        # the action the server will accept. Guessing went wrong once
+        # `check_online()` stopped counting yesterday's forgotten day shift
+        # — the app still read that open row as "checked in", offered only
+        # check-out, and the server refused it: the employee was stuck.
+        # Additive, so older app builds simply ignore it.
+        response.data["attendance_state"] = {
+            "is_checked_in": employee.check_online(),
+        }
+        return response
 
 
 class AttendanceTypeAccessCheck(APIView):

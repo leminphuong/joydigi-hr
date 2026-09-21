@@ -139,6 +139,11 @@ APSCHEDULER_RUN_NOW_TIMEOUT = 25  # Seconds
 # MIDDLEWARE
 # ========================================
 MIDDLEWARE = [
+    # Phase GLOBAL-ADMIN-PERF-B — TEMPORARY request timing. Registered
+    # twice on purpose: outermost to own the measurement and write the
+    # header, innermost to sit against the view. Remove both entries
+    # together with `joydigi/perf_timing.py`.
+    "joydigi.perf_timing.PerfTimingMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -160,6 +165,8 @@ MIDDLEWARE = [
     "joydigi.joydigi_middlewares.SVGSecurityMiddleware",
     "joydigi.joydigi_middlewares.MissingParameterMiddleware",
     "auditlog.middleware.AuditlogMiddleware",
+    # Phase GLOBAL-ADMIN-PERF-B — TEMPORARY, the inner half. See above.
+    "joydigi.perf_timing.PerfTimingMiddleware",
 ]
 
 ROOT_URLCONF = "joydigi.urls"
@@ -283,6 +290,11 @@ TEMPLATES = [
                 "base.context_processors.export_access_enabled",
                 "base.context_processors.navbar_languages",
                 "joydigi_crumbs.context_processors.breadcrumbs",
+                # Phase GLOBAL-ADMIN-PERF-B — TEMPORARY. Must stay last:
+                # it records the instant the processors above it have
+                # finished, which is the boundary between the view's own
+                # work and template rendering. Returns {}.
+                "joydigi.perf_timing.timing_context_mark",
             ],
             "loaders": (
                 _TEMPLATE_LOADERS

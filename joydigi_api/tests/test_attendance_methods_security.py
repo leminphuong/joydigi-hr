@@ -264,20 +264,25 @@ class LocationValidationTests(AttendanceSecurityTestCase):
 
     def test_validation_exception_fails_closed(self):
         self._make_location()
-        # Django's test client re-raises unhandled server exceptions
-        # instead of turning them into a 500 Response, so we assert on
-        # the exception itself rather than a status code. The real
-        # behavior we care about — no Attendance row was created — is
-        # asserted below regardless.
+        # Phase 3: an unexpected failure is no longer left to escape as an
+        # unhandled exception — the view rolls the write back and answers
+        # with a controlled 500 (`ATTENDANCE_UNEXPECTED_ERROR`). This used
+        # to assert the raw `RuntimeError` only because Django's test
+        # client re-raises unhandled exceptions; the real behavior we care
+        # about — it fails closed, no Attendance row is created — is
+        # asserted below exactly as before.
         with mock.patch(
             "attendance.views.clock_in_out._distance_meters",
             side_effect=RuntimeError("boom"),
         ):
-            with self.assertRaises(RuntimeError):
-                self.client.post(
-                    "/api/attendance/clock-in/",
-                    {"latitude": NEARBY_LAT, "longitude": NEARBY_LNG},
-                )
+            response = self.client.post(
+                "/api/attendance/clock-in/",
+                {"latitude": NEARBY_LAT, "longitude": NEARBY_LNG},
+            )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.data["code"], "ATTENDANCE_UNEXPECTED_ERROR")
+        self.assertNotIn("boom", str(response.content))
 
         self.assertFalse(
             Attendance.objects.filter(

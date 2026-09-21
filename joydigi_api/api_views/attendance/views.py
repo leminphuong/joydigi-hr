@@ -20,6 +20,7 @@ from django.utils.decorators import method_decorator
 from django.utils import timezone as django_timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework import status
+from rest_framework.exceptions import APIException
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -138,6 +139,52 @@ def _employee_missing_response():
     )
 
 
+def _log_attendance_rejection(action, request, employee, code):
+    """
+    One searchable line per refused clock-in or clock-out.
+
+    Enough to answer "why can't employee X check in?" from the server log —
+    who, which action, which stable code — and nothing else: no request
+    body, headers, token, verification proof, coordinates or photo. A
+    refusal is expected business behaviour, so it is a warning, matching
+    how `AttendanceVerifyFaceView` already logs a failed verification.
+    """
+    logger.warning(
+        "ATTENDANCE_%s user=%s employee=%s result=REJECTED code=%s",
+        action,
+        getattr(request.user, "pk", None),
+        getattr(employee, "pk", None),
+        code,
+    )
+
+
+def _attendance_unexpected_error(action, request, employee, error):
+    """
+    The controlled answer to a clock-in or clock-out that failed for a
+    reason nobody planned for.
+
+    The attendance write runs inside `transaction.atomic()`, so by the time
+    this is called any partial write has already been rolled back. The log
+    keeps the traceback a developer needs; the response carries a fixed
+    Vietnamese sentence and never the exception text, which can hold SQL,
+    paths or data values.
+    """
+    logger.exception(
+        "ATTENDANCE_%s user=%s employee=%s result=UNEXPECTED_ERROR error=%s",
+        action,
+        getattr(request.user, "pk", None),
+        getattr(employee, "pk", None),
+        type(error).__name__,
+    )
+    return Response(
+        {
+            "code": "ATTENDANCE_UNEXPECTED_ERROR",
+            "message": "Hệ thống đang gặp sự cố. Vui lòng thử lại sau.",
+        },
+        status=500,
+    )
+
+
 class ClockInAPIView(APIView):
     """
     Allows authenticated employees to clock in, determining the correct shift and attendance date, including handling night shifts.
@@ -151,8 +198,12 @@ class ClockInAPIView(APIView):
     def post(self, request):
         employee = _request_employee(request)
         if employee is None:
+            _log_attendance_rejection(
+                "CLOCK_IN", request, None, "EMPLOYEE_PROFILE_MISSING"
+            )
             return _employee_missing_response()
         if employee.check_online():
+            _log_attendance_rejection("CLOCK_IN", request, employee, "ALREADY_CLOCKED_IN")
             return Response(
                 {
                     "code": "ALREADY_CLOCKED_IN",
@@ -178,21 +229,28 @@ class ClockInAPIView(APIView):
         # `except: pass` silently swallowed as "check passed". Location/
         # Wi-Fi/QR/6-digit evidence now flows through `perform_clock_in`
         # -> `validate_checkin_source`, which fails closed.
-        with transaction.atomic():
-            attendance, allowed, reason = perform_clock_in(
-                Request(
-                    user=request.user,
-                    date=current_date,
-                    time=current_time,
-                    datetime=current_datetime,
-                    evidence=_attendance_evidence(request),
+        try:
+            with transaction.atomic():
+                attendance, allowed, reason = perform_clock_in(
+                    Request(
+                        user=request.user,
+                        date=current_date,
+                        time=current_time,
+                        datetime=current_datetime,
+                        evidence=_attendance_evidence(request),
+                    )
                 )
-            )
+        except APIException:
+            raise
+        except Exception as error:
+            return _attendance_unexpected_error("CLOCK_IN", request, employee, error)
 
         if not allowed:
+            code = reason["code"] if reason else "VERIFICATION_REQUIRED"
+            _log_attendance_rejection("CLOCK_IN", request, employee, code)
             return Response(
                 {
-                    "code": reason["code"] if reason else "VERIFICATION_REQUIRED",
+                    "code": code,
                     "message": reason["message"] if reason else "Không thể chấm công vào.",
                 },
                 status=400,
@@ -224,8 +282,14 @@ class ClockOutAPIView(APIView):
     def post(self, request):
         employee = _request_employee(request)
         if employee is None:
+            _log_attendance_rejection(
+                "CLOCK_OUT", request, None, "EMPLOYEE_PROFILE_MISSING"
+            )
             return _employee_missing_response()
         if not employee.check_online():
+            _log_attendance_rejection(
+                "CLOCK_OUT", request, employee, "ALREADY_CLOCKED_OUT"
+            )
             return Response(
                 {
                     "code": "ALREADY_CLOCKED_OUT",
@@ -248,33 +312,41 @@ class ClockOutAPIView(APIView):
         # through (mutation + early-out logic) can't leave a half-applied
         # checkout. Phase 6.1: no more legacy-geofencing fail-open block
         # (see `ClockInAPIView` docstring above — same bug, same fix).
-        with transaction.atomic():
-            attendance, allowed, reason = perform_clock_out(
-                Request(
-                    user=request.user,
-                    date=current_date,
-                    time=current_time,
-                    datetime=current_datetime,
-                    evidence=_attendance_evidence(request),
+        try:
+            with transaction.atomic():
+                attendance, allowed, reason = perform_clock_out(
+                    Request(
+                        user=request.user,
+                        date=current_date,
+                        time=current_time,
+                        datetime=current_datetime,
+                        evidence=_attendance_evidence(request),
+                    )
                 )
-            )
-            if allowed and attendance is None:
-                # `perform_clock_out` found no open activity to close, so
-                # nothing was checked out — but it may already have written
-                # incidental fields (the `attendance_day` backfill) on the
-                # way there. Rolling this existing block back keeps a
-                # request that changed nothing from changing anything.
-                transaction.set_rollback(True)
+                if allowed and attendance is None:
+                    # `perform_clock_out` found no open activity to close, so
+                    # nothing was checked out — but it may already have written
+                    # incidental fields (the `attendance_day` backfill) on the
+                    # way there. Rolling this existing block back keeps a
+                    # request that changed nothing from changing anything.
+                    transaction.set_rollback(True)
+        except APIException:
+            raise
+        except Exception as error:
+            return _attendance_unexpected_error("CLOCK_OUT", request, employee, error)
 
         if not allowed:
+            code = reason["code"] if reason else "VERIFICATION_REQUIRED"
+            _log_attendance_rejection("CLOCK_OUT", request, employee, code)
             return Response(
                 {
-                    "code": reason["code"] if reason else "VERIFICATION_REQUIRED",
+                    "code": code,
                     "message": reason["message"] if reason else "Không thể chấm công ra.",
                 },
                 status=400,
             )
         if attendance is None:
+            _log_attendance_rejection("CLOCK_OUT", request, employee, "NO_OPEN_ATTENDANCE")
             # Never report "Clocked-Out" for a check-out that did not happen.
             # This used to answer 200 with `attendance_id: null`, and the app
             # showed success for a session that was still open.
@@ -313,7 +385,9 @@ class AttendancePolicyView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        employee = request.user.employee_get
+        employee = _request_employee(request)
+        if employee is None:
+            return _employee_missing_response()
         company = employee.get_company()
         has_location = CheckInLocation.objects.filter(
             company_id=company, is_active=True
@@ -417,7 +491,9 @@ class AttendanceVerifyFaceView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        employee = request.user.employee_get
+        employee = _request_employee(request)
+        if employee is None:
+            return _employee_missing_response()
 
         # Employee identity is server-derived only — never accept a
         # client-supplied employee_id to decide whose face template to
@@ -535,7 +611,9 @@ class AttendanceVerifySourceView(APIView):
                 status=400,
             )
 
-        employee = request.user.employee_get
+        employee = _request_employee(request)
+        if employee is None:
+            return _employee_missing_response()
         company = employee.get_company()
         evidence_request = Request(
             user=request.user,

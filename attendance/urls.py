@@ -25,6 +25,7 @@ from attendance.cbv import (
     my_attendances,
 )
 from attendance.views import auth_session_debug
+from attendance.views import client_ip_debug
 from attendance.views import clock_in_out
 from attendance.views import dashboard as attendance_dashboard
 from attendance.views import geofaceconfig, penalty, requests, search
@@ -779,6 +780,15 @@ urlpatterns = [
         "auth-session-debug/",
         auth_session_debug.auth_session_debug_view,
         name="auth-session-debug",
+    ),
+    # Phase 3B.1 — TEMPORARY read-only client-IP diagnostic. Remove
+    # together with `attendance/views/client_ip_debug.py` and
+    # `attendance/tests/test_client_ip_debug.py` once the production
+    # proxy chain has been measured.
+    path(
+        "client-ip-debug/",
+        client_ip_debug.client_ip_debug_view,
+        name="client-ip-debug",
     ),
     path(
         "track-late-come-early-out/",

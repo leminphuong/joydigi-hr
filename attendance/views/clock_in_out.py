@@ -536,9 +536,7 @@ def perform_clock_in(request):
             if not ip_allowed:
                 reason = {
                     "code": "WIFI_NOT_ALLOWED",
-                    "message": str(
-                        _("Check-In Restricted: Your current network is not authorized ")
-                    ),
+                    "message": "Mạng hiện tại của bạn không được phép dùng để chấm công.",
                 }
                 _flash(messages.error, request, reason["message"])
                 return None, False, reason
@@ -620,10 +618,9 @@ def perform_clock_in(request):
             return attendance, True, None
         reason = {
             "code": "PROFILE_INCOMPLETE",
-            "message": str(
-                _(
-                    "Check-In Unavailable: Your employee profile or work information is incomplete."
-                )
+            "message": (
+                "Hồ sơ nhân viên hoặc thông tin công việc của bạn chưa đầy đủ. "
+                "Vui lòng liên hệ quản trị viên."
             ),
         }
         _flash(messages.error, request, reason["message"])
@@ -631,11 +628,7 @@ def perform_clock_in(request):
 
     reason = {
         "code": "METHOD_NOT_ENABLED",
-        "message": str(
-            _(
-                "The attendance check-in/check-out feature has not been enabled for your company."
-            ),
-        ),
+        "message": "Công ty của bạn chưa bật tính năng chấm công.",
     }
     _flash(messages.error, request, reason["message"])
     return None, False, reason
@@ -876,9 +869,7 @@ def perform_clock_out(request):
             if not ip_allowed:
                 reason = {
                     "code": "WIFI_NOT_ALLOWED",
-                    "message": str(
-                        _("Check-Out Restricted: Your current network is not authorized")
-                    ),
+                    "message": "Mạng hiện tại của bạn không được phép dùng để chấm công.",
                 }
                 _flash(messages.error, request, reason["message"])
                 return None, False, reason
@@ -1000,11 +991,7 @@ def perform_clock_out(request):
 
     reason = {
         "code": "METHOD_NOT_ENABLED",
-        "message": str(
-            _(
-                "The attendance check-in/check-out feature has not been enabled for your company."
-            )
-        ),
+        "message": "Công ty của bạn chưa bật tính năng chấm công.",
     }
     _flash(messages.error, request, reason["message"])
     return None, False, reason

@@ -4,7 +4,6 @@ clock_in_out.py
 This module is used register endpoints to the check-in check-out functionalities
 """
 
-import ipaddress
 import logging
 import math
 
@@ -22,6 +21,10 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from attendance.methods.client_ip import (
+    client_ip_is_allowed,
+    resolve_attendance_client_ip,
+)
 from attendance.methods.utils import (
     activity_datetime,
     employee_exists,
@@ -100,6 +103,55 @@ def _distance_meters(lat1, lon1, lat2, lon2):
         + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
     )
     return radius * 2 * math.atan2(math.sqrt(value), math.sqrt(1 - value))
+
+
+#: The refusal a company-network restriction produces. Unchanged from
+#: before: same code, same Vietnamese sentence, same controlled 400.
+_WIFI_NOT_ALLOWED = {
+    "code": "WIFI_NOT_ALLOWED",
+    "message": "Mạng hiện tại của bạn không được phép dùng để chấm công.",
+}
+
+
+def _network_refusal(request, company):
+    """The refusal to return when this network may not mark attendance.
+
+    `None` means carry on — either the company has no restriction, or it
+    has one and this request satisfies it.
+
+    Phase 3B FINAL. Check-in and check-out had two byte-identical copies
+    of this, which is how they came to share a bug: `request.META.get`
+    on the synthetic request answers every key with its default, so the
+    address was `None`, `ipaddress.ip_address(None)` raised `ValueError`,
+    the `except` swallowed it, and every range — `0.0.0.0/0` included —
+    refused every mobile check-in. One copy now, so the two paths cannot
+    drift again.
+
+    `trusted_device` still exempts a caller entirely. That is the
+    existing contract for `attendance.scheduler`'s auto-punch-out, which
+    is internal infrastructure with no network origin to check, and it is
+    deliberately left alone.
+
+    Everything else fails closed: no resolvable address means refuse, not
+    admit. See `attendance.methods.client_ip` for why an address is
+    resolvable only behind this host's own proxy.
+    """
+    if getattr(request, "trusted_device", False):
+        return None
+
+    allowed_attendance_ips = AttendanceAllowedIP.objects.filter(
+        company_id=company
+    ).first()
+    if not allowed_attendance_ips or not allowed_attendance_ips.is_enabled:
+        return None
+
+    allowed_ips = (allowed_attendance_ips.additional_data or {}).get(
+        "allowed_ips", []
+    )
+    client_ip = resolve_attendance_client_ip(request)
+    if client_ip_is_allowed(client_ip, allowed_ips):
+        return None
+    return dict(_WIFI_NOT_ALLOWED)
 
 
 def validate_checkin_source(request, company):
@@ -505,41 +557,10 @@ def perform_clock_in(request):
         and attendance_general_settings.enable_check_in
         or request.__dict__.get("datetime")
     ):
-        allowed_attendance_ips = AttendanceAllowedIP.objects.filter(
-            company_id=company
-        ).first()
-
-        if (
-            not getattr(request, "trusted_device", False)
-            and allowed_attendance_ips
-            and allowed_attendance_ips.is_enabled
-        ):
-            x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-            ip = request.META.get("REMOTE_ADDR")
-            if x_forwarded_for:
-                ip = x_forwarded_for.split(",")[0]
-
-            allowed_ips = (allowed_attendance_ips.additional_data or {}).get(
-                "allowed_ips", []
-            )
-            ip_allowed = False
-            for allowed_ip in allowed_ips:
-                try:
-                    if ipaddress.ip_address(ip) in ipaddress.ip_network(
-                        allowed_ip, strict=False
-                    ):
-                        ip_allowed = True
-                        break
-                except ValueError:
-                    continue
-
-            if not ip_allowed:
-                reason = {
-                    "code": "WIFI_NOT_ALLOWED",
-                    "message": "Mạng hiện tại của bạn không được phép dùng để chấm công.",
-                }
-                _flash(messages.error, request, reason["message"])
-                return None, False, reason
+        reason = _network_refusal(request, company)
+        if reason is not None:
+            _flash(messages.error, request, reason["message"])
+            return None, False, reason
 
         checkin_source = validate_checkin_source(request, company)
         if not checkin_source["allowed"]:
@@ -838,41 +859,10 @@ def perform_clock_out(request):
         and attendance_general_settings.enable_check_in
         or request.__dict__.get("datetime")
     ):
-        allowed_attendance_ips = AttendanceAllowedIP.objects.filter(
-            company_id=company
-        ).first()
-
-        if (
-            not getattr(request, "trusted_device", False)
-            and allowed_attendance_ips
-            and allowed_attendance_ips.is_enabled
-        ):
-            x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-            ip = request.META.get("REMOTE_ADDR")
-            if x_forwarded_for:
-                ip = x_forwarded_for.split(",")[0]
-
-            allowed_ips = (allowed_attendance_ips.additional_data or {}).get(
-                "allowed_ips", []
-            )
-            ip_allowed = False
-            for allowed_ip in allowed_ips:
-                try:
-                    if ipaddress.ip_address(ip) in ipaddress.ip_network(
-                        allowed_ip, strict=False
-                    ):
-                        ip_allowed = True
-                        break
-                except ValueError:
-                    continue
-
-            if not ip_allowed:
-                reason = {
-                    "code": "WIFI_NOT_ALLOWED",
-                    "message": "Mạng hiện tại của bạn không được phép dùng để chấm công.",
-                }
-                _flash(messages.error, request, reason["message"])
-                return None, False, reason
+        reason = _network_refusal(request, company)
+        if reason is not None:
+            _flash(messages.error, request, reason["message"])
+            return None, False, reason
 
         checkin_source = validate_checkin_source(request, company)
         if not checkin_source["allowed"]:

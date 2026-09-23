@@ -556,6 +556,18 @@ class Request:
       mobile API, so that check granted every mobile request an
       unconditional attendance-source-validation bypass. Defaults to
       `False`: callers must opt in explicitly.
+    - client_ip: the employee's public address, already resolved and
+      validated at the real Django/DRF request boundary by
+      `attendance.methods.client_ip.resolve_attendance_client_ip`
+      (Phase 3B FINAL). This shim has no peer and its `META` answers
+      every key with the default, so a caller that owns a real request
+      must carry the address across for Allowed-IP enforcement to mean
+      anything. Deliberately *only* the address: the trust decision —
+      was this peer the local reverse proxy, was the header
+      well-formed — stays where the evidence is, and nothing else from
+      `META` is copied here. A caller that passes nothing leaves this
+      `None`, and Allowed IP then refuses, which is the intended
+      answer for a caller with no network origin at all.
     - evidence: dict of client-supplied attendance-source evidence
       (`qr_token`, `wifi_ssid`, `wifi_bssid`, `latitude`, `longitude`)
       exposed as both `.GET` and `.POST` so `_validate_checkin_source`
@@ -581,6 +593,7 @@ class Request:
         trusted_device=False,
         evidence=None,
         system_checkout=False,
+        client_ip=None,
     ) -> None:
         self.user = user
         self.path = "/"
@@ -593,6 +606,7 @@ class Request:
         self.GET = evidence or {}
         self.POST = evidence or {}
         self.META = META()
+        self.client_ip = client_ip
 
     def build_absolute_uri(self, location=None):
         """

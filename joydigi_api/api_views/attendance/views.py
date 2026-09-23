@@ -36,6 +36,7 @@ from attendance.models import (
     OvertimeRequest,
     RemoteWorkRequest,
 )
+from attendance.methods.client_ip import resolve_attendance_client_ip
 from attendance.methods.verification_proof import PROOF_TTL, issue_verification_proof
 from attendance.views.clock_in_out import *
 from attendance.views.clock_in_out import (
@@ -109,6 +110,26 @@ def _attendance_evidence(request):
         "longitude",
     )
     return {key: data[key] for key in fields if data.get(key) not in (None, "")}
+
+
+def _client_ip_text(request):
+    """The employee's public address as text, or None.
+
+    Phase 3B FINAL. Resolved here because here is the only place the
+    evidence exists: the real DRF request knows who its peer is, and
+    that — not the presence of a header — is what makes a forwarded
+    address believable. `attendance.methods.client_ip` holds the rule.
+
+    Handed on as a string rather than an `ip_address` object so the shim
+    carries nothing but data, and re-validated on arrival, so putting a
+    value on the attribute is no way around the parsing.
+
+    `None` when the address cannot be established. Allowed IP then
+    refuses, which is the point: a company-network restriction that
+    admits requests of unknown origin restricts nothing.
+    """
+    resolved = resolve_attendance_client_ip(request)
+    return str(resolved) if resolved is not None else None
 
 
 def _request_employee(request):
@@ -238,6 +259,11 @@ class ClockInAPIView(APIView):
                         time=current_time,
                         datetime=current_datetime,
                         evidence=_attendance_evidence(request),
+                        # Phase 3B FINAL: resolved here, where the real
+                        # peer and headers still exist. The shim has
+                        # neither, so Allowed IP can only be enforced
+                        # on a value carried across from this point.
+                        client_ip=_client_ip_text(request),
                     )
                 )
         except APIException:
@@ -321,6 +347,11 @@ class ClockOutAPIView(APIView):
                         time=current_time,
                         datetime=current_datetime,
                         evidence=_attendance_evidence(request),
+                        # Phase 3B FINAL: resolved here, where the real
+                        # peer and headers still exist. The shim has
+                        # neither, so Allowed IP can only be enforced
+                        # on a value carried across from this point.
+                        client_ip=_client_ip_text(request),
                     )
                 )
                 if allowed and attendance is None:

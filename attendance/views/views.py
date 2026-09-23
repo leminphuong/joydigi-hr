@@ -1029,6 +1029,16 @@ def process_activity_dicts(activity_dicts):
 
         if check_in_time:
             try:
+                # Phase 3B FINAL: no `client_ip`, deliberately. These rows
+                # come from a spreadsheet an administrator uploaded, so
+                # the only address available is the administrator's — and
+                # attributing their network to somebody else's punch would
+                # let one upload from the office authorise attendance that
+                # never happened there. With no employee-side origin to
+                # check, a company that enforces Allowed IP refuses these
+                # imports, which is what it already did and what it should
+                # do. `trusted_device` is not set here for the same
+                # reason: this is a file, not trusted infrastructure.
                 clock_in(
                     Request(
                         user=employee.employee_user_id,

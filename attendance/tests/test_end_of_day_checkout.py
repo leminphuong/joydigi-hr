@@ -25,7 +25,7 @@ from unittest import mock
 
 from django.contrib.contenttypes.models import ContentType
 from django.db.models.query import QuerySet
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from attendance.methods.end_of_day import (
@@ -412,6 +412,20 @@ class NextDayIsolationTests(EndOfDayBaseTests):
         self.ensure_schedule(self.real_today)
         self.ensure_schedule(self.real_yesterday)
 
+        # Phase FIX A.1B: automatic finalization only acts inside the
+        # configured policy period, and does nothing at all without one.
+        # These tests assert what happens to yesterday when the policy is
+        # in force, so they declare one covering their fixture dates. The
+        # boundary itself — and what happens to sessions *before* it — is
+        # tested in `attendance.tests.test_finalization_policy_cutoff`.
+        cutoff = override_settings(
+            ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF=(
+                self.real_yesterday - timedelta(days=1)
+            ).isoformat()
+        )
+        cutoff.enable()
+        self.addCleanup(cutoff.disable)
+
     def ensure_schedule(self, date, shift=None, night=False):
         """A shift schedule for whatever weekday `date` falls on."""
         shift = shift or self.shift
@@ -453,9 +467,16 @@ class NextDayIsolationTests(EndOfDayBaseTests):
 
         self.assertNotEqual(today_row.pk, yesterday_row.pk)
         self.assertEqual(today_row.attendance_date, self.real_today)
+        # Yesterday keeps its own date and its own record. Phase FIX A.1
+        # additionally finalizes it at its configured shift end — the
+        # earlier design left it open indefinitely, and the decision since
+        # is that a forgotten day must not survive into a later workday.
+        # What isolation means here is unchanged: today's row is a
+        # separate row, and yesterday is closed against *yesterday*.
         yesterday_row.refresh_from_db()
         self.assertEqual(yesterday_row.attendance_date, yesterday)
-        self.assertIsNone(yesterday_row.attendance_clock_out)
+        self.assertEqual(yesterday_row.attendance_clock_out, time(17, 0))
+        self.assertEqual(yesterday_row.attendance_clock_out_date, yesterday)
 
     def test_todays_check_out_closes_todays_session_only(self):
         yesterday_row, _yesterday = self.leave_yesterday_open()
@@ -467,8 +488,16 @@ class NextDayIsolationTests(EndOfDayBaseTests):
         self.assertEqual(
             self.row(date=self.real_today).attendance_clock_out, time(17, 0)
         )
+        # Yesterday was closed by the check-in above (Phase FIX A.1), at
+        # its own shift end and against its own date — never by today's
+        # check-out. That is what "today's session only" protects.
         yesterday_row.refresh_from_db()
-        self.assertIsNone(yesterday_row.attendance_clock_out)
+        self.assertEqual(
+            yesterday_row.attendance_clock_out_date, yesterday_row.attendance_date
+        )
+        self.assertNotEqual(
+            yesterday_row.attendance_clock_out_date, self.real_today
+        )
 
     def test_the_thirty_minute_rule_uses_todays_check_in_not_yesterdays(self):
         # Yesterday's session is many hours old. If the rule measured from
@@ -480,15 +509,22 @@ class NextDayIsolationTests(EndOfDayBaseTests):
         self.assertFalse(allowed)
         self.assertEqual(reason["code"], "CHECKOUT_TOO_SOON")
 
-    def test_yesterdays_session_is_never_closed_or_altered(self):
+    def test_yesterdays_session_is_never_altered_by_todays_activity(self):
+        # Phase FIX A.1 renamed and narrowed this. Yesterday *is* now
+        # closed — by the check-in below, at its own shift end. What must
+        # still never happen is any of today's later activity reaching
+        # back into it: the end-of-day pass and today's own check-out must
+        # leave it exactly as finalization left it.
         yesterday_row, _yesterday = self.leave_yesterday_open()
+        self.check_in(self.at(8, 0, date=self.real_today))
+
+        yesterday_row.refresh_from_db()
         before = (
             yesterday_row.attendance_clock_out,
             yesterday_row.attendance_clock_out_date,
             yesterday_row.attendance_worked_hour,
             yesterday_row.attendance_overtime,
         )
-        self.check_in(self.at(8, 0, date=self.real_today))
         process_end_of_day(now=self.at(18, 0, date=self.real_today))
         self.check_out(self.at(18, 5, date=self.real_today))
 

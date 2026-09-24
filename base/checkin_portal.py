@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from base.forms import CheckInLocationForm, CheckInPolicyForm, OfficeWifiForm
@@ -200,7 +201,10 @@ def _visible_employees(request):
 
 def _working_days_ending_today(number=7):
     days = []
-    current = date.today()
+    # Phase FIX A: the business day is Vietnamese local time.
+    # `date.today()` follows the server process's timezone, which
+    # disagrees for seven hours a day when that is UTC.
+    current = timezone.localdate()
     while len(days) < number:
         if current.weekday() < 5:
             days.append(current)
@@ -213,7 +217,10 @@ def get_attendance_overview(request):
     from attendance.models import Attendance, AttendanceLateComeEarlyOut
     from leave.models import LeaveRequest
 
-    today = date.today()
+    # Phase FIX A: one date source with `check_online()`, so the
+    # admin's "today" and the employee's phone cannot be looking at
+    # different days.
+    today = timezone.localdate()
     employees = _visible_employees(request)
     employee_ids = list(employees.values_list("pk", flat=True))
     attendances = list(

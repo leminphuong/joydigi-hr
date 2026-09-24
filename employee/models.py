@@ -610,42 +610,56 @@ class Employee(models.Model):
         """
         Whether this employee is currently in a working session.
 
-        Yesterday's date is included only for night shifts, whose session
-        legitimately runs past midnight. For an ordinary day shift, a row
-        left open from yesterday means somebody forgot to check out — not
-        that they are still at work — and counting it would report them
-        online forever and refuse today's check-in with "Already
-        clocked-in" (Phase ATTENDANCE-PUSH-NOTIFICATION-FCM-SAFE-IMPLEMENT-1,
-        which removed the automatic end-of-day close: sessions now stay
-        open, so each day must stand on its own). The stale row is left
-        exactly as it is — this only changes which rows the question looks
-        at, never the data.
+        Phase FIX A: the rule now lives in
+        `attendance.methods.session.resolve_session`, which every part of
+        the attendance state machine consults — check-in, check-out,
+        `my-attendance` — so the answer the app is shown is always the
+        answer the server will act on.
+
+        Yesterday counts only for a night shift, whose session
+        legitimately runs past midnight. An ordinary day shift left open
+        from yesterday means somebody forgot to check out, not that they
+        are still at work; counting it reported them online forever and
+        refused today's check-in with "Already clocked-in". The stale row
+        itself is never touched — only which rows this question looks at
+        changed.
+
+        A row whose two check-out columns disagree reports as online, so
+        nothing offers to check in on top of it; check-out then refuses
+        it with a controlled conflict rather than deciding which column
+        to believe.
         """
         if apps.is_installed("attendance"):
-            Attendance = get_joydigi_model_class("attendance", "attendance")
-            request = getattr(joydigi_middlewares._thread_locals, "request", None)
+            from attendance.methods.session import employees_online, resolve_session
 
-            if request is not None:
-                if (
-                    not hasattr(request, "working_employees")
-                    or request.working_employees is None
-                ):
-                    today = timezone.localdate()
-                    yesterday = today - timedelta(days=1)
-                    open_attendances = Attendance.objects.filter(
-                        attendance_date__gte=yesterday,
+            request = getattr(joydigi_middlewares._thread_locals, "request", None)
+            if request is None:
+                return resolve_session(self).is_online
+
+            if (
+                not hasattr(request, "working_employees")
+                or request.working_employees is None
+            ):
+                # One pass for everyone on this page, rather than a query
+                # per employee in a list view. Same rules as
+                # `resolve_session`; there is a test holding the two
+                # together.
+                Attendance = get_joydigi_model_class("attendance", "attendance")
+                today = timezone.localdate()
+                candidate_ids = (
+                    Attendance.objects.filter(
+                        attendance_date__gte=today - timedelta(days=1),
                         attendance_date__lte=today,
-                        attendance_clock_out_date__isnull=True,
-                    ).select_related("attendance_day", "shift_id")
-                    working_employees = [
-                        attendance.employee_id_id
-                        for attendance in open_attendances
-                        if attendance.attendance_date == today
-                        or attendance.is_night_shift()
-                    ]
-                    setattr(request, "working_employees", working_employees)
-                working_employees = request.working_employees
-                return self.pk in working_employees
+                    )
+                    .values_list("employee_id_id", flat=True)
+                    .distinct()
+                )
+                setattr(
+                    request,
+                    "working_employees",
+                    list(employees_online(candidate_ids, today)),
+                )
+            return self.pk in request.working_employees
         return False
 
     class Meta:

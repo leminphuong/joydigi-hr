@@ -199,9 +199,13 @@ class AuthoritativeStateTests(AttendanceStateAuthorityBase):
 class NextDayCheckInTests(AttendanceStateAuthorityBase):
     """Yesterday left open must not stop today from starting."""
 
-    def test_todays_check_in_succeeds_and_leaves_yesterday_alone(self):
+    def test_todays_check_in_succeeds_and_gets_its_own_record(self):
         yesterday_row = self.open_session_on(self.yesterday)
-        before = self.snapshot(yesterday_row)
+        clock_in_before = (
+            yesterday_row.attendance_clock_in,
+            yesterday_row.attendance_clock_in_date,
+            yesterday_row.attendance_date,
+        )
 
         response = self.client.post(CLOCK_IN)
 
@@ -211,9 +215,23 @@ class NextDayCheckInTests(AttendanceStateAuthorityBase):
         )
         self.assertNotEqual(today_row.pk, yesterday_row.pk)
         self.assertEqual(response.data["attendance_id"], today_row.pk)
-        # Yesterday's forgotten session is neither closed nor edited.
-        self.assertEqual(self.snapshot(yesterday_row), before)
-        self.assertIsNone(yesterday_row.attendance_clock_out)
+
+        # Phase FIX A.1 changed what happens to yesterday: it is now
+        # finalized at its own configured shift end rather than left open
+        # indefinitely. What this test guards is unchanged — today gets
+        # its own record, and yesterday's arrival is never rewritten.
+        yesterday_row.refresh_from_db()
+        self.assertEqual(
+            (
+                yesterday_row.attendance_clock_in,
+                yesterday_row.attendance_clock_in_date,
+                yesterday_row.attendance_date,
+            ),
+            clock_in_before,
+        )
+        self.assertNotEqual(
+            yesterday_row.attendance_clock_out_date, self.today
+        )
 
 
 class ControlledGateResponseTests(AttendanceStateAuthorityBase):

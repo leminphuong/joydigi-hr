@@ -34,10 +34,12 @@ from attendance.methods.end_of_day import (
     STAGE_FIRST_REMINDER,
     STAGE_SECOND_REMINDER,
     effective_end_datetime,
+    effective_end_instant,
     effective_end_seconds,
     process_end_of_day,
     stage_due,
 )
+from attendance.methods.reminders import RECOVERY_WINDOW, marker_for
 from attendance.methods.utils import Request
 from attendance.models import (
     Attendance,
@@ -128,32 +130,47 @@ class StageBoundaryTests(TestCase):
             stage_due(self.at(-REMINDER_BEFORE_END), self.end), STAGE_FIRST_REMINDER
         )
 
-    def test_the_first_reminder_stays_due_through_the_end_of_the_day(self):
-        self.assertEqual(stage_due(self.end, self.end), STAGE_FIRST_REMINDER)
+    def test_the_first_reminder_window_closes_at_the_shift_end(self):
+        # Phase NOTIFICATION B2 made the windows bounded and disjoint.
+        # Before, the first reminder stayed due right up to the second
+        # one; now there is a deliberate gap between them, so a late run
+        # can never still owe the earlier message.
         self.assertEqual(
+            stage_due(self.at(-timedelta(microseconds=1)), self.end),
+            STAGE_FIRST_REMINDER,
+        )
+        self.assertIsNone(stage_due(self.end, self.end))
+        self.assertIsNone(
             stage_due(
                 self.at(SECOND_REMINDER_AFTER_END - timedelta(microseconds=1)),
                 self.end,
-            ),
-            STAGE_FIRST_REMINDER,
+            )
         )
 
-    def test_the_second_reminder_is_due_exactly_ten_minutes_after(self):
+    def test_the_second_reminder_is_due_exactly_five_minutes_after(self):
         self.assertEqual(
             stage_due(self.at(SECOND_REMINDER_AFTER_END), self.end),
             STAGE_SECOND_REMINDER,
         )
 
-    def test_the_second_reminder_is_the_last_word(self):
-        # There is no third stage. Quarter past, an hour later, three hours
-        # later — all still just "the second reminder is due", which the
-        # dedupe then declines to send again.
-        for later in (timedelta(minutes=15), timedelta(hours=1), timedelta(hours=3)):
-            self.assertEqual(
-                stage_due(self.at(later), self.end),
-                STAGE_SECOND_REMINDER,
-                later,
-            )
+    def test_the_second_reminder_survives_a_late_run_but_expires(self):
+        # Phase NOTIFICATION B2: a bounded recovery window rather than
+        # "due for ever". Ten minutes is enough to survive a restart; a
+        # reminder delivered hours later is about a moment that has gone.
+        self.assertEqual(
+            stage_due(
+                self.at(SECOND_REMINDER_AFTER_END + RECOVERY_WINDOW)
+                - timedelta(microseconds=1),
+                self.end,
+            ),
+            STAGE_SECOND_REMINDER,
+        )
+        for later in (
+            SECOND_REMINDER_AFTER_END + RECOVERY_WINDOW,
+            timedelta(hours=1),
+            timedelta(hours=3),
+        ):
+            self.assertIsNone(stage_due(self.at(later), self.end), later)
 
     def test_an_unknown_end_means_no_opinion(self):
         self.assertIsNone(stage_due(self.end, None))
@@ -234,13 +251,18 @@ class EndOfDayBaseTests(TestCase):
             employee_id=self.employee, attendance_date=date or self.today
         )
 
-    def notifications(self, stage=None):
+    def notifications(self, stage=None, date=None):
         qs = Notification.objects.filter(
             recipient=self.employee.employee_user_id,
             target_content_type=ContentType.objects.get_for_model(Attendance),
         )
         if stage:
-            qs = qs.filter(data__checkout_reminder=stage)
+            # Phase NOTIFICATION B2: the stored marker carries the work
+            # date as well as the stage, so the four stages of a day all
+            # share one marker format.
+            qs = qs.filter(
+                data__checkout_reminder=marker_for(stage, date or self.today)
+            )
         return qs
 
     def approve_overtime(self, start, end):
@@ -267,7 +289,7 @@ class ReminderScheduleTests(EndOfDayBaseTests):
         tally = process_end_of_day(now=self.at(16, 55, 0))
         self.assertEqual(tally["first_reminder"], 1)
         self.assertEqual(self.notifications(STAGE_FIRST_REMINDER).count(), 1)
-        self.assertIn("chấm công ra về", self.notifications().first().verb)
+        self.assertIn("chấm công ra", self.notifications().first().verb)
 
     def test_rerunning_does_not_send_the_first_reminder_twice(self):
         self.check_in(self.at(8, 0))
@@ -279,20 +301,20 @@ class ReminderScheduleTests(EndOfDayBaseTests):
 
     def test_no_second_reminder_a_microsecond_early(self):
         self.check_in(self.at(8, 0))
-        process_end_of_day(now=self.at(17, 9, 59, 999999))
+        process_end_of_day(now=self.at(17, 4, 59, 999999))
         self.assertEqual(self.notifications(STAGE_SECOND_REMINDER).count(), 0)
 
-    def test_the_second_reminder_goes_out_at_ten_past(self):
+    def test_the_second_reminder_goes_out_at_five_past(self):
         self.check_in(self.at(8, 0))
         process_end_of_day(now=self.at(16, 55))
-        tally = process_end_of_day(now=self.at(17, 10, 0))
+        tally = process_end_of_day(now=self.at(17, 5, 0))
         self.assertEqual(tally["second_reminder"], 1)
         self.assertEqual(self.notifications(STAGE_SECOND_REMINDER).count(), 1)
 
     def test_rerunning_does_not_send_the_second_reminder_twice(self):
         self.check_in(self.at(8, 0))
-        process_end_of_day(now=self.at(17, 10))
-        for minute in (11, 12, 13, 14, 30):
+        process_end_of_day(now=self.at(17, 5))
+        for minute in (6, 7, 8, 9, 14):
             process_end_of_day(now=self.at(17, minute))
         self.assertEqual(self.notifications(STAGE_SECOND_REMINDER).count(), 1)
 
@@ -300,19 +322,19 @@ class ReminderScheduleTests(EndOfDayBaseTests):
         self.check_in(self.at(8, 0))
         self.check_out(self.at(16, 40))
         process_end_of_day(now=self.at(16, 55))
-        process_end_of_day(now=self.at(17, 10))
+        process_end_of_day(now=self.at(17, 5))
         self.assertEqual(self.notifications().count(), 0)
         self.assertFalse(self.push.called)
 
     def test_checking_out_between_the_reminders_stops_the_second(self):
-        # The stated case: reminded at 16:55, checked out at 17:05, so the
-        # 17:10 reminder must not arrive.
+        # The stated case: reminded at 16:55, checked out at 17:02, so the
+        # 17:05 reminder must not arrive.
         self.check_in(self.at(8, 0))
         process_end_of_day(now=self.at(16, 55))
         self.assertEqual(self.notifications(STAGE_FIRST_REMINDER).count(), 1)
 
-        self.check_out(self.at(17, 5))
-        process_end_of_day(now=self.at(17, 10))
+        self.check_out(self.at(17, 2))
+        process_end_of_day(now=self.at(17, 5))
         self.assertEqual(self.notifications(STAGE_SECOND_REMINDER).count(), 0)
 
     def test_no_reminder_for_someone_who_never_checked_in(self):
@@ -598,8 +620,29 @@ class ApprovedOvertimeReminderTests(EndOfDayBaseTests):
         process_end_of_day(now=self.at(18, 55))
         self.assertEqual(self.notifications(STAGE_FIRST_REMINDER).count(), 1)
 
-        process_end_of_day(now=self.at(19, 10))
+        process_end_of_day(now=self.at(19, 5))
         self.assertEqual(self.notifications(STAGE_SECOND_REMINDER).count(), 1)
+
+    def test_the_ordinary_end_reminders_are_not_sent_at_all_on_an_overtime_day(self):
+        """Neither 16:55 nor 17:05 — the whole pair moves, not just one."""
+        self.check_in(self.at(8, 0))
+        self.approve_overtime(time(17, 0), time(19, 0))
+
+        for moment in (self.at(16, 55), self.at(17, 5), self.at(17, 10)):
+            process_end_of_day(now=moment)
+
+        self.assertEqual(self.notifications().count(), 0)
+
+    def test_checking_out_before_the_overtime_end_stops_the_post_end_reminder(self):
+        self.check_in(self.at(8, 0))
+        self.approve_overtime(time(17, 0), time(19, 0))
+        process_end_of_day(now=self.at(18, 55))
+        self.assertEqual(self.notifications(STAGE_FIRST_REMINDER).count(), 1)
+
+        self.check_out(self.at(19, 0))
+        process_end_of_day(now=self.at(19, 5))
+
+        self.assertEqual(self.notifications(STAGE_SECOND_REMINDER).count(), 0)
 
     def test_the_session_is_still_not_closed_on_an_overtime_day(self):
         self.check_in(self.at(8, 0))
@@ -626,6 +669,39 @@ class ApprovedOvertimeReminderTests(EndOfDayBaseTests):
         process_end_of_day(now=self.at(16, 55))
         self.assertEqual(self.notifications(STAGE_FIRST_REMINDER).count(), 1)
 
+    def test_a_rejected_request_does_not_move_the_reminder(self):
+        """`OvertimeRequest.request_status()` reads `canceled` as Rejected.
+
+        This model has no separate rejected flag — the same column carries
+        both — so one term excludes both states.
+        """
+        self.check_in(self.at(8, 0))
+        request = self.approve_overtime(time(17, 0), time(19, 0))
+        request.canceled = True
+        request.save()
+        # The same flag the model reports as a rejection, whatever
+        # language the label is rendered in.
+        self.assertTrue(request.canceled)
+
+        process_end_of_day(now=self.at(16, 55))
+
+        self.assertEqual(self.notifications(STAGE_FIRST_REMINDER).count(), 1)
+
+    def test_a_soft_deleted_request_does_not_move_the_reminder(self):
+        """`is_active=False`, the filter the monthly summary already uses.
+
+        A request that contributes nothing to anybody's hours must not
+        move a reminder either.
+        """
+        self.check_in(self.at(8, 0))
+        request = self.approve_overtime(time(17, 0), time(19, 0))
+        request.is_active = False
+        request.save()
+
+        process_end_of_day(now=self.at(16, 55))
+
+        self.assertEqual(self.notifications(STAGE_FIRST_REMINDER).count(), 1)
+
     def test_an_unapproved_request_does_not_move_the_reminder(self):
         self.check_in(self.at(8, 0))
         OvertimeRequest.objects.create(
@@ -635,6 +711,18 @@ class ApprovedOvertimeReminderTests(EndOfDayBaseTests):
         )
         process_end_of_day(now=self.at(16, 55))
         self.assertEqual(self.notifications(STAGE_FIRST_REMINDER).count(), 1)
+
+    def test_a_pending_request_is_not_credited_even_at_its_own_end(self):
+        self.check_in(self.at(8, 0))
+        OvertimeRequest.objects.create(
+            employee_id=self.employee, request_date=self.today,
+            start_time=time(17, 0), end_time=time(19, 0),
+            approved=False, canceled=False,
+        )
+
+        process_end_of_day(now=self.at(18, 55))
+
+        self.assertEqual(self.notifications(STAGE_FIRST_REMINDER).count(), 0)
 
     def test_the_overtime_request_is_never_modified(self):
         self.check_in(self.at(8, 0))
@@ -748,3 +836,201 @@ class EndOfDayTimezoneTests(EndOfDayBaseTests):
         run_at = self.at(16, 55).astimezone(datetime.timezone.utc)
         process_end_of_day(now=run_at)
         self.assertEqual(self.notifications(STAGE_FIRST_REMINDER).count(), 1)
+
+
+class NightShiftEndReminderTests(EndOfDayBaseTests):
+    """22:00-06:00 — the end reminders belong to the following morning.
+
+    Phase NOTIFICATION B2. The end of a night shift is not on the date the
+    session is filed under, so every assertion here is about the *next*
+    calendar day, and the reminders must land at 05:55 and 06:05 rather
+    than twelve hours early or not at all.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.session_date = timezone.localdate() - timedelta(days=1)
+        self.night_shift = EmployeeShift.objects.create(employee_shift="Ca đêm B2")
+        self.night_shift.company_id.add(self.company)
+        self.night_day, schedule = self._night_schedule(self.session_date)
+        self.schedule = schedule
+
+        info = EmployeeWorkInformation.objects.get(employee_id=self.employee)
+        info.shift_id = self.night_shift
+        info.save()
+
+    def _night_schedule(self, date):
+        day = EmployeeShiftDay.objects.filter(day=date.strftime("%A").lower()).first()
+        schedule, created = EmployeeShiftSchedule.objects.get_or_create(
+            day=day,
+            shift_id=self.night_shift,
+            defaults={
+                "minimum_working_hour": "08:00",
+                "start_time": time(22, 0),
+                "end_time": time(6, 0),
+                "is_night_shift": True,
+            },
+        )
+        if created:
+            schedule.company_id.add(self.company)
+        return day, schedule
+
+    def start_night(self):
+        attendance = Attendance.objects.create(
+            employee_id=self.employee,
+            attendance_date=self.session_date,
+            shift_id=self.night_shift,
+            attendance_day=self.night_day,
+            attendance_clock_in=time(22, 0),
+            attendance_clock_in_date=self.session_date,
+            minimum_hour="08:00",
+        )
+        AttendanceActivity.objects.create(
+            employee_id=self.employee,
+            attendance_date=self.session_date,
+            clock_in_date=self.session_date,
+            shift_day=self.night_day,
+            clock_in=time(22, 0),
+            in_datetime=timezone.make_aware(
+                datetime.datetime.combine(self.session_date, time(22, 0))
+            ),
+        )
+        return attendance
+
+    def notifications_for_session(self, stage):
+        return self.notifications(stage, date=self.session_date)
+
+    def test_the_end_is_the_following_morning_not_the_session_date(self):
+        attendance = self.start_night()
+
+        end = effective_end_instant(attendance, self.schedule)
+
+        self.assertEqual(timezone.localtime(end).time(), time(6, 0))
+        self.assertEqual(
+            timezone.localtime(end).date(), self.session_date + timedelta(days=1)
+        )
+
+    def test_the_first_reminder_is_at_five_to_six_the_next_morning(self):
+        self.start_night()
+
+        process_end_of_day(now=self.at(5, 54, 59, 999999))
+        self.assertEqual(self.notifications().count(), 0)
+
+        process_end_of_day(now=self.at(5, 55))
+
+        self.assertEqual(
+            self.notifications_for_session(STAGE_FIRST_REMINDER).count(), 1
+        )
+
+    def test_the_second_reminder_is_at_five_past_six(self):
+        self.start_night()
+
+        process_end_of_day(now=self.at(5, 55))
+        process_end_of_day(now=self.at(6, 5))
+
+        self.assertEqual(
+            self.notifications_for_session(STAGE_SECOND_REMINDER).count(), 1
+        )
+
+    def test_checking_out_before_six_oh_five_stops_the_second_reminder(self):
+        attendance = self.start_night()
+        process_end_of_day(now=self.at(5, 55))
+
+        Attendance.objects.filter(pk=attendance.pk).update(
+            attendance_clock_out=time(6, 0),
+            attendance_clock_out_date=self.session_date + timedelta(days=1),
+        )
+        AttendanceActivity.objects.filter(employee_id=self.employee).update(
+            clock_out=time(6, 0), clock_out_date=self.session_date + timedelta(days=1)
+        )
+
+        process_end_of_day(now=self.at(6, 5))
+
+        self.assertEqual(
+            self.notifications_for_session(STAGE_SECOND_REMINDER).count(), 0
+        )
+
+    def test_the_night_session_is_never_closed_automatically(self):
+        attendance = self.start_night()
+
+        process_end_of_day(now=self.at(6, 5))
+        process_end_of_day(now=self.at(7, 0))
+
+        attendance.refresh_from_db()
+        self.assertIsNone(attendance.attendance_clock_out)
+        self.assertIsNone(attendance.attendance_clock_out_date)
+
+    def test_overtime_on_the_following_date_does_not_extend_a_night_shift(self):
+        """Documented limitation, not an oversight.
+
+        A night session ends on the calendar day after the one it is
+        filed under, and `OvertimeRequest` is a same-day window — so
+        overtime continuing this shift could only be recorded on that
+        following date. Nothing in this codebase establishes which
+        requests on that date belong to the night that just ended rather
+        than to the day that has just begun, and inventing an association
+        rule here would be inventing business behaviour.
+
+        So the reminders stay on the shift's own end. If that is the
+        wrong answer for the business, the fix is a product decision
+        about attribution, followed by a change here — not a guess.
+        """
+        attendance = self.start_night()
+        OvertimeRequest.objects.create(
+            employee_id=self.employee,
+            request_date=self.session_date + timedelta(days=1),
+            start_time=time(6, 0),
+            end_time=time(8, 0),
+            approved=True,
+            canceled=False,
+        )
+
+        end = effective_end_instant(attendance, self.schedule)
+
+        self.assertEqual(timezone.localtime(end).time(), time(6, 0))
+
+        # And the ordinary night-shift reminders still arrive on time.
+        process_end_of_day(now=self.at(5, 55))
+        self.assertEqual(
+            self.notifications_for_session(STAGE_FIRST_REMINDER).count(), 1
+        )
+
+    def test_unrelated_overtime_later_that_day_does_not_move_them(self):
+        """An evening request on the following date changes nothing."""
+        attendance = self.start_night()
+        OvertimeRequest.objects.create(
+            employee_id=self.employee,
+            request_date=self.session_date + timedelta(days=1),
+            start_time=time(18, 0),
+            end_time=time(21, 0),
+            approved=True,
+            canceled=False,
+        )
+
+        end = effective_end_instant(attendance, self.schedule)
+
+        self.assertEqual(timezone.localtime(end).time(), time(6, 0))
+
+    def test_overtime_on_the_session_date_is_still_read(self):
+        """The session's own date is consulted, for a night shift too.
+
+        18:00-20:00 on the evening the shift began is earlier than the
+        06:00 end, so it cannot extend anything — but it proves the
+        lookup happens rather than being skipped for night shifts.
+        """
+        attendance = self.start_night()
+        OvertimeRequest.objects.create(
+            employee_id=self.employee,
+            request_date=self.session_date,
+            start_time=time(18, 0),
+            end_time=time(20, 0),
+            approved=True,
+            canceled=False,
+        )
+
+        end = effective_end_instant(attendance, self.schedule)
+
+        self.assertEqual(timezone.localtime(end).time(), time(6, 0))
+        self.assertEqual(
+            timezone.localtime(end).date(), self.session_date + timedelta(days=1)
+        )

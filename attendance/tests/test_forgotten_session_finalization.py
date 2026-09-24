@@ -599,12 +599,22 @@ class NextDayFallbackTests(FinalizationBase):
             ).exists()
         )
 
-    def test_a_failing_finalization_prevents_todays_row(self):
-        # The atomic guarantee: if closing yesterday raises, today must
-        # not be created either.
+    def test_a_failing_finalization_still_lets_today_begin(self):
+        # Phase FUTURE-SAFE reverses this deliberately. FIX A.1 tied the
+        # two together: if closing yesterday raised, today was not
+        # created either. That is the safer half of an atomic pair, but
+        # it also means a row nobody can finalize stops an employee
+        # working — which is precisely the trap FIX A exists to prevent,
+        # and a strictly worse outcome than one untidy historical row.
+        #
+        # What is kept is the half that matters: yesterday is either
+        # closed completely or left exactly as it was. Each session now
+        # runs in its own savepoint, so a failure rolls back that session
+        # alone and cannot reach the check-in that follows it.
         from unittest import mock
 
-        stale, _activity = self.open_session(self.day1)
+        stale, stale_activity = self.open_session(self.day1)
+        before = self.snapshot(stale, stale_activity)
 
         with mock.patch(
             "attendance.views.clock_in_out.finalize_forgotten_sessions",
@@ -612,14 +622,18 @@ class NextDayFallbackTests(FinalizationBase):
         ):
             response = self.client.post(CLOCK_IN)
 
-        self.assertNotEqual(response.status_code, 200)
-        self.assertFalse(
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(
             Attendance.objects.filter(
                 employee_id=self.employee, attendance_date=self.today
-            ).exists()
+            ).exists(),
+            "today must open even when yesterday cannot be tidied",
         )
-        stale.refresh_from_db()
-        self.assertIsNone(stale.attendance_clock_out)
+        self.assertEqual(
+            self.snapshot(stale, stale_activity),
+            before,
+            "yesterday is left exactly as it was — never half-closed",
+        )
 
     def test_a_night_shift_in_progress_is_not_disturbed_by_a_check_in(self):
         # FIX A already refuses the check-in itself; this asserts the

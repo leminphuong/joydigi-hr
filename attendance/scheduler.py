@@ -93,6 +93,75 @@ def auto_punch_out():
                         logger.error(f"auto_punch_out error: {e}")
 
 
+def forgotten_session_finalization():
+    """Close day shifts nobody remembered to close.
+
+    Phase FIX A.1, and deliberately a separate job from `auto_punch_out`
+    even though the two share `perform_clock_out` underneath. They answer
+    different questions: Auto Check Out is a setting an administrator
+    switches on and nominates a time for; this is a backend invariant — a
+    forgotten day shift must not stay open into a later workday — and it
+    uses the shift's own configured `end_time`. Keeping them apart means
+    switching one off never silently disables the other.
+
+    Only employees who actually have an expired open row are considered,
+    found in one query rather than by walking every employee.
+    """
+    from attendance.methods.session import finalization_cutoff
+    from attendance.models import Attendance
+    from attendance.views.clock_in_out import (
+        FINALIZE_ONLY_AFTER_DAY_ROLLOVER,
+        finalize_forgotten_sessions,
+    )
+    from employee.models import Employee
+
+    # Phase FIX A.1B: no cutoff configured means no policy period, so
+    # there is nothing to reconcile and nothing to load. Checked first,
+    # before any query, so a deployment that has not set the value does
+    # not so much as read a historical row.
+    cutoff = finalization_cutoff()
+    if cutoff is None:
+        return
+
+    now = timezone.localtime()
+    candidates = Attendance.objects.filter(
+        attendance_clock_out__isnull=True,
+        attendance_clock_out_date__isnull=True,
+        # Sessions from before the policy began are excluded in the
+        # query itself rather than filtered out later.
+        attendance_date__gte=cutoff,
+    )
+    if FINALIZE_ONLY_AFTER_DAY_ROLLOVER:
+        candidates = candidates.filter(
+            attendance_date__lt=timezone.localdate(now)
+        )
+    employee_ids = list(
+        candidates.values_list("employee_id_id", flat=True).distinct()
+    )
+    if not employee_ids:
+        return
+
+    for employee in Employee.objects.filter(id__in=employee_ids).select_related(
+        "employee_user_id"
+    ):
+        try:
+            finalized, _blocked = finalize_forgotten_sessions(employee, now=now)
+            if finalized:
+                logger.info(
+                    "forgotten_session_finalization closed %s session(s) for "
+                    "employee %s",
+                    len(finalized),
+                    employee.pk,
+                )
+        except Exception as error:
+            # One employee's unreasonable data must not stop the rest.
+            logger.error(
+                "forgotten_session_finalization error for employee %s: %s",
+                employee.pk,
+                error,
+            )
+
+
 def end_of_day_checkout():
     """
     Remind people to check out, and close the sessions they forget.
@@ -179,6 +248,17 @@ if not any(
     # a reminder by up to five minutes. The pass is cheap: it looks only
     # at sessions still open today or yesterday, and does nothing at all
     # until one of those moments is due.
+    # Phase FIX A.1 — a separate job from `auto_punch_out` on purpose; see
+    # the function's docstring. Ten minutes: it only ever acts on days
+    # that have already rolled over, so a tighter tick would gain nothing.
+    scheduler.add_job(
+        forgotten_session_finalization,
+        "interval",
+        minutes=10,
+        misfire_grace_time=3600,
+        id="forgotten_session_finalization",
+        replace_existing=True,
+    )
     scheduler.add_job(
         end_of_day_checkout,
         "interval",

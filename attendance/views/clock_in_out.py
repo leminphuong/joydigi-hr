@@ -16,11 +16,18 @@ from datetime import date, datetime, timedelta
 
 from django.contrib import messages
 from django.contrib.messages.api import MessageFailure
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from attendance.methods.session import (
+    CHECKOUT_STATES,
+    TODAY_MALFORMED,
+    open_activities_for as session_open_activities,
+    resolve_session,
+)
 from attendance.methods.client_ip import (
     client_ip_is_allowed,
     resolve_attendance_client_ip,
@@ -112,6 +119,20 @@ _WIFI_NOT_ALLOWED = {
     "message": "Mạng hiện tại của bạn không được phép dùng để chấm công.",
 }
 
+#: Phase FIX A. Today's record cannot be resolved to one session —
+#: its two check-out columns disagree, or more than one activity is
+#: open for the same day. Refusing is the point: the alternative is
+#: choosing a record to write to, and a wrong guess here silently
+#: rewrites somebody's working day. The message names no row and no
+#: internals; it tells the employee who can fix it.
+_ATTENDANCE_STATE_CONFLICT = {
+    "code": "ATTENDANCE_STATE_CONFLICT",
+    "message": (
+        "Dữ liệu chấm công hôm nay của bạn đang không nhất quán. "
+        "Vui lòng liên hệ quản trị viên để được hỗ trợ."
+    ),
+}
+
 
 def _network_refusal(request, company):
     """The refusal to return when this network may not mark attendance.
@@ -152,6 +173,89 @@ def _network_refusal(request, company):
     if client_ip_is_allowed(client_ip, allowed_ips):
         return None
     return dict(_WIFI_NOT_ALLOWED)
+
+
+#: Phase FIX A.1. A day shift is finalized only once its date is behind
+#: us, not the moment its end time passes. Somebody still at their desk
+#: at 17:05 has not forgotten anything, and writing a 17:00 check-out
+#: over them would erase real hours and fight the end-of-day reminders,
+#: which are still nudging them at end + 10 minutes. The invariant being
+#: enforced is "never open into a *later workday*", and this is the line
+#: that says so — one constant, so the policy is one place to change.
+FINALIZE_ONLY_AFTER_DAY_ROLLOVER = True
+
+
+def finalize_forgotten_sessions(employee, now=None):
+    """Close day shifts this employee forgot, at their configured end.
+
+    Returns `(finalized, blocked)` — the sessions closed, and the
+    `(attendance, reason)` pairs that were deliberately left alone.
+
+    This is *not* the configurable Auto Check Out feature. It does not
+    read `is_auto_punch_out_enabled` and it does not use
+    `auto_punch_out_time`; it uses `EmployeeShiftSchedule.end_time` for
+    the session being closed. Auto Check Out remains what it was: an
+    administrator's choice to close at a time they nominate.
+
+    What it will not touch, ever: a session dated before
+    `ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF` (Phase FIX A.1B — those
+    predate the policy and belong to an administrator, not to a
+    scheduled job), a night shift even once expired (a night worker past
+    their configured end is the case most likely to be genuinely still
+    working), a row whose two check-out columns disagree, a session with
+    no usable shift end, and a session whose activity cannot be paired
+    one-to-one. Each of those is returned in `blocked` and logged, never
+    guessed at. With no cutoff configured, nothing is finalized at all.
+
+    Each session is closed through `perform_clock_out` — the same shared
+    business logic a person's check-out uses, so worked hours, the lunch
+    deduction, early-out and validation all behave identically. The one
+    difference is `system_finalization`, which leaves
+    `attendance_overtime` alone.
+    """
+    from attendance.methods.session import expired_sessions_for
+    from attendance.methods.utils import Request as SystemRequest
+
+    now = now or timezone.localtime()
+    before = timezone.localdate(now) if FINALIZE_ONLY_AFTER_DAY_ROLLOVER else None
+    ready, blocked = expired_sessions_for(employee, now=now, before_date=before)
+
+    for attendance, reason in blocked:
+        logger.warning(
+            "forgotten_session_finalization skipped attendance=%s date=%s reason=%s",
+            attendance.pk,
+            attendance.attendance_date,
+            reason,
+        )
+
+    finalized = []
+    for session in ready:
+        ends_at = session.ends_at
+        _attendance, allowed, refusal = perform_clock_out(
+            SystemRequest(
+                user=employee.employee_user_id,
+                date=session.session_date,
+                time=ends_at.time(),
+                datetime=ends_at,
+                # Internal reconciliation: no network origin to check,
+                # and no attendance-source evidence to supply.
+                trusted_device=True,
+                system_checkout=True,
+                system_finalization=True,
+            )
+        )
+        if allowed and _attendance is not None:
+            finalized.append(session)
+        else:
+            code = (refusal or {}).get("code") or "NO_OPEN_ATTENDANCE"
+            logger.warning(
+                "forgotten_session_finalization refused attendance=%s date=%s code=%s",
+                session.attendance.pk,
+                session.session_date,
+                code,
+            )
+            blocked.append((session.attendance, code))
+    return finalized, blocked
 
 
 def validate_checkin_source(request, company):
@@ -617,18 +721,34 @@ def perform_clock_in(request):
                     )
                     attendance_date = date_yesterday
                     day = day_yesterday
-            attendance = clock_in_attendance_and_activity(
-                employee=employee,
-                date_today=date_today,
-                attendance_date=attendance_date,
-                day=day,
-                now=now,
-                shift=shift,
-                minimum_hour=minimum_hour,
-                start_time=start_time_sec,
-                end_time=end_time_sec,
-                in_datetime=datetime_now,
-            )
+            # Phase FIX A.1: the safety net for a scheduled job that did
+            # not run. Before today's session is created, any *expired*
+            # day shift the employee forgot to close is finalized at its
+            # own configured end time — inside the same transaction, so a
+            # failure cannot leave yesterday half-closed beside a fresh
+            # row for today.
+            #
+            # A session that cannot be finalized safely is skipped, not
+            # forced: a malformed row, a missing schedule, or an activity
+            # that cannot be paired one-to-one is left exactly as it is
+            # and logged. Today's check-in still proceeds — refusing it
+            # would trap the employee, which is the bug FIX A exists to
+            # prevent and would be a strictly worse outcome than one
+            # untidy historical row.
+            with transaction.atomic():
+                finalize_forgotten_sessions(employee, now=datetime_now)
+                attendance = clock_in_attendance_and_activity(
+                    employee=employee,
+                    date_today=date_today,
+                    attendance_date=attendance_date,
+                    day=day,
+                    now=now,
+                    shift=shift,
+                    minimum_hour=minimum_hour,
+                    start_time=start_time_sec,
+                    end_time=end_time_sec,
+                    in_datetime=datetime_now,
+                )
             _mark_outside_radius_request(attendance, checkin_source)
             if checkin_source.get("outside_radius"):
                 _flash(
@@ -675,32 +795,71 @@ def _activity_check_in_moment(activity):
     )
 
 
-def clock_out_attendance_and_activity(employee, date_today, now, out_datetime=None):
+def clock_out_attendance_and_activity(
+    employee,
+    date_today,
+    now,
+    out_datetime=None,
+    session=None,
+):
     """
     Clock out the attendance and activity
     args:
         employee    : employee instance
         date_today  : today date
         now         : now
+        session     : the resolved `AttendanceSession` this check-out
+                      belongs to (Phase FIX A). When given, both rows
+                      are taken from that one session date.
     """
 
-    attendance_activities = AttendanceActivity.objects.filter(
-        employee_id=employee,
-    ).order_by("attendance_date", "id")
-    attendance_activity = None  # Initialize attendance_activity
-
-    if attendance_activities.filter(clock_out__isnull=True).exists():
+    # Phase FIX A: the session decides which rows this closes, and the
+    # session is a single date. Before, the activity was chosen by
+    # "newest open, any date" and the attendance row by "newest by date,
+    # open or not" — two rules that never consulted each other, so a
+    # check-out could close Tuesday's activity against Wednesday's row
+    # and leave Tuesday open forever. `session` is passed in by
+    # `perform_clock_out`, which resolved it; `None` keeps the old
+    # entry point working for callers that have not been converted.
+    if session is not None:
+        session_date = session.session_date
+        open_for_session = session_open_activities(employee, session_date)
+        if not open_for_session:
+            logger.error(
+                "No attendance clock in activity found that needs clocking out."
+            )
+            return None
+        attendance_activity = open_for_session[0]
+        attendance_activities = AttendanceActivity.objects.filter(
+            employee_id=employee, attendance_date=session_date
+        ).order_by("attendance_date", "id")
+        attendance = session.attendance
+    else:
+        attendance_activities = AttendanceActivity.objects.filter(
+            employee_id=employee,
+        ).order_by("attendance_date", "id")
+        if not attendance_activities.filter(clock_out__isnull=True).exists():
+            logger.error(
+                "No attendance clock in activity found that needs clocking out."
+            )
+            return None
         attendance_activity = attendance_activities.filter(
             clock_out__isnull=True
         ).last()
+        attendance_activities = attendance_activities.filter(
+            attendance_date=attendance_activity.attendance_date
+        )
+        attendance = (
+            Attendance.objects.filter(employee_id=employee)
+            .order_by("-attendance_date", "-id")
+            .first()
+        )
+
+    if attendance is not None:
         attendance_activity.clock_out = out_datetime
         attendance_activity.clock_out_date = date_today
         attendance_activity.out_datetime = out_datetime
         attendance_activity.save()
-
-        attendance_activities = attendance_activities.filter(
-            attendance_date=attendance_activity.attendance_date
-        )
         # Total worked time for the day with the unpaid 12:00-13:00 lunch hour
         # excluded, so an 08:00-17:00 day is 8h rather than 9h.
         #
@@ -711,14 +870,32 @@ def clock_out_attendance_and_activity(employee, date_today, now, out_datetime=No
         # shared with the weekend-overtime summary — so reverting it here
         # would change worked hours everywhere for no reason.
         duration = format_time(activities_worked_seconds(attendance_activities))
-        # update clock out of attendance
-        attendance = Attendance.objects.filter(employee_id=employee).order_by(
-            "-attendance_date", "-id"
-        )[0]
+        # The row was decided above, from the session. It is no longer
+        # re-selected here — that second, independent lookup is what
+        # let a check-out close a different day than the one it had
+        # just closed the activity for.
         attendance.attendance_clock_out = now + ":00"
         attendance.attendance_clock_out_date = date_today
         attendance.attendance_worked_hour = duration
-        # Overtime calculation
+        # Overtime calculation.
+        #
+        # Phase FIX A.1 note, because this looks like a place to suppress
+        # overtime for a system-finalized day and is not: `attendance_overtime`
+        # is *derived*, not stored. `Attendance.save()` calls
+        # `update_attendance_overtime()` unconditionally and recomputes it —
+        # along with `overtime_second` and `at_work_second` — from
+        # `attendance_worked_hour` and `minimum_hour`. Assigning something
+        # else here is simply overwritten two lines below, and forcing it
+        # afterwards would leave those three fields disagreeing with each
+        # other.
+        #
+        # What keeps finalization from inventing overtime is the time it
+        # writes: the shift's configured end. An 08:00-17:00 day closed at
+        # 17:00 works exactly its minimum hours and yields 00:00. Overtime
+        # can only appear when the employee's own check-in was earlier than
+        # their shift start, which is their record, not the system's
+        # invention. Suppressing it properly belongs in the model, where the
+        # derivation lives, and would change manual check-out too.
         attendance.attendance_overtime = overtime_calculation(attendance)
 
         # Validate the attendance as per the condition
@@ -904,6 +1081,7 @@ def perform_clock_out(request):
         if (
             open_activity is not None
             and not getattr(request, "system_checkout", False)
+            and not getattr(request, "system_finalization", False)
             and not can_check_out_yet(
                 _activity_check_in_moment(open_activity), datetime_now
             )
@@ -928,11 +1106,33 @@ def perform_clock_out(request):
             date_today = request.date
         day = date_today.strftime("%A").lower()
         day = EmployeeShiftDay.objects.get(day=day)
-        attendance = (
-            Attendance.objects.filter(employee_id=employee)
-            .order_by("id", "attendance_date")
-            .last()
-        )
+
+        # Phase FIX A: one resolved session decides everything below.
+        # This used to be `order_by("id", "attendance_date").last()` —
+        # the employee's newest row by id, with no relation to the day
+        # being checked out of, and a third different rule again from
+        # the two inside `clock_out_attendance_and_activity`.
+        session = resolve_session(employee, date_today)
+        if session.state == TODAY_MALFORMED:
+            reason = dict(_ATTENDANCE_STATE_CONFLICT)
+            _flash(messages.error, request, reason["message"])
+            return None, False, reason
+        if session.state not in CHECKOUT_STATES:
+            # Nothing open for this day. A day shift left open
+            # yesterday is deliberately not a candidate: it belongs to
+            # yesterday, and closing it now would stamp it with a time
+            # nobody observed. The caller turns this into
+            # NO_OPEN_ATTENDANCE.
+            return None, True, None
+        if len(session_open_activities(employee, session.session_date)) > 1:
+            # Two activities open on the same day: which one this
+            # check-out belongs to cannot be known, and guessing would
+            # close the wrong half of somebody's day.
+            reason = dict(_ATTENDANCE_STATE_CONFLICT)
+            _flash(messages.error, request, reason["message"])
+            return None, False, reason
+
+        attendance = session.attendance
         if attendance is not None:
             if not attendance.attendance_day:
                 day_name = attendance.attendance_date.strftime("%A").lower()
@@ -945,9 +1145,19 @@ def perform_clock_out(request):
         minimum_hour, start_time_sec, end_time_sec = shift_schedule_today(
             day=day, shift=shift
         )
-        attendance = clock_out_attendance_and_activity(
-            employee=employee, date_today=date_today, now=now, out_datetime=datetime_now
-        )
+        # One transaction: the activity and the attendance row either
+        # both close or neither does. No row lock — `select_for_update`
+        # on this path is what took production down, because PostgreSQL
+        # refuses FOR UPDATE alongside the manager's DISTINCT and
+        # `Meta.ordering`'s outer join.
+        with transaction.atomic():
+            attendance = clock_out_attendance_and_activity(
+                employee=employee,
+                date_today=date_today,
+                now=now,
+                out_datetime=datetime_now,
+                session=session,
+            )
         _mark_outside_radius_request(attendance, checkin_source)
         if attendance:
             early_out_instance = attendance.late_come_early_out.filter(type="early_out")

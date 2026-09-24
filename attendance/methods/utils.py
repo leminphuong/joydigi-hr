@@ -556,6 +556,18 @@ class Request:
       mobile API, so that check granted every mobile request an
       unconditional attendance-source-validation bypass. Defaults to
       `False`: callers must opt in explicitly.
+    - system_finalization: this check-out is the system reconciling a
+      session somebody forgot to close, not a person pressing a button
+      (Phase FIX A.1). Only `attendance.scheduler`'s
+      `forgotten_session_finalization` and the equivalent fallback on
+      the check-in path set it. It implies `system_checkout`'s
+      exemption from the 30-minute minimum, and additionally leaves
+      `attendance_overtime` exactly as it was: a day the system closed
+      at its configured end time must not become overtime that nobody
+      requested and nobody approved. It changes nothing else — worked
+      hours, lunch deduction, early-out and validation all run as
+      normal, because those describe what happened and this only
+      records when the shift was configured to end.
     - client_ip: the employee's public address, already resolved and
       validated at the real Django/DRF request boundary by
       `attendance.methods.client_ip.resolve_attendance_client_ip`
@@ -593,6 +605,7 @@ class Request:
         trusted_device=False,
         evidence=None,
         system_checkout=False,
+        system_finalization=False,
         client_ip=None,
     ) -> None:
         self.user = user
@@ -603,6 +616,7 @@ class Request:
         self.datetime = datetime
         self.trusted_device = trusted_device
         self.system_checkout = system_checkout
+        self.system_finalization = system_finalization
         self.GET = evidence or {}
         self.POST = evidence or {}
         self.META = META()

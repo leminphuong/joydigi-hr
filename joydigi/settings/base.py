@@ -51,6 +51,28 @@ FACE_MODEL_ROOT = env("FACE_MODEL_ROOT", default="~/.insightface")
 FACE_DETECTION_SIZE = env.int("FACE_DETECTION_SIZE", default=640)
 FACE_IMAGE_MAX_BYTES = env.int("FACE_IMAGE_MAX_BYTES", default=5 * 1024 * 1024)
 
+# Phase FIX A.1B — the first attendance date governed by automatic
+# forgotten-session finalization, as YYYY-MM-DD.
+#
+# Sessions dated before this are historical: they predate the policy, no
+# employee was ever told the system would close their day for them, and
+# some of them are the very rows the incident left behind. They stay
+# exactly as they are, for an administrator to review, and FIX A already
+# guarantees they cannot block a new workday.
+#
+# Unset is the safe state and the default: with no cutoff, nothing is
+# finalized automatically at all. That way a deployment that forgets this
+# value quietly does less rather than quietly rewriting history — and the
+# same applies to a value that will not parse.
+#
+# This governs *only* forgotten-session finalization. The configurable
+# Auto Check Out feature (`EmployeeShiftSchedule.is_auto_punch_out_enabled`
+# plus `auto_punch_out_time`) is a separate thing an administrator opts
+# into per shift, and it is not affected by this setting.
+ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF = env(
+    "ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF", default=""
+)
+
 # Default site ID for django.contrib.sites framework.
 SITE_ID = 1
 

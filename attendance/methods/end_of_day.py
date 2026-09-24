@@ -170,7 +170,15 @@ def open_attendances(now):
     earliest = timezone.localdate(now) - datetime.timedelta(days=MAX_RECOVERY_DAYS)
     return (
         Attendance.objects.filter(
+            # Phase NOTIFICATION B: both check-out columns, which is the
+            # canonical definition of open in
+            # `attendance.methods.session`. This used to test the time
+            # column alone, so a half-written row read as open here and
+            # closed to `check_online()` — two parts of one system
+            # disagreeing about who is at work. A half-written row is
+            # neither, and is left for an administrator.
             attendance_clock_out__isnull=True,
+            attendance_clock_out_date__isnull=True,
             attendance_date__gte=earliest,
             attendance_date__lte=timezone.localdate(now),
         )
@@ -189,15 +197,24 @@ def _still_open(attendance):
     itself does nothing when no activity is open — so the worst case is a
     wasted query, never a second check-out or an overwritten one.
     """
-    from attendance.models import Attendance, AttendanceActivity
+    from attendance.methods.session import attendance_is_open, open_activities_for
+    from attendance.models import Attendance
 
-    fresh = Attendance.objects.filter(pk=attendance.pk).first()
-    if fresh is None or fresh.attendance_clock_out is not None:
+    fresh = (
+        Attendance.objects.filter(pk=attendance.pk)
+        .select_related("attendance_day", "shift_id")
+        .first()
+    )
+    if fresh is None or attendance_is_open(fresh) is not True:
         return None
-    has_open_activity = AttendanceActivity.objects.filter(
-        employee_id=fresh.employee_id, clock_out__isnull=True
-    ).exists()
-    return fresh if has_open_activity else None
+    # Phase NOTIFICATION B: scoped to this session's own date. The
+    # previous version asked whether the employee had *any* open
+    # activity, on any date — the same cross-date pattern FIX A removed
+    # from check-out, which would let a session forgotten last week keep
+    # today's reminders alive.
+    if not open_activities_for(fresh.employee_id, fresh.attendance_date):
+        return None
+    return fresh
 
 
 #: What each reminder says on the phone's lock screen. The wording avoids
@@ -312,6 +329,48 @@ def _push_reminder(user, stage, attendance):
         return None
 
 
+def effective_end_instant(attendance, schedule):
+    """When this session should finish, as an aware instant.
+
+    Phase NOTIFICATION B. The base is
+    `attendance.methods.session.session_end_datetime`, which already
+    knows that a shift whose `end_time` is earlier than its `start_time`
+    finishes on the following calendar day — so a 22:00-06:00 night
+    shift is reminded at 05:55 and 06:10 the next morning instead of
+    being skipped entirely, which is what happened before. Sharing that
+    helper with forgotten-session finalization means the two cannot
+    disagree about when a night ends.
+
+    Approved overtime still moves the end later, exactly as it did: the
+    merged windows are measured from the session's own date, and the
+    later of the two instants wins. For an ordinary day shift this is
+    arithmetically identical to the previous implementation.
+
+    `None` when there is no shift end and no approved overtime — nothing
+    to measure against, so this job has no opinion about the day.
+    """
+    from attendance.methods.session import session_end_datetime
+
+    base = session_end_datetime(attendance, schedule)
+    windows = approved_overtime_windows(
+        attendance.employee_id, attendance.attendance_date
+    )
+    merged = merge_time_windows(windows or [])
+    overtime_end = None
+    if merged:
+        # `merge_time_windows` returns seconds from midnight, which is
+        # exactly what `effective_end_datetime` anchors to the date.
+        overtime_end = effective_end_datetime(
+            attendance.attendance_date, merged[-1][1]
+        )
+
+    if base is None:
+        return overtime_end
+    if overtime_end is None:
+        return base
+    return max(base, overtime_end)
+
+
 def process_end_of_day(now=None):
     """
     One pass: remind whoever is due a reminder. Nothing is ever closed.
@@ -325,19 +384,7 @@ def process_end_of_day(now=None):
 
     for attendance in open_attendances(now):
         schedule = _shift_schedule_for(attendance)
-        if schedule is not None and schedule.is_night_shift:
-            # A night shift's day legitimately ends after midnight, so a
-            # reminder aimed at an evening deadline would fire at the wrong
-            # time entirely. Working that out is a separate problem; until
-            # it is, saying nothing beats reminding somebody mid-shift.
-            tally["skipped"] += 1
-            continue
-
-        end_secs = effective_end_seconds(
-            schedule.end_time if schedule else None,
-            approved_overtime_windows(attendance.employee_id, attendance.attendance_date),
-        )
-        effective_end = effective_end_datetime(attendance.attendance_date, end_secs)
+        effective_end = effective_end_instant(attendance, schedule)
         if effective_end is None:
             # No shift end and no approved overtime: nothing to measure
             # against, so this job has no opinion about the day.

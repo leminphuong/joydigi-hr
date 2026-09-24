@@ -497,6 +497,59 @@ def expired_sessions_for(employee, now=None, before_date=None):
     return ready, blocked
 
 
+def needs_check_in(employee_ids, work_date):
+    """Which of these employees have not started `work_date` yet.
+
+    The bulk counterpart of asking `resolve_session(employee, work_date)`
+    and testing for `NO_SESSION` or `STALE_PREVIOUS`. It exists so the
+    check-in reminder pass can ask about everybody in one query instead of
+    one query per person, while still sharing this module's single
+    definition of what "checked in" means — a second definition is how
+    four screens came to disagree in the first place. There is a test
+    asserting the two agree, scenario by scenario.
+
+    `STALE_PREVIOUS` counts as needing a check-in: a day shift left open
+    yesterday is not today's attendance. `NIGHT_SHIFT_OPEN` does not, and
+    neither does a half-written row for the day itself — somebody with one
+    of those has started, whatever else is wrong with the record.
+    """
+    from attendance.models import Attendance
+
+    employee_ids = list(employee_ids)
+    if not employee_ids:
+        return set()
+    yesterday = work_date - timedelta(days=1)
+
+    rows = list(
+        Attendance.objects.filter(
+            employee_id_id__in=employee_ids,
+            attendance_date__gte=yesterday,
+            attendance_date__lte=work_date,
+        ).select_related("attendance_day", "shift_id")
+    )
+    by_employee = {}
+    for row in rows:
+        by_employee.setdefault(row.employee_id_id, {})[row.attendance_date] = row
+
+    needing = set()
+    for employee_id in employee_ids:
+        dated = by_employee.get(employee_id, {})
+        current = dated.get(work_date)
+        if current is not None:
+            # Open, closed or half-written — the day has been started.
+            continue
+        previous = dated.get(yesterday)
+        if (
+            previous is not None
+            and attendance_is_open(previous) is True
+            and previous.is_night_shift()
+        ):
+            # Legitimately still at work from last night.
+            continue
+        needing.add(employee_id)
+    return needing
+
+
 def employees_online(employee_ids, on_date=None):
     """Which of these employees are working, in one pass.
 

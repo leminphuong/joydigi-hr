@@ -93,6 +93,25 @@ def auto_punch_out():
                         logger.error(f"auto_punch_out error: {e}")
 
 
+def attendance_reminders():
+    """Remind people to check in, before and at their shift start.
+
+    Phase NOTIFICATION B, and a separate job from `end_of_day_checkout`
+    on purpose: that one starts from attendance rows that are open, this
+    one starts from the shift schedule and looks for people who have no
+    row at all. Two different questions, so two different passes — and
+    switching one off never silently disables the other.
+
+    Read-only with respect to attendance. Writes notifications only.
+    """
+    from attendance.methods.reminders import process_check_in_reminders
+
+    try:
+        process_check_in_reminders()
+    except Exception as error:
+        logger.error(f"attendance_reminders error: {error}")
+
+
 def forgotten_session_finalization():
     """Close day shifts nobody remembered to close.
 
@@ -248,6 +267,19 @@ if not any(
     # a reminder by up to five minutes. The pass is cheap: it looks only
     # at sessions still open today or yesterday, and does nothing at all
     # until one of those moments is due.
+    # Phase NOTIFICATION B — check-in reminders. Every minute, because
+    # the two moments it watches are minute-exact (start -10m, start) and
+    # a coarser tick would drift them. Deduplicated through stored
+    # notifications, so a repeated run costs a few queries and sends
+    # nothing twice.
+    scheduler.add_job(
+        attendance_reminders,
+        "interval",
+        minutes=1,
+        misfire_grace_time=300,
+        id="attendance_reminders",
+        replace_existing=True,
+    )
     # Phase FIX A.1 — a separate job from `auto_punch_out` on purpose; see
     # the function's docstring. Ten minutes: it only ever acts on days
     # that have already rolled over, so a tighter tick would gain nothing.

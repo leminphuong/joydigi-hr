@@ -118,6 +118,80 @@ jobs:
           echo "FIREBASE_CREDENTIALS_FILE set in .env"
           REMOTE
 
+      # Phase FUTURE-SAFE. This date is the switch that decides whether a
+      # forgotten day shift is ever finalized at all: with no usable value
+      # `finalization_cutoff()` returns None and the scheduled job returns
+      # before it issues a single query. It is a policy date rather than a
+      # credential, so it comes from a repository *variable* — visible and
+      # editable in the settings UI without re-entering it — and never from
+      # the repository, which must not carry a production date.
+      #
+      # Placed before "Deploy to VPS" deliberately: that step runs the
+      # deploy script, and its `systemctl restart joydigi-hr` is what makes
+      # gunicorn re-read settings. Writing the value afterwards would leave
+      # every running worker on the old one until the next deployment.
+      - name: Configure ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF in .env
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          CUTOFF: ${{ vars.ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF }}
+        run: |
+          # No value configured: say so and touch nothing. Writing an empty
+          # entry, or dropping the existing one, would silently switch
+          # finalization off on a deployment that never intended to.
+          if [ -z "${CUTOFF:-}" ]; then
+            echo "::warning title=Forgotten-session finalization not configured::The ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF repository variable is empty or unset. Any value already present in the production .env is left exactly as it is; if there is none, forgotten day shifts are never finalized."
+            exit 0
+          fi
+
+          # Validated here, on the runner, before a single byte reaches the
+          # server: a bad value must not be able to replace a good one.
+          if ! printf '%s' "$CUTOFF" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+            echo "::error title=Invalid cutoff::ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF must be exactly YYYY-MM-DD. The production .env was not modified."
+            exit 1
+          fi
+          # Matching the shape is not being a date — 2026-02-30 and
+          # 2026-13-01 both pass the pattern above. Round-tripping through
+          # `date` rejects those, and comparing the result catches anything
+          # it would quietly normalise rather than refuse.
+          if ! normalised=$(date -u -d "$CUTOFF" +%Y-%m-%d 2>/dev/null) \
+            || [ "$normalised" != "$CUTOFF" ]; then
+            echo "::error title=Invalid cutoff::ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF is not a real calendar date. The production .env was not modified."
+            exit 1
+          fi
+
+          echo "Configuring forgotten-session finalization cutoff: $CUTOFF"
+
+          # The value is a bare date, proven by the two checks above, so
+          # interpolating it into the remote command is safe. It travels
+          # that way rather than over stdin because stdin already carries
+          # the script below.
+          ssh \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -i ~/.ssh/id_ed25519 \
+            "$VPS_USER@$VPS_HOST" \
+            "CUTOFF='$CUTOFF' bash -s" <<'REMOTE'
+          set -eu
+          umask 077
+          ENV_FILE=/var/www/joydigi-hr/.env
+          LINE="ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF=$CUTOFF"
+
+          touch "$ENV_FILE"
+
+          # The same idempotent rebuild as the Firebase entry above: drop
+          # any existing entry, append exactly one, carry every other value
+          # across untouched, keep the file's own permissions, and replace
+          # it in a single atomic move.
+          TMP="$ENV_FILE.incoming"
+          grep -v '^ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF=' "$ENV_FILE" > "$TMP" || true
+          echo "$LINE" >> "$TMP"
+          chmod --reference="$ENV_FILE" "$TMP" 2>/dev/null || chmod 600 "$TMP"
+          mv "$TMP" "$ENV_FILE"
+
+          echo "ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF set in .env"
+          REMOTE
+
       - name: Deploy to VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}

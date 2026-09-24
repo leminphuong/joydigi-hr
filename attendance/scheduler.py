@@ -131,7 +131,10 @@ def forgotten_session_finalization():
     Only employees who actually have an expired open row are considered,
     found in one query rather than by walking every employee.
     """
-    from attendance.methods.session import finalization_cutoff
+    from attendance.methods.session import (
+        finalization_cutoff,
+        finalization_cutoff_state,
+    )
     from attendance.models import Attendance
     from attendance.views.clock_in_out import (
         FINALIZE_ONLY_AFTER_DAY_ROLLOVER,
@@ -145,6 +148,19 @@ def forgotten_session_finalization():
     # not so much as read a historical row.
     cutoff = finalization_cutoff()
     if cutoff is None:
+        # Phase FUTURE-SAFE: say so. Failing closed is right; failing
+        # closed in complete silence is what let a month of forgotten
+        # sessions accumulate with nothing anywhere reporting that the
+        # feature was switched off. One line per pass, naming the state
+        # and never the value — an unparseable setting is a string
+        # somebody typed and may contain anything.
+        logger.warning(
+            "forgotten_session_finalization is DISABLED: cutoff %s. Set "
+            "ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF to a YYYY-MM-DD "
+            "date to enable automatic finalization of forgotten day "
+            "shifts; until then no forgotten session will ever be closed.",
+            finalization_cutoff_state(),
+        )
         return
 
     now = timezone.localtime()

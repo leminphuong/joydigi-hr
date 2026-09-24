@@ -184,6 +184,16 @@ def _network_refusal(request, company):
 #: that says so — one constant, so the policy is one place to change.
 FINALIZE_ONLY_AFTER_DAY_ROLLOVER = True
 
+#: Reported instead of a crash when the employee has no linked user or no
+#: work information — the two things the shared check-out path reads
+#: without a guard. Never a repair: the session is left exactly as it is.
+MISSING_EMPLOYEE_PROFILE = "MISSING_EMPLOYEE_PROFILE"
+
+#: Reported when closing one session raised. The session is left exactly
+#: as it was, the employee's other sessions still run, and the next
+#: scheduler pass will try this one again.
+FINALIZATION_ERROR = "FINALIZATION_ERROR"
+
 
 def finalize_forgotten_sessions(employee, now=None):
     """Close day shifts this employee forgot, at their configured end.
@@ -230,24 +240,71 @@ def finalize_forgotten_sessions(employee, now=None):
 
     finalized = []
     for session in ready:
-        ends_at = session.ends_at
-        _attendance, allowed, refusal = perform_clock_out(
-            SystemRequest(
-                user=employee.employee_user_id,
-                date=session.session_date,
-                time=ends_at.time(),
-                datetime=ends_at,
-                # Internal reconciliation: no network origin to check,
-                # and no attendance-source evidence to supply.
-                trusted_device=True,
-                system_checkout=True,
-                system_finalization=True,
+        profile_gap = _incomplete_profile_reason(employee)
+        if profile_gap is not None:
+            # The shared check-out path dereferences the work info without
+            # a guard, so reaching it with an incomplete profile raises
+            # rather than refusing. Caught here instead, where the session
+            # can be reported for what it is.
+            logger.warning(
+                "forgotten_session_finalization skipped attendance=%s "
+                "date=%s reason=%s",
+                session.attendance.pk,
+                session.session_date,
+                profile_gap,
             )
-        )
-        if allowed and _attendance is not None:
+            blocked.append((session.attendance, profile_gap))
+            continue
+
+        ends_at = session.ends_at
+        try:
+            # A savepoint per session, for two reasons. The attendance row
+            # and its activity are closed together or not at all; and one
+            # session that fails cannot roll back a session that already
+            # succeeded, nor the caller's own transaction — which, on the
+            # check-in path, is today's check-in.
+            with transaction.atomic():
+                _attendance, allowed, refusal = perform_clock_out(
+                    SystemRequest(
+                        user=employee.employee_user_id,
+                        date=session.session_date,
+                        time=ends_at.time(),
+                        datetime=ends_at,
+                        # Internal reconciliation: no network origin to
+                        # check, and no attendance-source evidence to
+                        # supply.
+                        trusted_device=True,
+                        system_checkout=True,
+                        system_finalization=True,
+                    )
+                )
+                if not (allowed and _attendance is not None):
+                    code = (refusal or {}).get("code") or "NO_OPEN_ATTENDANCE"
+                    # A refusal can still have written the incidental
+                    # `attendance_day` backfill on its way to refusing.
+                    # Rolling back to the savepoint keeps a session that
+                    # changed nothing from changing anything.
+                    transaction.set_rollback(True)
+                else:
+                    code = None
+        except Exception as error:
+            # One unreasonable session must not cost this employee their
+            # other sessions, and must never propagate into a caller that
+            # is in the middle of checking somebody in. The class name is
+            # logged, never the message: it may quote row content.
+            logger.warning(
+                "forgotten_session_finalization failed attendance=%s "
+                "date=%s error=%s",
+                session.attendance.pk,
+                session.session_date,
+                type(error).__name__,
+            )
+            blocked.append((session.attendance, FINALIZATION_ERROR))
+            continue
+
+        if code is None:
             finalized.append(session)
         else:
-            code = (refusal or {}).get("code") or "NO_OPEN_ATTENDANCE"
             logger.warning(
                 "forgotten_session_finalization refused attendance=%s date=%s code=%s",
                 session.attendance.pk,
@@ -256,6 +313,47 @@ def finalize_forgotten_sessions(employee, now=None):
             )
             blocked.append((session.attendance, code))
     return finalized, blocked
+
+
+def _incomplete_profile_reason(employee):
+    """Why a scheduled job cannot check this employee out, or None.
+
+    `employee_exists` swallows both lookups and returns `None` for
+    whatever is missing, and `perform_clock_out` then reads
+    `work_info.shift_id` unguarded — so an employee with no linked user
+    or no work information raises there instead of refusing. Checking
+    first turns that into a named, reportable refusal and leaves the
+    shared check-out path untouched.
+    """
+    if getattr(employee, "employee_user_id", None) is None:
+        return MISSING_EMPLOYEE_PROFILE
+    # A reverse one-to-one raises `RelatedObjectDoesNotExist` when absent,
+    # which subclasses AttributeError — so the default is returned.
+    if getattr(employee, "employee_work_info", None) is None:
+        return MISSING_EMPLOYEE_PROFILE
+    return None
+
+
+def _finalize_before_check_in(employee, now):
+    """Best-effort finalization, immediately before today's check-in.
+
+    Never propagates. Refusing somebody's check-in because yesterday
+    could not be tidied is precisely the trap FIX A exists to prevent,
+    and one untidy historical row is a strictly better outcome than an
+    employee who cannot start work. Each session inside already runs in
+    its own savepoint, so a failure here cannot mark the surrounding
+    transaction — the one about to write today's attendance — for
+    rollback.
+    """
+    try:
+        finalize_forgotten_sessions(employee, now=now)
+    except Exception as error:
+        logger.warning(
+            "forgotten_session_finalization before check-in failed for "
+            "employee=%s error=%s",
+            employee.pk,
+            type(error).__name__,
+        )
 
 
 def validate_checkin_source(request, company):
@@ -736,7 +834,7 @@ def perform_clock_in(request):
             # prevent and would be a strictly worse outcome than one
             # untidy historical row.
             with transaction.atomic():
-                finalize_forgotten_sessions(employee, now=datetime_now)
+                _finalize_before_check_in(employee, datetime_now)
                 attendance = clock_in_attendance_and_activity(
                     employee=employee,
                     date_today=date_today,

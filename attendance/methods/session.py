@@ -296,6 +296,47 @@ def finalization_cutoff():
         return None
 
 
+#: The cutoff parses and finalization can run from that date forward.
+CUTOFF_CONFIGURED = "CONFIGURED"
+
+#: Nobody has set the value. Finalization is off, and — unlike the two
+#: states below — nothing anywhere used to say so.
+CUTOFF_NOT_CONFIGURED = "NOT_CONFIGURED"
+
+#: Somebody set a value and it will not parse. Finalization is off for a
+#: reason a typo explains.
+CUTOFF_INVALID = "INVALID"
+
+
+def finalization_cutoff_state():
+    """Why finalization is or is not enabled, as a constant.
+
+    `finalization_cutoff()` answers `None` for two very different
+    situations — nobody configured it, and somebody configured it wrongly
+    — and an operator needs to tell those apart to know what to do next.
+    This reports which, and deliberately reports *only* which: the value
+    never leaves this function, because an unparseable setting is by
+    definition a string somebody typed by hand and may contain anything.
+
+    Read-only, and it logs nothing. The caller decides whether the answer
+    is worth a warning, so a per-employee code path cannot turn one
+    misconfiguration into a flood of identical lines.
+    """
+    from django.conf import settings
+
+    raw = getattr(settings, "ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF", "")
+    if isinstance(raw, date_cls):
+        return CUTOFF_CONFIGURED
+    text = (raw or "").strip()
+    if not text:
+        return CUTOFF_NOT_CONFIGURED
+    try:
+        date_cls.fromisoformat(text)
+    except ValueError:
+        return CUTOFF_INVALID
+    return CUTOFF_CONFIGURED
+
+
 def shift_schedule_for(attendance):
     """The schedule row governing this attendance's day, or None.
 

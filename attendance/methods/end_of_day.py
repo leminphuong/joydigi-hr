@@ -48,7 +48,9 @@ from attendance.methods.reminders import (
     STAGE_END_MINUS_5,
     STAGE_END_PLUS_5,
     format_clock,
+    log_run_summary,
     marker_for,
+    record_push_status,
     sent_markers,
     window_stage,
 )
@@ -338,7 +340,7 @@ def in_app_copy(stage, effective_end):
     return push_copy(stage, effective_end)[1]
 
 
-def _send_reminder(attendance, stage, effective_end):
+def _send_reminder(attendance, stage, effective_end, push_tally=None):
     """
     One reminder, at most once per attendance and stage.
 
@@ -379,7 +381,9 @@ def _send_reminder(attendance, stage, effective_end):
         # so nothing should be pushed either.
         return False
 
-    _push_reminder(user, stage, attendance, effective_end)
+    record_push_status(
+        push_tally, _push_reminder(user, stage, attendance, effective_end)
+    )
     return True
 
 
@@ -512,6 +516,7 @@ def process_end_of_day(now=None):
 
     now = now or timezone.localtime()
     tally = {"first_reminder": 0, "second_reminder": 0, "skipped": 0}
+    push_tally = {}
 
     rows = list(open_attendances(now))
     if not rows:
@@ -557,7 +562,9 @@ def process_end_of_day(now=None):
             continue
 
         try:
-            if _send_reminder(fresh, stage, effective_end):
+            if _send_reminder(
+                fresh, stage, effective_end, push_tally=push_tally
+            ):
                 key = (
                     "first_reminder"
                     if stage == STAGE_FIRST_REMINDER
@@ -571,4 +578,5 @@ def process_end_of_day(now=None):
                 error,
             )
 
+    log_run_summary("end_of_day_checkout", tally, push_tally)
     return tally

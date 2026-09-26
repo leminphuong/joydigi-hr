@@ -108,6 +108,14 @@ def _attendance_evidence(request):
         "wifi_bssid",
         "latitude",
         "longitude",
+        # Phase ONLINE-2: recorded on `AttendanceEvidence` beside the
+        # coordinates it qualifies, so a reading taken with a 2km error
+        # is not later mistaken for a precise one. Inert like the rest
+        # of this list — no decision anywhere reads it. The list stays
+        # an allow-list precisely so that a field which *could* grant
+        # authority, such as a client-declared "remote" flag or a
+        # request id, has no way in.
+        "accuracy",
     )
     return {key: data[key] for key in fields if data.get(key) not in (None, "")}
 

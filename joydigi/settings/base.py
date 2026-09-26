@@ -44,6 +44,26 @@ REDIS_URL = env("REDIS_URL", default=None)
 # developer machine without the secret must never fail to start.
 FIREBASE_CREDENTIALS_FILE = env("FIREBASE_CREDENTIALS_FILE", default="")
 
+# Phase NOTIFY-2. Who owns the APScheduler that drives auto punch-out,
+# forgotten-session finalization, work records and the four attendance
+# reminders.
+#
+#   embedded  — every web process starts its own (the behaviour this
+#               project has always had, and the default, so a deploy that
+#               has not been reconfigured keeps working exactly as before)
+#   dedicated — web processes start none; one separate process owns it,
+#               started with `manage.py run_attendance_scheduler`
+#   disabled  — nothing starts one anywhere
+#
+# `embedded` is honest rather than good: under `gunicorn --workers 3`
+# there are three schedulers on the same one-minute tick, and the only
+# thing stopping a duplicate reminder is the stored notification each run
+# checks for first. `dedicated` is the target, and reaching it needs a
+# server-side unit that does not live in this repository — see the phase
+# report. The default stays `embedded` precisely so that shipping this
+# code cannot silently stop auto punch-out.
+ATTENDANCE_SCHEDULER_MODE = env("ATTENDANCE_SCHEDULER_MODE", default="embedded")
+
 # In-process 1:1 face recognition. The model is loaded once per Django process.
 FACE_VERIFY_THRESHOLD = env.float("FACE_VERIFY_THRESHOLD", default=0.55)
 FACE_MODEL_NAME = env("FACE_MODEL_NAME", default="buffalo_l")
@@ -361,6 +381,65 @@ LOCALE_PATHS = [join(BASE_DIR, "joydigi", "locale")]
 # ========================================
 # LOGGING, MESSAGES, OTHER GLOBALS
 # ========================================
+
+# Phase NOTIFY-2. Until now this project configured no `LOGGING` at all,
+# which is not the same as "logging goes to the default place": with no
+# handler anywhere, Python falls back to its `lastResort` handler, and
+# that emits WARNING and above only. Every `logger.info` in the codebase
+# was therefore written to nowhere — including the one line that says
+# push notifications are switched off because no Firebase credential is
+# configured. A feature could be silently disabled for weeks and leave
+# no trace to find it by, which is exactly what happened.
+#
+# Deliberately small: one console handler, because gunicorn's stdout is
+# already captured by journald on this deployment and a second
+# destination would only be a second thing to rotate. `django.request`
+# and `django.db.backends` keep their own levels so turning this up does
+# not also turn on SQL echo.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s %(levelname)s %(name)s %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
+    },
+    # WARNING at the root, deliberately. The handler lives here so every
+    # logger can reach it, but Python does not consult an ancestor
+    # logger's level when a record propagates — only the handler's. So the
+    # named loggers below still emit INFO while every third-party library
+    # stays quiet, which is the difference between an observable
+    # notification path and a journal full of urllib3.
+    "root": {
+        "handlers": ["console"],
+        "level": env("LOG_LEVEL", default="WARNING"),
+    },
+    "loggers": {
+        # The notification path, which is the reason this block exists.
+        # INFO so the "why was nothing pushed" states are visible; these
+        # are emitted once per scheduler run, never once per employee.
+        "joydigi_api.push": {"level": "INFO", "propagate": True},
+        "attendance.methods.reminders": {"level": "INFO", "propagate": True},
+        "attendance.methods.end_of_day": {"level": "INFO", "propagate": True},
+        # `attendance/scheduler.py` logs through `base.backends`'s logger
+        # rather than its own module name, so that is the name to raise.
+        "attendance.scheduler": {"level": "INFO", "propagate": True},
+        "base.backends": {"level": "INFO", "propagate": True},
+        # Left at WARNING on purpose. `django.db.backends` at DEBUG logs
+        # every query, and `apscheduler` at INFO logs a line per job per
+        # tick — with two jobs on a one-minute interval that is ~2900
+        # lines a day saying only that nothing was due.
+        "django.db.backends": {"level": "WARNING", "propagate": False},
+        "apscheduler": {"level": "WARNING", "propagate": False},
+    },
+}
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 MESSAGE_TAGS = {

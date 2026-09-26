@@ -254,15 +254,86 @@ def create_work_record():
             logger.error(f"Failed to bulk create work records: {e}")
 
 
-if not any(
-    cmd in sys.argv
-    for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"]
-):
-    """
-    Initializes and starts background tasks using APScheduler when the server is running.
-    """
-    scheduler = BackgroundScheduler(timezone=pytz.timezone(settings.TIME_ZONE))
+#: Phase NOTIFY-2. Management commands that must never start a scheduler.
+#:
+#: `test` is the addition that matters. Until now the guard did not name
+#: it, so every `manage.py test` run started a real BackgroundScheduler
+#: alongside the test runner: jobs firing against the test database on a
+#: one-minute tick, which is where the intermittent
+#: "database table is locked" noise on SQLite came from.
+#:
+#: The rest are short-lived commands that exit in seconds — starting a
+#: background thread for them buys nothing. `runserver` is deliberately
+#: NOT here: a developer running the server does want the jobs.
+NO_SCHEDULER_COMMANDS = [
+    "test",
+    "makemigrations",
+    "migrate",
+    "showmigrations",
+    "sqlmigrate",
+    "compilemessages",
+    "makemessages",
+    "flush",
+    "shell",
+    "dbshell",
+    "collectstatic",
+    "createsuperuser",
+    "check",
+    "dumpdata",
+    "loaddata",
+]
 
+#: Who owns the scheduler. See `ATTENDANCE_SCHEDULER_MODE` in settings.
+MODE_EMBEDDED = "embedded"
+MODE_DEDICATED = "dedicated"
+MODE_DISABLED = "disabled"
+
+
+def scheduler_mode():
+    """The configured mode, normalised. Unknown values read as embedded.
+
+    Falling back to `embedded` rather than refusing is deliberate: a typo
+    in an environment variable must not be able to silently stop auto
+    punch-out and forgotten-session finalization. A wrong value gets the
+    old behaviour and a warning, not silence.
+    """
+    raw = (getattr(settings, "ATTENDANCE_SCHEDULER_MODE", "") or "").strip().lower()
+    if raw in (MODE_EMBEDDED, MODE_DEDICATED, MODE_DISABLED):
+        return raw
+    if raw:
+        logger.warning(
+            "ATTENDANCE_SCHEDULER_MODE is not one of %s; falling back to %s.",
+            "/".join([MODE_EMBEDDED, MODE_DEDICATED, MODE_DISABLED]),
+            MODE_EMBEDDED,
+        )
+    return MODE_EMBEDDED
+
+
+def running_excluded_command():
+    """Whether this process is a management command that wants no jobs."""
+    return any(command in sys.argv for command in NO_SCHEDULER_COMMANDS)
+
+
+def should_start_embedded():
+    """Whether *this* process should own a scheduler by importing this module."""
+    if running_excluded_command():
+        return False
+    return scheduler_mode() == MODE_EMBEDDED
+
+
+def build_scheduler():
+    """An unstarted scheduler on the project's timezone."""
+    return BackgroundScheduler(timezone=pytz.timezone(settings.TIME_ZONE))
+
+
+def register_jobs(scheduler):
+    """Attach every background job to `scheduler` and return it.
+
+    Split out of the old module-level block so that exactly one set of
+    jobs can be described in one place and started either here (embedded)
+    or by `manage.py run_attendance_scheduler` (dedicated). The jobs, their
+    intervals and their misfire windows are unchanged.
+    """
     scheduler.add_job(
         create_work_record, "interval", minutes=30, misfire_grace_time=3600 * 3
     )
@@ -322,4 +393,28 @@ if not any(
         replace_existing=True,
     )
 
+    return scheduler
+
+
+def start_scheduler():
+    """Build, populate and start a scheduler. Returns it."""
+    scheduler = register_jobs(build_scheduler())
     scheduler.start()
+    logger.info(
+        "attendance scheduler started (mode=%s, jobs=%s)",
+        scheduler_mode(),
+        len(scheduler.get_jobs()),
+    )
+    return scheduler
+
+
+#: The embedded scheduler, when this process owns one; `None` otherwise.
+#:
+#: Under `gunicorn --workers 3` in `embedded` mode this runs three times,
+#: once per worker, each with its own in-memory jobstore and no lock
+#: between them. That is the behaviour this project has always had, and
+#: the reason `dedicated` exists — see the phase report for the one
+#: server-side step that switches it over. The stored-notification check
+#: each reminder makes first is what keeps duplicates rare rather than
+#: certain; it is a second line of defence, not the design.
+scheduler = start_scheduler() if should_start_embedded() else None

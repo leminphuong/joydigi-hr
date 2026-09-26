@@ -56,12 +56,46 @@ jobs:
             exit 0
           fi
 
+          # Validated here, on the runner, before a single byte is sent:
+          # a malformed secret must fail this step rather than land on the
+          # server. stderr is discarded on purpose — a JSONDecodeError
+          # quotes the document it failed on, and that document is the
+          # private key.
+          if ! printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" \
+            | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
+            echo "::error title=Invalid Firebase credential::FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON. Nothing was sent to the server."
+            exit 1
+          fi
+
+          # The remote script is an ARGUMENT, not a heredoc, and that is
+          # the whole point of this shape.
+          #
+          # It used to be `... | ssh ... 'bash -s' <<'REMOTE'`, which asks
+          # two different things to be ssh's stdin. The redirection wins,
+          # so the JSON from the pipe was discarded and the remote
+          # `cat > "$TMP"` swallowed the remainder of its own script
+          # instead — the credential file was written with shell source
+          # code, `mv` was never reached because those lines had been
+          # eaten, and the step still exited 0. Reproduced byte for byte:
+          # `cat` received 187 bytes of script where 212 bytes of JSON
+          # were intended, no credential was ever created, and every
+          # deploy reported success. That is why push has been silently
+          # off in production.
+          #
+          # As an argument the script travels on the remote command line,
+          # which is visible in the server's process list — it contains
+          # only paths, never the secret. The secret stays on stdin,
+          # exactly as before, so it appears in no process list on either
+          # machine and in no log. Single-quoted so the runner's shell
+          # expands none of the remote variables; the inner python
+          # therefore uses double quotes, which is safe because it
+          # contains no `$` for the remote shell to touch.
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" | ssh \
             -o BatchMode=yes \
             -o ConnectTimeout=20 \
             -i ~/.ssh/id_ed25519 \
             "$VPS_USER@$VPS_HOST" \
-            'bash -s' <<'REMOTE'
+            '
           set -eu
           umask 077
           CRED_DIR=/var/www/joydigi-hr/secrets
@@ -75,12 +109,16 @@ jobs:
           # working one.
           TMP="$CRED.incoming"
           cat > "$TMP"
-          python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$TMP"
+          if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$TMP" 2>/dev/null; then
+            rm -f "$TMP"
+            echo "received credential is not valid JSON; nothing was installed" >&2
+            exit 1
+          fi
           chmod 600 "$TMP"
           mv "$TMP" "$CRED"
 
           echo "Firebase credential installed"
-          REMOTE
+          '
 
       # Point Django at the credential. The line is rewritten rather than
       # appended blindly, so deploying any number of times leaves exactly

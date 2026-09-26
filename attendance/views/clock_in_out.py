@@ -32,6 +32,12 @@ from attendance.methods.client_ip import (
     client_ip_is_allowed,
     resolve_attendance_client_ip,
 )
+from attendance.methods.remote_work import (
+    approved_remote_request,
+    record_evidence,
+    record_session_start,
+    remote_check_in_evidence,
+)
 from attendance.methods.utils import (
     activity_datetime,
     employee_exists,
@@ -49,6 +55,7 @@ from attendance.methods.worktime import activities_worked_seconds
 from attendance.models import (
     Attendance,
     AttendanceActivity,
+    AttendanceEvidence,
     AttendanceGeneralSetting,
     AttendanceLateComeEarlyOut,
     GraceTime,
@@ -173,6 +180,107 @@ def _network_refusal(request, company):
     if client_ip_is_allowed(client_ip, allowed_ips):
         return None
     return dict(_WIFI_NOT_ALLOWED)
+
+
+def _server_instant(request):
+    """The instant this punch happens, by the server's clock.
+
+    The same derivation the two punch functions already do inline, so
+    the date a remote permission is checked against is the date the
+    attendance row is written from. `request.datetime` is set by the
+    mobile API from `django.utils.timezone` (never from the handset)
+    and by the biometric importer; everything else falls through to
+    the server clock. A device with a wrong clock cannot widen its own
+    permission, because it never supplies this value.
+    """
+    if request.__dict__.get("datetime"):
+        return request.datetime
+    return timezone.localtime()
+
+
+def _remote_permission(request, refusal):
+    """Phase ONLINE-2. Whether an approved remote request rescues this
+    refusal — `(reason, remote_request)`.
+
+    Called only when `_network_refusal` has already refused, which is
+    what keeps the exception narrow in both directions. The office
+    path is evaluated first and is completely unchanged; permission is
+    consulted second, and only ever about the one thing it is
+    permission for — working somewhere other than the office network.
+    A refusal for any other cause never reaches here, so an invalid
+    proof, a malformed payload or a conflicted session still fails
+    exactly as before.
+
+    Consulting it lazily also means the ordinary office punch does not
+    pay for a query it does not need: an employee on the office
+    network never reaches this function at all.
+    """
+    employee, _work_info = employee_exists(request)
+    if employee is None:
+        return refusal, None
+    remote_request = approved_remote_request(
+        employee, _server_instant(request).date()
+    )
+    if remote_request is None:
+        return refusal, None
+    return None, remote_request
+
+
+def _remote_session_permission(request, refusal):
+    """Phase ONLINE-2. Whether the session being closed was opened
+    remotely — `(reason, check_in_evidence)`.
+
+    This deliberately does NOT ask whether the employee holds an
+    approved request today. That question would let somebody who
+    checked in at the office close their day from anywhere, which is
+    the single most dangerous shape this feature could take. It asks
+    the record instead: the canonical session for this date, and
+    whether its own check-in was written as `REMOTE`.
+
+    Because the answer was persisted when the session opened, a
+    permission revoked since then cannot strand a session that is
+    already running — the employee can still close their day.
+
+    `resolve_session` is the FIX A resolver, unchanged and read-only;
+    it runs here only on the refusal path, and again later in the
+    normal flow, which costs one extra read for a punch that was about
+    to be refused anyway.
+    """
+    employee, _work_info = employee_exists(request)
+    if employee is None:
+        return refusal, None
+    date_today = _server_instant(request).date()
+    if request.__dict__.get("date"):
+        date_today = request.date
+    session = resolve_session(employee, date_today)
+    if session.state not in CHECKOUT_STATES or session.attendance is None:
+        return refusal, None
+    evidence = remote_check_in_evidence(session.attendance)
+    if evidence is None:
+        return refusal, None
+    return None, evidence
+
+
+def _remote_overrides_source(checkin_source):
+    """Whether a source refusal is one that remote permission answers.
+
+    Exactly two codes, and both say the same thing in different
+    words: *you are not at the office*. `WIFI_NOT_ALLOWED` means this
+    SSID is not one of the company's, and `LOCATION_OUTSIDE` means
+    these coordinates are beyond the office radius. For somebody with
+    permission to work remotely neither is a finding — it is the
+    expected state, which is the whole point of the permission.
+
+    Every other refusal survives untouched: `LOCATION_INVALID` is a
+    malformed payload, `VERIFICATION_REQUIRED` is a proof that did not
+    check out, and the `QR_*` family are statements about a kiosk code
+    rather than about where the employee is standing. None of those
+    becomes acceptable because somebody may work from home.
+    """
+    return (checkin_source or {}).get("code") in {
+        "WIFI_NOT_ALLOWED",
+        "LOCATION_OUTSIDE",
+    }
 
 
 #: Phase FIX A.1. A day shift is finalized only once its date is behind
@@ -759,12 +867,30 @@ def perform_clock_in(request):
         and attendance_general_settings.enable_check_in
         or request.__dict__.get("datetime")
     ):
+        # Phase ONLINE-2. The office path runs first and unchanged. Only
+        # a *network* refusal is offered a second answer, and only from
+        # an approved RemoteWorkRequest covering today — so an employee
+        # with no permission sees the identical refusal they saw before
+        # this phase existed, and an employee who is on the office
+        # network never reaches the lookup at all.
+        remote_request = None
         reason = _network_refusal(request, company)
+        if reason is not None:
+            reason, remote_request = _remote_permission(request, reason)
         if reason is not None:
             _flash(messages.error, request, reason["message"])
             return None, False, reason
 
         checkin_source = validate_checkin_source(request, company)
+        if (
+            not checkin_source["allowed"]
+            and remote_request is not None
+            and _remote_overrides_source(checkin_source)
+        ):
+            # Working from home is not a failed office check. The
+            # evidence itself is still recorded below; only its verdict
+            # is answered by the permission.
+            checkin_source = {"allowed": True, "method": "Làm online"}
         if not checkin_source["allowed"]:
             _flash(messages.error, request, checkin_source["message"])
             reason = {
@@ -847,13 +973,37 @@ def perform_clock_in(request):
                     end_time=end_time_sec,
                     in_datetime=datetime_now,
                 )
-            _mark_outside_radius_request(attendance, checkin_source)
-            if checkin_source.get("outside_radius"):
-                _flash(
-                    messages.warning,
-                    request,
-                    checkin_source["message"] + " Bản ghi đã được chuyển sang chờ duyệt.",
+                # Phase ONLINE-2. Inside the same transaction as the row
+                # it describes: a session that exists without the record
+                # of how it was opened could never be closed remotely,
+                # and a record without a session would describe nothing.
+                #
+                # Phase ONLINE-2F: written for an office punch too, not
+                # only a remote one. `remote_request` is None on the
+                # office path, which is exactly what makes the recorded
+                # mode OFFICE and replaces any REMOTE row left over from
+                # an earlier session of the same day.
+                record_session_start(
+                    attendance=attendance,
+                    request=request,
+                    company=company,
+                    captured_at=datetime_now,
+                    remote_work_request=remote_request,
                 )
+            # A remote punch is already approved — by a manager, before
+            # the day began. Filing it into the outside-radius queue
+            # would be asking for that same permission a second time, so
+            # the existing queue is left for the office flow it was
+            # built for and is not touched here.
+            if remote_request is None:
+                _mark_outside_radius_request(attendance, checkin_source)
+                if checkin_source.get("outside_radius"):
+                    _flash(
+                        messages.warning,
+                        request,
+                        checkin_source["message"]
+                        + " Bản ghi đã được chuyển sang chờ duyệt.",
+                    )
             return attendance, True, None
         reason = {
             "code": "PROFILE_INCOMPLETE",
@@ -1134,12 +1284,26 @@ def perform_clock_out(request):
         and attendance_general_settings.enable_check_in
         or request.__dict__.get("datetime")
     ):
+        # Phase ONLINE-2. The network gate may only be answered here by
+        # the session's OWN check-in record, never by "does this person
+        # have an approved request today?" — that question would let an
+        # office session be closed from anywhere, which is the one shape
+        # this feature must not take. See `_remote_session_permission`.
+        remote_evidence = None
         reason = _network_refusal(request, company)
+        if reason is not None:
+            reason, remote_evidence = _remote_session_permission(request, reason)
         if reason is not None:
             _flash(messages.error, request, reason["message"])
             return None, False, reason
 
         checkin_source = validate_checkin_source(request, company)
+        if (
+            not checkin_source["allowed"]
+            and remote_evidence is not None
+            and _remote_overrides_source(checkin_source)
+        ):
+            checkin_source = {"allowed": True, "method": "Làm online"}
         if not checkin_source["allowed"]:
             # Phase 6.1: mobile/API callers no longer get an automatic
             # pass here — see `validate_checkin_source`'s
@@ -1256,7 +1420,21 @@ def perform_clock_out(request):
                 out_datetime=datetime_now,
                 session=session,
             )
-        _mark_outside_radius_request(attendance, checkin_source)
+            # Phase ONLINE-2. Carries the same RemoteWorkRequest the
+            # check-in recorded rather than looking one up again, so the
+            # pair describes one session authorised once.
+            if remote_evidence is not None and attendance is not None:
+                record_evidence(
+                    attendance=attendance,
+                    action=AttendanceEvidence.ACTION_CHECK_OUT,
+                    attendance_mode=AttendanceEvidence.MODE_REMOTE,
+                    request=request,
+                    company=company,
+                    captured_at=datetime_now,
+                    remote_work_request=remote_evidence.remote_work_request,
+                )
+        if remote_evidence is None:
+            _mark_outside_radius_request(attendance, checkin_source)
         if attendance:
             early_out_instance = attendance.late_come_early_out.filter(type="early_out")
             is_night_shift = attendance.is_night_shift()

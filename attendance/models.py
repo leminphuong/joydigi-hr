@@ -32,7 +32,13 @@ from attendance.methods.utils import (
 )
 from base.joydigi_company_manager import JoydigiCompanyManager
 from base.methods import is_company_leave, is_holiday
-from base.models import Company, EmployeeShift, EmployeeShiftDay, WorkType
+from base.models import (
+    CheckInLocation,
+    Company,
+    EmployeeShift,
+    EmployeeShiftDay,
+    WorkType,
+)
 from employee.models import Employee
 
 # Create your models here.
@@ -2173,3 +2179,182 @@ class RemoteWorkRequest(JoydigiModel):
             if self.canceled
             else (_("Approved") if self.approved else _("Requested"))
         )
+
+
+class AttendanceEvidence(JoydigiModel):
+    """Phase ONLINE-2: what the server observed when a punch was made.
+
+    One row per punch — at most a `CHECK_IN` and a `CHECK_OUT` per
+    `Attendance`, enforced by a database constraint rather than by
+    convention.
+
+    ## Why this is a model and not more JSON
+
+    `Attendance.requested_data` already carries location evidence for
+    the outside-radius flow, but it carries it *together with*
+    `is_validate_request=True` — that is, inside the approval queue. A
+    remote punch authorised by an approved `RemoteWorkRequest` has
+    already been approved once, by a manager, before the day began;
+    routing it through the approval queue a second time would be a
+    second approval for the same decision. So remote evidence lives
+    here instead, and the outside-radius flow is left exactly as it
+    was.
+
+    ## What this row is for
+
+    `attendance_mode` is the load-bearing field. It records how a
+    session was *opened*, and check-out reads it back rather than
+    re-asking whether the employee happens to hold an approved remote
+    request today. That distinction is the whole security property:
+    an office session and a remote session can exist on the same day
+    for the same employee holding the same approved request, and only
+    the one actually opened remotely may be closed from off-network.
+    See `attendance.methods.remote_work.remote_session_evidence`.
+
+    Because the answer is persisted at check-in, revoking the request
+    at lunchtime cannot strand a session that is already open — the
+    employee can still close their day. The request is the authority
+    to *start*; this row is the record that they did.
+
+    ## Server authority
+
+    Every field that could grant authority is computed on the server:
+    `attendance`, `remote_work_request`, `attendance_mode`,
+    `distance_meters`, `location`, `client_ip` and `captured_at`. A
+    client may only contribute inert description of itself —
+    `wifi_ssid`, `wifi_bssid`, `latitude`, `longitude`, `accuracy` —
+    and none of those is ever read to decide whether a punch is
+    allowed. An SSID is a label a device reports about itself; it is
+    kept because it is useful to a human reading the record later, not
+    because it proves anything.
+
+    Nothing here is written for historical attendance, and OFFICE
+    punches do not create a row yet: `MODE_OFFICE` exists so that a
+    later phase can start recording them without a migration.
+    """
+
+    ACTION_CHECK_IN = "CHECK_IN"
+    ACTION_CHECK_OUT = "CHECK_OUT"
+    ACTION_CHOICES = [
+        (ACTION_CHECK_IN, _("Check In")),
+        (ACTION_CHECK_OUT, _("Check Out")),
+    ]
+
+    MODE_OFFICE = "OFFICE"
+    MODE_REMOTE = "REMOTE"
+    MODE_CHOICES = [
+        (MODE_OFFICE, _("Office")),
+        (MODE_REMOTE, _("Remote")),
+    ]
+
+    #: Nothing is invented here. These are exactly the labels the
+    #: existing code already produces, audited rather than assumed:
+    #: `location`, `wifi`, `qr` and `numeric_code` are
+    #: `AttendanceVerifySourceView._METHODS`, and `camera_ai` is
+    #: `CAMERA_AI_METHOD` — both in
+    #: `joydigi_api/api_views/attendance/views.py`. `numeric_code` is
+    #: kept distinct from `qr` even though
+    #: `validate_checkin_source` handles the two in one branch,
+    #: because the employee really did use a different thing and the
+    #: record should say which.
+    METHOD_WIFI = "WIFI"
+    METHOD_LOCATION = "LOCATION"
+    METHOD_QR = "QR"
+    METHOD_NUMERIC_CODE = "NUMERIC_CODE"
+    METHOD_FACE = "FACE"
+    METHOD_CHOICES = [
+        (METHOD_WIFI, _("Wi-Fi")),
+        (METHOD_LOCATION, _("Location")),
+        (METHOD_QR, _("QR")),
+        (METHOD_NUMERIC_CODE, _("Numeric Code")),
+        (METHOD_FACE, _("Face")),
+    ]
+
+    attendance = models.ForeignKey(
+        Attendance,
+        on_delete=models.CASCADE,
+        related_name="evidences",
+        verbose_name=_("Attendance"),
+    )
+    #: `SET_NULL` rather than `PROTECT` on purpose: deleting an employee
+    #: account already deletes their `RemoteWorkRequest` rows
+    #: (`employee.services.account_deletion`), and a protected reference
+    #: here would block that. Losing the link costs an audit
+    #: convenience; it cannot weaken check-out, which reads
+    #: `attendance_mode` on this row and never the request.
+    remote_work_request = models.ForeignKey(
+        RemoteWorkRequest,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="attendance_evidences",
+        verbose_name=_("Remote Work Request"),
+    )
+    action = models.CharField(
+        max_length=16, choices=ACTION_CHOICES, verbose_name=_("Action")
+    )
+    attendance_mode = models.CharField(
+        max_length=16, choices=MODE_CHOICES, verbose_name=_("Attendance Mode")
+    )
+    method = models.CharField(
+        max_length=16,
+        null=True,
+        blank=True,
+        choices=METHOD_CHOICES,
+        verbose_name=_("Method"),
+    )
+    #: Reported by the device about the network it is on. Evidence only.
+    wifi_ssid = models.CharField(
+        max_length=100, null=True, blank=True, verbose_name=_("Wi-Fi SSID")
+    )
+    wifi_bssid = models.CharField(
+        max_length=17, null=True, blank=True, verbose_name=_("Wi-Fi BSSID")
+    )
+    #: Same precision as `base.models.CheckInLocation`, so a coordinate
+    #: can be compared with an office's without either being rounded.
+    latitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True,
+        verbose_name=_("Latitude"),
+    )
+    longitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True,
+        verbose_name=_("Longitude"),
+    )
+    accuracy = models.FloatField(
+        null=True, blank=True, verbose_name=_("Accuracy (m)")
+    )
+    #: Computed on the server with the existing Haversine helper, never
+    #: accepted from the client. Null when no usable coordinate arrived
+    #: or the company has no active location to measure against.
+    distance_meters = models.PositiveIntegerField(
+        null=True, blank=True, verbose_name=_("Distance (m)")
+    )
+    location = models.ForeignKey(
+        CheckInLocation,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="attendance_evidences",
+        verbose_name=_("Nearest Location"),
+    )
+    #: From `attendance.methods.client_ip.resolve_attendance_client_ip`
+    #: only — the Phase 3B resolver that decides whether a forwarded
+    #: address may be believed at all. Never from a request payload.
+    client_ip = models.GenericIPAddressField(
+        null=True, blank=True, verbose_name=_("Client IP")
+    )
+    captured_at = models.DateTimeField(verbose_name=_("Captured At"))
+
+    class Meta:
+        verbose_name = _("Attendance Evidence")
+        verbose_name_plural = _("Attendance Evidence")
+        ordering = ["-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["attendance", "action"],
+                name="unique_attendance_evidence_per_action",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.attendance_id} - {self.action} - {self.attendance_mode}"

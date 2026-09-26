@@ -380,7 +380,49 @@ def _employees_on_leave(employee_ids, work_dates):
 # ---------------------------------------------------------------------
 
 
-def _send_reminder(employee, stage, work_date, start_at):
+def record_push_status(push_tally, result):
+    """Count one push outcome into a per-run tally.
+
+    Phase NOTIFY-2. The counting lives here rather than inside
+    `joydigi_api.push` on purpose: a push happens once per employee per
+    reminder, and with the reminder jobs on a one-minute tick, logging at
+    the point of the push would write one line per employee per minute —
+    a journal nobody reads, which is only marginally better than the
+    silence it replaced. Counting here and logging once per run keeps the
+    same information at a volume somebody will actually look at.
+    """
+    if push_tally is None or not isinstance(result, dict):
+        return
+    status = result.get("status")
+    if status:
+        push_tally[status] = push_tally.get(status, 0) + 1
+
+
+def log_run_summary(job, tally, push_tally):
+    """One line per scheduler run, and only when something happened.
+
+    Silence when there was nothing due is the point: these jobs run every
+    minute and are idle for most of the day. A line every tick saying
+    "nothing to do" would bury the one that matters.
+    """
+    delivered = sum(
+        count for key, count in tally.items() if key != "skipped"
+    )
+    if not delivered and not push_tally:
+        return
+    pushes = ", ".join(
+        f"{status}={count}" for status, count in sorted(push_tally.items())
+    )
+    logger.info(
+        "%s: REMINDER_CREATED=%s %s%s",
+        job,
+        delivered,
+        " ".join(f"{key}={value}" for key, value in sorted(tally.items())),
+        f" push[{pushes}]" if pushes else "",
+    )
+
+
+def _send_reminder(employee, stage, work_date, start_at, push_tally=None):
     """One reminder, at most once per employee, stage and work date.
 
     The in-app notification is written first and is what makes the
@@ -413,7 +455,9 @@ def _send_reminder(employee, stage, work_date, start_at):
     if not _notification_created(created):
         return False
 
-    _push_reminder(user, stage, work_date, start_at)
+    record_push_status(
+        push_tally, _push_reminder(user, stage, work_date, start_at)
+    )
     return True
 
 
@@ -487,6 +531,7 @@ def process_check_in_reminders(now=None):
 
     now = now or timezone.localtime()
     tally = {"start_minus_5": 0, "start_plus_5": 0, "skipped": 0}
+    push_tally = {}
 
     work_dates = _candidate_dates(now)
     weekdays = {day.strftime("%A").lower() for day in work_dates}
@@ -581,7 +626,9 @@ def process_check_in_reminders(now=None):
                 continue
 
             try:
-                if _send_reminder(employee, stage, work_date, start_at):
+                if _send_reminder(
+                    employee, stage, work_date, start_at, push_tally=push_tally
+                ):
                     key = (
                         "start_minus_5"
                         if stage == STAGE_START_MINUS_5
@@ -596,4 +643,5 @@ def process_check_in_reminders(now=None):
                     error,
                 )
 
+    log_run_summary("attendance_reminders", tally, push_tally)
     return tally

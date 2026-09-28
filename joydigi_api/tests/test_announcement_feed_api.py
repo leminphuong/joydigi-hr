@@ -11,6 +11,7 @@ comment endpoints reusing the existing `AnnouncementComment` model.
 from datetime import date, timedelta
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from base.models import Announcement, AnnouncementComment, AnnouncementReaction
@@ -420,3 +421,261 @@ class AnnouncementCommentTests(TestCase):
         self.assertEqual(response.status_code, 401)
         response = anon.post(self._list_url(self.post_a), {"comment": "x"})
         self.assertEqual(response.status_code, 401)
+
+
+class AnnouncementVisibilityRuleTests(TestCase):
+    """Phase NEWS-FEED-BACKEND-FIX — the one visibility rule.
+
+    The mobile feed came up empty while the web dashboard showed the same
+    posts. Two causes, both held down here: the endpoint disagreed with
+    `base.announcement.bulletin` about what "still visible" means, and the
+    admin form froze the audience of an "everybody" post into
+    `Announcement.employees`, so nobody hired afterwards was ever in it.
+    """
+
+    def setUp(self):
+        self.company = make_company("Visible Co")
+        self.other_company = make_company("Other Co")
+
+        self.user = make_user("viewer", password="secret123")
+        self.employee = make_employee(
+            company=self.company, email="viewer@test.joydigi", user=self.user
+        )
+        self.client_api = APIClient()
+        self.client_api.force_authenticate(user=_reloaded(self.user))
+
+    def _titles(self, response=None):
+        response = response or self.client_api.get("/api/base/announcement-view")
+        self.assertEqual(response.status_code, 200)
+        return [item["title"] for item in response.data["results"]]
+
+    def _item(self, title):
+        response = self.client_api.get("/api/base/announcement-view")
+        for item in response.data["results"]:
+            if item["title"] == title:
+                return item
+        return None
+
+    # ---------------------------------------------------------------- window
+
+    def test_active_current_post_with_empty_audience_is_visible(self):
+        make_announcement(company=self.company, title="Everyone")
+
+        self.assertIn("Everyone", self._titles())
+
+    def test_employee_created_after_the_post_still_sees_an_everyone_post(self):
+        """The regression that emptied the feed.
+
+        An "everybody" post must not carry a frozen list of the employees
+        who happened to exist when it was published.
+        """
+        post = make_announcement(company=self.company, title="Everyone")
+        self.assertFalse(post.employees.exists())
+
+        latecomer_user = make_user("latecomer", password="secret123")
+        make_employee(
+            company=self.company,
+            email="latecomer@test.joydigi",
+            user=latecomer_user,
+        )
+        client = APIClient()
+        client.force_authenticate(user=_reloaded(latecomer_user))
+
+        titles = [i["title"] for i in client.get("/api/base/announcement-view").data["results"]]
+        self.assertIn("Everyone", titles)
+
+    def test_expired_post_is_hidden(self):
+        make_announcement(
+            company=self.company,
+            title="Expired",
+            expire_date=date.today() - timedelta(days=1),
+        )
+
+        self.assertNotIn("Expired", self._titles())
+
+    def test_post_without_expire_date_never_expires(self):
+        """NULL means open-ended, the same as it does on the web.
+
+        The endpoint used to backfill these with `created_at + 30 days`
+        before filtering — a write on a GET, and one that made an
+        open-ended post older than a month vanish from the phone while it
+        stayed on the dashboard.
+        """
+        post = make_announcement(
+            company=self.company, title="Open ended", expire_date=None
+        )
+
+        self.assertIn("Open ended", self._titles())
+        post.refresh_from_db()
+        self.assertIsNone(
+            post.expire_date,
+            msg="a GET must not write an expiry onto an open-ended post",
+        )
+
+    def test_post_expiring_today_is_still_visible(self):
+        make_announcement(
+            company=self.company, title="Last day", expire_date=timezone.localdate()
+        )
+
+        self.assertIn("Last day", self._titles())
+
+    def test_inactive_post_is_hidden(self):
+        post = make_announcement(company=self.company, title="Soft deleted")
+        post.is_active = False
+        post.save()
+
+        self.assertNotIn(
+            "Soft deleted",
+            self._titles(),
+            msg="the web bulletin filters is_active; the phone must too",
+        )
+
+    # --------------------------------------------------------------- company
+
+    def test_employee_without_company_sees_only_global_posts(self):
+        make_announcement(company=self.company, title="Company post")
+        globals_ = Announcement.objects.create(
+            title="Global post",
+            description="<p>hi</p>",
+            expire_date=date.today() + timedelta(days=30),
+        )
+        self.assertFalse(globals_.company_id.exists())
+
+        orphan_user = make_user("orphan", password="secret123")
+        orphan = make_employee(
+            company=self.company, email="orphan@test.joydigi", user=orphan_user
+        )
+        # No resolvable company at all — the case that must not 500.
+        orphan.employee_work_info.company_id = None
+        orphan.employee_work_info.save()
+
+        client = APIClient()
+        client.force_authenticate(user=_reloaded(orphan_user))
+        response = client.get("/api/base/announcement-view")
+
+        self.assertEqual(response.status_code, 200)
+        titles = [i["title"] for i in response.data["results"]]
+        self.assertIn("Global post", titles)
+        self.assertNotIn("Company post", titles)
+
+    def test_global_post_is_visible_to_a_company_employee_too(self):
+        Announcement.objects.create(
+            title="Global post",
+            description="<p>hi</p>",
+            expire_date=date.today() + timedelta(days=30),
+        )
+
+        self.assertIn("Global post", self._titles())
+
+    # --------------------------------------------------------------- content
+
+    def test_plain_text_description_is_returned_as_content(self):
+        """The seeded announcements looked like this: no HTML at all.
+
+        `find_all` on block tags returned nothing, so the phone got a title
+        with an empty body.
+        """
+        make_announcement(
+            company=self.company,
+            title="Plain",
+            description="Nhân viên vui lòng kiểm tra lịch làm việc.",
+        )
+
+        item = self._item("Plain")
+        self.assertEqual(
+            item["content"],
+            [
+                {
+                    "type": "paragraph",
+                    "text": "Nhân viên vui lòng kiểm tra lịch làm việc.",
+                }
+            ],
+        )
+
+    def test_multi_line_plain_text_keeps_its_lines(self):
+        make_announcement(
+            company=self.company,
+            title="Two lines",
+            description="Dòng một.\nDòng hai.",
+        )
+
+        self.assertEqual(
+            [b["text"] for b in self._item("Two lines")["content"]],
+            ["Dòng một.", "Dòng hai."],
+        )
+
+    def test_html_description_still_parses_into_blocks(self):
+        make_announcement(
+            company=self.company,
+            title="Rich",
+            description="<h2>Tiêu đề</h2><p>Đoạn một</p><p>Đoạn hai</p>",
+        )
+
+        self.assertEqual(
+            self._item("Rich")["content"],
+            [
+                {"type": "heading", "text": "Tiêu đề"},
+                {"type": "paragraph", "text": "Đoạn một"},
+                {"type": "paragraph", "text": "Đoạn hai"},
+            ],
+        )
+
+    def test_empty_blocks_are_dropped(self):
+        make_announcement(
+            company=self.company,
+            title="Padded",
+            description="<p></p><p>Thật</p><p>   </p>",
+        )
+
+        self.assertEqual(
+            self._item("Padded")["content"],
+            [{"type": "paragraph", "text": "Thật"}],
+        )
+
+    def test_inline_markup_stays_one_paragraph(self):
+        make_announcement(
+            company=self.company,
+            title="Inline",
+            description="Xin <b>chào</b> cả nhà",
+        )
+
+        self.assertEqual(
+            self._item("Inline")["content"],
+            [{"type": "paragraph", "text": "Xin chào cả nhà"}],
+        )
+
+    def test_blank_description_returns_empty_content(self):
+        make_announcement(company=self.company, title="No body", description="")
+
+        self.assertEqual(self._item("No body")["content"], [])
+
+    # ------------------------------------------------------- shape / ordering
+
+    def test_pinned_posts_come_first(self):
+        make_announcement(company=self.company, title="Plain one")
+        make_announcement(company=self.company, title="Pinned one", is_pinned=True)
+
+        self.assertEqual(self._titles()[0], "Pinned one")
+
+    def test_envelope_shape_is_what_the_app_parses(self):
+        make_announcement(company=self.company, title="Shape")
+        response = self.client_api.get("/api/base/announcement-view")
+
+        self.assertEqual(
+            sorted(response.data.keys()), ["count", "next", "previous", "results"]
+        )
+        item = response.data["results"][0]
+        for key in ("id", "title", "content", "created_at", "is_pinned"):
+            self.assertIn(key, item)
+
+    def test_a_post_appears_once_even_with_several_matching_rows(self):
+        """distinct(): company and audience are both M2M joins."""
+        post = make_announcement(company=self.company, title="Joined")
+        post.company_id.add(self.other_company)
+        post.employees.set([self.employee])
+        other_employee = make_employee(
+            company=self.company, email="second@test.joydigi"
+        )
+        post.employees.add(other_employee)
+
+        self.assertEqual(self._titles().count("Joined"), 1)

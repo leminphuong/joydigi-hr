@@ -2963,26 +2963,20 @@ class AnnouncementForm(ModelForm):
     Announcement Form
     """
 
-    employees = JoydigiMultiSelectField(
-        queryset=Employee.objects.all(),
-        widget=JoydigiMultiSelectWidget(
-            filter_route_name="employee-widget-filter",
-            filter_class=EmployeeFilter,
-            filter_instance_context_name="f",
-            filter_template_path="employee_filters.html",
-        ),
-        label="Nhân viên nhận bản tin",
-        help_text=_(
-            "Để trống nếu muốn gửi bản tin cho toàn bộ nhân viên trong công ty đã chọn."
-        ),
-    )
+    # No per-employee selector. The audience is a department and/or a job
+    # position, or nothing at all — and nothing at all means every employee
+    # in the selected company. `Announcement.employees` still exists and the
+    # view still writes the resolved audience into it, because that is the
+    # set every visibility filter reads; it is simply no longer something an
+    # administrator picks by hand. Excluded in `Meta` as well, or
+    # `fields = "__all__"` would put the auto-generated version straight
+    # back on the form.
 
     cols = {
         "title": 12,
         "description": 12,
         "attachments": 12,
         "expire_date": 12,
-        "employees": 12,
         "department": 12,
         "job_position": 12,
         "is_pinned": 6,
@@ -2998,7 +2992,7 @@ class AnnouncementForm(ModelForm):
 
         model = Announcement
         fields = "__all__"
-        exclude = ["is_active"]
+        exclude = ["is_active", "employees"]
         widgets = {
             "description": forms.Textarea(attrs={"data-summernote": ""}),
             "expire_date": DateInput(attrs={"type": "date"}),
@@ -3112,37 +3106,10 @@ class AnnouncementForm(ModelForm):
     def clean(self):
         cleaned_data = super().clean()
 
-        # Remove 'employees' field error if it's handled manually
-        if isinstance(self.fields["employees"], JoydigiMultiSelectField):
-            self.errors.pop("employees", None)
-            if hasattr(self.data, "getlist"):
-                employee_ids = self.data.getlist("employees")
-            else:
-                employee_ids = self.data.get("employees", [])
-                if employee_ids and not isinstance(employee_ids, (list, tuple)):
-                    employee_ids = [employee_ids]
-            employee_data = self.fields["employees"].queryset.filter(
-                id__in=employee_ids
-            )
-            cleaned_data["employees"] = employee_data
-
-        # Get submitted M2M values
-        employees_selected = cleaned_data.get("employees")
-        departments_selected = self.cleaned_data.get("department")
-        job_positions_selected = self.cleaned_data.get("job_position")
-
-        # Check if none of the three are selected
-        # if (
-        #     not employees_selected
-        #     and not departments_selected
-        #     and not job_positions_selected
-        # ):
-        #     raise forms.ValidationError(
-        #         _(
-        #             "You must select at least one of: Employees, Department, or Job Position."
-        #         )
-        #     )
-
+        # The per-employee selector is gone, so there is no hand-managed
+        # `employees` value to rebuild from raw POST data any more. An
+        # empty department and job position is not an error: it is how an
+        # administrator says "everybody in this company".
         return cleaned_data
 
 

@@ -114,13 +114,15 @@ class AnnouncementFormView(JoydigiFormView):
 
             anou, attachment_ids = form.save(commit=False)
 
-            employees = form.cleaned_data["employees"]
             departments = form.cleaned_data["department"]
             job_positions = form.cleaned_data["job_position"]
             company = form.cleaned_data.get(
                 "company_id", [self.request.user.employee_get.get_company()]
             )
-            targeted = bool(employees or departments or job_positions)
+            # The form no longer offers a per-employee selector, so the
+            # audience is whatever the department and job position lists
+            # say — and nothing at all means everybody in the company.
+            targeted = bool(departments or job_positions)
 
             with transaction.atomic():
                 anou.save()
@@ -136,9 +138,11 @@ class AnnouncementFormView(JoydigiFormView):
                     # position lists are not consulted there. `set` and
                     # not `add`: editing a post to narrow its audience has
                     # to actually narrow it.
+                    # UNION, not intersection — unchanged from before this
+                    # phase: choosing a department AND a job position reaches
+                    # everyone in either, not only the people in both.
                     audience = Employee.objects.filter(
-                        Q(pk__in=employees.values_list("pk", flat=True))
-                        | Q(employee_work_info__department_id__in=departments)
+                        Q(employee_work_info__department_id__in=departments)
                         | Q(employee_work_info__job_position_id__in=job_positions)
                     ).distinct()
                     anou.employees.set(audience)

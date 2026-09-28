@@ -26,7 +26,7 @@ from base.cbv.announcement_cbv import (
     announcement_notifications,
 )
 from base.forms import AnnouncementForm
-from base.models import Announcement
+from base.models import Announcement, Department, JobPosition
 from joydigi.joydigi_middlewares import _thread_locals
 from joydigi.testkit import make_company, make_employee, make_user
 from joydigi_api.models import NotificationPreference, PushDeviceToken
@@ -54,11 +54,19 @@ class AnnouncementPushTestCase(TestCase):
             Permission.objects.get(codename="add_announcement")
         )
 
+        # `employee_one` sits in its own department, which is now the only
+        # way an administrator can narrow a bulletin's audience: the
+        # per-employee selector was removed from the form.
+        # `Department.company_id` is a ManyToMany, so it is attached after
+        # create — the same pattern the attendance fixtures use.
+        self.department = Department.objects.create(department="Ky thuat")
+        self.department.company_id.add(self.company)
         self.user_one = make_user("recipient_one", password="secret123")
         self.employee_one = make_employee(
             company=self.company,
             email="one@test.joydigi",
             user=self.user_one,
+            department=self.department,
         )
         self.user_two = make_user("recipient_two", password="secret123")
         self.employee_two = make_employee(
@@ -189,10 +197,17 @@ class NewAnnouncementNotifiesTests(AnnouncementPushTestCase):
         )
 
     def test_audience_subset_reaches_only_that_subset(self):
+        """Targeting a department reaches that department and nobody else.
+
+        Since the per-employee selector was removed, a department (or a job
+        position) is the only narrowing an administrator can express — so
+        this is the test that it is honoured rather than silently widened
+        to the whole company.
+        """
         with mock.patch(
             PUSH_TARGET, return_value={"status": "PUSH_SEND_SUCCESS"}
         ) as send:
-            self.submit(employees=[self.employee_one.pk])
+            self.submit(department=[self.department.pk])
 
         announcement = self.latest()
         self.assertEqual(self.recipients_notified(announcement), {self.user_one.pk})
@@ -200,7 +215,16 @@ class NewAnnouncementNotifiesTests(AnnouncementPushTestCase):
         self.assertEqual(
             set(announcement.employees.values_list("pk", flat=True)),
             {self.employee_one.pk},
-            msg="an explicit audience is materialised, so filters can read it",
+            msg=(
+                "the resolved department members are materialised into "
+                "`employees`, because that is the set the visibility "
+                "filters read"
+            ),
+        )
+        self.assertNotIn(
+            self.user_two.pk,
+            self.recipients_notified(announcement),
+            msg="somebody outside the department must not be told",
         )
 
 
@@ -378,3 +402,130 @@ class PushLoggingTests(AnnouncementPushTestCase):
             msg="a registration token is a credential for reaching a device",
         )
         self.assertIn("announcement push for user", output)
+
+
+class AnnouncementFormAudienceTests(AnnouncementPushTestCase):
+    """Phase NEWS-FEED-FORM-CLEANUP — no more picking employees by hand.
+
+    The bulletin form used to offer a "Nhân viên nhận bản tin" selector, and
+    whatever it produced was written straight into `Announcement.employees`
+    — the set every visibility filter reads. Removing it leaves department
+    and job position as the only narrowing an administrator can express, and
+    leaving both blank as the only way to say "everybody".
+    """
+
+    def test_form_no_longer_offers_an_employee_selector(self):
+        form = AnnouncementForm()
+
+        self.assertNotIn("employees", form.fields)
+        self.assertNotIn("employees", [bf.name for bf in form.visible_fields()])
+        self.assertNotIn(
+            "Nhân viên nhận bản tin",
+            [str(f.label) for f in form.fields.values()],
+        )
+
+    def test_the_model_field_is_untouched(self):
+        """Removed from the form, kept on the model — no migration."""
+        self.assertTrue(
+            any(f.name == "employees" for f in Announcement._meta.get_fields())
+        )
+
+    def test_blank_audience_leaves_employees_empty(self):
+        with mock.patch(PUSH_TARGET, return_value={"status": "PUSH_SEND_SUCCESS"}):
+            self.submit()
+
+        announcement = self.latest()
+        self.assertFalse(
+            announcement.employees.exists(),
+            msg="blank means everybody, and the set has to stay empty to say it",
+        )
+        self.assertEqual(
+            self.recipients_notified(announcement),
+            {self.admin_user.pk, self.user_one.pk, self.user_two.pk},
+        )
+
+    def test_department_target_resolves_into_employees(self):
+        with mock.patch(PUSH_TARGET, return_value={"status": "PUSH_SEND_SUCCESS"}):
+            self.submit(department=[self.department.pk])
+
+        announcement = self.latest()
+        self.assertEqual(
+            set(announcement.employees.values_list("pk", flat=True)),
+            {self.employee_one.pk},
+        )
+        self.assertEqual(
+            set(announcement.department.values_list("pk", flat=True)),
+            {self.department.pk},
+        )
+
+    def test_job_position_target_resolves_into_employees(self):
+        position = JobPosition.objects.create(
+            job_position="Truong nhom", department_id=self.department
+        )
+        info = self.employee_two.employee_work_info
+        info.job_position_id = position
+        info.save()
+
+        with mock.patch(PUSH_TARGET, return_value={"status": "PUSH_SEND_SUCCESS"}):
+            self.submit(job_position=[position.pk])
+
+        announcement = self.latest()
+        self.assertEqual(
+            set(announcement.employees.values_list("pk", flat=True)),
+            {self.employee_two.pk},
+        )
+
+    def test_department_and_job_position_together_are_a_union(self):
+        """Documented, not changed: both selected reaches either, not both."""
+        position = JobPosition.objects.create(
+            job_position="Truong nhom", department_id=self.department
+        )
+        info = self.employee_two.employee_work_info
+        info.job_position_id = position
+        info.save()
+
+        with mock.patch(PUSH_TARGET, return_value={"status": "PUSH_SEND_SUCCESS"}):
+            self.submit(
+                department=[self.department.pk], job_position=[position.pk]
+            )
+
+        announcement = self.latest()
+        self.assertEqual(
+            set(announcement.employees.values_list("pk", flat=True)),
+            {self.employee_one.pk, self.employee_two.pk},
+            msg="UNION — employee_one by department, employee_two by position",
+        )
+
+    def test_create_does_not_raise_without_the_employees_key(self):
+        """The view used to read `cleaned_data["employees"]` directly."""
+        with mock.patch(PUSH_TARGET, return_value={"status": "PUSH_SEND_SUCCESS"}):
+            self.submit()
+
+        self.assertIsNotNone(self.latest())
+
+    def test_update_does_not_raise_without_the_employees_key(self):
+        with mock.patch(PUSH_TARGET, return_value={"status": "PUSH_SEND_SUCCESS"}):
+            self.submit()
+        announcement = self.latest()
+
+        with mock.patch(PUSH_TARGET) as send:
+            self.submit(instance=announcement, title="Da sua tieu de")
+
+        announcement.refresh_from_db()
+        self.assertEqual(announcement.title, "Da sua tieu de")
+        send.assert_not_called()
+
+    def test_narrowing_an_existing_post_actually_narrows_it(self):
+        """`set`, not `add`: editing must be able to shrink the audience."""
+        with mock.patch(PUSH_TARGET, return_value={"status": "PUSH_SEND_SUCCESS"}):
+            self.submit()
+        announcement = self.latest()
+        self.assertFalse(announcement.employees.exists())
+
+        with mock.patch(PUSH_TARGET):
+            self.submit(instance=announcement, department=[self.department.pk])
+
+        self.assertEqual(
+            set(announcement.employees.values_list("pk", flat=True)),
+            {self.employee_one.pk},
+        )

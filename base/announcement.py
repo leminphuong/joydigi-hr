@@ -33,7 +33,10 @@ from notifications.signals import notify
 # `base.cbv.announcement_cbv.AnnouncementFormView`.
 def _announcement_recipients(form):
     """Tập nhân viên nhận bản tin, kể cả trường hợp gửi toàn công ty."""
-    employees = form.cleaned_data["employees"]
+    # `.get` va khong phai `[...]`: o chon tung nhan vien da bi bo khoi
+    # AnnouncementForm nen key nay khong con ton tai. Duong nay von da chet
+    # (xem `create_announcement`), nhung KeyError con te hon audience rong.
+    employees = form.cleaned_data.get("employees") or Employee.objects.none()
     departments = form.cleaned_data["department"]
     job_positions = form.cleaned_data["job_position"]
     companies = form.cleaned_data["company_id"]
@@ -178,7 +181,7 @@ def create_announcement(request):
             announcement.company_id.set(companies)
             recipients = _announcement_recipients(form)
             if (
-                form.cleaned_data["employees"].exists()
+                bool(form.cleaned_data.get("employees"))
                 or departments.exists()
                 or job_positions.exists()
             ):
@@ -253,7 +256,7 @@ def update_announcement(request, anoun_id):
             else:
                 anou.attachments.set(existing_attachments)
 
-            employees = form.cleaned_data["employees"]
+            employees = form.cleaned_data.get("employees") or Employee.objects.none()
             departments = form.cleaned_data["department"]
             job_positions = form.cleaned_data["job_position"]
             company = form.cleaned_data["company_id"]

@@ -1,0 +1,272 @@
+name: Push Diagnostic
+
+# Read-only. This workflow answers one question — "what does production
+# actually have?" — and changes nothing. It does not deploy, does not pull,
+# does not migrate, does not restart anything, does not touch .env or the
+# Firebase credential, and never writes a row. It exists because there is no
+# SSH access to production, so every push investigation so far has had to
+# choose between guessing and running the deploy workflow, which restarts
+# the service.
+#
+# Manual only. There is deliberately no `push`, `pull_request` or `schedule`
+# trigger: nothing here should ever run by itself.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A group of its own, and no cancellation. Sharing the deploy workflow's
+# `joydigi-hr-production` group would let a diagnostic cancel a deploy in
+# flight, or be cancelled by one halfway through reading.
+concurrency:
+  group: joydigi-hr-push-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    name: Read production push state
+    runs-on: ubuntu-latest
+
+    steps:
+      # Same connection as the deploy workflow, and only the connection:
+      # none of its install, deploy or restart steps are reused.
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # Written on the runner, not over ssh. The heredoc and the ssh call are
+      # kept in separate steps on purpose: a heredoc fed to an `ssh` that also
+      # has piped stdin is exactly the shape that once left the Firebase
+      # credential unwritten while the step still exited 0.
+      - name: Write diagnostic script
+        run: |
+          cat > push_state.py <<'PYTHON'
+          """Read production push state. Reads only — no writes, no sends.
+
+          Deliberately absent from this file: save, update, create,
+          delete, update_or_create, get_or_create, bulk_create,
+          bulk_update, send_to_user, and any scheduler job. Every query
+          below is a count, a timestamp or a length.
+
+          No registration token is ever printed. A token is the
+          credential that delivers to somebody's handset, and a build log
+          is a wider audience than that deserves; only its length is
+          reported, which is enough to tell "a real token is stored" from
+          "an empty string got in".
+          """
+          import os
+          import sys
+
+          PROJECT = "/var/www/joydigi-hr"
+          sys.path.insert(0, PROJECT)
+          os.environ.setdefault("DJANGO_SETTINGS_MODULE", "joydigi.settings")
+
+          # `attendance/scheduler.py` starts an APScheduler at import time
+          # when the mode is `embedded`, and it decides that by looking at
+          # sys.argv for a management command name. Run as `python -` there
+          # is no command name to find, so without this the diagnostic would
+          # start its own scheduler, register the reminder jobs and be able
+          # to send real notifications — the one thing it must never do.
+          # Process-local: the production .env is not read from here and not
+          # touched, and gunicorn keeps whatever mode it already had.
+          os.environ["ATTENDANCE_SCHEDULER_MODE"] = "disabled"
+
+          import django
+
+          django.setup()
+
+          from datetime import timedelta
+
+          from django.contrib.contenttypes.models import ContentType
+          from django.utils import timezone
+
+          from attendance.methods.end_of_day import CHECK_OUT_MARKER_KEY
+          from attendance.methods.reminders import CHECK_IN_MARKER_KEY
+          from attendance.models import Attendance
+          from base.models import Announcement
+          from employee.models import Employee
+          from joydigi_api.models import NotificationPreference, PushDeviceToken
+          from joydigi_api.push import is_configured
+          from notifications.models import Notification
+
+
+          def emit(key, value):
+              print("%s=%s" % (key, value))
+
+
+          now = timezone.now()
+
+          print("=== PUSH DIAGNOSTIC ===")
+          print()
+
+          emit("FIREBASE_CONFIGURED", is_configured())
+          print()
+
+          tokens = PushDeviceToken.objects.all()
+          emit("PUSH_TOKEN_TOTAL", tokens.count())
+          emit("PUSH_TOKEN_ACTIVE", tokens.filter(is_active=True).count())
+          emit("PUSH_TOKEN_IOS_TOTAL", tokens.filter(platform="ios").count())
+          emit(
+              "PUSH_TOKEN_IOS_ACTIVE",
+              tokens.filter(platform="ios", is_active=True).count(),
+          )
+          emit("PUSH_TOKEN_ANDROID_TOTAL", tokens.filter(platform="android").count())
+          emit(
+              "PUSH_TOKEN_ANDROID_ACTIVE",
+              tokens.filter(platform="android", is_active=True).count(),
+          )
+          print()
+
+          latest_ios = (
+              tokens.filter(platform="ios", is_active=True)
+              .order_by("-updated_at")
+              .first()
+          )
+          emit(
+              "LATEST_IOS_ACTIVE_UPDATED_AT",
+              latest_ios.updated_at.isoformat() if latest_ios else "NONE",
+          )
+          emit(
+              "LATEST_IOS_ACTIVE_TOKEN_LENGTH",
+              len(latest_ios.token) if latest_ios else "NONE",
+          )
+          print()
+
+          for label, days in (("24H", 1), ("7D", 7), ("30D", 30)):
+              emit(
+                  "IOS_ACTIVE_UPDATED_%s" % label,
+                  tokens.filter(
+                      platform="ios",
+                      is_active=True,
+                      updated_at__gte=now - timedelta(days=days),
+                  ).count(),
+              )
+          print()
+
+          preferences = NotificationPreference.objects.all()
+          emit("PREFERENCE_ROWS", preferences.count())
+          emit(
+              "PREFERENCE_ENABLED",
+              preferences.filter(all_notifications_enabled=True).count(),
+          )
+          emit(
+              "PREFERENCE_DISABLED",
+              preferences.filter(all_notifications_enabled=False).count(),
+          )
+          print()
+
+          # `entire()` skips the company manager's thread-local scoping, which
+          # has no request to read here and would otherwise answer for a
+          # company nobody selected.
+          news = Announcement.objects.entire().order_by("-created_at").first()
+          if news is None:
+              for key in (
+                  "LATEST_NEWS_ID",
+                  "LATEST_NEWS_CREATED_AT",
+                  "LATEST_NEWS_SEND_NOTIFICATION",
+                  "LATEST_NEWS_IS_ACTIVE",
+                  "LATEST_NEWS_TITLE",
+                  "LATEST_NEWS_NOTIFICATION_ROWS",
+                  "LATEST_NEWS_RECIPIENTS_WITH_ACTIVE_TOKEN",
+                  "LATEST_NEWS_RECIPIENTS_WITH_ACTIVE_IOS_TOKEN",
+              ):
+                  emit(key, "NONE")
+          else:
+              emit("LATEST_NEWS_ID", news.pk)
+              emit("LATEST_NEWS_CREATED_AT", news.created_at.isoformat())
+              emit("LATEST_NEWS_SEND_NOTIFICATION", news.send_notification)
+              emit("LATEST_NEWS_IS_ACTIVE", news.is_active)
+              # Title only. The description can be long and is not needed to
+              # tell which post this is.
+              emit("LATEST_NEWS_TITLE", news.title)
+              print()
+
+              # The same lookup `AnnouncementFormView` uses for its dedupe:
+              # the notifications this announcement wrote, found through its
+              # own action_object. The generic-FK id column is a CharField,
+              # so the pk has to be compared as text.
+              rows = Notification.objects.filter(
+                  action_object_content_type=ContentType.objects.get_for_model(
+                      Announcement, for_concrete_model=True
+                  ),
+                  action_object_object_id=str(news.pk),
+              )
+              recipient_ids = list(rows.values_list("recipient_id", flat=True))
+              emit("LATEST_NEWS_NOTIFICATION_ROWS", len(recipient_ids))
+              emit(
+                  "LATEST_NEWS_RECIPIENTS_WITH_ACTIVE_TOKEN",
+                  PushDeviceToken.objects.filter(
+                      user_id__in=recipient_ids, is_active=True
+                  )
+                  .values("user_id")
+                  .distinct()
+                  .count(),
+              )
+              emit(
+                  "LATEST_NEWS_RECIPIENTS_WITH_ACTIVE_IOS_TOKEN",
+                  PushDeviceToken.objects.filter(
+                      user_id__in=recipient_ids, is_active=True, platform="ios"
+                  )
+                  .values("user_id")
+                  .distinct()
+                  .count(),
+              )
+          print()
+
+          # Reminder notifications are classified by the marker their own
+          # senders store, not by matching Vietnamese text: `reminders.py`
+          # writes `checkin_reminder` against the Employee, `end_of_day.py`
+          # writes `checkout_reminder` against the Attendance.
+          #
+          # The marker is compared in Python and not with a `data__<key>`
+          # lookup, for the reason `reminders.sent_markers` documents at
+          # length: matching inside a JSON column behaves differently on
+          # SQLite and PostgreSQL, and this project has already lost
+          # production once to a query that passed on one and was rejected
+          # by the other. A diagnostic is not worth that risk.
+          since = now - timedelta(hours=24)
+
+
+          def marked_rows(model, marker_key):
+              rows = Notification.objects.filter(
+                  target_content_type=ContentType.objects.get_for_model(model),
+                  timestamp__gte=since,
+              ).values_list("data", flat=True)
+              return sum(1 for data in rows if (data or {}).get(marker_key))
+
+
+          emit("CHECKIN_NOTIFICATION_ROWS_24H", marked_rows(Employee, CHECK_IN_MARKER_KEY))
+          emit(
+              "CHECKOUT_NOTIFICATION_ROWS_24H",
+              marked_rows(Attendance, CHECK_OUT_MARKER_KEY),
+          )
+          print()
+          print("=== END ===")
+          PYTHON
+
+      # The script travels over ssh stdin, and the remote command is a single
+      # quoted argument — so nothing about it can end up in the server's
+      # process list, and there is no second heredoc to swallow the input.
+      - name: Read production push state
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -i ~/.ssh/id_ed25519 \
+            "$VPS_USER@$VPS_HOST" \
+            'cd /var/www/joydigi-hr && ./venv/bin/python -' \
+            < push_state.py

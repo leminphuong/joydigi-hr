@@ -28,6 +28,9 @@ from joydigi_auth.models import JoydigiUser
 from notifications.signals import notify
 
 
+# The two helpers below serve only the dead views in this module — see
+# `create_announcement`. The live path is
+# `base.cbv.announcement_cbv.AnnouncementFormView`.
 def _announcement_recipients(form):
     """Tập nhân viên nhận bản tin, kể cả trường hợp gửi toàn công ty."""
     employees = form.cleaned_data["employees"]
@@ -146,6 +149,17 @@ def announcement_list(request):
 def create_announcement(request):
     """
     Create a new announcement and notify relevant users.
+
+    DEAD CODE — no URL routes here. `base/urls.py` registers
+    `announcement_cbv.AnnouncementFormView` for both create and update
+    ("create-announcement/" and "update-announcement/<int:pk>/"); the
+    entries that pointed at this function are commented out.
+
+    Left in place rather than deleted because that is a separate decision,
+    but do not reach for it: it is NOT kept in step with the live view.
+    Phase NEWS-FEED-BACKEND-FIX changed audience handling, made the
+    notification create-only and added the FCM push in the CBV, and none of
+    that is here. Editing this function fixes nothing in production.
     """
     form = AnnouncementForm()
     if request.method == "POST":

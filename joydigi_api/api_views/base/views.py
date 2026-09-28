@@ -1386,15 +1386,13 @@ class CheckUserLevel(APIView):
         return Response({"error": _("No permission")}, status=400)
 
 
-from datetime import datetime, timedelta
-
 from bs4 import BeautifulSoup
 from django.db.models import Count, Q
+from django.utils import timezone
 
 from base.models import (
     Announcement,
     AnnouncementComment,
-    AnnouncementExpire,
     AnnouncementReaction,
 )
 
@@ -1628,23 +1626,27 @@ class AnnouncementListAPIView(APIView):
     pagination_class = AnnouncementPagination
 
     def get(self, request, *args, **kwargs):
-        # Default expire days
-        expire_days = (
-            AnnouncementExpire.objects.values_list("days", flat=True).first() or 30
-        )
-
-        # Update missing expire_date in bulk
-        announcements_to_update = Announcement.objects.filter(
-            expire_date__isnull=True
-        ).only("id", "created_at")
-        for ann in announcements_to_update:
-            ann.expire_date = ann.created_at + timedelta(days=expire_days)
-        if announcements_to_update:
-            Announcement.objects.bulk_update(announcements_to_update, ["expire_date"])
-
-        # Base queryset: non-expired announcements
+        # One visibility rule, in the same terms the web bulletin uses
+        # (`base.announcement.bulletin`), so the two surfaces cannot
+        # disagree about the same post:
+        #
+        #   active, and either open-ended or still inside its window.
+        #
+        # `expire_date IS NULL` means "does not expire" here, exactly as it
+        # does on the web. This endpoint used to backfill those nulls with
+        # `created_at + 30 days` before filtering, which both wrote to the
+        # database on a GET and destroyed that meaning — an open-ended post
+        # older than 30 days silently became expired and vanished from the
+        # phone while staying visible on the web.
+        #
+        # `timezone.localdate()` and not `datetime.today().date()`: the
+        # latter is the server's naive local date, so a post expiring today
+        # disappeared a day early or late depending on how the box was
+        # configured relative to Asia/Ho_Chi_Minh.
+        today = timezone.localdate()
         announcements = Announcement.objects.filter(
-            expire_date__gte=datetime.today().date()
+            Q(expire_date__gte=today) | Q(expire_date__isnull=True),
+            is_active=True,
         )
 
         # Phase UI-3B: explicit company scope (see helper docstring).
@@ -1653,7 +1655,12 @@ class AnnouncementListAPIView(APIView):
             announcements, employee
         )
 
-        # Permission filter (unchanged from before this phase)
+        # Audience. An empty `employees` set is the model's own contract
+        # for "everybody in the selected company" (see the field's
+        # help_text), so it stays visible to all; anything else has to
+        # name this employee. `employee` being None collapses both
+        # branches onto "no audience restriction", which together with the
+        # company scope above leaves only genuinely global posts.
         if not request.user.has_perm("base.view_announcement"):
             announcements = announcements.filter(
                 Q(employees=employee) | Q(employees__isnull=True)
@@ -1709,16 +1716,40 @@ class AnnouncementListAPIView(APIView):
     @staticmethod
     def _parse_description(description: str) -> list[dict]:
         """
-        Parse HTML description into structured text (headings + paragraphs).
+        Parse the description into the {type, text} blocks the app renders.
+
+        Block tags win whenever there are any, so a description written in
+        the rich-text editor keeps its headings and paragraphs.
+
+        The fallback below is the case this used to get wrong. A notice
+        typed as plain text has no block tags at all, `find_all` returned
+        nothing, and the endpoint answered with an empty list — so the post
+        arrived on the phone as a title with no body, which is exactly how
+        the seeded announcements looked. Empty blocks are dropped for the
+        same reason: `<p></p>` is not content.
         """
         soup = BeautifulSoup(description or "", "html.parser")
-        content = []
+        content = [
+            {
+                "type": "heading" if tag.name.startswith("h") else "paragraph",
+                "text": tag.get_text(" ", strip=True),
+            }
+            for tag in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p"])
+        ]
+        content = [block for block in content if block["text"]]
+        if content:
+            return content
 
-        for tag in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p"]):
-            tag_type = "heading" if tag.name.startswith("h") else "paragraph"
-            content.append({"type": tag_type, "text": tag.get_text(" ", strip=True)})
-
-        return content
+        # No block tags. Inline markup is joined with a space so it reads
+        # as one run of text; a plain string keeps its own line breaks, so
+        # a multi-line notice stays multi-line instead of collapsing.
+        separator = " " if soup.find() is not None else chr(10)
+        text = soup.get_text(separator, strip=True)
+        return [
+            {"type": "paragraph", "text": line.strip()}
+            for line in text.splitlines()
+            if line.strip()
+        ]
 
 
 class AnnouncementReactionView(APIView):

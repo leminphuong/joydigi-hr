@@ -1697,6 +1697,15 @@ class TimesheetMonthView(APIView):
         late_dates = {d for d, t in late_early_qs if t == "late_come"}
         early_dates = {d for d, t in late_early_qs if t == "early_out"}
 
+        # Phase FUTURE-ATTENDANCE-RULE-AND-PUSH-SOUND: reported exactly as
+        # stored. A previous phase re-checked each stored flag against the
+        # company clock rule before reporting it, which corrected days
+        # recorded under an older rule - but that is reconciling history,
+        # and history is to be left as it was recorded. What changed instead
+        # is the rule applied to new check-ins and check-outs
+        # (`attendance.views.clock_in_out`), so from now on a flag is only
+        # written when the employee's own shift says so.
+
         approved_leaves = LeaveRequest.objects.filter(
             employee_id=employee, status="approved", start_date__lte=month_end
         ).filter(Q(end_date__gte=month_start) | Q(end_date__isnull=True))
@@ -1750,8 +1759,11 @@ class TimesheetMonthView(APIView):
         summary = {
             "presentDays": present_days,
             "leaveDays": len(leave_dates),
-            "lateCount": len(late_dates),
-            "earlyCount": len(early_dates),
+            # Counted from the days that were actually reported, not from the
+            # raw rows: a summary that disagrees with the calendar under it is
+            # the same inconsistency in a different place.
+            "lateCount": sum(1 for day in days if day["isLate"]),
+            "earlyCount": sum(1 for day in days if day["isEarly"]),
             "workedSeconds": worked_seconds_total,
             "overtimeSeconds": overtime_seconds_total,
         }

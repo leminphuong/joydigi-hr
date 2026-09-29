@@ -219,6 +219,17 @@ def send_to_user(user, title, body, data=None):
             # Strings only: FCM rejects a data payload with other types,
             # and a rejected payload would lose the whole notification.
             data={key: str(value) for key, value in (data or {}).items()},
+            # Phase ATTENDANCE-LATE-EARLY-LOGIC-AND-PUSH-SOUND-AUDIT: iOS
+            # plays a sound only when the APNs payload asks for one, and FCM
+            # does not add `aps.sound` by itself. Without this every push
+            # arrived on an iPhone as a silent banner even with Sound allowed
+            # in Settings - which is exactly what was reported. "default" is
+            # the system sound: no custom audio is shipped, and none is
+            # needed. Android is deliberately left alone; it already sounds,
+            # from the high-importance channel the app creates.
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(aps=messaging.Aps(sound="default")),
+            ),
         )
         try:
             messaging.send(message, app=app)

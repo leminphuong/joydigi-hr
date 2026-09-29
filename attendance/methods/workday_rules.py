@@ -1,14 +1,20 @@
 """
 workday_rules.py
 
-The three clock-time rules the company applies to an ordinary working day.
+The clock-time rules that are genuinely company-wide, and the check-out
+guard.
 
-Phase ATTENDANCE-WORKDAY-RULES-SAFE-IMPLEMENT-1. These are absolute times,
-not offsets from whatever a shift row happens to say: arriving by 08:30 is
-on time, leaving from 16:30 is a full departure, and a day that ends before
-noon is worth half a day. The official shift remains 08:00-17:00 — the
-allowances are the rule, and the shift data is deliberately left alone
-rather than edited to fake them.
+Phase ATTENDANCE-WORKDAY-RULES-SAFE-IMPLEMENT-1 also put lateness and early
+departure here, as absolute times (08:31 and 16:30). Phase
+FUTURE-ATTENDANCE-RULE-AND-PUSH-SOUND took them back out: those two are
+properties of an employee's own shift, not of the company clock - a shift
+starting at 13:00 cannot be judged by a morning boundary - so they are
+decided in `attendance.views.clock_in_out` against `start_time`/`end_time`
+plus whatever grace is configured. Nothing here encodes them any more, so
+there is no second, competing answer to accidentally reuse.
+
+What remains is company-wide by nature: a day ending before noon is worth
+half a day, and nobody may check out within half an hour of checking in.
 
 Pure functions on purpose: no database, no manager, no request, no lock.
 They can be reasoned about and tested directly, which is what the check-out
@@ -18,12 +24,6 @@ path needs after a row-locking attempt took production down.
 from datetime import datetime, time, timedelta
 
 from django.utils import timezone
-
-#: Arrivals up to and including 08:30:59 are on time; 08:31:00 is late.
-LATE_FROM = time(8, 31)
-
-#: Departures from 16:30:00 onwards are not early; 16:29:59 is.
-EARLY_OUT_BEFORE = time(16, 30)
 
 #: A day whose check-out falls before noon is worth half a day.
 HALF_DAY_BEFORE = time(12, 0)
@@ -60,32 +60,6 @@ def _as_time(value):
             except ValueError:
                 continue
     return None
-
-
-def is_late(check_in):
-    """
-    Whether an arrival counts as late.
-
-    On time through 08:30:59 — the whole of the 08:30 minute is still
-    within the allowance — and late from 08:31:00.
-    """
-    moment = _as_time(check_in)
-    if moment is None:
-        return False
-    return moment >= LATE_FROM
-
-
-def is_early_out(check_out):
-    """
-    Whether a departure counts as leaving early.
-
-    Early before 16:30:00; from 16:30:00 onwards it is not, even though the
-    shift officially ends at 17:00.
-    """
-    moment = _as_time(check_out)
-    if moment is None:
-        return False
-    return moment < EARLY_OUT_BEFORE
 
 
 def is_half_day(check_out):

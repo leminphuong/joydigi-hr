@@ -46,11 +46,7 @@ from attendance.methods.utils import (
     shift_schedule_today,
     strtime_seconds,
 )
-from attendance.methods.workday_rules import (
-    can_check_out_yet,
-    is_early_out,
-    is_late,
-)
+from attendance.methods.workday_rules import can_check_out_yet
 from attendance.methods.worktime import activities_worked_seconds
 from attendance.models import (
     Attendance,
@@ -751,13 +747,14 @@ def late_come(attendance, start_time, end_time, shift):
         elif now_sec > start_time:
             # Here  attendance or attendance activity for previous day night shift
             late_come_create(attendance)
-    # Phase ATTENDANCE-WORKDAY-RULES-SAFE-IMPLEMENT-1: on an ordinary day
-    # shift, lateness is a fixed clock time — on time through 08:30:59, late
-    # from 08:31:00 — rather than the shift's start plus whatever grace
-    # happens to be configured. The official start stays 08:00; the
-    # allowance is the rule. Night shifts keep the branch above, which reads
-    # the schedule, because a fixed morning boundary means nothing to them.
-    elif is_late(attendance.attendance_clock_in):
+    # Phase FUTURE-ATTENDANCE-RULE-AND-PUSH-SOUND: lateness is measured
+    # against the employee's own shift again, not a company-wide clock time.
+    # `now_sec` is the check-in with the allowance already taken off it
+    # above, so this reads as: late only when the arrival is later than the
+    # shift's start plus whatever grace applies. Arriving before the start,
+    # or exactly on it, is never late — and a shift that begins at 06:00 or
+    # 13:00 is judged by its own start rather than somebody else's morning.
+    elif now_sec > start_time:
         late_come_create(attendance)
     return True
 
@@ -1222,11 +1219,12 @@ def early_out(attendance, start_time, end_time, shift):
         else:
             early_out_create(attendance)
         return
-    # Phase ATTENDANCE-WORKDAY-RULES-SAFE-IMPLEMENT-1: on an ordinary day
-    # shift, leaving early is a fixed clock time — early before 16:30:00,
-    # not early from 16:30:00 — rather than "before the shift's end_time".
-    # The official end stays 17:00. Night shifts keep the branch above.
-    if is_early_out(clock_out_time):
+    # Phase FUTURE-ATTENDANCE-RULE-AND-PUSH-SOUND: the counterpart of the
+    # rule in `late_come`. `now_sec` already has any clock-out allowance
+    # added to it above, so this reads as: early only when the departure is
+    # earlier than the shift's end less that allowance. Leaving exactly at
+    # the end, or after it, is never early.
+    if now_sec < end_time:
         early_out_create(attendance)
     return
 

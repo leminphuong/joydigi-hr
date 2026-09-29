@@ -260,6 +260,22 @@ urlpatterns = [
         views.AnnouncementListAPIView.as_view(),
         name="announcement-view",
     ),
+    # Phase NEWS-DETAIL-API-AND-PUSH-ROUTING-HARDENING: one bulletin by id,
+    # so a NEWS push can open its post however far down the list it sits.
+    # Registered both with and without the trailing slash - every sibling
+    # route in this file has none, while the endpoint is written with one in
+    # the brief, and an APPEND_SLASH redirect on an authenticated GET is not
+    # worth the ambiguity.
+    path(
+        "announcement/<int:announcement_id>",
+        views.AnnouncementDetailAPIView.as_view(),
+        name="api-announcement-detail",
+    ),
+    path(
+        "announcement/<int:announcement_id>/",
+        views.AnnouncementDetailAPIView.as_view(),
+        name="api-announcement-detail-slash",
+    ),
     path(
         "announcement/<int:announcement_id>/reaction",
         views.AnnouncementReactionView.as_view(),

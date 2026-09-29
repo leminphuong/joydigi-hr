@@ -1,19 +1,22 @@
 """
-Phase ATTENDANCE-WORKDAY-RULES-SAFE-IMPLEMENT-1.
+Phase ATTENDANCE-WORKDAY-RULES-SAFE-IMPLEMENT-1, revised by Phase
+FUTURE-ATTENDANCE-RULE-AND-PUSH-SOUND.
 
-Three clock-time rules for an ordinary working day:
+What is left here is the half-day rule and the check-out guard, which are
+company-wide by nature, plus the end-to-end behaviour of the check-in and
+check-out paths.
 
-* arriving through 08:30:59 is on time, 08:31:00 is late;
-* leaving before 16:30 is early, 16:30 onwards is not;
-* a day that ends before noon is worth half a day.
+Lateness and early departure are no longer clock times: they are measured
+against the employee's own shift plus whatever grace is configured (see
+`attendance/tests/test_shift_relative_late_early.py`). The expectations in
+`WorkdayRulesThroughCheckOutTests` were rewritten to follow that rule rather
+than the fixed 08:31/16:30 boundaries they used to assert - the rule
+changed by instruction, so the tests state the new one instead of pinning
+the old one.
 
-The official shift is still 08:00-17:00. The allowances are the rule, and
-the shift rows are deliberately left alone rather than edited to fake them.
-
-The boundaries are asserted to the second, because a rule written as "08:30"
-can mean either 08:30:00 or the whole 08:30 minute, and a payroll dispute
-turns on which. Every assertion below fixes the intended reading: the whole
-minute is still on time.
+This class's fixture is a 08:00-17:00 shift with a `CheckInPolicy` of ten
+minutes, so the arrival boundary here is 08:10 and, with no clock-out grace
+configured, the departure boundary is 17:00 exactly.
 """
 
 from datetime import date, datetime, time, timedelta
@@ -24,12 +27,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from attendance.methods.utils import Request
-from attendance.methods.workday_rules import (
-    day_credit,
-    is_early_out,
-    is_half_day,
-    is_late,
-)
+from attendance.methods.workday_rules import day_credit, is_half_day
 from attendance.models import Attendance, AttendanceActivity, AttendanceLateComeEarlyOut
 from attendance.period import attendance_day_value, build_period_context
 from attendance.views.clock_in_out import perform_clock_in, perform_clock_out
@@ -46,78 +44,6 @@ from base.models import (
 from employee.models import Employee, EmployeeWorkInformation
 
 HOUR = 3600
-
-
-class LateRuleTests(TestCase):
-    """08:00-08:30 inclusive is on time; 08:31 onwards is late."""
-
-    def test_arriving_before_the_official_start_is_on_time(self):
-        self.assertFalse(is_late(time(7, 59)))
-
-    def test_arriving_exactly_at_the_official_start_is_on_time(self):
-        self.assertFalse(is_late(time(8, 0)))
-
-    def test_arriving_within_the_allowance_is_on_time(self):
-        self.assertFalse(is_late(time(8, 10)))
-        self.assertFalse(is_late(time(8, 29)))
-
-    def test_the_whole_of_the_half_past_minute_is_still_on_time(self):
-        self.assertFalse(is_late(time(8, 30)))
-        self.assertFalse(is_late(time(8, 30, 59)))
-
-    def test_the_next_minute_is_late(self):
-        self.assertTrue(is_late(time(8, 31)))
-        self.assertTrue(is_late(time(8, 31, 0)))
-
-    def test_arriving_well_after_the_allowance_is_late(self):
-        self.assertTrue(is_late(time(9, 0)))
-        self.assertTrue(is_late(time(14, 0)))
-
-    def test_a_datetime_is_accepted_as_well_as_a_time(self):
-        self.assertFalse(is_late(datetime(2026, 9, 9, 8, 30, 59)))
-        self.assertTrue(is_late(datetime(2026, 9, 9, 8, 31)))
-
-    def test_an_aware_datetime_is_read_in_its_own_local_time(self):
-        aware = timezone.make_aware(datetime(2026, 9, 9, 8, 31))
-        self.assertTrue(is_late(aware))
-        aware_ok = timezone.make_aware(datetime(2026, 9, 9, 8, 30))
-        self.assertFalse(is_late(aware_ok))
-
-    def test_a_string_is_accepted(self):
-        self.assertFalse(is_late("08:30:00"))
-        self.assertTrue(is_late("08:31:00"))
-
-    def test_a_missing_or_unreadable_time_is_not_treated_as_late(self):
-        # Absence of evidence is not evidence of lateness.
-        self.assertFalse(is_late(None))
-        self.assertFalse(is_late("not a time"))
-        self.assertFalse(is_late(12345))
-
-
-class EarlyOutRuleTests(TestCase):
-    """Leaving before 16:30 is early; 16:30 onwards is not."""
-
-    def test_leaving_well_before_the_allowance_is_early(self):
-        self.assertTrue(is_early_out(time(16, 0)))
-        self.assertTrue(is_early_out(time(12, 0)))
-
-    def test_the_last_second_before_half_past_four_is_early(self):
-        self.assertTrue(is_early_out(time(16, 29)))
-        self.assertTrue(is_early_out(time(16, 29, 59)))
-
-    def test_half_past_four_exactly_is_not_early(self):
-        self.assertFalse(is_early_out(time(16, 30)))
-        self.assertFalse(is_early_out(time(16, 30, 0)))
-
-    def test_leaving_between_the_allowance_and_the_official_end_is_not_early(self):
-        self.assertFalse(is_early_out(time(16, 59)))
-
-    def test_leaving_at_or_after_the_official_end_is_not_early(self):
-        self.assertFalse(is_early_out(time(17, 0)))
-        self.assertFalse(is_early_out(time(17, 30)))
-
-    def test_a_missing_time_is_not_treated_as_early(self):
-        self.assertFalse(is_early_out(None))
 
 
 class HalfDayRuleTests(TestCase):
@@ -285,23 +211,21 @@ class WorkdayRulesThroughCheckOutTests(TestCase):
 
     # ---------- late ----------
 
-    def test_arriving_at_half_past_eight_records_no_lateness(self):
-        row = self.check_in(self.at(8, 30))
+    def test_arriving_at_the_end_of_the_grace_records_no_lateness(self):
+        # Shift starts 08:00, CheckInPolicy allows ten minutes.
+        row = self.check_in(self.at(8, 10))
         self.check_out(self.at(17, 0))
         self.assertNotIn("late_come", self.flags(row))
 
-    def test_arriving_a_minute_later_records_lateness(self):
-        row = self.check_in(self.at(8, 31))
+    def test_arriving_past_the_grace_records_lateness(self):
+        row = self.check_in(self.at(8, 11))
         self.check_out(self.at(17, 0))
         self.assertIn("late_come", self.flags(row))
 
-    def test_arriving_at_the_last_second_of_the_allowance_records_no_lateness(self):
-        row = self.check_in(self.at(8, 30, 59))
-        self.check_out(self.at(17, 0))
-        self.assertNotIn("late_come", self.flags(row))
-
-    def test_arriving_at_the_first_second_of_the_next_minute_records_lateness(self):
-        row = self.check_in(self.at(8, 31, 0))
+    def test_arriving_half_an_hour_late_records_lateness(self):
+        # 08:30 used to be inside a company-wide allowance. Against this
+        # employee's own shift it is twenty minutes past the grace.
+        row = self.check_in(self.at(8, 30))
         self.check_out(self.at(17, 0))
         self.assertIn("late_come", self.flags(row))
 
@@ -310,36 +234,33 @@ class WorkdayRulesThroughCheckOutTests(TestCase):
         self.check_out(self.at(17, 0))
         self.assertNotIn("late_come", self.flags(row))
 
+    def test_arriving_before_the_shift_starts_records_no_lateness(self):
+        row = self.check_in(self.at(7, 50))
+        self.check_out(self.at(17, 4))
+        self.assertNotIn("late_come", self.flags(row))
+
     # ---------- early out ----------
 
-    def test_leaving_before_half_past_four_records_an_early_out(self):
+    def test_leaving_well_before_the_shift_ends_records_an_early_out(self):
         row = self.check_in(self.at(8, 0))
         self.check_out(self.at(16, 29))
         self.assertIn("early_out", self.flags(row))
 
-    def test_leaving_a_second_before_half_past_four_records_an_early_out(self):
-        row = self.check_in(self.at(8, 0))
-        self.check_out(self.at(16, 29, 59))
-        self.assertIn("early_out", self.flags(row))
-
-    def test_leaving_at_half_past_four_exactly_records_no_early_out(self):
-        row = self.check_in(self.at(8, 0))
-        self.check_out(self.at(16, 30, 0))
-        self.assertNotIn("early_out", self.flags(row))
-
-    def test_leaving_at_half_past_four_records_no_early_out(self):
-        row = self.check_in(self.at(8, 0))
-        self.check_out(self.at(16, 30))
-        self.assertNotIn("early_out", self.flags(row))
-
-    def test_leaving_before_the_official_end_but_after_the_allowance_is_fine(self):
+    def test_leaving_a_minute_before_the_shift_ends_records_an_early_out(self):
+        # No clock-out grace is configured for this shift, so the boundary
+        # is the shift's own end and nothing earlier counts as a full day.
         row = self.check_in(self.at(8, 0))
         self.check_out(self.at(16, 59))
-        self.assertNotIn("early_out", self.flags(row))
+        self.assertIn("early_out", self.flags(row))
 
-    def test_leaving_at_the_official_end_records_no_early_out(self):
+    def test_leaving_at_the_shift_end_records_no_early_out(self):
         row = self.check_in(self.at(8, 0))
         self.check_out(self.at(17, 0))
+        self.assertNotIn("early_out", self.flags(row))
+
+    def test_leaving_after_the_shift_ends_records_no_early_out(self):
+        row = self.check_in(self.at(8, 0))
+        self.check_out(self.at(17, 4))
         self.assertNotIn("early_out", self.flags(row))
 
     # ---------- half day + worked hours ----------

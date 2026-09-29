@@ -751,7 +751,19 @@ class ApprovedOvertimeReminderTests(EndOfDayBaseTests):
 
 
 class ExistingRulesUnchangedTests(EndOfDayBaseTests):
-    """The rules this phase must not disturb."""
+    """
+    The rules the end-of-day phase must not disturb.
+
+    Two of them have since moved, by instruction: Phase
+    FUTURE-ATTENDANCE-RULE-AND-PUSH-SOUND measures lateness and early
+    departure against the employee's own shift plus its grace, instead of the
+    company-wide 08:31/16:30 clock times these used to assert. This fixture
+    is a 08:00-17:00 shift with a ten-minute `CheckInPolicy` and no clock-out
+    grace, so its boundaries are 08:10 and 17:00 - and the assertions below
+    are written from those rather than from constants.
+
+    The thirty-minute rule and the lunch exclusion are genuinely untouched.
+    """
 
     def flags(self, row):
         return set(
@@ -767,22 +779,33 @@ class ExistingRulesUnchangedTests(EndOfDayBaseTests):
         _a, allowed, _r = self.check_out(self.at(8, 30, 0))
         self.assertTrue(allowed)
 
-    def test_lateness_boundaries_are_unchanged(self):
-        row = self.check_in(self.at(8, 30, 59))
+    def test_arriving_inside_the_shifts_grace_is_not_late(self):
+        row = self.check_in(self.at(8, 10))
         self.assertNotIn("late_come", self.flags(row))
 
-    def test_the_next_minute_is_still_late(self):
+    def test_arriving_past_the_shifts_grace_is_late(self):
+        row = self.check_in(self.at(8, 11))
+        self.assertIn("late_come", self.flags(row))
+
+    def test_arriving_well_after_the_shift_starts_is_still_late(self):
         row = self.check_in(self.at(8, 31, 0))
         self.assertIn("late_come", self.flags(row))
 
-    def test_early_out_boundaries_are_unchanged(self):
+    def test_leaving_well_before_the_shift_ends_is_still_early(self):
         row = self.check_in(self.at(8, 0))
         self.check_out(self.at(16, 29, 59))
         self.assertIn("early_out", self.flags(row))
 
-    def test_leaving_at_half_past_four_is_still_not_early(self):
+    def test_leaving_half_an_hour_before_the_shift_ends_is_early(self):
+        # 16:30 was the old company-wide "not early" line. Against this
+        # shift, which runs to 17:00 with no clock-out grace, it is early.
         row = self.check_in(self.at(8, 0))
         self.check_out(self.at(16, 30))
+        self.assertIn("early_out", self.flags(row))
+
+    def test_leaving_at_the_shift_end_is_not_early(self):
+        row = self.check_in(self.at(8, 0))
+        self.check_out(self.at(17, 0))
         self.assertNotIn("early_out", self.flags(row))
 
     def test_the_lunch_hour_is_still_excluded(self):

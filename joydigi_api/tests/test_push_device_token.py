@@ -162,6 +162,19 @@ class PushSenderTests(TestCase):
             user=self.user, token=value, platform="android", is_active=active
         )
 
+    @staticmethod
+    def _recording_message(**kwargs):
+        """A stand-in `messaging.Message` that keeps its own arguments.
+
+        A plain `mock.Mock(**kwargs)` answers *any* attribute with a fresh
+        child mock, so it can say what was passed but never what was left
+        out — and "no Android override was added" is exactly the kind of
+        claim this phase needs to make honestly.
+        """
+        message = mock.Mock(**kwargs)
+        message.sent_kwargs = kwargs
+        return message
+
     def fake_firebase(self, send=None):
         """
         Stand in for the `firebase_admin` package.
@@ -173,8 +186,15 @@ class PushSenderTests(TestCase):
         """
         messaging = types.SimpleNamespace(
             send=mock.Mock(side_effect=send) if send else mock.Mock(),
-            Message=lambda **kwargs: mock.Mock(**kwargs),
+            Message=self._recording_message,
             Notification=lambda **kwargs: mock.Mock(**kwargs),
+            # Phase ATTENDANCE-LATE-EARLY-LOGIC-AND-PUSH-SOUND-AUDIT: the
+            # sender now asks APNs for a sound, so the stand-in has to model
+            # those three classes or it would raise AttributeError where the
+            # real SDK works.
+            APNSConfig=lambda **kwargs: mock.Mock(**kwargs),
+            APNSPayload=lambda **kwargs: mock.Mock(**kwargs),
+            Aps=lambda **kwargs: mock.Mock(**kwargs),
         )
         package = types.ModuleType("firebase_admin")
         package.messaging = messaging
@@ -223,6 +243,81 @@ class PushSenderTests(TestCase):
         self.assertEqual(messaging.send.call_count, 2)
         sent_to = {call.args[0].token for call in messaging.send.call_args_list}
         self.assertEqual(sent_to, {"phone", "tablet"})
+
+    def test_every_push_asks_ios_for_a_sound(self):
+        """
+        Phase ATTENDANCE-LATE-EARLY-LOGIC-AND-PUSH-SOUND-AUDIT.
+
+        iOS plays nothing unless the APNs payload carries `aps.sound`, and
+        FCM does not add one by itself. Before this, every reminder and
+        bulletin arrived on an iPhone as a silent banner even with Sound
+        allowed in Settings.
+        """
+        self.token("phone")
+        messaging, patched = self.fake_firebase()
+
+        with mock.patch.object(push_module, "_load_app", return_value=object()):
+            with patched:
+                push_module.send_to_user(self.user, "Title", "Body")
+
+        message = messaging.send.call_args.args[0]
+        self.assertEqual(message.apns.payload.aps.sound, "default")
+
+    def test_all_three_kinds_of_push_are_audible(self):
+        """NEWS, check-in and check-out share this one sender, so one payload
+        rule covers all three. These data payloads are the ones production
+        really sends."""
+        self.token("phone")
+        payloads = [
+            {"type": "NEWS", "post_id": "12"},
+            {"type": "checkin_reminder", "stage": "before_start"},
+            {"type": "checkout_reminder", "stage": "after_end"},
+        ]
+
+        for data in payloads:
+            messaging, patched = self.fake_firebase()
+            with mock.patch.object(push_module, "_load_app", return_value=object()):
+                with patched:
+                    push_module.send_to_user(self.user, "T", "B", data=data)
+
+            message = messaging.send.call_args.args[0]
+            self.assertEqual(
+                message.apns.payload.aps.sound,
+                "default",
+                msg="%s must be audible too" % data["type"],
+            )
+            self.assertEqual(
+                message.data, data, msg="and its payload is untouched"
+            )
+
+    def test_the_system_sound_is_used_and_no_audio_file_is_named(self):
+        """The project ships no sound asset, so naming one would silence the
+        notification rather than change its tone."""
+        self.token("phone")
+        messaging, patched = self.fake_firebase()
+
+        with mock.patch.object(push_module, "_load_app", return_value=object()):
+            with patched:
+                push_module.send_to_user(self.user, "Title", "Body")
+
+        sound = messaging.send.call_args.args[0].apns.payload.aps.sound
+        self.assertEqual(sound, "default")
+        self.assertFalse(str(sound).endswith((".caf", ".wav", ".aiff")))
+
+    def test_android_keeps_its_own_channel_and_is_not_overridden(self):
+        """Android already sounds, from the high-importance channel the app
+        creates for itself. An `android` block here would be a second place
+        deciding how an Android notification behaves."""
+        self.token("phone")
+        messaging, patched = self.fake_firebase()
+
+        with mock.patch.object(push_module, "_load_app", return_value=object()):
+            with patched:
+                push_module.send_to_user(self.user, "Title", "Body")
+
+        message = messaging.send.call_args.args[0]
+        self.assertNotIn("android", message.sent_kwargs)
+        self.assertIn("apns", message.sent_kwargs)
 
     def test_one_dead_token_does_not_stop_the_others(self):
         self.token("good-1")

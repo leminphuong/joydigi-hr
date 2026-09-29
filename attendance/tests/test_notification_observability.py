@@ -53,6 +53,12 @@ def fake_firebase(send=None):
         send=mock.Mock(side_effect=send) if send else mock.Mock(),
         Message=lambda **kwargs: mock.Mock(**kwargs),
         Notification=lambda **kwargs: mock.Mock(**kwargs),
+        # Phase ATTENDANCE-LATE-EARLY-LOGIC-AND-PUSH-SOUND-AUDIT: the sender
+        # now asks APNs for a sound, so the stand-in models those three
+        # classes too or it raises AttributeError where the real SDK works.
+        APNSConfig=lambda **kwargs: mock.Mock(**kwargs),
+        APNSPayload=lambda **kwargs: mock.Mock(**kwargs),
+        Aps=lambda **kwargs: mock.Mock(**kwargs),
     )
     package = types.ModuleType("firebase_admin")
     package.messaging = messaging

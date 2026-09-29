@@ -1461,6 +1461,51 @@ def _visible_announcement_for_action(request, announcement_id):
     return _visible_announcements_for(request).filter(pk=announcement_id).first()
 
 
+def _feed_visible_announcements(request):
+    """
+    The one rule for "which announcements may this request see", shared by
+    the list endpoint and the detail endpoint so the two can never disagree
+    about the same post.
+
+    Active, and either open-ended or still inside its window, scoped to the
+    employee's own company, and - for an employee without the blanket
+    `view_announcement` permission - either addressed to nobody in
+    particular or addressed to them.
+
+    `employees` is the audience snapshot the create/update form writes from
+    the chosen employees, departments and job positions (see
+    `base.cbv.announcement_cbv.AnnouncementFormView.form_valid`), so
+    filtering on it is also what enforces department and job-position
+    targeting; an empty set is the model's own contract for "everybody in
+    the selected company" (`Announcement.employees.help_text`).
+
+    `expire_date IS NULL` means "does not expire", exactly as it does on the
+    web bulletin (`base.announcement.bulletin`). `timezone.localdate()` and
+    not `datetime.today().date()`: the latter is the server's naive local
+    date, so a post expiring today vanished a day early or late depending on
+    how the box was configured relative to Asia/Ho_Chi_Minh.
+
+    Phase NEWS-DETAIL-API-AND-PUSH-ROUTING-HARDENING extracted this from
+    `AnnouncementListAPIView.get` unchanged. It is deliberately not
+    `_visible_announcements_for` (used by the reaction/comment endpoints),
+    which does not apply the expire window - folding the two together would
+    change who may comment on an expired post, which is not this phase's
+    business.
+    """
+    today = timezone.localdate()
+    employee = getattr(request.user, "employee_get", None)
+    announcements = Announcement.objects.filter(
+        Q(expire_date__gte=today) | Q(expire_date__isnull=True),
+        is_active=True,
+    )
+    announcements = _scope_announcements_to_employee_company(announcements, employee)
+    if not request.user.has_perm("base.view_announcement"):
+        announcements = announcements.filter(
+            Q(employees=employee) | Q(employees__isnull=True)
+        )
+    return announcements
+
+
 def _author_payload(announcement):
     """
     Phase UI-3B: best authoritative existing data for "who posted
@@ -1593,6 +1638,88 @@ def _comment_payload(comment, user):
     }
 
 
+def _parse_announcement_description(description: str) -> list[dict]:
+    """
+    Parse the description into the {type, text} blocks the app renders.
+
+    Block tags win whenever there are any, so a description written in
+    the rich-text editor keeps its headings and paragraphs.
+
+    The fallback below is the case this used to get wrong. A notice
+    typed as plain text has no block tags at all, `find_all` returned
+    nothing, and the endpoint answered with an empty list - so the post
+    arrived on the phone as a title with no body, which is exactly how
+    the seeded announcements looked. Empty blocks are dropped for the
+    same reason: `<p></p>` is not content.
+    """
+    soup = BeautifulSoup(description or "", "html.parser")
+    content = [
+        {
+            "type": "heading" if tag.name.startswith("h") else "paragraph",
+            "text": tag.get_text(" ", strip=True),
+        }
+        for tag in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p"])
+    ]
+    content = [block for block in content if block["text"]]
+    if content:
+        return content
+
+    # No block tags. Inline markup is joined with a space so it reads
+    # as one run of text; a plain string keeps its own line breaks, so
+    # a multi-line notice stays multi-line instead of collapsing.
+    separator = " " if soup.find() is not None else chr(10)
+    text = soup.get_text(separator, strip=True)
+    return [
+        {"type": "paragraph", "text": line.strip()}
+        for line in text.splitlines()
+        if line.strip()
+    ]
+
+
+def _announcement_payloads(announcements, request, employee):
+    """
+    The one place an announcement becomes the JSON the app parses.
+
+    Phase NEWS-DETAIL-API-AND-PUSH-ROUTING-HARDENING: shared by the list and
+    the detail endpoint, so one client-side DTO keeps working for both
+    (`tryParseFeedPost` in the app). A detail response with its own shape
+    would mean a second parser, and a second parser is a second thing to
+    drift out of step with this one.
+
+    The bulk lookups run once for whatever is handed in, so the list still
+    costs a fixed number of queries per page rather than per row, and the
+    detail pays the same for its single row.
+    """
+    items = list(announcements)
+    ids = [ann.id for ann in items]
+    comment_counts = _bulk_comment_counts(ids)
+    reaction_counts, reaction_summaries, my_reactions = _bulk_reaction_data(
+        ids, employee
+    )
+    return [
+        {
+            "id": ann.id,
+            "title": ann.title,
+            "content": _parse_announcement_description(ann.description),
+            "created_at": ann.created_at,
+            "expire_date": ann.expire_date,
+            "has_viewed": ann.announcementview_set.filter(
+                user=request.user, viewed=True
+            ).exists(),
+            "is_pinned": ann.is_pinned,
+            "author": _author_payload(ann),
+            "attachments": [
+                _attachment_payload(a, request) for a in ann.attachments.all()
+            ],
+            "comment_count": comment_counts.get(ann.id, 0),
+            "reaction_count": reaction_counts.get(ann.id, 0),
+            "my_reaction": my_reactions.get(ann.id),
+            "reaction_summary": reaction_summaries.get(ann.id, {}),
+        }
+        for ann in items
+    ]
+
+
 class AnnouncementPagination(PageNumberPagination):
     page_size_query_param = "page_size"  # allow client to override
     max_page_size = 100  # prevent abuse
@@ -1626,49 +1753,13 @@ class AnnouncementListAPIView(APIView):
     pagination_class = AnnouncementPagination
 
     def get(self, request, *args, **kwargs):
-        # One visibility rule, in the same terms the web bulletin uses
-        # (`base.announcement.bulletin`), so the two surfaces cannot
-        # disagree about the same post:
-        #
-        #   active, and either open-ended or still inside its window.
-        #
-        # `expire_date IS NULL` means "does not expire" here, exactly as it
-        # does on the web. This endpoint used to backfill those nulls with
-        # `created_at + 30 days` before filtering, which both wrote to the
-        # database on a GET and destroyed that meaning — an open-ended post
-        # older than 30 days silently became expired and vanished from the
-        # phone while staying visible on the web.
-        #
-        # `timezone.localdate()` and not `datetime.today().date()`: the
-        # latter is the server's naive local date, so a post expiring today
-        # disappeared a day early or late depending on how the box was
-        # configured relative to Asia/Ho_Chi_Minh.
-        today = timezone.localdate()
-        announcements = Announcement.objects.filter(
-            Q(expire_date__gte=today) | Q(expire_date__isnull=True),
-            is_active=True,
-        )
-
-        # Phase UI-3B: explicit company scope (see helper docstring).
+        # One visibility rule for the list and the detail endpoint alike,
+        # in the same terms the web bulletin uses — see
+        # `_feed_visible_announcements`, which this used to spell inline.
         employee = getattr(request.user, "employee_get", None)
-        announcements = _scope_announcements_to_employee_company(
-            announcements, employee
-        )
-
-        # Audience. An empty `employees` set is the model's own contract
-        # for "everybody in the selected company" (see the field's
-        # help_text), so it stays visible to all; anything else has to
-        # name this employee. `employee` being None collapses both
-        # branches onto "no audience restriction", which together with the
-        # company scope above leaves only genuinely global posts.
-        if not request.user.has_perm("base.view_announcement"):
-            announcements = announcements.filter(
-                Q(employees=employee) | Q(employees__isnull=True)
-            )
-
-        # Prefetch/select related for efficiency
         announcements = (
-            announcements.prefetch_related("announcementview_set", "attachments")
+            _feed_visible_announcements(request)
+            .prefetch_related("announcementview_set", "attachments")
             .select_related(
                 "created_by__employee_get__employee_work_info__department_id",
                 "created_by__employee_get__employee_work_info__company_id",
@@ -1678,78 +1769,63 @@ class AnnouncementListAPIView(APIView):
         )
 
         # Paginate the queryset itself (not a pre-built list) so the
-        # bulk comment/reaction lookups below only ever touch one page.
+        # bulk comment/reaction lookups only ever touch one page.
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(announcements, request)
 
-        page_ids = [ann.id for ann in page]
-        comment_counts = _bulk_comment_counts(page_ids)
-        reaction_counts, reaction_summaries, my_reactions = _bulk_reaction_data(
-            page_ids, employee
+        return paginator.get_paginated_response(
+            _announcement_payloads(page, request, employee)
         )
-
-        data = [
-            {
-                "id": ann.id,
-                "title": ann.title,
-                "content": self._parse_description(ann.description),
-                "created_at": ann.created_at,
-                "expire_date": ann.expire_date,
-                "has_viewed": ann.announcementview_set.filter(
-                    user=request.user, viewed=True
-                ).exists(),
-                "is_pinned": ann.is_pinned,
-                "author": _author_payload(ann),
-                "attachments": [
-                    _attachment_payload(a, request) for a in ann.attachments.all()
-                ],
-                "comment_count": comment_counts.get(ann.id, 0),
-                "reaction_count": reaction_counts.get(ann.id, 0),
-                "my_reaction": my_reactions.get(ann.id),
-                "reaction_summary": reaction_summaries.get(ann.id, {}),
-            }
-            for ann in page
-        ]
-
-        return paginator.get_paginated_response(data)
 
     @staticmethod
     def _parse_description(description: str) -> list[dict]:
-        """
-        Parse the description into the {type, text} blocks the app renders.
+        """Kept as the class's own entry point; the logic is shared with the
+        detail endpoint in `_parse_announcement_description`."""
+        return _parse_announcement_description(description)
 
-        Block tags win whenever there are any, so a description written in
-        the rich-text editor keeps its headings and paragraphs.
 
-        The fallback below is the case this used to get wrong. A notice
-        typed as plain text has no block tags at all, `find_all` returned
-        nothing, and the endpoint answered with an empty list — so the post
-        arrived on the phone as a title with no body, which is exactly how
-        the seeded announcements looked. Empty blocks are dropped for the
-        same reason: `<p></p>` is not content.
-        """
-        soup = BeautifulSoup(description or "", "html.parser")
-        content = [
-            {
-                "type": "heading" if tag.name.startswith("h") else "paragraph",
-                "text": tag.get_text(" ", strip=True),
-            }
-            for tag in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p"])
-        ]
-        content = [block for block in content if block["text"]]
-        if content:
-            return content
+class AnnouncementDetailAPIView(APIView):
+    """
+    `GET /api/base/announcement/<id>` - one bulletin.
 
-        # No block tags. Inline markup is joined with a space so it reads
-        # as one run of text; a plain string keeps its own line breaks, so
-        # a multi-line notice stays multi-line instead of collapsing.
-        separator = " " if soup.find() is not None else chr(10)
-        text = soup.get_text(separator, strip=True)
-        return [
-            {"type": "paragraph", "text": line.strip()}
-            for line in text.splitlines()
-            if line.strip()
-        ]
+    Phase NEWS-DETAIL-API-AND-PUSH-ROUTING-HARDENING. A NEWS push carries
+    the announcement's id, and the app had no way to read one: it scanned the
+    paginated list hunting for that id, which cannot reach a post that has
+    scrolled past the first few pages. A push can name any post, however
+    old, so there has to be a read for exactly one.
+
+    Visibility is the list's own rule (`_feed_visible_announcements`), not a
+    second copy of it, and it is re-evaluated on every call - an employee can
+    never read a post outside their company or outside its audience by
+    guessing a numeric id. "Not visible" and "does not exist" both answer a
+    bare 404, exactly as the reaction and comment endpoints already do, so
+    the two cannot be told apart and ids cannot be enumerated.
+
+    Strictly read-only: no expire backfill, no view row, no notification, no
+    push, no audience mutation. `GET` is the only method it answers.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, announcement_id):
+        employee = getattr(request.user, "employee_get", None)
+        announcement = (
+            _feed_visible_announcements(request)
+            .prefetch_related("announcementview_set", "attachments")
+            .select_related(
+                "created_by__employee_get__employee_work_info__department_id",
+                "created_by__employee_get__employee_work_info__company_id",
+            )
+            .filter(pk=announcement_id)
+            .first()
+        )
+        if announcement is None:
+            return Response(status=404)
+
+        return Response(
+            _announcement_payloads([announcement], request, employee)[0],
+            status=200,
+        )
 
 
 class AnnouncementReactionView(APIView):

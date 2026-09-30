@@ -46,7 +46,10 @@ from attendance.methods.utils import (
     shift_schedule_today,
     strtime_seconds,
 )
-from attendance.methods.workday_rules import can_check_out_yet
+from attendance.methods.workday_rules import (
+    can_check_out_yet,
+    late_early_rule_applies,
+)
 from attendance.methods.worktime import activities_worked_seconds
 from attendance.models import (
     Attendance,
@@ -713,6 +716,12 @@ def late_come(attendance, start_time, end_time, shift):
         return
     if not enable_late_come_early_out_tracking(None).get("tracking"):
         return
+    # A working day from before the rule changed is not this rule's to judge.
+    # Nothing is created and nothing is removed, so whatever was recorded for
+    # that day at the time stands — see
+    # `attendance.methods.workday_rules.late_early_rule_applies`.
+    if not late_early_rule_applies(attendance.attendance_date):
+        return
     request = getattr(_thread_locals, "request", None)
     now_sec = strtime_seconds(attendance.attendance_clock_in.strftime("%H:%M"))
     mid_day_sec = strtime_seconds("12:00")
@@ -1185,6 +1194,11 @@ def early_out(attendance, start_time, end_time, shift):
     if not shift:
         return
     if not enable_late_come_early_out_tracking(None).get("tracking"):
+        return
+    # The counterpart of the guard in `late_come`: a session filed under a
+    # day before the effective date keeps what it already has, even when the
+    # check-out itself happens after that date.
+    if not late_early_rule_applies(attendance.attendance_date):
         return
 
     clock_out_time = attendance.attendance_clock_out

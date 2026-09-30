@@ -23,7 +23,7 @@ from datetime import date, datetime, time, timedelta
 from unittest import mock
 
 from django.db.models.query import QuerySet
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from attendance.methods.utils import Request
@@ -120,6 +120,7 @@ class DayValueIntegrationTests(TestCase):
         self.assertEqual(attendance_day_value(0, "08:00", 0), 0.0)
 
 
+@override_settings(ATTENDANCE_LATE_EARLY_RULE_EFFECTIVE_DATE="2000-01-01")
 class WorkdayRulesThroughCheckOutTests(TestCase):
     """
     The rules as the real check-out path applies them, end to end.

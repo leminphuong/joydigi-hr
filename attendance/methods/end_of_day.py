@@ -517,6 +517,17 @@ def process_end_of_day(now=None):
     now = now or timezone.localtime()
     tally = {"first_reminder": 0, "second_reminder": 0, "skipped": 0}
     push_tally = {}
+    # Why a due reminder did not go out. Counts only, and only for rows that
+    # actually reached a reminder moment — a row that is simply not due yet
+    # is the normal state of every open session for most of the day and is
+    # not worth a line. See `log_run_summary`.
+    reasons = {
+        "no_effective_end": 0,
+        "duplicate": 0,
+        "closed_before_send": 0,
+        "send_failed": 0,
+    }
+    due = 0
 
     rows = list(open_attendances(now))
     if not rows:
@@ -545,20 +556,27 @@ def process_end_of_day(now=None):
         )
         if effective_end is None:
             # No shift end and no approved overtime: nothing to measure
-            # against, so this job has no opinion about the day.
+            # against, so this job has no opinion about the day. Counted as a
+            # reason as well as a skip, because an open session this job can
+            # form no opinion about is the single likeliest way for check-out
+            # reminders to go quietly missing.
             tally["skipped"] += 1
+            reasons["no_effective_end"] += 1
             continue
 
         stage = stage_due(now, effective_end)
         if stage is None:
             continue
+        due += 1
 
         if f"{attendance.pk}|{marker_for(stage, attendance.attendance_date)}" in already:
+            reasons["duplicate"] += 1
             continue
 
         fresh = _still_open(attendance)
         if fresh is None:
             # Checked out manually in the meantime — their time stands.
+            reasons["closed_before_send"] += 1
             continue
 
         try:
@@ -572,11 +590,23 @@ def process_end_of_day(now=None):
                 )
                 tally[key] += 1
         except Exception as error:  # one bad row must not stop the rest
+            reasons["send_failed"] += 1
             logger.error(
                 "end-of-day processing failed for attendance %s: %s",
                 attendance.pk,
                 error,
             )
 
-    log_run_summary("end_of_day_checkout", tally, push_tally)
+    # `candidates` and `due` make the two silences distinguishable: a pass
+    # that found no open session at all says nothing, while a pass that had
+    # somebody at a reminder moment and sent nothing now says how many and
+    # why.
+    log_run_summary(
+        "end_of_day_checkout",
+        tally,
+        push_tally,
+        reasons={"candidates": len(rows) if due or any(reasons.values()) else 0,
+                 "due": due,
+                 **reasons},
+    )
     return tally

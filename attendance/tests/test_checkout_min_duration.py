@@ -23,7 +23,7 @@ from datetime import datetime, time, timedelta
 from unittest import mock
 
 from django.db.models.query import QuerySet
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from attendance.methods.utils import Request
@@ -110,6 +110,11 @@ class MinimumCheckOutDurationHelperTests(TestCase):
             self.assertIsNone(seconds_since_check_in(value, self.at(9, 0)))
 
 
+# This class is about the minimum-duration rule not disabling the
+# early-out rule, so it places its day inside the late/early rule's
+# effective window. The window itself is held by
+# `test_shift_relative_late_early.LateEarlyEffectiveDateTests`.
+@override_settings(ATTENDANCE_LATE_EARLY_RULE_EFFECTIVE_DATE="2000-01-01")
 class MinimumCheckOutDurationThroughCheckOutTests(TestCase):
     """The rule as the real check-in/check-out path applies it."""
 

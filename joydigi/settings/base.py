@@ -110,6 +110,19 @@ FACE_IMAGE_MAX_BYTES = env.int("FACE_IMAGE_MAX_BYTES", default=5 * 1024 * 1024)
 # Auto Check Out feature (`EmployeeShiftSchedule.is_auto_punch_out_enabled`
 # plus `auto_punch_out_time`) is a separate thing an administrator opts
 # into per shift, and it is not affected by this setting.
+# The first attendance date the shift-relative late/early rule governs.
+# Optional: left empty, the date in
+# `attendance.methods.workday_rules.DEFAULT_LATE_EARLY_EFFECTIVE_DATE` is
+# used, which is where that date is defined and the only place it appears.
+# Set it here only to move the boundary for a particular deployment.
+#
+# A day before the effective date is never re-judged and never rewritten, so
+# changing this backwards does not alter a single stored flag — it only
+# changes which new days the rule is applied to.
+ATTENDANCE_LATE_EARLY_RULE_EFFECTIVE_DATE = env(
+    "ATTENDANCE_LATE_EARLY_RULE_EFFECTIVE_DATE", default=""
+)
+
 ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF = env(
     "ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF", default=""
 )

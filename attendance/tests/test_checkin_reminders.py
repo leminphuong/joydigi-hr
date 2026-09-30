@@ -383,6 +383,95 @@ class NightShiftTests(ReminderBase):
         self.assertEqual(self.reminders().count(), 0)
 
 
+class EarlyArrivalTests(ReminderBase):
+    """Somebody who came in early is done being reminded.
+
+    Arriving before the shift starts is not a fault and not an omission, so
+    neither reminder stage has anything left to say. The +5 stage matters most
+    here: it exists to chase people who still have not checked in, and it
+    re-reads the authoritative state rather than acting on a decision taken
+    five minutes earlier — so an early arrival must silence it too.
+    """
+
+    def test_an_early_arrival_silences_the_pre_start_reminder(self):
+        self.open_session(self.today, clock_in=time(7, 30))
+
+        process_check_in_reminders(now=self.at(7, 55))
+
+        self.assertEqual(self.reminders(STAGE_START_MINUS_5).count(), 0)
+
+    def test_an_early_arrival_silences_the_missing_reminder_too(self):
+        self.open_session(self.today, clock_in=time(7, 30))
+
+        process_check_in_reminders(now=self.at(8, 5))
+
+        self.assertEqual(
+            self.reminders(STAGE_START_PLUS_5).count(),
+            0,
+            msg="they are already at work; nothing is missing",
+        )
+
+    def test_a_late_arrival_stops_the_reminders_from_that_point_on(self):
+        # The row appearing is what ends the chase, whenever it appears.
+        process_check_in_reminders(now=self.at(7, 55))
+        self.assertEqual(self.reminders(STAGE_START_MINUS_5).count(), 1)
+
+        self.open_session(self.today, clock_in=time(8, 20))
+        process_check_in_reminders(now=self.at(8, 5))
+
+        self.assertEqual(self.reminders(STAGE_START_PLUS_5).count(), 0)
+
+
+class NotificationPreferenceTests(ReminderBase):
+    """Somebody who turned notifications off is not reminded.
+
+    The check-out pass has had this test since it was written; the check-in
+    pass never did, which left the busier of the two passes relying on
+    `notify.send`'s central preference check without anything holding it
+    there. The gate itself is shared, so this is about the guarantee, not a
+    second implementation.
+    """
+
+    def disable_notifications(self, employee=None):
+        from joydigi_api.models import NotificationPreference
+
+        NotificationPreference.objects.update_or_create(
+            user=(employee or self.employee).employee_user_id,
+            defaults={"all_notifications_enabled": False},
+        )
+
+    def test_a_disabled_preference_means_no_reminder_at_all(self):
+        self.disable_notifications()
+
+        process_check_in_reminders(now=self.at(7, 55))
+
+        self.assertEqual(self.reminders(STAGE_START_MINUS_5).count(), 0)
+
+    def test_a_disabled_preference_silences_the_missing_reminder_too(self):
+        self.disable_notifications()
+
+        process_check_in_reminders(now=self.at(8, 5))
+
+        self.assertEqual(self.reminders(STAGE_START_PLUS_5).count(), 0)
+
+    def test_enabling_notifications_leaves_the_reminder_working(self):
+        from joydigi_api.models import NotificationPreference
+
+        NotificationPreference.objects.update_or_create(
+            user=self.employee.employee_user_id,
+            defaults={"all_notifications_enabled": True},
+        )
+
+        process_check_in_reminders(now=self.at(7, 55))
+
+        self.assertEqual(
+            self.reminders(STAGE_START_MINUS_5).count(),
+            1,
+            msg="the preference test above must be proving the preference, "
+            "not a broken fixture",
+        )
+
+
 class OffDayTests(ReminderBase):
     """Days nobody is expected to work get no start reminder."""
 

@@ -932,6 +932,23 @@ class EmployeeWorkInformation(models.Model):
         blank=True,
         verbose_name=_("Work Type"),
     )
+    # Technical debt, Phase REMOVE-REMOTE-REQUEST-PREAUTH. This flag was
+    # the per-employee pre-authorization the mobile create-remote-request
+    # endpoint required before an employee could even ask; that endpoint
+    # no longer reads it, and the attendance bypass never did — it asks
+    # `attendance.methods.remote_work.approved_remote_request()` and
+    # nothing else.
+    #
+    # The field is not obsolete, so nothing is dropped here and no
+    # migration is made. `WorkTypeRequestForm.clean()` (base/forms.py)
+    # still refuses a remote-named work type while this is unset, and the
+    # flag is still editable: the work-information create and edit forms
+    # and the allocations form all take `fields = "__all__"` without
+    # excluding it (employee/forms.py, employee/cbv/allocations.py), and
+    # the Django admin change form shows it too, since
+    # `EmployeeWorkInformationAdmin` narrows `list_display` only. Whether
+    # to keep that legacy check, hide the field, or drop it is a decision
+    # about that form, and belongs to a phase that can carry a migration.
     allow_remote = models.BooleanField(
         default=False,
         verbose_name="Được phép làm việc từ xa",

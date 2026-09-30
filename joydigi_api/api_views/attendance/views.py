@@ -2056,28 +2056,54 @@ class RemoteWorkRequestListCreateAPIView(APIView):
 
     def post(self, request):
         employee = request.user.employee_get
-        # Phase UI-4G.1: reuses the SAME two pre-existing eligibility
-        # flags the legacy WorkTypeRequestForm already enforces for a
-        # remote-named work type (base/forms.py `clean()`) — an
-        # employee's position must be individually marked eligible
-        # (EmployeeWorkInformation.allow_remote), and the company must
-        # not have turned remote work off entirely
-        # (CheckInPolicy.allow_remote). Checked here rather than in the
-        # serializer because both flags are reached via the
-        # server-derived employee, never client input.
+        # Filing a remote-work request needs no prior permission, and
+        # since Phase REMOVE-REMOTE-REQUEST-PREAUTH nothing here asks for
+        # one. Any authenticated employee may ask; what a request grants is
+        # settled when it is approved, not when it is filed.
+        #
+        # That is safe because the attendance bypass never consults a
+        # per-employee eligibility flag. It reads exactly one thing,
+        # `attendance.methods.remote_work.approved_remote_request()`, which
+        # requires the request to belong to this employee, to be approved,
+        # not canceled, still active, and to cover the working day being
+        # punched. An unapproved request therefore authorises nothing at
+        # all, so refusing to accept one protected nothing — it only
+        # stopped the employee from asking.
+        #
+        # The company-wide switch stays. `CheckInPolicy.allow_remote` is a
+        # deliberate policy an admin sets through `CheckInPolicyForm`
+        # (base/forms.py), and a company that has turned remote work off
+        # should not collect requests it will never approve. An absent
+        # policy row is not "disabled" — it means the company never
+        # expressed a preference — so absence allows, exactly as the
+        # legacy form's `if policy and not policy.allow_remote` reads it.
+        #
+        # The company comes from the server-derived employee, never from
+        # client input, and it has to resolve. This is the one refusal that
+        # is not about permission and is kept for that reason: a stored
+        # request whose employee has no company would be scoped to none,
+        # and `JoydigiCompanyManager` admits a company-null row under
+        # *every* selected company
+        # (`Q(path=company) | Q(path__isnull=True)`, see
+        # base/joydigi_company_manager.py) — so one incomplete employee
+        # record would put a request into every company's approval list.
+        # Refusing here keeps company isolation exactly where it was
+        # before this gate was reworked, and says why in its own message
+        # rather than borrowing the permission one.
+        from base.models import CheckInPolicy
+
         work_info = getattr(employee, "employee_work_info", None)
-        if not work_info or not work_info.allow_remote:
+        company = getattr(work_info, "company_id", None)
+        if company is None:
             return Response(
                 {
                     "error": _(
-                        "Vị trí của nhân viên này chưa được phép làm việc từ xa."
+                        "Hồ sơ nhân viên chưa có công ty nên chưa thể gửi "
+                        "đơn làm việc từ xa."
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        from base.models import CheckInPolicy
-
-        company = getattr(work_info, "company_id", None)
         policy = CheckInPolicy.objects.filter(company_id=company).first()
         if policy and not policy.allow_remote:
             return Response(

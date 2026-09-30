@@ -8,4 +8,7 @@ urlpatterns = [
     path("notifications/", include("joydigi_api.api_urls.notifications.urls")),
     path("attendance/", include("joydigi_api.api_urls.attendance.urls")),
     path("leave/", include("joydigi_api.api_urls.leave.urls")),
+    # Phase AUTO-OFFICE-PUBLIC-IP-UPDATER. Machine-to-machine only: the
+    # routes below accept an HMAC signature and no user credential.
+    path("internal/", include("joydigi_api.api_urls.internal.urls")),
 ]

@@ -64,6 +64,27 @@ FIREBASE_CREDENTIALS_FILE = env("FIREBASE_CREDENTIALS_FILE", default="")
 # code cannot silently stop auto punch-out.
 ATTENDANCE_SCHEDULER_MODE = env("ATTENDANCE_SCHEDULER_MODE", default="embedded")
 
+# Phase AUTO-OFFICE-PUBLIC-IP-UPDATER — the office's public address, kept
+# current by an agent on one fixed machine in the office.
+#
+# NOT in the repository. Left unset, the endpoint answers 404 and nothing
+# about attendance changes, which is the correct state for any deployment
+# that does not run the agent.
+#
+# The company is pinned here rather than named in the request, so a
+# compromised agent has no field in which to retarget another company.
+OFFICE_IP_UPDATER_SECRET = env("OFFICE_IP_UPDATER_SECRET", default="")
+OFFICE_IP_UPDATER_COMPANY_ID = env.int("OFFICE_IP_UPDATER_COMPANY_ID", default=0)
+# How far a signed request's clock may be from this server's. Small enough
+# that a captured request is useless within minutes, large enough to survive
+# an office machine whose clock drifts.
+OFFICE_IP_UPDATER_MAX_SKEW_SECONDS = env.int(
+    "OFFICE_IP_UPDATER_MAX_SKEW_SECONDS", default=120
+)
+# How long the address being replaced stays valid beside the new one, so a
+# modem restart does not lock out everybody who arrived before it.
+OFFICE_IP_PREVIOUS_TTL_MINUTES = env.int("OFFICE_IP_PREVIOUS_TTL_MINUTES", default=120)
+
 # In-process 1:1 face recognition. The model is loaded once per Django process.
 FACE_VERIFY_THRESHOLD = env.float("FACE_VERIFY_THRESHOLD", default=0.55)
 FACE_MODEL_NAME = env("FACE_MODEL_NAME", default="buffalo_l")

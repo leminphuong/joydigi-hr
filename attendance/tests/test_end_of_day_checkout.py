@@ -357,6 +357,109 @@ class ReminderScheduleTests(EndOfDayBaseTests):
         self.assertFalse(self.push.called)
 
 
+class LeaveAndOffDayTests(EndOfDayBaseTests):
+    """Why this pass needs no leave or holiday gate of its own.
+
+    It starts from *open attendance rows*, not from the schedule: somebody on
+    approved leave who never checked in has no open session, so there is
+    nothing for it to find. Documented with a test rather than left as an
+    assumption, because "the check-in pass checks leave and this one does not"
+    reads like an oversight until you see why it cannot be one.
+
+    The converse is deliberate too: somebody who did check in is at work,
+    whatever a later leave request says, and is reminded to check out.
+    """
+
+    def approve_leave_today(self):
+        from leave.models import LeaveRequest, LeaveType
+
+        leave_type, _created = LeaveType.objects.get_or_create(
+            name="Nghi phep", defaults={"payment": "paid"}
+        )
+        return LeaveRequest.objects.create(
+            employee_id=self.employee,
+            leave_type_id=leave_type,
+            start_date=self.today,
+            end_date=self.today,
+            requested_days=1,
+            status="approved",
+        )
+
+    def test_somebody_on_leave_who_never_checked_in_is_not_reminded(self):
+        self.approve_leave_today()
+
+        process_end_of_day(now=self.at(16, 55))
+
+        self.assertEqual(self.notifications().count(), 0)
+        self.assertFalse(self.push.called)
+
+    def test_somebody_who_did_check_in_is_still_reminded(self):
+        # At work is at work. Nothing here second-guesses the clock-in.
+        self.approve_leave_today()
+        self.check_in(self.at(8, 0))
+
+        process_end_of_day(now=self.at(16, 55))
+
+        self.assertEqual(self.notifications().count(), 1)
+
+
+class RunVisibilityTests(EndOfDayBaseTests):
+    """A due reminder that does not go out has to say so.
+
+    The pass used to log only when it delivered something, so a run that
+    found somebody at a reminder moment and sent nothing left no trace —
+    identical evidence to a run that never happened, which is exactly what
+    made missing check-out reminders impossible to diagnose from production
+    logs.
+    """
+
+    def test_an_idle_run_still_says_nothing(self):
+        # Silence when there is genuinely nothing to do is deliberate: this
+        # job ticks every minute and is idle most of the day.
+        self.check_in(self.at(8, 0))
+
+        with self.assertNoLogs("attendance.methods.reminders", level="INFO"):
+            process_end_of_day(now=self.at(12, 0))
+
+    def test_a_delivered_reminder_is_logged_with_its_counts(self):
+        self.check_in(self.at(8, 0))
+
+        with self.assertLogs("attendance.methods.reminders", level="INFO") as logs:
+            process_end_of_day(now=self.at(16, 55))
+
+        line = "\n".join(logs.output)
+        self.assertIn("end_of_day_checkout", line)
+        self.assertIn("REMINDER_CREATED=1", line)
+
+    def test_a_duplicate_run_says_why_nothing_was_sent(self):
+        self.check_in(self.at(8, 0))
+        process_end_of_day(now=self.at(16, 55))
+
+        with self.assertLogs("attendance.methods.reminders", level="INFO") as logs:
+            process_end_of_day(now=self.at(16, 56))
+
+        line = "\n".join(logs.output)
+        self.assertIn("not_sent[", line)
+        self.assertIn("duplicate=1", line)
+        self.assertIn("due=1", line)
+        self.assertIn(
+            "candidates=1",
+            line,
+            msg="the count that tells a pass which found nobody from a pass "
+            "that never ran",
+        )
+
+    def test_the_line_names_no_person_and_no_row(self):
+        self.check_in(self.at(8, 0))
+
+        with self.assertLogs("attendance.methods.reminders", level="INFO") as logs:
+            process_end_of_day(now=self.at(16, 55))
+
+        line = "\n".join(logs.output)
+        self.assertNotIn(self.employee.email, line)
+        self.assertNotIn(str(self.employee.pk), line.split("REMINDER_CREATED")[0])
+
+
 class NoAutoCloseTests(EndOfDayBaseTests):
     """The session is never closed by the system."""
 
@@ -750,6 +853,7 @@ class ApprovedOvertimeReminderTests(EndOfDayBaseTests):
         self.assertEqual(row.attendance_overtime, "02:00")
 
 
+@override_settings(ATTENDANCE_LATE_EARLY_RULE_EFFECTIVE_DATE="2000-01-01")
 class ExistingRulesUnchangedTests(EndOfDayBaseTests):
     """
     The rules the end-of-day phase must not disturb.

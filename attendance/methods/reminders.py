@@ -398,26 +398,51 @@ def record_push_status(push_tally, result):
         push_tally[status] = push_tally.get(status, 0) + 1
 
 
-def log_run_summary(job, tally, push_tally):
+def log_run_summary(job, tally, push_tally, reasons=None):
     """One line per scheduler run, and only when something happened.
 
     Silence when there was nothing due is the point: these jobs run every
     minute and are idle for most of the day. A line every tick saying
     "nothing to do" would bury the one that matters.
+
+    `reasons` widens "something happened" to include a reminder that was
+    due and did **not** go out. Before that, the line was printed only when
+    one was delivered — so a job running every minute that never sent
+    anything logged nothing whatsoever, which reads exactly like a job that
+    was never scheduled at all. That is the state an investigation into
+    missing check-out reminders could not get past: with no candidate count,
+    no skip reason and no heartbeat, "the pass found nobody" and "the pass
+    never ran" leave identical evidence.
+
+    The trade-off, stated rather than hidden: a persistent cause — an open
+    session whose shift has no end time, say — now prints once a minute for
+    as long as it lasts. That is loud, and deliberately so; it stops the
+    moment the data is right, and silence is what cost us the last
+    investigation.
     """
+    reasons = {key: count for key, count in (reasons or {}).items() if count}
     delivered = sum(
         count for key, count in tally.items() if key != "skipped"
     )
-    if not delivered and not push_tally:
+    if not delivered and not push_tally and not reasons:
         return
     pushes = ", ".join(
         f"{status}={count}" for status, count in sorted(push_tally.items())
     )
     logger.info(
-        "%s: REMINDER_CREATED=%s %s%s",
+        "%s: REMINDER_CREATED=%s %s%s%s",
         job,
         delivered,
         " ".join(f"{key}={value}" for key, value in sorted(tally.items())),
+        # Why nothing went out, when something was due. Counts only — no
+        # employee, no attendance row, no token, nothing about a person.
+        (
+            " not_sent["
+            + ", ".join(f"{key}={value}" for key, value in sorted(reasons.items()))
+            + "]"
+        )
+        if reasons
+        else "",
         f" push[{pushes}]" if pushes else "",
     )
 

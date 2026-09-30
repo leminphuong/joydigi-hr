@@ -17,9 +17,9 @@ from now on.
 """
 
 import uuid
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from attendance.methods.utils import Request
@@ -37,6 +37,17 @@ from base.models import (
 from employee.models import Employee, EmployeeWorkInformation
 
 
+# The rule tests below are about the rule, so they place their days inside
+# its effective window explicitly. The boundary itself — which days the rule
+# governs at all — is held by `LateEarlyEffectiveDateTests` and
+# `EffectiveDateGuardTests`, where it can be read in one place instead of
+# being implied by every fixture's date.
+RULE_IN_FORCE = override_settings(
+    ATTENDANCE_LATE_EARLY_RULE_EFFECTIVE_DATE="2000-01-01"
+)
+
+
+@RULE_IN_FORCE
 class ShiftClockTestCase(TestCase):
     """Harness: one employee on one shift, driven through the real paths."""
 
@@ -159,6 +170,144 @@ class ShiftClockTestCase(TestCase):
         return self.flags(row)
 
 
+class LateEarlyEffectiveDateTests(SimpleTestCase):
+    """Which days the rule governs. No database, no fixtures.
+
+    A rule change must not reach backwards, so this boundary is worth reading
+    on its own rather than inferring it from a fixture's date.
+    """
+
+    def test_the_built_in_date_is_the_first_of_october_2026(self):
+        from attendance.methods.workday_rules import (
+            DEFAULT_LATE_EARLY_EFFECTIVE_DATE,
+        )
+
+        self.assertEqual(DEFAULT_LATE_EARLY_EFFECTIVE_DATE, date(2026, 10, 1))
+
+    @override_settings(ATTENDANCE_LATE_EARLY_RULE_EFFECTIVE_DATE="")
+    def test_an_empty_override_uses_the_built_in_date(self):
+        from attendance.methods.workday_rules import (
+            DEFAULT_LATE_EARLY_EFFECTIVE_DATE,
+            late_early_rule_effective_date,
+        )
+
+        self.assertEqual(
+            late_early_rule_effective_date(), DEFAULT_LATE_EARLY_EFFECTIVE_DATE
+        )
+
+    @override_settings(ATTENDANCE_LATE_EARLY_RULE_EFFECTIVE_DATE="2026-11-15")
+    def test_an_override_moves_the_boundary(self):
+        from attendance.methods.workday_rules import (
+            late_early_rule_applies,
+            late_early_rule_effective_date,
+        )
+
+        self.assertEqual(late_early_rule_effective_date(), date(2026, 11, 15))
+        self.assertFalse(late_early_rule_applies(date(2026, 11, 14)))
+        self.assertTrue(late_early_rule_applies(date(2026, 11, 15)))
+
+    @override_settings(ATTENDANCE_LATE_EARLY_RULE_EFFECTIVE_DATE="not a date")
+    def test_an_unparseable_override_falls_back_and_says_so(self):
+        from attendance.methods.workday_rules import (
+            DEFAULT_LATE_EARLY_EFFECTIVE_DATE,
+            late_early_rule_effective_date,
+        )
+
+        with self.assertLogs("attendance.methods.workday_rules", "WARNING") as logs:
+            resolved = late_early_rule_effective_date()
+
+        self.assertEqual(resolved, DEFAULT_LATE_EARLY_EFFECTIVE_DATE)
+        message = "\n".join(logs.output)
+        self.assertIn("ATTENDANCE_LATE_EARLY_RULE_EFFECTIVE_DATE", message)
+        self.assertNotIn(
+            "not a date",
+            message,
+            msg="the setting's value came from the environment and is never "
+            "echoed, whatever it turned out to be",
+        )
+
+    def test_the_boundary_day_itself_is_included(self):
+        from attendance.methods.workday_rules import late_early_rule_applies
+
+        self.assertFalse(late_early_rule_applies(date(2026, 9, 30)))
+        self.assertTrue(late_early_rule_applies(date(2026, 10, 1)))
+        self.assertTrue(late_early_rule_applies(date(2026, 10, 2)))
+
+    def test_a_row_with_no_usable_date_is_never_judged(self):
+        from attendance.methods.workday_rules import late_early_rule_applies
+
+        for value in (None, "", "2026-10-01", 20261001):
+            with self.subTest(value=value):
+                self.assertFalse(late_early_rule_applies(value))
+
+
+@RULE_IN_FORCE
+class EffectiveDateGuardTests(ShiftClockTestCase):
+    """The guard, through the real clock-in and clock-out paths.
+
+    The class-level window is widened by each test to place its own day on
+    either side of the boundary, so the same working day can be shown being
+    judged and not judged.
+    """
+
+    shift_start = time(8, 0)
+    shift_end = time(17, 0)
+
+    def excluded(self):
+        """An effective date after today, making today a day before the rule."""
+        return self.settings(
+            ATTENDANCE_LATE_EARLY_RULE_EFFECTIVE_DATE=(
+                self.today + timedelta(days=1)
+            ).isoformat()
+        )
+
+    def included(self):
+        return self.settings(
+            ATTENDANCE_LATE_EARLY_RULE_EFFECTIVE_DATE=self.today.isoformat()
+        )
+
+    def test_a_day_before_the_effective_date_records_nothing(self):
+        # Late in and early out: two flags under the rule, none before it.
+        with self.excluded():
+            self.assertEqual(self.day(self.at(9, 30), self.at(15, 0)), set())
+
+    def test_the_very_same_day_is_judged_once_the_date_has_arrived(self):
+        with self.included():
+            self.assertEqual(
+                self.day(self.at(9, 30), self.at(15, 0)),
+                {"late_come", "early_out"},
+            )
+
+    def test_a_flag_already_recorded_on_an_excluded_day_is_left_alone(self):
+        """The guard records nothing; it also removes nothing.
+
+        Whatever a past day already carries is what it keeps — that is the
+        whole point of not re-judging it.
+        """
+        with self.excluded():
+            row = self.check_in(self.at(9, 30))
+            seeded = AttendanceLateComeEarlyOut()
+            seeded.type = "late_come"
+            seeded.attendance_id = row
+            seeded.employee_id = self.employee
+            seeded.save()
+
+            self.check_out(self.at(15, 0))
+
+        self.assertEqual(
+            self.flags(row),
+            {"late_come"},
+            msg="the seeded flag survives, and no early_out is added",
+        )
+
+    def test_a_checkout_after_the_boundary_does_not_judge_an_earlier_day(self):
+        # The session belongs to the day it is filed under, not to the day it
+        # happens to be closed on.
+        with self.excluded():
+            self.assertEqual(self.day(self.at(8, 0), self.at(15, 0)), set())
+
+
+@RULE_IN_FORCE
 class OfficeShiftTests(ShiftClockTestCase):
     """A 09:00-18:00 shift, no grace anywhere — the rule at its plainest."""
 
@@ -252,6 +401,100 @@ class GraceTests(ShiftClockTestCase):
         self.assertEqual(self.day(self.at(7, 30), self.at(18, 0)), set())
 
 
+class FinalRuleMatrixTests(ShiftClockTestCase):
+    """The rule, case by case, through the real clock-in and clock-out paths.
+
+    Shift 08:00-17:00 with fifteen minutes of grace at both ends, so the two
+    thresholds are unambiguous:
+
+        late       when check_in  >  08:15
+        early      when check_out <  16:45
+
+    Every expectation below is derived from those two lines and nothing else.
+    Two things this exists to make permanent, because both were wrong at some
+    point in this project's history:
+
+    * arriving early is never a fault, however early;
+    * leaving late is never a fault, however late.
+
+    One case per method rather than a loop over a table: each name states its
+    own expectation, so a failure names the rule it broke instead of an index.
+    """
+
+    shift_start = time(8, 0)
+    shift_end = time(17, 0)
+    grace_minutes = 15
+    grace_on_clock_out = True
+
+    # ---------------------------------------------------------- check-in
+    def test_01_arriving_half_an_hour_early_is_not_late(self):
+        self.assertNotIn("late_come", self.day(self.at(7, 30), self.at(17, 0)))
+
+    def test_02_arriving_exactly_at_the_shift_start_is_not_late(self):
+        self.assertNotIn("late_come", self.day(self.at(8, 0), self.at(17, 0)))
+
+    def test_03_arriving_at_the_end_of_the_grace_is_not_late(self):
+        self.assertNotIn("late_come", self.day(self.at(8, 15), self.at(17, 0)))
+
+    def test_04_arriving_past_the_grace_is_late(self):
+        self.assertIn("late_come", self.day(self.at(8, 16), self.at(17, 0)))
+
+    # --------------------------------------------------------- check-out
+    def test_05_leaving_half_an_hour_late_is_not_early(self):
+        self.assertNotIn("early_out", self.day(self.at(8, 0), self.at(17, 30)))
+
+    def test_06_leaving_exactly_at_the_shift_end_is_not_early(self):
+        self.assertNotIn("early_out", self.day(self.at(8, 0), self.at(17, 0)))
+
+    def test_07_leaving_at_the_edge_of_the_grace_is_not_early(self):
+        self.assertNotIn("early_out", self.day(self.at(8, 0), self.at(16, 45)))
+
+    def test_08_leaving_before_the_grace_is_early(self):
+        self.assertIn("early_out", self.day(self.at(8, 0), self.at(16, 44)))
+
+    # ------------------------------------------------------ combinations
+    def test_09_early_in_and_late_out_is_a_clean_day(self):
+        self.assertEqual(self.day(self.at(7, 30), self.at(17, 30)), set())
+
+    def test_10_late_in_and_late_out_is_late_only(self):
+        self.assertEqual(
+            self.day(self.at(8, 30), self.at(17, 30)), {"late_come"}
+        )
+
+    def test_11_early_in_and_early_out_is_early_only(self):
+        self.assertEqual(
+            self.day(self.at(7, 30), self.at(16, 0)), {"early_out"}
+        )
+
+    def test_12_late_in_and_early_out_is_both(self):
+        self.assertEqual(
+            self.day(self.at(8, 30), self.at(16, 0)),
+            {"late_come", "early_out"},
+        )
+
+    # --------------------------------------------- the two absolute rules
+    def test_no_arrival_however_early_is_ever_late(self):
+        for hour, minute in ((5, 0), (6, 30), (7, 59)):
+            with self.subTest(arrival="%02d:%02d" % (hour, minute)):
+                Attendance.objects.all().delete()
+                AttendanceLateComeEarlyOut.objects.all().delete()
+                self.assertNotIn(
+                    "late_come",
+                    self.day(self.at(hour, minute), self.at(17, 0)),
+                )
+
+    def test_no_departure_however_late_is_ever_early(self):
+        for hour, minute in ((17, 1), (19, 0), (22, 30)):
+            with self.subTest(departure="%02d:%02d" % (hour, minute)):
+                Attendance.objects.all().delete()
+                AttendanceLateComeEarlyOut.objects.all().delete()
+                self.assertNotIn(
+                    "early_out",
+                    self.day(self.at(8, 0), self.at(hour, minute)),
+                )
+
+
+@RULE_IN_FORCE
 class NightShiftTests(TestCase):
     """
     I: a shift crossing midnight keeps its own branch.

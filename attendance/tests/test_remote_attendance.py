@@ -1166,3 +1166,120 @@ class ClientValueHardeningTests(RemoteBase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["code"], "WIFI_NOT_ALLOWED")
         self.assertEqual(self.world(), before)
+# ======================================================================
+# K. No pre-authorization — Phase REMOVE-REMOTE-REQUEST-PREAUTH
+# ======================================================================
+
+
+class NoPreAuthorizationTests(RemoteBase):
+    """The approved request is the whole of the permission.
+
+    Filing a remote request no longer needs a prior per-employee grant
+    (`EmployeeWorkInformation.allow_remote`, which the create-request
+    endpoint used to demand before an employee could even ask), so the
+    obvious question is what still holds the company network shut. `test_18` above already walks the matrix of requests
+    that are not permission; what this class adds is the flag itself.
+    Every case here asserts `allow_remote` is the schema default `False`
+    while the network stays enforced, and the last two assert the flag
+    changes nothing in either direction — on, it grants no bypass; off,
+    it withholds none from an approved request. Together they say that
+    nothing on the attendance path reads it.
+    """
+
+    def assert_no_pre_permission(self):
+        work_info = EmployeeWorkInformation.objects.get(employee_id=self.employee)
+        self.assertFalse(
+            work_info.allow_remote,
+            "this class is about an employee who has been granted nothing",
+        )
+
+    def test_case_2_a_pending_request_does_not_open_the_network(self):
+        self.assert_no_pre_permission()
+        self.remote_request(approved=False)
+        before = self.world()
+
+        self.assert_refused(self.client.post(CLOCK_IN, **through_proxy(HOME_IPV4)))
+
+        self.assertEqual(self.world(), before)
+        self.assertFalse(Attendance.objects.exists())
+
+    def test_case_3_an_approved_request_covering_today_opens_it(self):
+        self.assert_no_pre_permission()
+        request = self.remote_request()
+
+        response = self.client.post(CLOCK_IN, **through_proxy(HOME_IPV4))
+
+        self.assertEqual(response.status_code, 200, getattr(response, "data", None))
+        evidence = AttendanceEvidence.objects.get(
+            action=AttendanceEvidence.ACTION_CHECK_IN
+        )
+        self.assertEqual(evidence.attendance_mode, AttendanceEvidence.MODE_REMOTE)
+        # Recorded against the request that authorised it, and no other.
+        self.assertEqual(evidence.remote_work_request, request)
+
+    def test_case_4_an_approved_request_for_another_day_does_not(self):
+        self.assert_no_pre_permission()
+        yesterday = self.today - timedelta(days=1)
+        self.remote_request(start=yesterday, end=yesterday)
+        before = self.world()
+
+        self.assert_refused(self.client.post(CLOCK_IN, **through_proxy(HOME_IPV4)))
+
+        self.assertEqual(self.world(), before)
+        self.assertFalse(Attendance.objects.exists())
+
+    def test_case_5_a_rejected_request_does_not(self):
+        # Rejection is `canceled` — `request_status()` reads that flag as
+        # "Rejected" and there is no separate one. So a request a manager
+        # approved and then rejected carries both flags, and the rejection
+        # is what counts.
+        self.assert_no_pre_permission()
+        rejected = self.remote_request(approved=True, canceled=True)
+        self.assertNotEqual(
+            str(rejected.request_status()),
+            str(RemoteWorkRequest(approved=True).request_status()),
+        )
+        before = self.world()
+
+        self.assert_refused(self.client.post(CLOCK_IN, **through_proxy(HOME_IPV4)))
+
+        self.assertEqual(self.world(), before)
+        self.assertFalse(Attendance.objects.exists())
+
+    def test_case_6_a_canceled_request_does_not(self):
+        self.assert_no_pre_permission()
+        self.remote_request(approved=False, canceled=True)
+        before = self.world()
+
+        self.assert_refused(self.client.post(CLOCK_IN, **through_proxy(HOME_IPV4)))
+
+        self.assertEqual(self.world(), before)
+        self.assertFalse(Attendance.objects.exists())
+
+    def test_the_retired_flag_on_its_own_grants_no_bypass(self):
+        EmployeeWorkInformation.objects.filter(employee_id=self.employee).update(
+            allow_remote=True
+        )
+        self.assertFalse(RemoteWorkRequest.objects.exists())
+        before = self.world()
+
+        self.assert_refused(self.client.post(CLOCK_IN, **through_proxy(HOME_IPV4)))
+
+        self.assertEqual(self.world(), before)
+        self.assertFalse(Attendance.objects.exists())
+
+    def test_the_retired_flag_off_withholds_none_from_an_approved_request(self):
+        EmployeeWorkInformation.objects.filter(employee_id=self.employee).update(
+            allow_remote=False
+        )
+        self.remote_request()
+
+        response = self.client.post(CLOCK_IN, **through_proxy(HOME_IPV4))
+
+        self.assertEqual(response.status_code, 200, getattr(response, "data", None))
+        self.assertEqual(
+            AttendanceEvidence.objects.get(
+                action=AttendanceEvidence.ACTION_CHECK_IN
+            ).attendance_mode,
+            AttendanceEvidence.MODE_REMOTE,
+        )

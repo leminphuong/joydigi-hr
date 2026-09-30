@@ -577,6 +577,13 @@ class RefusalShapeTests(AttendanceNetworkBase):
             root / "attendance" / "views" / "clock_in_out.py",
             root / "joydigi_api" / "api_views" / "attendance" / "views.py",
             root / "joydigi" / "settings" / "base.py",
+            # Phase OFFICE-IP-AUTO-UPDATE-ONLY: the automatic updater exists
+            # precisely so the office address lives in the database and not
+            # in the application. These three are where somebody would be
+            # most tempted to "just put it in the code" while debugging it.
+            root / "joydigi_api" / "office_ip.py",
+            root / "joydigi_api" / "api_views" / "attendance" / "office_ip_views.py",
+            root / "tools" / "office_ip_updater" / "office_ip_updater.py",
         ):
             self.assertNotIn(
                 COMPANY_IPV4, module.read_text(encoding="utf-8"), str(module)

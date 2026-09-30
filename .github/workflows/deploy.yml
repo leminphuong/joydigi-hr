@@ -230,6 +230,143 @@ jobs:
           echo "ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF set in .env"
           REMOTE
 
+      # Phase OFFICE-IP-UPDATER-DEPLOY-WORKFLOW-INTEGRATION. The office's
+      # public address changes whenever its modem restarts, and until the
+      # attendance whitelist follows it every employee is refused at
+      # check-in. Three values switch that maintenance on: the secret the
+      # office agent signs its requests with, the company whose whitelist it
+      # maintains, and how long the address being replaced stays valid beside
+      # the new one.
+      #
+      # Placed before "Deploy to VPS" for the same reason as the two steps
+      # above: that step runs the deploy script, whose `systemctl restart
+      # joydigi-hr` is what makes gunicorn re-read settings.
+      #
+      # The secret travels inside the script on stdin, never as an argument
+      # to ssh. An argument is visible in the remote `ps` output to every
+      # other account on that host for as long as the command runs, which is
+      # exactly what a credential must not be — so the two steps above,
+      # which pass a path and a date that way, are not the pattern to copy
+      # here. Base64 so that no character it happens to contain can end the
+      # quoting.
+      - name: Configure Office IP updater in .env
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          OFFICE_IP_SECRET: ${{ secrets.OFFICE_IP_UPDATER_SECRET }}
+          OFFICE_IP_COMPANY_ID: ${{ vars.OFFICE_IP_UPDATER_COMPANY_ID }}
+          OFFICE_IP_TTL_MINUTES: ${{ vars.OFFICE_IP_PREVIOUS_TTL_MINUTES }}
+        run: |
+          # Nothing configured at all: this deployment does not run the
+          # office agent. Say so and touch nothing — with the secret unset
+          # the endpoint answers 404, which is the correct state for it.
+          if [ -z "${OFFICE_IP_SECRET:-}" ] \
+            && [ -z "${OFFICE_IP_COMPANY_ID:-}" ] \
+            && [ -z "${OFFICE_IP_TTL_MINUTES:-}" ]; then
+            echo "::warning title=Office IP updater not configured::Neither OFFICE_IP_UPDATER_SECRET nor OFFICE_IP_UPDATER_COMPANY_ID is set, so the office IP whitelist is not maintained automatically. Any values already in the production .env are left exactly as they are."
+            exit 0
+          fi
+
+          # Half-configured is a mistake rather than a choice, and guessing
+          # the missing half is how the wrong company's whitelist gets
+          # maintained. Refuse, and change nothing.
+          if [ -z "${OFFICE_IP_SECRET:-}" ] || [ -z "${OFFICE_IP_COMPANY_ID:-}" ]; then
+            echo "::error title=Office IP updater half-configured::Both OFFICE_IP_UPDATER_SECRET (secret) and OFFICE_IP_UPDATER_COMPANY_ID (variable) are required together. The production .env was not modified."
+            exit 1
+          fi
+
+          # Validated here, on the runner, before a single byte reaches the
+          # server — the same discipline as the cutoff step above. The
+          # charset is also what keeps the value safe to write into a
+          # `KEY=value` file unquoted.
+          if ! printf '%s' "$OFFICE_IP_SECRET" | grep -Eq '^[A-Za-z0-9_-]{32,}$'; then
+            echo "::error title=Invalid updater secret::OFFICE_IP_UPDATER_SECRET must be at least 32 characters from A-Z a-z 0-9 - _ (what python -c 'import secrets; print(secrets.token_urlsafe(48))' produces). Its value is never printed. The production .env was not modified."
+            exit 1
+          fi
+          if ! printf '%s' "$OFFICE_IP_COMPANY_ID" | grep -Eq '^[1-9][0-9]*$'; then
+            echo "::error title=Invalid company id::OFFICE_IP_UPDATER_COMPANY_ID must be a positive integer. The production .env was not modified."
+            exit 1
+          fi
+          TTL="${OFFICE_IP_TTL_MINUTES:-120}"
+          if ! printf '%s' "$TTL" | grep -Eq '^[0-9]+$'; then
+            echo "::error title=Invalid TTL::OFFICE_IP_PREVIOUS_TTL_MINUTES must be a whole number of minutes. The production .env was not modified."
+            exit 1
+          fi
+
+          echo "Configuring Office IP updater: company=$OFFICE_IP_COMPANY_ID previous_ttl=${TTL}m (the secret is never printed)"
+
+          {
+            printf 'OFFICE_IP_SECRET_B64=%s\n' "$(printf '%s' "$OFFICE_IP_SECRET" | base64 -w0)"
+            printf 'OFFICE_IP_COMPANY_ID=%s\n' "$OFFICE_IP_COMPANY_ID"
+            printf 'OFFICE_IP_TTL_MINUTES=%s\n' "$TTL"
+            cat <<'REMOTE'
+          set -eu
+          umask 077
+          ENV_FILE=/var/www/joydigi-hr/.env
+          SECRET=$(printf '%s' "$OFFICE_IP_SECRET_B64" | base64 -d)
+
+          touch "$ENV_FILE"
+
+          # A timestamped copy before anything is rewritten, so a bad value
+          # can be put back without reconstructing the file by hand. `cp -p`
+          # carries the mode across; the explicit chmod is the fallback for a
+          # filesystem where it does not.
+          BACKUP="$ENV_FILE.backup-$(date -u +%Y%m%d-%H%M%S)"
+          cp -p "$ENV_FILE" "$BACKUP"
+          chmod --reference="$ENV_FILE" "$BACKUP" 2>/dev/null || chmod 600 "$BACKUP"
+          echo "env backup: $BACKUP"
+
+          # The same idempotent rebuild the two steps above use, for three
+          # keys at once: drop any existing entry for each, append exactly
+          # one, carry every other value across untouched, and replace the
+          # file in a single atomic move.
+          TMP="$ENV_FILE.incoming"
+          grep -vE '^(OFFICE_IP_UPDATER_SECRET|OFFICE_IP_UPDATER_COMPANY_ID|OFFICE_IP_PREVIOUS_TTL_MINUTES)=' "$ENV_FILE" > "$TMP" || true
+          printf '%s\n' "OFFICE_IP_UPDATER_SECRET=$SECRET" >> "$TMP"
+          printf '%s\n' "OFFICE_IP_UPDATER_COMPANY_ID=$OFFICE_IP_COMPANY_ID" >> "$TMP"
+          printf '%s\n' "OFFICE_IP_PREVIOUS_TTL_MINUTES=$OFFICE_IP_TTL_MINUTES" >> "$TMP"
+          chmod --reference="$ENV_FILE" "$TMP" 2>/dev/null || chmod 600 "$TMP"
+          mv "$TMP" "$ENV_FILE"
+
+          # Read back before anything restarts. Exactly one entry per key,
+          # and the two values that are not secret are the ones intended.
+          # The secret is checked by presence and length only.
+          for KEY in OFFICE_IP_UPDATER_SECRET OFFICE_IP_UPDATER_COMPANY_ID OFFICE_IP_PREVIOUS_TTL_MINUTES; do
+            COUNT=$(grep -c "^$KEY=" "$ENV_FILE" || true)
+            if [ "$COUNT" != "1" ]; then
+              echo "expected exactly one $KEY entry in .env, found $COUNT" >&2
+              exit 1
+            fi
+            echo "$KEY=***"
+          done
+
+          WROTE_COMPANY=$(grep '^OFFICE_IP_UPDATER_COMPANY_ID=' "$ENV_FILE" | cut -d= -f2-)
+          if [ "$WROTE_COMPANY" != "$OFFICE_IP_COMPANY_ID" ]; then
+            echo "company id in .env does not match the configured value" >&2
+            exit 1
+          fi
+          WROTE_TTL=$(grep '^OFFICE_IP_PREVIOUS_TTL_MINUTES=' "$ENV_FILE" | cut -d= -f2-)
+          if [ "$WROTE_TTL" != "$OFFICE_IP_TTL_MINUTES" ]; then
+            echo "previous-TTL in .env does not match the configured value" >&2
+            exit 1
+          fi
+          SECRET_LEN=$(grep '^OFFICE_IP_UPDATER_SECRET=' "$ENV_FILE" | cut -d= -f2- | tr -d '\n' | wc -c)
+          if [ "$SECRET_LEN" -lt 32 ]; then
+            echo "the secret written to .env is shorter than 32 characters" >&2
+            exit 1
+          fi
+
+          echo "permissions: $(stat -c '%a %U:%G' "$ENV_FILE")"
+          echo "secret length in .env: $SECRET_LEN"
+          echo "Office IP updater configured in .env"
+          REMOTE
+          } | ssh \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -i ~/.ssh/id_ed25519 \
+            "$VPS_USER@$VPS_HOST" \
+            'bash -s'
+
       - name: Deploy to VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -241,6 +378,65 @@ jobs:
             -i ~/.ssh/id_ed25519 \
             "$VPS_USER@$VPS_HOST" \
             "/usr/local/bin/deploy-joydigi-hr"
+
+
+      # Phase OFFICE-IP-UPDATER-DEPLOY-WORKFLOW-INTEGRATION. Proves Django
+      # actually loaded what was written above, and that the route the office
+      # agent will call exists — after the restart, because that is when the
+      # new settings and the new code are both live.
+      #
+      # Only booleans, integers, a company name and a route path are printed.
+      # The secret is reported as a boolean and a length, never as a value.
+      #
+      # Deliberately no HTTP request to the updater endpoint from here. That
+      # endpoint records the address the request arrives from, so a call made
+      # by this runner or by the VPS would teach it an address that is not
+      # the office — the one mistake this feature must never make. Resolving
+      # the route proves it exists without sending anything.
+      - name: Verify Office IP updater configuration
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -i ~/.ssh/id_ed25519 \
+            "$VPS_USER@$VPS_HOST" \
+            'bash -s' <<'REMOTE'
+          set -eu
+          cd /var/www/joydigi-hr
+
+          # `shell` in argv is what keeps every scheduler in this project
+          # from starting a background job for the duration of a one-line
+          # read (attendance, base, employee, leave and pg_backup all guard
+          # on it).
+          ./venv/bin/python manage.py shell -c '
+          from django.conf import settings
+          from django.urls import reverse
+          from base.models import AttendanceAllowedIP, Company
+
+          secret = getattr(settings, "OFFICE_IP_UPDATER_SECRET", "") or ""
+          company_id = getattr(settings, "OFFICE_IP_UPDATER_COMPANY_ID", 0)
+          print("secret configured:", bool(secret))
+          print("secret length:", len(secret))
+          print("company id:", company_id)
+          print("previous ttl minutes:", getattr(settings, "OFFICE_IP_PREVIOUS_TTL_MINUTES", None))
+          print("max skew seconds:", getattr(settings, "OFFICE_IP_UPDATER_MAX_SKEW_SECONDS", None))
+          print("route:", reverse("api-internal-update-office-ip"))
+
+          company = Company.objects.filter(pk=company_id).first()
+          print("company exists:", company is not None)
+          print("company name:", company.company if company else None)
+          rule = AttendanceAllowedIP.objects.filter(company_id=company).first() if company else None
+          print("rule exists:", rule is not None)
+          print("rule enabled:", bool(rule.is_enabled) if rule else None)
+
+          assert secret, "OFFICE_IP_UPDATER_SECRET is not readable by Django"
+          assert company is not None, "OFFICE_IP_UPDATER_COMPANY_ID names no company"
+          '
+          echo "Office IP updater configuration verified"
+          REMOTE
 
       # Prove the credential landed and that Django can actually use it,
       # without revealing any of it: only the permission bits and a boolean
@@ -284,3 +480,25 @@ jobs:
             > /dev/null
 
           echo "JoyDigi HR website OK"
+
+          # Phase OFFICE-IP-UPDATER-DEPLOY-WORKFLOW-INTEGRATION: readiness,
+          # not just reachability. A listening socket proves the restart
+          # returned; this proves it came back with a working database.
+          # Redis is not required — `/ready/` reports a cache only when
+          # REDIS_URL is set, and this deployment does not set it.
+          READY=$(curl \
+            --fail \
+            --silent \
+            --show-error \
+            --max-time 30 \
+            https://checkin.joydigi.net/ready/)
+          printf '%s\n' "$READY"
+          printf '%s' "$READY" | grep -q '"status": "ok"' || {
+            echo "readiness did not report status ok" >&2
+            exit 1
+          }
+          printf '%s' "$READY" | grep -q '"database": "ok"' || {
+            echo "readiness did not report database ok" >&2
+            exit 1
+          }
+          echo "JoyDigi HR readiness OK"

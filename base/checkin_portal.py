@@ -177,8 +177,33 @@ def _visible_employees(request):
         employees = employees.filter(
             employee_work_info__company_id_id=selected_company
         )
-    elif selected_company == "all" and not is_checkin_admin(request.user):
+    elif selected_company == "all" and not request.user.is_superuser:
+        # Phase ADMIN-P0-PERMISSION-HARDENING (C-13). This used to read
+        # `and not is_checkin_admin(request.user)`, which meant that for a
+        # checkin-admin on "All my companies" neither this branch nor the one
+        # above fired and NO company filter was applied at all — so an operator
+        # holding the admin role saw, and could approve, requests belonging to
+        # employees of companies they were never assigned to. Every approve and
+        # reject view in this module derives its only authorisation from this
+        # helper (`if instance.employee_id_id not in visible_ids`), so the hole
+        # was the hub's whole tenant boundary.
+        #
+        # `is_superuser` is the right test, and it is the one
+        # `JoydigiCompanyManager.get_queryset` already states as its intent:
+        # "Superuser / legacy 'all': no company filter (true tenant-wide).
+        # Non-superuser 'all' (All my companies): restrict to assignment
+        # companies". This helper now says the same thing, so the hub and every
+        # ordinary list agree about what "all" means.
+        #
+        # The fallback chain is the manager's too. `all_my_company_ids` is None
+        # only for a superuser (already excluded here), for an unauthenticated
+        # request, or when company scoping is switched off deployment-wide
+        # (`base/middleware.py`) — that is, never for a scoped non-superuser, so
+        # leaving the queryset unfiltered in that case is not a fail-open, it is
+        # the single-tenant configuration behaving as before.
         allowed_company_ids = getattr(request, "all_my_company_ids", None)
+        if allowed_company_ids is None:
+            allowed_company_ids = getattr(request, "allowed_company_ids", None)
         if allowed_company_ids is not None:
             employees = employees.filter(
                 employee_work_info__company_id_id__in=allowed_company_ids

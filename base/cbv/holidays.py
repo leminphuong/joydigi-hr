@@ -19,6 +19,7 @@ from joydigi_views.cbv_methods import (
     login_required,
     permission_required,
 )
+from joydigi.methods import handle_no_permission
 from joydigi_views.generic.cbv.views import (
     JoydigiDetailedView,
     JoydigiFormView,
@@ -202,6 +203,32 @@ class HolidayFormView(JoydigiFormView):
     model = Holidays
     new_display_title = _("Create Holiday")
     template_name = "holiday/holiday_cbv_form.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        """Phase ADMIN-P0-PERMISSION-HARDENING (C-14): the window, not the door.
+
+        This view carried only `login_required`, and `JoydigiFormView` performs
+        no permission check of its own, so any authenticated employee could POST
+        to /holiday-creation/ or /holiday-update/<pk>/ and create or rewrite a
+        company-wide public holiday. The page that links here IS gated
+        (`@permission_required("base.view_holidays")` on the list view), which is
+        exactly the shape of the bug: the lock was on the door and not on the
+        window.
+
+        A holiday is not cosmetic — `attendance.methods.utils
+        .attendance_day_checking` makes `minimum_hour` "00:00" for that date for
+        everybody, so a zero-hours day starts counting as a full day.
+
+        `add_` to create and `change_` to update, rather than one blanket
+        permission, because this one class serves both routes and the two are
+        different acts. `attendance/cbv/grace_time.py` sets the house pattern of
+        gating the form view itself; it uses a single `add_` decorator because
+        nothing varies per route there.
+        """
+        perm = "base.change_holidays" if kwargs.get("pk") else "base.add_holidays"
+        if not request.user.has_perm(perm):
+            return handle_no_permission(request)
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

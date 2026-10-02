@@ -19,6 +19,8 @@ import pandas as pd
 from dateutil import parser
 from django import forms
 from django.apps import apps
+from functools import wraps
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
@@ -249,8 +251,109 @@ def is_reportingmanger(request, instance):
             instance.employee_id.employee_work_info.reporting_manager_id
         )
     except Exception:
-        return HttpResponse("This Employee Dont Have any work information")
+        # Phase ADMIN-P0-PERMISSION-HARDENING (C-11). This used to answer
+        # `HttpResponse("This Employee Dont Have any work information")`.
+        # Django's HttpResponse defines neither `__bool__` nor `__len__`, so
+        # that object is always truthy — and every caller uses this helper
+        # inside `if is_reportingmanger(...) or ...`. The result was that for
+        # any request whose employee has no work-information row, the whole
+        # permission test passed for anybody: eight shift and work-type
+        # approve/reject/bulk views in this module alone.
+        #
+        # A permission helper must answer a real boolean, and "I cannot
+        # establish that you manage this person" is False, not True. Nothing
+        # relies on the old return value — every call site in the repo is a
+        # boolean context (verified by grepping all 24 of them), so no
+        # legitimate manager loses access.
+        return False
     return manager == employee_work_info_manager
+
+
+def can_review_employee_request(request, instance, *perms):
+    """Whether this actor may decide THIS request row.
+
+    Phase ADMIN-P0-PERMISSION-HARDENING (C-12). The shift and work-type
+    approve/reject views tested permission with
+    `is_reportingmanger(...) or user.has_perm(...)`, which answers two
+    questions and misses a third: being *a* manager of *somebody*, or holding a
+    model permission, said nothing about whether this particular row was any of
+    the actor's business. The same shape as
+    `attendance.views.requests._can_review_attendance_request`, so the two
+    halves of the system agree about what reviewing means.
+
+    Three rules, in order:
+
+    * the owner of a request never reviews it themselves. `leave/views.py`
+      already refuses that for leave ("You cannot approve your own leave
+      request"); nothing enforced it for shift or work type, so an approver who
+      filed their own request could approve it.
+    * the owner's reporting manager may, which is the relationship the UI has
+      always been built around.
+    * anybody else needs one of `perms` AND the row has to be inside the
+      company scope the actor is working in. The scoped default manager is what
+      decides that, rather than a company comparison written out again here —
+      these models are scoped on
+      `employee_id__employee_work_info__company_id`, and reusing the manager
+      means this cannot drift away from how every list on the site is filtered.
+
+    A permission holder therefore keeps exactly the access they had inside
+    their own company and loses only what was never theirs.
+    """
+    user = getattr(request, "user", None)
+    actor = getattr(user, "employee_get", None) if user is not None else None
+    if actor is None:
+        return False
+    owner = getattr(instance, "employee_id", None)
+    if owner is None:
+        return False
+    if owner == actor:
+        return False
+    if is_reportingmanger(request, instance):
+        return True
+    if not any(user.has_perm(perm) for perm in perms):
+        return False
+    return type(instance)._default_manager.filter(pk=instance.pk).exists()
+
+
+def can_decide_shift_reallocation(request, shift_request):
+    """Whether this actor may accept, decline, approve or reject a shift swap.
+
+    Phase ADMIN-P0-PERMISSION-HARDENING (C-10). `shift_allocation_request_approve`
+    and `shift_allocation_request_cancel` carried only `@login_required` and
+    took the row straight from the URL id, so any authenticated employee could
+    set `reallocate_approved` on somebody else's swap — and the cancel path
+    writes `employee_work_info.shift_id = previous_shift_id` and saves it, which
+    made it a way to rewrite a colleague's assigned shift.
+
+    This is deliberately NOT `can_review_employee_request`: a reallocation is
+    the one request whose legitimate actor can be the person it is offered TO,
+    who is neither the owner nor the owner's manager and may hold no permission
+    at all. The three branches are exactly the three the template has always
+    drawn its buttons from (`base/templates/cbv/shift_request/
+    allocated_confirm_action.html` — `is_owner`, `can_manage`, `can_change`), so
+    every operator who could already press a button still can; what changes is
+    that the server now checks it too, instead of trusting that the button was
+    hidden.
+    """
+    from base.templatetags.basefilters import is_manager_of
+
+    user = getattr(request, "user", None)
+    actor = getattr(user, "employee_get", None) if user is not None else None
+    if actor is None:
+        return False
+    reallocate_to_id = getattr(shift_request, "reallocate_to_id", None)
+    if reallocate_to_id is not None and reallocate_to_id == actor.pk:
+        return True
+    if is_manager_of(user, shift_request, "reallocate_to") or is_manager_of(
+        user, shift_request
+    ):
+        return True
+    if not (
+        user.has_perm("base.change_shiftrequest")
+        or user.has_perm("base.approve_shiftrequest")
+    ):
+        return False
+    return ShiftRequest._default_manager.filter(pk=shift_request.pk).exists()
 
 
 def initialize_database_condition():
@@ -273,6 +376,64 @@ def initialize_database_condition():
                 init_database = False
                 break
     return init_database
+
+
+def initialization_entry_only(view):
+    """Allow the first initialisation step only when it is the only way in.
+
+    Phase ADMIN-P0-PERMISSION-HARDENING (C-1). `initialize_database` has
+    carried `if not settings.DEBUG: raise Http404` since it was written, but
+    that is the ENTRY PAGE. `initialize_database_user` is a different URL with
+    its own route (`base/urls.py`), and nothing forced a caller through the
+    page first, so the two guards protected a door next to an open window: an
+    unauthenticated POST to /initialize-database-user/ created a Django
+    superuser, logged the caller in as them, and on the way deleted any
+    existing same-named account that had no Employee row.
+
+    Both conditions are re-stated here rather than trusted from the entry
+    page, because an endpoint that mutates the auth table has to be able to
+    refuse on its own evidence. `initialize_database_condition()` is the
+    narrower of the two: it is only true while the database holds no superuser
+    that has an employee, which is exactly the bootstrap this wizard exists
+    for and is false forever afterwards.
+    """
+
+    @wraps(view)
+    def _wrapped(request, *args, **kwargs):
+        if not settings.DEBUG:
+            raise Http404
+        if not initialize_database_condition():
+            raise Http404
+        return view(request, *args, **kwargs)
+
+    return _wrapped
+
+
+def initialization_step_only(view):
+    """Allow a later initialisation step only for the superuser mid-wizard.
+
+    Phase ADMIN-P0-PERMISSION-HARDENING (C-2). The later steps cannot use
+    `initialization_entry_only`: step one creates a superuser WITH an employee,
+    which makes `initialize_database_condition()` false, so re-checking it
+    would 404 the rest of the operator's own wizard. The honest condition for
+    steps two onward is the state the wizard leaves behind — step one calls
+    `login()`, so from then on the caller is an authenticated superuser.
+
+    That is still a real gate: before this, these steps answered any
+    unauthenticated POST, which is how a stranger could create companies,
+    departments and job positions, and delete them by id.
+    """
+
+    @wraps(view)
+    def _wrapped(request, *args, **kwargs):
+        if not settings.DEBUG:
+            raise Http404
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated or not user.is_superuser:
+            raise Http404
+        return view(request, *args, **kwargs)
+
+    return _wrapped
 
 
 def _shift_fixture_dates(file_path):
@@ -558,6 +719,7 @@ def initialize_database(request):
         return redirect("/")
 
 
+@initialization_entry_only
 @hx_request_required
 def initialize_database_user(request):
     """
@@ -605,6 +767,7 @@ def initialize_database_user(request):
     return render(request, "initialize_database/joydigi_user_signup.html")
 
 
+@initialization_step_only
 @hx_request_required
 def initialize_database_company(request):
     """
@@ -635,6 +798,7 @@ def initialize_database_company(request):
     return render(request, "initialize_database/joydigi_company.html", {"form": form})
 
 
+@initialization_step_only
 @hx_request_required
 def initialize_database_department(request):
     """
@@ -661,6 +825,7 @@ def initialize_database_department(request):
     )
 
 
+@initialization_step_only
 @hx_request_required
 def initialize_department_edit(request, obj_id):
     """
@@ -699,6 +864,7 @@ def initialize_department_edit(request, obj_id):
     )
 
 
+@initialization_step_only
 @hx_request_required
 def initialize_department_delete(request, obj_id):
     """
@@ -716,6 +882,7 @@ def initialize_department_delete(request, obj_id):
     return redirect(initialize_database_department)
 
 
+@initialization_step_only
 @hx_request_required
 def initialize_database_job_position(request):
     """
@@ -750,6 +917,7 @@ def initialize_database_job_position(request):
     )
 
 
+@initialization_step_only
 @hx_request_required
 def initialize_job_position_edit(request, obj_id):
     """
@@ -790,6 +958,7 @@ def initialize_job_position_edit(request, obj_id):
     )
 
 
+@initialization_step_only
 @hx_request_required
 def initialize_job_position_delete(request, obj_id):
     """
@@ -4729,15 +4898,27 @@ def work_type_request_cancel(request, id):
         id  : work type request id
 
     """
+    # Phase ADMIN-P0-PERMISSION-HARDENING (C-12). Deliberately NOT decorated
+    # with `@manager_can_enter`, unlike its approve twin: this endpoint is also
+    # how an employee withdraws their OWN pending request, and that decorator
+    # passes only a permission holder or a reporting manager — it would have
+    # locked an ordinary employee out of their own withdrawal. The object-level
+    # check inside already covers both actors, and it is the check that was
+    # missing.
     is_ajax = request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest"
     work_type_request = WorkTypeRequest.find(id)
     if not work_type_request:
         messages.error(request, _("Work type request not found."))
         return JsonResponse({"result": False}) if is_ajax else JoydigiRedirect(request)
 
+    # C-12: a reviewer with scope, OR the owner withdrawing their own request
+    # that has not been approved yet. The second branch is the employee's own
+    # existing flow and is preserved exactly, including the `approved == False`
+    # condition.
     if not (
-        is_reportingmanger(request, work_type_request)
-        or request.user.has_perm("base.cancel_worktyperequest")
+        can_review_employee_request(
+            request, work_type_request, "base.cancel_worktyperequest"
+        )
         or work_type_request.employee_id == request.user.employee_get
         and work_type_request.approved == False
     ):
@@ -4784,11 +4965,14 @@ def work_type_request_bulk_cancel(request):
         )
     ids = json.loads(ids)
     result = False
-    for id in ids:
-        work_type_request = WorkTypeRequest.objects.get(id=id)
+    # C-12, as in `work_type_request_bulk_approve`: the client's ids are
+    # resolved through the company-scoped manager, so an id outside the
+    # operator's company is skipped rather than raising DoesNotExist.
+    for work_type_request in WorkTypeRequest.objects.filter(id__in=ids):
         if (
-            is_reportingmanger(request, work_type_request)
-            or request.user.has_perm("base.cancel_worktyperequest")
+            can_review_employee_request(
+                request, work_type_request, "base.cancel_worktyperequest"
+            )
             or work_type_request.employee_id == request.user.employee_get
             and work_type_request.approved == False
         ):
@@ -4817,6 +5001,7 @@ def work_type_request_bulk_cancel(request):
 
 
 @login_required
+@manager_can_enter("base.change_worktyperequest")
 def work_type_request_approve(request, id):
     """
     This method is used to approve requested work type
@@ -4827,11 +5012,14 @@ def work_type_request_approve(request, id):
     if not work_type_request:
         messages.error(request, _("Work type request not found."))
         return JsonResponse({"result": False}) if is_ajax else JoydigiRedirect(request)
+    # Phase ADMIN-P0-PERMISSION-HARDENING (C-12): object-level, not "is a
+    # manager of anybody". The `not approved` half is unchanged.
     if not (
-        (
-            is_reportingmanger(request, work_type_request)
-            or request.user.has_perm("base.approve_worktyperequest")
-            or request.user.has_perm("base.change_worktyperequest")
+        can_review_employee_request(
+            request,
+            work_type_request,
+            "base.approve_worktyperequest",
+            "base.change_worktyperequest",
         )
         and not work_type_request.approved
     ):
@@ -4869,6 +5057,7 @@ def work_type_request_approve(request, id):
 
 
 @login_required
+@manager_can_enter("base.change_worktyperequest")
 def work_type_request_bulk_approve(request):
     """
     This method is used to approve bulk of requested work type
@@ -4880,13 +5069,23 @@ def work_type_request_bulk_approve(request):
         )
     ids = json.loads(ids)
     result = False
-    for id in ids:
-        work_type_request = WorkTypeRequest.objects.get(id=id)
+    # Phase ADMIN-P0-PERMISSION-HARDENING (C-12). The ids come from the client,
+    # so they are resolved through the company-scoped manager as a set rather
+    # than fetched one at a time with `.get()`: an id outside the operator's
+    # company, or one that does not exist, used to raise DoesNotExist and turn
+    # the whole bulk action into a 500. Now it is simply not in the queryset, so
+    # the rows the operator may act on are still processed and the rest are left
+    # untouched.
+    for work_type_request in WorkTypeRequest.objects.filter(id__in=ids):
         if (
-            is_reportingmanger(request, work_type_request)
-            or request.user.has_perm("base.approve_worktyperequest")
-            or request.user.has_perm("base.change_worktyperequest")
-        ) and not work_type_request.approved:
+            can_review_employee_request(
+                request,
+                work_type_request,
+                "base.approve_worktyperequest",
+                "base.change_worktyperequest",
+            )
+            and not work_type_request.approved
+        ):
             # """
             # Here the request will be approved, can send mail right here
             # """
@@ -5683,6 +5882,11 @@ def shift_allocation_request_cancel(request, id):
         return JoydigiRedirect(
             request, message=_("No shift request found matching the query.")
         )
+    # Phase ADMIN-P0-PERMISSION-HARDENING (C-10). The same gate as the approve
+    # twin: this path rewrites `employee_work_info.shift_id`, so it must not be
+    # weaker than the one that only flips a flag.
+    if not can_decide_shift_reallocation(request, shift_request):
+        return JoydigiRedirect(request, message=_("You do not have permission"))
 
     shift_request.reallocate_canceled = True
     shift_request.reallocate_approved = False
@@ -5857,6 +6061,9 @@ def shift_allocation_request_approve(request, id):
         return JoydigiRedirect(
             request, message=_("No shift request found matching the query.")
         )
+    # Phase ADMIN-P0-PERMISSION-HARDENING (C-10).
+    if not can_decide_shift_reallocation(request, shift_request):
+        return JoydigiRedirect(request, message=_("You do not have permission"))
 
     if not shift_request.is_any_request_exists():
         shift_request.reallocate_approved = True

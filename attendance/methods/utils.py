@@ -246,7 +246,10 @@ def is_reportingmanger(request, instance):
             instance.employee_id.employee_work_info.reporting_manager_id
         )
     except Exception:
-        return HttpResponse("This Employee Dont Have any work information")
+        # Phase ADMIN-P0-PERMISSION-HARDENING (C-11) — the same truthy-
+        # HttpResponse bug as `base.views.is_reportingmanger`, fixed the same
+        # way. See that copy for the full reasoning.
+        return False
     return manager == employee_workinfo_manager
 
 

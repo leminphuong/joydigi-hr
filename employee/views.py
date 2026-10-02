@@ -32,7 +32,12 @@ from django.db import models
 from django.db.models import F, ProtectedError, Q
 from django.db.models.query import QuerySet
 from django.forms import DateInput, HiddenInput, Select
-from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import (
+    Http404,
+    HttpResponse,
+    HttpResponseForbidden,
+    JsonResponse,
+)
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -42,6 +47,7 @@ from django.utils.translation import gettext as __
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_http_methods
 
+from accessibility.accessibility import TOGGLEABLE_FEATURES
 from accessibility.decorators import enter_if_accessible
 from accessibility.methods import update_employee_accessibility_cache
 from accessibility.middlewares import ACCESSIBILITY_CACHE_USER_KEYS
@@ -287,10 +293,55 @@ def self_info_update(request):
     )
 
 
+@login_required
+@require_http_methods(["POST"])
+@permission_required("auth.change_permission")
 def profile_edit_access(request, emp_id):
-    feature = request.GET.get("feature", None)
+    """Grant or revoke one employee's access to a gated feature.
+
+    Phase ADMIN-P0-PERMISSION-HARDENING (C-3). This view used to carry no
+    decorators at all — not `login_required`, not a permission, not a method
+    restriction — while writing a many-to-many that the whole feature-gating
+    layer reads. An unauthenticated GET to
+    /employee/profile-edit-access/<id>/?feature=... flipped any employee into
+    or out of any configured feature, and `accessibility.decorators
+    .enter_if_accessible` ORs "is accessible" AHEAD of `has_perm`, so being
+    added to a feature grants it without the backing Django permission.
+
+    The four things it now requires, and why each:
+
+    * authentication, because nothing about this is public;
+    * `auth.change_permission`, the same permission
+      `accessibility.views.user_accessibility` already demands for the screen
+      that creates these rows — granting one person the feature is the same
+      class of act as defining who gets it;
+    * POST, because this mutates. The template affordance was a plain link,
+      so it is changed with this view (`employee/cbv/employees.py`); the URL
+      and its `?feature=` query string are unchanged, so nothing else that
+      points at this route has to move;
+    * the target has to be inside the operator's own company scope. `Employee`
+      is a plain `models.Model` with a plain manager, so `Employee.objects`
+      scopes nothing; `EmployeeWorkInformation.objects` is the
+      company-scoped manager, and every Employee has such a row, so going
+      through it is what makes "another company's employee" unreachable
+      without inventing a new scoping rule.
+
+    `JoydigiRedirect` is still the answer on every path, including refusal, so
+    the page behaves for an authorized operator exactly as it did before.
+    """
+    feature = request.GET.get("feature") or request.POST.get("feature")
+    if feature not in TOGGLEABLE_FEATURES:
+        # An unknown feature is not a silent no-op any more: silently doing
+        # nothing is indistinguishable from success to the caller, and this is
+        # the parameter the whole gate keys on.
+        raise Http404
     accessibility = DefaultAccessibility.objects.filter(feature=feature).first()
     if accessibility:
+        in_scope = EmployeeWorkInformation.objects.filter(
+            employee_id_id=emp_id
+        ).exists()
+        if not in_scope:
+            raise Http404
         employees = Employee.objects.filter(id=emp_id)
 
         if employee := employees.first():

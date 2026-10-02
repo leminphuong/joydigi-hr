@@ -276,6 +276,37 @@ class StageBoundaryTests(ReminderBase):
 class NormalShiftTests(ReminderBase):
     """08:00-17:00 — the ordinary company day."""
 
+    def test_nothing_is_sent_one_second_before_seven_fifty_five(self):
+        """Phase ATTENDANCE-REMINDER-TIMING-LOCK: the lower edge, as a clock time.
+
+        `StageBoundaryTests` already walks this boundary, but it expresses it as
+        `start_at() - REMINDER_LEAD`, which measures the window against the very
+        constant that defines it. Widen `REMINDER_LEAD` to ten minutes and that
+        test still passes, and so does
+        `test_five_minutes_early_reminds_somebody_who_has_not_checked_in` —
+        07:55 is still inside a window that now opens at 07:50 — so the whole
+        check-in suite stays green while every employee starts being pinged five
+        minutes earlier than the company asked for.
+        07:54 is the only assertion that notices. The check-out side has had its
+        equivalent since it was written (`test_no_reminder_a_microsecond_before_
+        the_first_moment`, at 16:54:59.999999); this is the missing half.
+        """
+        process_check_in_reminders(now=self.at(7, 54, second=59))
+
+        self.assertEqual(self.reminders().count(), 0)
+
+    def test_nothing_is_sent_one_second_before_eight_oh_five(self):
+        """The upper window's lower edge, also as a clock time.
+
+        `REMINDER_GRACE` is already pinned behaviourally — moving it would break
+        `test_five_minutes_late_reminds_somebody_still_missing` — so this closes
+        the pair rather than a hole, and keeps the two windows' edges stated in
+        the same terms the phase states them in.
+        """
+        process_check_in_reminders(now=self.at(8, 4, second=59))
+
+        self.assertEqual(self.reminders().count(), 0)
+
     def test_five_minutes_early_reminds_somebody_who_has_not_checked_in(self):
         process_check_in_reminders(now=self.at(7, 55))
 

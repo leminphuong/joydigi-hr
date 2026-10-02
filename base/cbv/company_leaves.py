@@ -15,6 +15,7 @@ from base.filters import CompanyLeaveFilter
 from base.forms import CompanyLeaveForm
 from base.models import CompanyLeaves
 from joydigi_views.cbv_methods import login_required, permission_required
+from joydigi.methods import handle_no_permission
 from joydigi_views.generic.cbv.views import (
     JoydigiDetailedView,
     JoydigiFormView,
@@ -134,6 +135,26 @@ class CompanyleaveFormView(JoydigiFormView):
     form_class = CompanyLeaveForm
     model = CompanyLeaves
     new_display_title = _("Create Weekly Off Days")
+
+    def dispatch(self, request, *args, **kwargs):
+        """Phase ADMIN-P0-PERMISSION-HARDENING (C-14), the twin of
+        `base.cbv.holidays.HolidayFormView`.
+
+        Same hole: `login_required` only, so any authenticated employee could
+        declare a weekday a company-wide weekly off day. `base.methods
+        .get_company_leave_dates` feeds `get_working_days`, which feeds
+        `ctx.off_dates` / `ctx.total_working` in every attendance period — adding
+        "every Wednesday" silently removes about four working days a month from
+        every employee's denominator.
+        """
+        perm = (
+            "base.change_companyleaves"
+            if kwargs.get("pk")
+            else "base.add_companyleaves"
+        )
+        if not request.user.has_perm(perm):
+            return handle_no_permission(request)
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

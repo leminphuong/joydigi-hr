@@ -451,23 +451,69 @@ class NewAttendanceRequestFormView(JoydigiFormView):
         super().__init__(**kwargs)
         self.view_id = "attendanceRequest"
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        self.form = choosesubordinates(
-            self.request, self.form, "attendance.change_attendance"
-        )
-        self.form.fields["employee_id"].queryset = (
-            self.form.fields["employee_id"].queryset
-        ).distinct() | (
+    def _restrict_employee_choices(self, form):
+        """Narrow `employee_id` to the people this actor may file a request for.
+
+        Phase ADMIN-P0-PERMISSION-HARDENING (C-8). This narrowing used to live
+        in `get_context_data`, which runs when the form is RENDERED and not when
+        a POST is validated — `JoydigiFormView.post` goes straight to
+        `get_form()` and `form_valid()`. So the bound form still carried the
+        field's default, unnarrowed queryset, and `employee_id` from the request
+        body was accepted as valid: any authenticated employee could create a
+        brand-new Attendance row for a colleague, or overwrite an existing row's
+        `requested_data`/`request_description` and set `is_validate_request`
+        on it.
+
+        Moving it to `get_form` is what fixes that: `get_form` is called on both
+        paths, so the bound form is validated against the same queryset the
+        rendered one offered. The allowed set is unchanged for everybody who was
+        already using this screen legitimately — `choosesubordinates` plus the
+        actor themselves, exactly as before.
+
+        Two things are tightened beyond the move:
+
+        * the `?emp_id=` prefill now INTERSECTS the allowed set instead of
+          replacing it. It used to assign `Employee.objects.filter(id=emp_id)`
+          outright, so once this narrowing also applied to POST, a crafted
+          `?emp_id=<colleague>` would have re-widened the field and handed the
+          hole straight back.
+        * the result is scoped to the company the actor is working in.
+          `choosesubordinates` returns the form untouched when the user holds the
+          permission (`base/methods.py`), and `Employee` has a plain manager, so
+          for a permission holder "everybody" meant every employee in every
+          company. `EmployeeWorkInformation.objects` is the company-scoped
+          manager, so intersecting through it is what makes another company's
+          employee unselectable without writing a second company rule here.
+        """
+        from employee.models import EmployeeWorkInformation
+
+        field = form.fields.get("employee_id")
+        if field is None:
+            return
+        choosesubordinates(self.request, form, "attendance.change_attendance")
+        allowed = field.queryset.distinct() | (
             Employee.objects.filter(employee_user_id=self.request.user)
         ).distinct()
-        self.form.fields["employee_id"].initial = self.request.user.employee_get.id
-        if self.request.GET.get("emp_id"):
-            emp_id = self.request.GET.get("emp_id")
-            self.form.fields["employee_id"].queryset = Employee.objects.filter(
-                id=emp_id
-            )
-            self.form.fields["employee_id"].initial = emp_id
+        allowed = allowed.filter(
+            pk__in=EmployeeWorkInformation.objects.values("employee_id_id")
+        ).distinct()
+        emp_id = self.request.GET.get("emp_id")
+        if emp_id:
+            allowed = allowed.filter(id=emp_id)
+        field.queryset = allowed
+        actor = getattr(self.request.user, "employee_get", None)
+        field.initial = emp_id if emp_id else getattr(actor, "id", None)
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        self._restrict_employee_choices(form)
+        return form
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # The narrowing itself now happens in `get_form` so that it also applies
+        # to a POST; `self.form` is the same object `get_form` cached.
+        self._restrict_employee_choices(self.form)
         if self.form.instance.pk:
             self.form_class.verbose_name = _("Update Attendance Request")
         return context

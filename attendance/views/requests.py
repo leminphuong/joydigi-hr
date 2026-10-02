@@ -495,6 +495,17 @@ def approve_validate_attendance_request(request, attendance_id):
         return JoydigiRedirect(
             request, message=_("No Attendance found matching the query.")
         )
+    # Phase ADMIN-P0-PERMISSION-HARDENING (C-9). `@manager_can_enter` asks only
+    # whether this user is a reporting manager of ANYBODY, or holds the model
+    # permission; it says nothing about this row. So approve was strictly less
+    # protected than reject on the same model, which has checked the row since
+    # it was written — see `validate_this_attendance_request` above, and
+    # `cancel_attendance_request` below. The same helper, the same refusal, so
+    # the two halves of one decision cannot drift apart again.
+    if not _can_review_attendance_request(request.user, attendance):
+        return HttpResponseForbidden(
+            "Bạn chỉ được duyệt chấm công của thành viên trong nhóm mình."
+        )
 
     prev_attendance_date = attendance.attendance_date
     prev_attendance_clock_in_date = attendance.attendance_clock_in_date
@@ -730,12 +741,25 @@ def bulk_approve_attendance_request(request):
     """
     ids = json.loads(request.POST.get("ids", "[]"))
     filtered_ids = []
-    for attendance_id in ids:
-        attendance = Attendance.objects.get(id=attendance_id)
-        if attendance.employee_id != request.user.employee_get:
-            filtered_ids.append(attendance_id)
-    if request.user.is_superuser:
-        filtered_ids = ids
+    # Phase ADMIN-P0-PERMISSION-HARDENING (C-9). Three things change, and the
+    # outcome for an authorized reviewer does not:
+    #
+    # * the rows are resolved through the company-scoped manager in one query
+    #   instead of `objects.get(id=...)` per id, so an id from another company —
+    #   or one that does not exist — is skipped rather than raising DoesNotExist
+    #   and turning the whole bulk action into a 500;
+    # * every surviving row goes through the same object-level check the single
+    #   approve and the reject path use, so "manager of somebody" is no longer
+    #   enough to approve a stranger's attendance;
+    # * `_can_review_attendance_request` already returns False for the
+    #   reviewer's own row, which is what the old `!= request.user.employee_get`
+    #   line was for, so that guard is kept rather than replaced. The superuser
+    #   override is preserved exactly as it was.
+    for attendance in Attendance.objects.filter(id__in=ids):
+        if request.user.is_superuser or _can_review_attendance_request(
+            request.user, attendance
+        ):
+            filtered_ids.append(attendance.id)
     for attendance_id in filtered_ids:
         attendance = Attendance.objects.get(id=attendance_id)
         prev_attendance_date = attendance.attendance_date

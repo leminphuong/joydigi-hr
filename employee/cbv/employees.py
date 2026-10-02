@@ -787,8 +787,23 @@ class EmployeeCard(JoydigiCardView):
                     {
                         "action": "profile_edit_accessibility_display",
                         "accessibility": "employee.cbv.accessibility.action_accessible",
+                        # Phase ADMIN-P0-PERMISSION-HARDENING (C-3): a POST,
+                        # not a link. Granting or revoking a feature is a
+                        # mutation, and `profile_edit_access` now refuses
+                        # anything but POST. The URL is unchanged, including its
+                        # `?feature=profile_edit` query string.
+                        #
+                        # No token has to be interpolated here: the theme
+                        # attaches `X-CSRFToken` to every htmx request from the
+                        # page (joydigi_theme/templates/joydigi_theme/components/
+                        # footer_scripts.html). The reload keeps what the
+                        # operator sees identical to the old full navigation —
+                        # the view still answers `JoydigiRedirect`, so without
+                        # it htmx would swap a whole page into the dropdown.
                         "attrs": """
-                        href="{toggle_profile_edit_access_url}"
+                        hx-post="{toggle_profile_edit_access_url}"
+                        hx-swap="none"
+                        hx-on-htmx-after-request="window.location.reload();"
                         class="oh-dropdown__link"
                         style="cursor: pointer;"
                     """,

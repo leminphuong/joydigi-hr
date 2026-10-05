@@ -1,0 +1,252 @@
+name: Apply Production Standard Shift
+
+# One-off maintenance: set JOYDIGI's "Ca hành chính" to Monday-Friday
+# 08:00-17:00 and take the weekend out of the shift, so that the reminder
+# engine derives 07:55 / 08:05 / 16:55 / 17:05 by itself.
+#
+# Never runs by itself. There is no `push` trigger and no schedule — only
+# `workflow_dispatch`, and its default mode is the read-only one.
+#
+# The work is done by `scripts/apply_standard_shift.py`, which carries its own
+# precondition gate, idempotence gate and history checksums. This file's job is
+# only to get that script onto the production host and run it with one of two
+# modes.
+#
+# WHY THE SCRIPT IS SHIPPED RATHER THAN RUN FROM THE SERVER'S CHECKOUT
+# --------------------------------------------------------------------
+# /var/www/joydigi-hr is deployed from `main`. If this workflow ran
+# `./scripts/apply_standard_shift.py` from there, it would run whatever version
+# that checkout happens to hold — possibly none at all, if this change has not
+# been deployed yet. Uploading the runner's copy means the version that runs is
+# exactly the version in the ref you dispatch, which is the one that was
+# rehearsed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry_run reads and reports only. apply writes."
+        type: choice
+        options:
+          - dry_run
+          - apply
+        default: dry_run
+
+# Shares the deploy workflow's group so this can never interleave with a
+# deployment and its service restart. `cancel-in-progress: false` so that this
+# run is not cancelled by a queued one of its own kind; a deploy queued behind
+# it can still cancel it, which is safe — the write is a single
+# `transaction.atomic()`, so a killed connection rolls it back rather than
+# leaving the shift half-changed.
+concurrency:
+  group: joydigi-hr-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: ${{ inputs.mode == 'apply' && 'APPLY to production' || 'Dry run (read-only)' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the rehearsed script
+        uses: actions/checkout@v4
+
+      # The mode is checked here, on the runner, before anything is sent. It
+      # travels into a remote command line below, so it is read from `env`
+      # rather than interpolated into the script body — a `${{ }}` expression
+      # placed directly in a `run:` block is substituted before bash ever sees
+      # it, which is how a crafted input becomes a command. `choice` already
+      # restricts it to two values; this does not rely on that.
+      - name: Validate mode
+        shell: bash
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          # Exact string comparison, not a regex. `grep -Eq '^(dry_run|apply)$'`
+          # looks equivalent but matches any LINE, so a two-line value passes it
+          # — and this value is interpolated into a remote command string below,
+          # where an embedded newline is a second command. Caught in rehearsal.
+          if [ "$MODE" != "dry_run" ] && [ "$MODE" != "apply" ]; then
+            echo "::error title=Invalid mode::mode must be exactly 'dry_run' or 'apply'. Nothing was sent to the server."
+            exit 1
+          fi
+          echo "mode=$MODE"
+          if [ "$MODE" = "apply" ]; then
+            echo "::warning title=Write mode::This run will write to the production database. The script aborts unless production matches the expected 08:30-17:30 pre-state."
+          fi
+
+      # Identical to the deploy workflow's SSH setup, deliberately: same key,
+      # same host verification. The key is written with the restrictive mode ssh
+      # requires and is never echoed.
+      - name: Configure SSH
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VPS_HOST:-}" ] || [ -z "${VPS_SSH_KEY:-}" ]; then
+            echo "::error title=Missing SSH configuration::VPS_HOST and VPS_SSH_KEY must both be set as repository secrets."
+            exit 1
+          fi
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          # The host key is pinned from the host itself rather than switching
+          # StrictHostKeyChecking off, so ssh still refuses a host whose key
+          # changes mid-run.
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # The script travels on ssh's stdin as a redirection, with the remote
+      # command as an ARGUMENT — never both at once. A previous workflow in this
+      # repository piped a secret into ssh while also giving it a heredoc; the
+      # redirection won, the piped data was silently discarded, and the step
+      # still exited 0. One or the other, never both.
+      #
+      # The destination carries the run id so two runs cannot read each other's
+      # file, and `umask 077` keeps it unreadable by other accounts on the host.
+      - name: Upload the script
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          REMOTE_SCRIPT="/tmp/apply-standard-shift-${GITHUB_RUN_ID}.py"
+          echo "REMOTE_SCRIPT=$REMOTE_SCRIPT" >> "$GITHUB_ENV"
+
+          ssh \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -i ~/.ssh/id_ed25519 \
+            "$VPS_USER@$VPS_HOST" \
+            "umask 077; cat > '$REMOTE_SCRIPT'" < scripts/apply_standard_shift.py
+
+          # Prove it arrived whole. A truncated upload must fail here rather
+          # than half-run on the database.
+          LOCAL_SUM="$(sha256sum scripts/apply_standard_shift.py | cut -d' ' -f1)"
+          REMOTE_SUM="$(ssh \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -i ~/.ssh/id_ed25519 \
+            "$VPS_USER@$VPS_HOST" \
+            "sha256sum '$REMOTE_SCRIPT' | cut -d' ' -f1")"
+
+          if [ "$LOCAL_SUM" != "$REMOTE_SUM" ]; then
+            echo "::error title=Upload mismatch::The script on the server does not match the one in the repository. Nothing was run."
+            exit 1
+          fi
+          echo "script uploaded and verified (sha256 ${LOCAL_SUM:0:16}…)"
+
+      # `manage.py shell` rather than a bare `python`, for two reasons: it loads
+      # the project's settings and ORM the same way every other maintenance step
+      # in this repository does, and `shell` in argv is what keeps every
+      # scheduler in this project from starting a background job for the
+      # duration of the run (attendance, base, employee, leave and pg_backup all
+      # guard on it).
+      #
+      # PYTHONIOENCODING/PYTHONUTF8 because the output contains the shift's
+      # Vietnamese name; without them a non-UTF-8 locale on the host turns the
+      # first print into a UnicodeEncodeError.
+      #
+      # The script's exit code is the step's exit code: 0 success, 2 aborted
+      # without writing, 3 written but failed to verify.
+      - name: Run (mode=${{ inputs.mode }})
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -i ~/.ssh/id_ed25519 \
+            "$VPS_USER@$VPS_HOST" \
+            "APPLY_MODE='$MODE' SCRIPT='$REMOTE_SCRIPT' bash -s" <<'REMOTE' | tee run.log
+          set -eu
+          cd /var/www/joydigi-hr
+
+          if [ ! -x ./venv/bin/python ]; then
+            echo "no virtualenv at /var/www/joydigi-hr/venv - nothing was run" >&2
+            exit 1
+          fi
+
+          APPLY_MODE="$APPLY_MODE" \
+          PYTHONIOENCODING=utf-8 \
+          PYTHONUTF8=1 \
+            ./venv/bin/python manage.py shell \
+              -c "exec(open('$SCRIPT', encoding='utf-8').read())"
+          REMOTE
+
+      # The run above already failed the job on a bad exit code. This turns the
+      # script's own closing marker into the job summary, so the outcome is
+      # readable in the Actions UI without opening the log.
+      - name: Summarise
+        if: always()
+        shell: bash
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -uo pipefail
+          {
+            echo "### Apply Production Standard Shift"
+            echo
+            echo "mode: \`$MODE\`"
+            echo
+            if [ ! -f run.log ]; then
+              echo "The script did not run. Nothing was changed."
+            elif grep -q '^PRODUCTION_STANDARD_SHIFT_APPLIED$' run.log; then
+              echo "**PRODUCTION_STANDARD_SHIFT_APPLIED** — Mon-Fri 08:00-17:00, weekend off, history unchanged."
+            elif grep -q '^PRODUCTION_SHIFT_DRY_RUN_OK$' run.log; then
+              echo "**PRODUCTION_SHIFT_DRY_RUN_OK** — nothing was written. Re-run with mode=apply to perform it."
+            elif grep -q '^PRODUCTION_SHIFT_ALREADY_APPLIED$' run.log; then
+              echo "**PRODUCTION_SHIFT_ALREADY_APPLIED** — already in the standard shape, no write attempted."
+            elif grep -q '^ABORTED_NO_CHANGES$' run.log; then
+              echo "**ABORTED_NO_CHANGES** — the precondition did not hold. Nothing was written."
+              echo
+              echo "Reasons:"
+              echo '```'
+              grep '^  !!' run.log || true
+              echo '```'
+            else
+              echo "Finished without a recognised marker — read the step log."
+            fi
+            echo
+            echo "Reminders are derived from the shift, not configured here:"
+            echo '```'
+            sed -n '/check-in  #1/,/check-out #2/p' run.log 2>/dev/null || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Always, including after a failure: the uploaded script is a working file,
+      # not something to leave lying in /tmp.
+      - name: Remove the uploaded script
+        if: always()
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -uo pipefail
+          if [ -z "${REMOTE_SCRIPT:-}" ]; then
+            echo "nothing was uploaded"
+            exit 0
+          fi
+          ssh \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -i ~/.ssh/id_ed25519 \
+            "$VPS_USER@$VPS_HOST" \
+            "rm -f '$REMOTE_SCRIPT'" || echo "could not remove $REMOTE_SCRIPT; harmless, it contains no secret"

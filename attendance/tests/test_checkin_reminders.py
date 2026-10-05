@@ -31,6 +31,7 @@ windows are bounded and disjoint, so a run at 08:06 owes the second
 reminder and can never still owe the first.
 """
 
+from datetime import date as date_cls
 from datetime import datetime, time, timedelta
 from unittest import mock
 
@@ -500,6 +501,61 @@ class NotificationPreferenceTests(ReminderBase):
             1,
             msg="the preference test above must be proving the preference, "
             "not a broken fixture",
+        )
+
+
+class StandardWeekWeekendTests(ReminderBase):
+    """Saturday and Sunday, named rather than inferred from the run date.
+
+    Phase COMPANY-STANDARD-SHIFT-0800-1700. `OffDayTests` already proves the
+    mechanism — remove the schedule, get no reminder — but it uses
+    `self.today`, so on a Tuesday run it proves nothing about Saturday. The
+    company standard is Monday-Friday, and the weekend is precisely what
+    employees were being pinged on, so the two weekend days get assertions of
+    their own against fixed dates.
+
+    `ReminderBase` seeds a schedule for all seven weekdays so its other tests
+    can ignore the calendar; this class removes the two the standard shift does
+    not have, which is exactly what `base.demo_data.modules.checkin` now seeds.
+    """
+
+    #: A real Saturday and the Sunday after it, with the Monday that follows.
+    SATURDAY = date_cls(2026, 10, 3)
+    SUNDAY = date_cls(2026, 10, 4)
+    MONDAY = date_cls(2026, 10, 5)
+
+    def setUp(self):
+        super().setUp()
+        for day in (self.SATURDAY, self.SUNDAY):
+            EmployeeShiftSchedule.objects.filter(
+                shift_id=self.shift, day=self.day_of(day)
+            ).delete()
+
+    def test_the_fixture_dates_really_are_the_weekend(self):
+        self.assertEqual(self.SATURDAY.strftime("%A"), "Saturday")
+        self.assertEqual(self.SUNDAY.strftime("%A"), "Sunday")
+        self.assertEqual(self.MONDAY.strftime("%A"), "Monday")
+
+    def test_saturday_sends_no_check_in_reminder(self):
+        for moment in (self.at(7, 55, on=self.SATURDAY), self.at(8, 5, on=self.SATURDAY)):
+            process_check_in_reminders(now=moment)
+
+        self.assertEqual(self.reminders(on=self.SATURDAY).count(), 0)
+
+    def test_sunday_sends_no_check_in_reminder(self):
+        for moment in (self.at(7, 55, on=self.SUNDAY), self.at(8, 5, on=self.SUNDAY)):
+            process_check_in_reminders(now=moment)
+
+        self.assertEqual(self.reminders(on=self.SUNDAY).count(), 0)
+
+    def test_the_monday_after_still_reminds(self):
+        """The weekend is silenced by having no shift, not by silencing the job."""
+        process_check_in_reminders(now=self.at(7, 55, on=self.MONDAY))
+
+        self.assertEqual(
+            self.reminders(STAGE_START_MINUS_5, on=self.MONDAY).count(),
+            1,
+            "removing the weekend must not cost the working week its reminder",
         )
 
 

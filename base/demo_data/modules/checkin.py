@@ -22,6 +22,7 @@ from base.models import (
     CheckInPolicy,
     Company,
     CompanyGroupAssignment,
+    CompanyLeaves,
     Department,
     EmployeeShift,
     EmployeeShiftDay,
@@ -47,6 +48,31 @@ from leave.models import AvailableLeave, LeaveRequest, LeaveType
 
 DEMO_MARKER = "joydigi-checkin-v1"
 DEFAULT_EMPLOYEE_PASSWORD = "123456"
+
+#: The company's standard working week — Phase COMPANY-STANDARD-SHIFT-0800-1700.
+#:
+#: These three constants are the single place the default shift is stated. The
+#: reminder engine, the late/early rule and the calendar all read the shift
+#: rather than any clock time of their own, so changing them here moves
+#: everything downstream together:
+#:
+#:   check-in reminders   start − 5m / start + 5m   → 07:55 / 08:05
+#:   check-out reminders  end   − 5m / end   + 5m   → 16:55 / 17:05
+#:   late                 check_in  > start + grace_in  (grace_in = 10m, from
+#:                        `CheckInPolicy.late_threshold_minutes`, seeded below)
+#:   early                check_out < end   − grace_out (grace_out = 0; no
+#:                        `GraceTime` row is seeded)
+#:
+#: Saturday and Sunday are absent from `STANDARD_WORKING_DAYS` on purpose; see
+#: the weekday loop for why that absence, and not a later filter, is what makes
+#: the weekend a non-working day.
+STANDARD_SHIFT_START = time(8, 0)
+STANDARD_SHIFT_END = time(17, 0)
+STANDARD_WORKING_DAYS = ("monday", "tuesday", "wednesday", "thursday", "friday")
+
+#: `CompanyLeaves.based_on_week_day` values for the weekend. `base.models
+#: .WEEK_DAYS` is Monday=0 … Sunday=6, matching `date.weekday()`.
+WEEKEND_WEEK_DAYS = ("5", "6")
 
 
 @dataclass(frozen=True)
@@ -221,13 +247,27 @@ def _ensure_organization(company: Company) -> dict:
             day = EmployeeShiftDay.objects.entire().create(day=day_name)
         day.company_id.add(company)
         shift_days[day_name] = day
+        if day_name not in STANDARD_WORKING_DAYS:
+            # Phase COMPANY-STANDARD-SHIFT-0800-1700. The weekday row itself is
+            # reference data every date lookup needs, so it is still created —
+            # but there is deliberately NO schedule on Saturday or Sunday.
+            #
+            # That absence is what silences the weekend, and it silences it at
+            # the first gate rather than a later one: `process_check_in_reminders`
+            # looks the schedule up by (shift, weekday) and `continue`s when it
+            # finds none, before it so much as computes a stage
+            # (`attendance/methods/reminders.py`). A shift that *has* a Saturday
+            # row is a shift that works Saturdays, whatever else is configured,
+            # and seeding one for all seven days is why reminders went out at the
+            # weekend.
+            continue
         schedule, _ = EmployeeShiftSchedule.objects.entire().update_or_create(
             shift_id=shift,
             day=day,
             defaults={
                 "minimum_working_hour": "08:00",
-                "start_time": time(8, 30),
-                "end_time": time(17, 30),
+                "start_time": STANDARD_SHIFT_START,
+                "end_time": STANDARD_SHIFT_END,
                 "is_night_shift": False,
             },
         )
@@ -349,6 +389,38 @@ def _ensure_checkin_settings(company: Company) -> None:
             "allow_outside_radius_request": True,
         },
     )
+
+    # Phase COMPANY-STANDARD-SHIFT-0800-1700: the weekend, declared where the
+    # rest of the system asks about it.
+    #
+    # Not a second, competing source of truth — a complementary one. The absent
+    # Saturday/Sunday schedule says "there is no shift to work"; these rows say
+    # "the company is closed", which is the question `base.methods
+    # .is_company_leave` answers for the calendar's `isCompanyLeave` flag and
+    # `get_working_days` answers for the working-day denominator. Both now say
+    # the same thing, so a weekend is neither reminded about nor counted as a
+    # day somebody failed to attend. Seeding only the schedules would have
+    # silenced the reminders and still left the calendar treating Saturday as an
+    # ordinary unattended working day.
+    #
+    # `based_on_week=None` means every week rather than the nth one, which also
+    # sidesteps the one place the two weekly-off helpers genuinely disagree:
+    # `reminders._company_weekly_off` computes the week-of-month as
+    # `(day - 1) // 7` while `base.methods.is_company_leave` offsets by the
+    # month's first weekday, so an nth-week rule can be read differently by the
+    # two. A plain every-week rule is read identically by both.
+    #
+    # `get_or_create` rather than `create`: `CompanyLeaves.unique_together` is
+    # ("based_on_week", "based_on_week_day") with no company in it, so one row
+    # per weekday exists for the whole install and companies attach to it
+    # through the M2M. That is a pre-existing multi-tenant limitation, recorded
+    # in the admin audit; it is not introduced here.
+    for weekday in WEEKEND_WEEK_DAYS:
+        weekly_off, _ = CompanyLeaves.objects.entire().get_or_create(
+            based_on_week=None,
+            based_on_week_day=weekday,
+        )
+        weekly_off.company_id.add(company)
     CheckInLocation.objects.update_or_create(
         company_id=company,
         name="Văn phòng JOYDIGI",
@@ -510,7 +582,19 @@ def _ensure_attendance(
                         else (current.toordinal() + index) % 11 == 0
                     )
                 )
-                minute = 42 + index % 7 if late else 18 + index % 10
+                # Phase COMPANY-STANDARD-SHIFT-0800-1700: these times are judged
+                # against the shift, so they had to move with it.
+                #
+                # The on-time arrival used to be 08:18-08:27, which was inside
+                # the old 08:30 start. Against an 08:00 start with ten minutes of
+                # grace it is late — every "normal" demo day would have been
+                # flagged. 08:00-08:07 is on time by the same rule that decides
+                # it in production (`clock_in > start + grace_in`), and the late
+                # branch is left alone because 08:42-08:48 is still late.
+                #
+                # The departure needs no change: 17:32-17:44 is after a 17:00 end
+                # and so is never early, by `clock_out < end - grace_out`.
+                minute = 42 + index % 7 if late else index % 8
                 clock_in = time(8, minute)
                 clock_out = time(17, 32 + index % 13)
                 worked_seconds = int(

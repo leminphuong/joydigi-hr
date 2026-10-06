@@ -611,3 +611,127 @@ class NightShiftTests(TestCase):
         )
 
         self.assertIn("early_out", self.flags(row))
+
+
+@RULE_IN_FORCE
+class UnscheduledDayTests(TestCase):
+    """A day the shift does not schedule is nobody's late arrival.
+
+    Phase ATTENDANCE-STATUS-AND-ADMIN-DATA-HARDENING. The company standard week
+    runs Monday to Friday and schedules no weekend at all, which is the correct
+    configuration — a shift with a weekend schedule row is a shift that works
+    weekends. But `shift_schedule_today` reports a day with no schedule row as
+    `0, 0` rather than as "no schedule", and the rule read that as a shift
+    starting at 00:00. Every weekend check-in — overtime, a one-off catch-up —
+    was therefore recorded as a late arrival, against a shift that does not run
+    that day.
+
+    This drives the real clock-in path, because that is where the symptom was.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        tag = uuid.uuid4().hex[:8]
+        cls.company = Company.objects.create(
+            company="Weekend Corp %s" % tag,
+            hq=False,
+            address="x",
+            country="VN",
+            state="HN",
+            city="HN",
+            zip="10000",
+        )
+        CheckInPolicy.objects.create(company_id=cls.company, late_threshold_minutes=10)
+        cls.shift = EmployeeShift.objects.create(employee_shift="Ca %s" % tag)
+        cls.shift.company_id.add(cls.company)
+        cls.work_type = WorkType.objects.create(work_type="Office %s" % tag)
+        cls.work_type.company_id.add(cls.company)
+        Department.objects.create(department="Eng %s" % tag).company_id.add(cls.company)
+
+        # Monday to Friday only — the weekend is configured by its absence.
+        for name in ("monday", "tuesday", "wednesday", "thursday", "friday"):
+            day = EmployeeShiftDay.objects.filter(day=name).first()
+            schedule = EmployeeShiftSchedule.objects.create(
+                day=day,
+                shift_id=cls.shift,
+                minimum_working_hour="08:00",
+                start_time=time(8, 0),
+                end_time=time(17, 0),
+            )
+            schedule.company_id.add(cls.company)
+
+        # The most recent Saturday and the Monday before it, so both are in the
+        # past and neither depends on which day the suite runs.
+        cls.saturday = timezone.localtime().date()
+        while cls.saturday.weekday() != 5:
+            cls.saturday -= timedelta(days=1)
+        cls.monday = cls.saturday - timedelta(days=5)
+
+    def setUp(self):
+        tag = uuid.uuid4().hex[:10]
+        self.employee = Employee.objects.create(
+            employee_first_name="Weekend",
+            employee_last_name=tag,
+            email="weekend%s@test.local" % tag,
+            phone="9999999999",
+        )
+        info = EmployeeWorkInformation.objects.get(employee_id=self.employee)
+        info.company_id = self.company
+        info.shift_id = self.shift
+        info.work_type_id = self.work_type
+        info.save()
+
+    def request_at(self, moment):
+        user = type(self.employee.employee_user_id).objects.get(
+            pk=self.employee.employee_user_id.pk
+        )
+        return Request(
+            user=user,
+            date=moment.date(),
+            time=moment.time(),
+            datetime=moment,
+            trusted_device=True,
+        )
+
+    def at(self, day, hour, minute=0):
+        return timezone.make_aware(datetime.combine(day, time(hour, minute)))
+
+    def flags(self, attendance):
+        return set(
+            AttendanceLateComeEarlyOut.objects.filter(
+                attendance_id=attendance
+            ).values_list("type", flat=True)
+        )
+
+    def test_a_saturday_check_in_records_no_late_arrival(self):
+        attendance, allowed, reason = perform_clock_in(
+            self.request_at(self.at(self.saturday, 9, 30))
+        )
+        self.assertTrue(allowed, reason)
+        self.assertEqual(
+            self.flags(attendance),
+            set(),
+            "09:30 on a day with no schedule was being read as 9½ hours late "
+            "for a shift starting at 00:00",
+        )
+
+    def test_a_saturday_check_out_records_no_early_departure(self):
+        attendance, allowed, reason = perform_clock_in(
+            self.request_at(self.at(self.saturday, 9, 30))
+        )
+        self.assertTrue(allowed, reason)
+        perform_clock_out(self.request_at(self.at(self.saturday, 12, 0)))
+        self.assertEqual(self.flags(attendance), set())
+
+    def test_the_same_arrival_on_a_scheduled_day_is_still_judged(self):
+        """The guard must not switch the rule off for ordinary days."""
+        attendance, allowed, reason = perform_clock_in(
+            self.request_at(self.at(self.monday, 9, 30))
+        )
+        self.assertTrue(allowed, reason)
+        self.assertIn(
+            "late_come",
+            self.flags(attendance),
+            "09:30 against an 08:00 Monday shift is late — if this passes only "
+            "because the guard fired, the guard is too wide",
+        )

@@ -650,8 +650,18 @@ class AttendanceUpdateFormView(JoydigiFormView):
 
     def form_valid(self, form: AttendanceUpdateForm) -> HttpResponse:
         if form.is_valid():
+            # Imported here rather than at module scope: `attendance.views`
+            # imports from `attendance.cbv` on the way up, so a top-level
+            # import would close the loop.
+            from attendance.views.clock_in_out import sync_late_early
+
             message = _("Attandance Updated")
-            form.save()
+            attendance = form.save()
+            # The edit may have moved the check-in or check-out, and the
+            # late/early rows are what the timesheet reads. Without this, an
+            # arrival corrected from 08:25 to 08:00 kept its "Đi muộn" row and
+            # the day stayed orange with an on-time check-in printed beside it.
+            sync_late_early(attendance)
             messages.success(self.request, message)
             return self.HttpResponse(
                 script="if(typeof refreshAttendanceListContainer==='function'){refreshAttendanceListContainer();}"

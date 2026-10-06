@@ -29,7 +29,6 @@ from attendance.methods.utils import (
     get_diff_dict,
     get_employee_last_name,
     paginator_qry,
-    shift_schedule_today,
 )
 from attendance.models import (
     Attendance,
@@ -37,7 +36,7 @@ from attendance.models import (
     AttendanceLateComeEarlyOut,
     BatchAttendance,
 )
-from attendance.views.clock_in_out import early_out, late_come
+from attendance.views.clock_in_out import sync_late_early
 from base.methods import (
     choosesubordinates,
     closest_numbers,
@@ -46,7 +45,7 @@ from base.methods import (
     get_key_instances,
     is_reportingmanager,
 )
-from base.models import EmployeeShift, EmployeeShiftDay
+from base.models import EmployeeShift
 from base.roles import is_checkin_admin
 from employee.models import Employee
 from joydigi.decorators import (
@@ -558,23 +557,13 @@ def approve_validate_attendance_request(request, attendance_id):
                 clock_in=attendance.attendance_clock_in,
             )
 
-    # Create late come or early out objects
-    shift = attendance.shift_id
-    day = attendance.attendance_date.strftime("%A").lower()
-    day = EmployeeShiftDay.objects.get(day=day)
-
-    if shift:
-        minimum_hour, start_time_sec, end_time_sec = shift_schedule_today(
-            day=day, shift=shift
-        )
-        if attendance.attendance_clock_in:
-            late_come(
-                attendance, start_time=start_time_sec, end_time=end_time_sec, shift=shift
-            )
-        if attendance.attendance_clock_out:
-            early_out(
-                attendance, start_time=start_time_sec, end_time=end_time_sec, shift=shift
-            )
+    # Bring the late come / early out rows in line with the times this approval
+    # just wrote. `late_come` and `early_out` only ever create, so approving a
+    # correction that moved an arrival from 08:25 to 08:00 used to leave the
+    # existing `late_come` row untouched and the day went on reading "Đi muộn"
+    # with an on-time check-in printed next to it. `sync_late_early` applies the
+    # same two rule functions and also drops a verdict that no longer holds.
+    sync_late_early(attendance)
     messages.success(request, _("Attendance request has been approved"))
     employee = attendance.employee_id
     notify.send(
@@ -806,28 +795,12 @@ def bulk_approve_attendance_request(request):
                     clock_in=attendance.attendance_clock_in,
                 )
 
-        # Create late come or early out objects
-        shift = attendance.shift_id
-        day = attendance.attendance_date.strftime("%A").lower()
-        day = EmployeeShiftDay.objects.get(day=day)
-
-        minimum_hour, start_time_sec, end_time_sec = shift_schedule_today(
-            day=day, shift=shift
-        )
-        if attendance.attendance_clock_in:
-            late_come(
-                attendance,
-                start_time=start_time_sec,
-                end_time=end_time_sec,
-                shift=shift,
-            )
-        if attendance.attendance_clock_out:
-            early_out(
-                attendance,
-                start_time=start_time_sec,
-                end_time=end_time_sec,
-                shift=shift,
-            )
+        # Same reconciliation as the single-request approval above: create what
+        # the times now imply and drop what they no longer do. This branch also
+        # gains the missing `if shift:` guard the single path already had —
+        # `shift_schedule_today` is called with the attendance's shift, and a row
+        # whose employee has no shift assigned reached it as None.
+        sync_late_early(attendance)
 
         messages.success(request, _("Attendance request has been approved"))
         employee = attendance.employee_id

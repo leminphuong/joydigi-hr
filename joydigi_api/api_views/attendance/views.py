@@ -51,8 +51,14 @@ from attendance.views.dashboard import (
 )
 from attendance.views.views import *
 from base.backends import ConfiguredEmailBackend
-from base.methods import generate_pdf, is_company_leave, is_holiday, is_reportingmanager
-from base.models import CheckInLocation, JoydigiMailTemplate, OfficeWifi
+from base.methods import generate_pdf, is_holiday, is_reportingmanager
+from base.models import (
+    CheckInLocation,
+    CompanyLeaves,
+    EmployeeShiftSchedule,
+    JoydigiMailTemplate,
+    OfficeWifi,
+)
 from employee.filters import EmployeeFilter
 from employee.models import EmployeeFace
 from employee.services.face_recognition import FaceRecognitionError, verify_face
@@ -858,8 +864,36 @@ class ValidateAttendanceView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request, pk):
-        attendance = Attendance.objects.filter(id=pk).update(attendance_validated=True)
+        # Authorization, which this endpoint had none of: `IsAuthenticated` alone
+        # meant any logged-in employee could validate ANY attendance row by
+        # guessing its id — their own unvalidated day, a colleague's, or one
+        # belonging to another company entirely. Validation is an
+        # administrative confirmation that a day is accepted as final (the
+        # employee is notified of it below, and the timesheet treats a validated
+        # day as complete), so it is exactly the decision a random authenticated
+        # caller must not be able to make.
+        #
+        # `_can_review_attendance_request` is the same rule the web approval
+        # paths use: a check-in admin, or that employee's own reporting manager,
+        # and never one's own record. The lookup goes through the ordinary
+        # company-scoped manager, so an id from another company is simply not
+        # found. Authorised callers see the identical 200 and the identical
+        # notification as before.
+        from attendance.views.requests import _can_review_attendance_request
+
         attendance = Attendance.objects.filter(id=pk).first()
+        if attendance is None:
+            return Response({"error": _("Attendance not found.")}, status=404)
+        if not _can_review_attendance_request(request.user, attendance):
+            return Response(
+                {"error": _("You are not allowed to validate this attendance.")},
+                status=403,
+            )
+        # `.save()` rather than a queryset `.update()`: update() skips
+        # `Attendance.save()`, which is what recomputes the overtime and hour
+        # accounts for the row being accepted.
+        attendance.attendance_validated = True
+        attendance.save()
         try:
             notify.send(
                 request.user.employee_get,
@@ -1639,6 +1673,72 @@ class UserAttendanceDetailedView(APIView):
         )
 
 
+#: `base.models.WEEK_DAYS` names weekdays Monday='0' … Sunday='6', the same
+#: numbering as `datetime.date.weekday()`. `EmployeeShiftSchedule.day.day`
+#: stores the lowercase English name, so this is the bridge between the two.
+WEEKDAY_INDEX = {
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
+}
+
+
+def _weekly_off_dates(month_start, month_end, company):
+    """The dates in the range that are weekly off days for `company`.
+
+    Replaces a per-day call to `base.methods.is_company_leave`, for two
+    reasons. It asked one query per day — up to 62 for a month — and it takes no
+    company, so a weekly off day belonging to a *different* tenant counted as
+    this employee's day off. The company test is the same one the reminder
+    engine applies (`attendance.methods.reminders._company_weekly_off`): a rule
+    with no companies attached is global, otherwise it must name this one.
+
+    The week-of-month arithmetic is copied from `is_company_leave` unchanged, so
+    no existing calendar changes verdict. Note that `_company_weekly_off`
+    computes that number differently — `(day - 1) // 7` against this function's
+    offset by the month's first weekday — so the two still disagree about which
+    Saturday is "the second one". They agree exactly for a rule that applies
+    every week (`based_on_week=None`), which is what the standard week uses.
+    Reconciling them is a separate change to a shared rule and is reported
+    rather than slipped in here.
+    """
+    # `is_active` is deliberately NOT filtered on. Neither `is_company_leave`
+    # nor the reminder engine's `_company_weekly_off` consults it — the first
+    # uses `.filter()`, which never applies the manager's is_active rule, and
+    # the second runs without a request, where the `all()` override returns
+    # early. Honouring it only here would make the calendar and the reminders
+    # disagree about the same day. That the field is ignored at all is a
+    # separate finding, reported rather than changed under this one.
+    rules = [
+        (rule, set(rule.company_id.values_list("pk", flat=True)))
+        for rule in CompanyLeaves.objects.entire().all().prefetch_related("company_id")
+    ]
+    if not rules:
+        return set()
+
+    company_pk = getattr(company, "pk", None)
+    off = set()
+    current = month_start
+    while current <= month_end:
+        first_of_month = current.replace(day=1)
+        week_no = str((current.day + first_of_month.weekday() - 1) // 7)
+        weekday = str(current.weekday())
+        for rule, companies in rules:
+            if companies and company_pk is not None and company_pk not in companies:
+                continue
+            if str(rule.based_on_week_day) != weekday:
+                continue
+            if rule.based_on_week is None or str(rule.based_on_week) == week_no:
+                off.add(current)
+                break
+        current += timedelta(days=1)
+    return off
+
+
 class TimesheetMonthView(APIView):
     """
     Read-only monthly timesheet aggregation for the authenticated
@@ -1655,10 +1755,16 @@ class TimesheetMonthView(APIView):
     filter — it queries `AttendanceLateComeEarlyOut` directly, scoped
     to `employee_id=employee` set server-side.
 
-    Holiday/company-leave-day detection reuses the same real backend
-    logic the `Attendance` model itself uses (`base.methods.is_holiday`
-    and `base.methods.is_company_leave`) rather than guessing at
-    weekday/weekend rules.
+    Holiday detection reuses the same real backend logic the `Attendance`
+    model itself uses (`base.methods.is_holiday`) rather than guessing at
+    weekday/weekend rules. Weekly off days come from `_weekly_off_dates`,
+    which keeps `is_company_leave`'s arithmetic but scopes the rules to the
+    employee's own company and reads them in one query instead of one per day.
+
+    Each day also carries a server-decided `status`, and the summary counts are
+    taken from those same day entries. The calendar, the day detail and the
+    KPI row therefore cannot disagree: there is one precedence, applied once,
+    here.
     """
 
     permission_classes = [IsAuthenticated]
@@ -1718,6 +1824,41 @@ class TimesheetMonthView(APIView):
                 leave_dates.add(current)
                 current += timedelta(days=1)
 
+        # Which weekdays this employee's shift actually schedules. A day the
+        # shift does not schedule is not a working day, so it can be neither an
+        # absence nor a late arrival — and since the standard week stopped
+        # scheduling Saturday and Sunday, this is what keeps the weekend out of
+        # both counts without hardcoding "weekend" anywhere.
+        shift = getattr(
+            getattr(employee, "employee_work_info", None), "shift_id", None
+        )
+        scheduled_weekdays = set()
+        if shift is not None:
+            # `.entire()` rather than the scoped manager, and not for
+            # convenience. `EmployeeShiftSchedule.objects` filters by whatever
+            # company the request has selected, and for a mobile API request
+            # that is either nothing or — when the session says "all" and the
+            # caller is not a superuser with no company ids resolved — an empty
+            # list, which `get_queryset` turns into `none()`. The employee's own
+            # working week then came back empty and every day of the month
+            # reported itself as a day off. The scope here is already exact and
+            # narrower than any company filter: the rows of this one employee's
+            # own shift, read for nothing but their weekday names.
+            scheduled_weekdays = {
+                WEEKDAY_INDEX[name]
+                for name in EmployeeShiftSchedule.objects.entire()
+                .filter(shift_id=shift)
+                .values_list("day__day", flat=True)
+                if name in WEEKDAY_INDEX
+            }
+
+        company = getattr(
+            getattr(employee, "employee_work_info", None), "company_id", None
+        )
+        weekly_off_dates = _weekly_off_dates(month_start, month_end, company)
+
+        today = django_timezone.localdate()
+
         days = []
         present_days = 0
         worked_seconds_total = 0
@@ -1726,28 +1867,93 @@ class TimesheetMonthView(APIView):
         while current <= month_end:
             attendance = attendance_by_date.get(current)
             holiday = is_holiday(current, employee)
-            company_leave = is_company_leave(current)
+            company_leave = current in weekly_off_dates
+            check_in = (
+                attendance.attendance_clock_in
+                if attendance and attendance.attendance_clock_in
+                else None
+            )
+            check_out = (
+                attendance.attendance_clock_out
+                if attendance and attendance.attendance_clock_out
+                else None
+            )
+            is_validated = attendance.attendance_validated if attendance else None
+            is_late = current in late_dates
+            is_early = current in early_dates
+            is_leave = current in leave_dates
+
+            # A working day is one the shift schedules and that is not an
+            # off day for everyone.
+            is_working_day = (
+                current.weekday() in scheduled_weekdays
+                and not holiday
+                and not company_leave
+            )
+
+            # "Finished", not "started". A real check-out ends a day; an
+            # administrator validating it is the other way a day becomes
+            # official — that action is deliberate, it notifies the employee,
+            # and it is now authorised (`ValidateAttendanceView` used to accept
+            # any authenticated caller, so a validated flag could not be
+            # trusted). A validated row with no check-in at all is not counted
+            # as a full day: there is nothing in it to call complete.
+            is_complete = check_out is not None or bool(is_validated and check_in)
+            is_in_progress = check_in is not None and not is_complete
+            # Only a working day already in the past can be an absence. Today is
+            # still in progress whatever it looks like, and a future day is not
+            # an absence — which is what used to make the rest of the month look
+            # like missed work.
+            is_absent = (
+                is_working_day
+                and attendance is None
+                and not is_leave
+                and current < today
+            )
+
+            # One precedence, decided here, so the calendar, the day detail and
+            # the summary cannot tell three different stories. It is the order
+            # the business asked for: leave, then a flagged day, then an off
+            # day, then a finished day, then one still running, then an absence.
+            if is_leave:
+                status = "leave"
+            elif is_late or is_early:
+                status = "late_early"
+            elif holiday or company_leave or not is_working_day:
+                status = "off"
+            elif is_complete:
+                status = "complete"
+            elif is_in_progress:
+                status = "in_progress"
+            elif is_absent:
+                status = "absent"
+            else:
+                status = "none"
+
             days.append(
                 {
                     "date": current.isoformat(),
-                    "checkIn": attendance.attendance_clock_in.isoformat()
-                    if attendance and attendance.attendance_clock_in
-                    else None,
-                    "checkOut": attendance.attendance_clock_out.isoformat()
-                    if attendance and attendance.attendance_clock_out
-                    else None,
+                    "checkIn": check_in.isoformat() if check_in else None,
+                    "checkOut": check_out.isoformat() if check_out else None,
                     "workedHour": attendance.attendance_worked_hour
                     if attendance
                     else None,
                     "overtime": attendance.attendance_overtime if attendance else None,
                     "isHoliday": bool(holiday),
                     "isCompanyLeave": bool(company_leave),
-                    "isLate": current in late_dates,
-                    "isEarly": current in early_dates,
-                    "isLeave": current in leave_dates,
-                    "isValidated": attendance.attendance_validated
-                    if attendance
-                    else None,
+                    "isLate": is_late,
+                    "isEarly": is_early,
+                    "isLeave": is_leave,
+                    "isValidated": is_validated,
+                    # Added fields. Everything above keeps the exact value and
+                    # meaning it had, so an older client is unaffected; these
+                    # exist so a client never has to re-derive a business rule
+                    # the backend already knows.
+                    "isWorkingDay": is_working_day,
+                    "isComplete": is_complete,
+                    "isInProgress": is_in_progress,
+                    "isAbsent": is_absent,
+                    "status": status,
                 }
             )
             if attendance:
@@ -1757,6 +1963,11 @@ class TimesheetMonthView(APIView):
             current += timedelta(days=1)
 
         summary = {
+            # Unchanged: the number of days with an attendance record. It is not
+            # the number of days worked in full — a late day and a day still
+            # running both have a record — and nothing here deducts anything
+            # from anyone. `completeDays` below is the stricter count; both are
+            # reported so the client never has to guess which one a label means.
             "presentDays": present_days,
             "leaveDays": len(leave_dates),
             # Counted from the days that were actually reported, not from the
@@ -1764,6 +1975,11 @@ class TimesheetMonthView(APIView):
             # the same inconsistency in a different place.
             "lateCount": sum(1 for day in days if day["isLate"]),
             "earlyCount": sum(1 for day in days if day["isEarly"]),
+            "completeDays": sum(1 for day in days if day["isComplete"]),
+            "onTimeDays": sum(1 for day in days if day["status"] == "complete"),
+            "inProgressDays": sum(1 for day in days if day["isInProgress"]),
+            "absentDays": sum(1 for day in days if day["isAbsent"]),
+            "workingDays": sum(1 for day in days if day["isWorkingDay"]),
             "workedSeconds": worked_seconds_total,
             "overtimeSeconds": overtime_seconds_total,
         }

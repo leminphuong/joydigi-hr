@@ -53,8 +53,10 @@ from joydigi_views.cbv_methods import (  # update_initial_cache,
     hx_request_required,
     login_required,
     paginator_qry,
+    saved_filter_from_session,
     saved_filter_path_query,
     sortby,
+    store_saved_filter_in_session,
     split_by_import_reference,
     structured,
     update_saved_filter_cache,
@@ -246,14 +248,24 @@ class JoydigiListView(ListView):
 
                 if "filter_applied" in query_dict.keys() or "search" in query_dict:
                     update_saved_filter_cache(self.request, CACHE)
-                elif CACHE.get(
-                    str(self.request.session.session_key) + self.request.path + "cbv"
-                ):
-                    query_dict = CACHE.get(
-                        str(self.request.session.session_key)
-                        + self.request.path
-                        + "cbv"
-                    )["query_dict"]
+                    # Also in the session, which every worker shares. The cache
+                    # alone is `LocMemCache` in production (no `REDIS_URL`), so
+                    # it is private to one of the three gunicorn workers — see
+                    # `store_saved_filter_in_session`.
+                    store_saved_filter_in_session(self.request)
+                else:
+                    remembered = saved_filter_from_session(self.request)
+                    if remembered is None:
+                        cached = CACHE.get(
+                            str(self.request.session.session_key)
+                            + self.request.path
+                            + "cbv"
+                        )
+                        # Still read the cache, so a session that predates this
+                        # change keeps the filter it already had.
+                        remembered = cached["query_dict"] if cached else None
+                    if remembered is not None:
+                        query_dict = remembered
 
                 default_filter = models.SavedFilter.objects.filter(
                     saved_filter_path_query(self.request),
@@ -1800,14 +1812,18 @@ class JoydigiCardView(ListView):
                 query_dict = self.request.GET
                 if "filter_applied" in query_dict.keys() or "search" in query_dict:
                     update_saved_filter_cache(self.request, CACHE)
-                elif CACHE.get(
-                    str(self.request.session.session_key) + self.request.path + "cbv"
-                ):
-                    query_dict = CACHE.get(
-                        str(self.request.session.session_key)
-                        + self.request.path
-                        + "cbv"
-                    )["query_dict"]
+                    store_saved_filter_in_session(self.request)
+                else:
+                    remembered = saved_filter_from_session(self.request)
+                    if remembered is None:
+                        cached = CACHE.get(
+                            str(self.request.session.session_key)
+                            + self.request.path
+                            + "cbv"
+                        )
+                        remembered = cached["query_dict"] if cached else None
+                    if remembered is not None:
+                        query_dict = remembered
 
                 self._saved_filters = query_dict
                 self.request.exclude_filter_form = True

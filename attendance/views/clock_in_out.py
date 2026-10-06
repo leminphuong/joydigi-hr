@@ -722,8 +722,24 @@ def late_come(attendance, start_time, end_time, shift):
     # `attendance.methods.workday_rules.late_early_rule_applies`.
     if not late_early_rule_applies(attendance.attendance_date):
         return
+    # A day the shift does not schedule has no start time to be late against.
+    # `shift_schedule_today` reports a missing schedule row as 0/0 rather than
+    # None (attendance/methods/utils.py), and the comparison at the end of this
+    # function would then read *any* arrival after midnight as "later than
+    # 00:00" and flag it. Since the standard week stopped scheduling Saturday
+    # and Sunday, that made every weekend check-in — overtime, a one-off
+    # catch-up — record a late arrival against a shift that does not run that
+    # day. A day with no schedule is not a day anyone can be late for.
+    if start_time == 0 and end_time == 0:
+        return
     request = getattr(_thread_locals, "request", None)
-    now_sec = strtime_seconds(attendance.attendance_clock_in.strftime("%H:%M"))
+    # Seconds included deliberately. Truncating to the minute rounded an
+    # arrival *down*, so 08:10:01 against an 08:00 shift with ten minutes of
+    # grace came out as exactly 08:10:00 — on time. Check-ins recorded through
+    # the web and mobile paths are stored to the minute anyway, so this changes
+    # no existing verdict; what it stops is a late arrival being rounded into
+    # an on-time one on any path that does record seconds.
+    now_sec = strtime_seconds(attendance.attendance_clock_in.strftime("%H:%M:%S"))
     mid_day_sec = strtime_seconds("12:00")
 
     # Checking gracetime allowance before creating late come
@@ -1200,12 +1216,21 @@ def early_out(attendance, start_time, end_time, shift):
     # check-out itself happens after that date.
     if not late_early_rule_applies(attendance.attendance_date):
         return
+    # The counterpart of the guard in `late_come`: with no schedule row for the
+    # day, `shift_schedule_today` reports 0/0, and there is no shift end to
+    # leave before. Without this, a weekend session would be judged against
+    # 00:00 — harmless for early-out today, but only by the accident of which
+    # way the comparison points, and the rule should not depend on that.
+    if start_time == 0 and end_time == 0:
+        return
 
     clock_out_time = attendance.attendance_clock_out
     if isinstance(clock_out_time, str):
         clock_out_time = datetime.strptime(clock_out_time, "%H:%M:%S")
 
-    now_sec = strtime_seconds(clock_out_time.strftime("%H:%M"))
+    # Seconds included, for the same reason as `late_come`: truncating to the
+    # minute would round a 16:59:59 departure up to 17:00 and call it on time.
+    now_sec = strtime_seconds(clock_out_time.strftime("%H:%M:%S"))
     mid_day_sec = strtime_seconds("12:00")
     # Checking gracetime allowance before creating early out
     if shift and shift.grace_time_id:
@@ -1241,6 +1266,90 @@ def early_out(attendance, start_time, end_time, shift):
     if now_sec < end_time:
         early_out_create(attendance)
     return
+
+
+def sync_late_early(attendance):
+    """Make the late/early rows agree with the attendance as it now stands.
+
+    Both `late_come` and `early_out` only ever *create*. That is right at
+    check-in — the arrival is what it is — but it leaves a stale verdict behind
+    whenever the times are corrected afterwards. An administrator who fixed a
+    check-in from 08:25 to 08:00, or approved an employee's correction request,
+    changed the data and left the `late_come` row in place, so the day went on
+    showing "Đi muộn" for an arrival that is now on time. The timesheet reads
+    those rows, so the calendar and the summary inherited the stale verdict too.
+
+    Called from the paths that change a recorded time — the Admin edit form and
+    the two attendance-request approvals — never on a schedule and never over a
+    range. This is not a backfill: it re-derives one row's flags from the data
+    an authorised user just wrote to that same row, using the same rule
+    functions as a live check-in, so there is exactly one definition of late and
+    early in the system.
+
+    Deliberately conservative about what it refuses to touch:
+
+    * a day before the late/early rule's effective date keeps whatever it was
+      recorded with — `late_early_rule_applies` decides, the same guard the
+      live path uses, so correcting an old row never re-judges it;
+    * with tracking switched off, nothing is created and nothing is removed;
+    * with no shift, or no schedule row for that weekday, there is no start or
+      end to compare against, so any flag the day carries is not ours to
+      re-derive either.
+
+    The rows are rewritten rather than edited in place, which gives a surviving
+    flag a new id. Nothing references these rows (no foreign key points at
+    `AttendanceLateComeEarlyOut`), and the flag itself carries no state beyond
+    its type, so identity is not meaningful here.
+    """
+    if attendance is None:
+        return
+    shift = attendance.shift_id
+    if shift is None:
+        return
+    if not enable_late_come_early_out_tracking(None).get("tracking"):
+        return
+    if not late_early_rule_applies(attendance.attendance_date):
+        return
+
+    # Derived from `attendance_date`, not from `attendance.attendance_day`.
+    # `Attendance.save()` fills `attendance_day` only when it is empty, so a row
+    # whose date an administrator moved still carries the weekday it was created
+    # on — judging against that would compare the arrival with another day's
+    # schedule. The approval path in `attendance.views.requests` resolves the
+    # day the same way, for the same reason.
+    day = EmployeeShiftDay.objects.filter(
+        day=attendance.attendance_date.strftime("%A").lower()
+    ).first()
+    if day is None:
+        return
+    _minimum_hour, start_time, end_time = shift_schedule_today(day=day, shift=shift)
+    if start_time == 0 and end_time == 0:
+        # No schedule for this weekday. Same reasoning as the guard inside
+        # `late_come`: nothing to be late for, nothing to leave early from.
+        return
+
+    with transaction.atomic():
+        # `.entire()` on purpose: this rewrites the flags of one attendance row
+        # that the caller has already resolved and authorised. Going through the
+        # scoped manager would skip the rows of a deactivated employee and leave
+        # a stale verdict behind on exactly the records nobody can see to fix.
+        AttendanceLateComeEarlyOut.objects.entire().filter(
+            attendance_id=attendance
+        ).delete()
+        if attendance.attendance_clock_in is not None:
+            late_come(
+                attendance=attendance,
+                start_time=start_time,
+                end_time=end_time,
+                shift=shift,
+            )
+        if attendance.attendance_clock_out is not None:
+            early_out(
+                attendance=attendance,
+                start_time=start_time,
+                end_time=end_time,
+                shift=shift,
+            )
 
 
 @login_required

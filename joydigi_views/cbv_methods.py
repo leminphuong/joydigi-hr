@@ -28,7 +28,7 @@ from django.db.models.fields.related_descriptors import (
     ForwardManyToOneDescriptor,
     ReverseOneToOneDescriptor,
 )
-from django.http import HttpResponse
+from django.http import HttpResponse, QueryDict
 from django.middleware.csrf import get_token
 from django.shortcuts import redirect, render
 from django.template import loader
@@ -526,6 +526,58 @@ def update_saved_filter_cache(request, cache):
         },
     )
     return cache
+
+
+#: Where a list view's remembered filter is kept between visits.
+SAVED_FILTER_SESSION_KEY = "cbv_saved_filters"
+
+#: How many list paths to remember at once. The session is a row in the
+#: database, so this is bounded on purpose rather than growing with every admin
+#: page the user has ever opened.
+SAVED_FILTER_SESSION_LIMIT = 40
+
+
+def store_saved_filter_in_session(request):
+    """Remember the filter this request applied, for this path.
+
+    Phase ATTENDANCE-STATUS-AND-ADMIN-DATA-HARDENING, section 12.
+
+    `update_saved_filter_cache` already stores it, but in Django's cache — and
+    production runs with no `REDIS_URL`, so that cache is `LocMemCache`: private
+    to one process. With gunicorn running three workers, a filter applied on one
+    worker was remembered only by that worker. The same admin, in the same
+    session, opening the same list URL then saw a filtered list or the full list
+    depending on which worker happened to answer — which is what "the admin page
+    does not show all the data" looks like from the outside, and why it could
+    never be reproduced on demand.
+
+    The session is shared by every worker, and this function writes to it only
+    when the value actually changes: a previous phase traced SQLite "database is
+    locked" errors to session writes on concurrent polling.
+    """
+    stored = dict(request.session.get(SAVED_FILTER_SESSION_KEY) or {})
+    encoded = request.GET.urlencode()
+    if stored.get(request.path) == encoded:
+        return
+    stored[request.path] = encoded
+    if len(stored) > SAVED_FILTER_SESSION_LIMIT:
+        # Drop the oldest entries. Python dicts keep insertion order, and the
+        # path just written was re-inserted above, so it survives.
+        for path in list(stored)[: len(stored) - SAVED_FILTER_SESSION_LIMIT]:
+            stored.pop(path, None)
+    request.session[SAVED_FILTER_SESSION_KEY] = stored
+
+
+def saved_filter_from_session(request):
+    """The remembered filter for this path, or None.
+
+    Returns a `QueryDict` so it is a drop-in for `request.GET`.
+    """
+    stored = request.session.get(SAVED_FILTER_SESSION_KEY) or {}
+    encoded = stored.get(request.path)
+    if not encoded:
+        return None
+    return QueryDict(encoded, mutable=False)
 
 
 def get_nested_field(model_class: models.Model, field_name: str) -> object:

@@ -1,0 +1,52 @@
+from django.urls import path
+
+from okr.api import views
+
+app_name = "okr-api"
+
+urlpatterns = [
+    path("me/", views.MeView.as_view(), name="me"),
+    path("cycles/", views.CycleListView.as_view(), name="cycles"),
+    path("cycles/<int:pk>/", views.CycleDetailView.as_view(), name="cycle"),
+    path("cycles/<int:pk>/status/", views.CycleStatusView.as_view(), name="cycle-status"),
+    path("cycles/<int:pk>/clone/", views.CycleCloneView.as_view(), name="cycle-clone"),
+    path("dashboard/", views.DashboardView.as_view(), name="dashboard"),
+    path("dashboard/company/", views.CompanyDashboardView.as_view(), name="dashboard-company"),
+    path("objectives/", views.ObjectiveListView.as_view(), name="objectives"),
+    path("objectives/<int:pk>/", views.ObjectiveDetailView.as_view(), name="objective"),
+    path("objectives/<int:pk>/submit/", views.ObjectiveSubmitView.as_view(), name="objective-submit"),
+    path("objectives/<int:pk>/approve/", views.ObjectiveApproveView.as_view(), name="objective-approve"),
+    path("objectives/<int:pk>/reject/", views.ObjectiveRejectView.as_view(), name="objective-reject"),
+    path(
+        "objectives/<int:pk>/normalize-kr-weights/",
+        views.ObjectiveNormalizeWeightsView.as_view(),
+        name="objective-normalize-weights",
+    ),
+    path("key-results/", views.KeyResultListView.as_view(), name="key-results"),
+    path("key-results/<int:pk>/", views.KeyResultDetailView.as_view(), name="key-result"),
+    path("checkins/", views.CheckinListView.as_view(), name="checkins"),
+    path("checkins/queue/", views.CheckinQueueView.as_view(), name="checkin-queue"),
+    path("checkins/management/", views.CheckinManagementView.as_view(), name="checkin-management"),
+    path("evidence/", views.EvidenceListView.as_view(), name="evidence"),
+    path("evidence/<int:pk>/download/", views.EvidenceDownloadView.as_view(), name="evidence-download"),
+    path("comments/", views.CommentListView.as_view(), name="comments"),
+    path("activity/", views.ActivityListView.as_view(), name="activity"),
+    path("approvals/", views.ApprovalListView.as_view(), name="approvals"),
+    path("reports/", views.ReportView.as_view(), name="reports"),
+    path("reports/team/", views.TeamReportView.as_view(), name="team-report"),
+    path("tree/", views.TreeView.as_view(), name="tree"),
+    path("people/", views.PeopleView.as_view(), name="people"),
+    path("departments/", views.DepartmentListView.as_view(), name="departments"),
+    path("departments/<int:pk>/okr-manager/", views.DepartmentManagerView.as_view(), name="department-manager"),
+    path("teams/", views.TeamListView.as_view(), name="teams"),
+    path("teams/<int:pk>/", views.TeamDetailView.as_view(), name="team"),
+    path("teams/<int:pk>/status/", views.TeamStatusView.as_view(), name="team-status"),
+    path("teams/<int:pk>/members/", views.TeamMembersView.as_view(), name="team-members"),
+    path("roles/", views.RoleListView.as_view(), name="roles"),
+    path("roles/<int:pk>/", views.RoleDetailView.as_view(), name="role"),
+    path("roles/history/", views.RoleHistoryView.as_view(), name="role-history"),
+    path("settings/", views.SettingsView.as_view(), name="settings"),
+    path("notifications/", views.NotificationListView.as_view(), name="notifications"),
+    path("notifications/<int:pk>/read/", views.NotificationReadView.as_view(), name="notification-read"),
+    path("notifications/read-all/", views.NotificationReadAllView.as_view(), name="notifications-read-all"),
+]

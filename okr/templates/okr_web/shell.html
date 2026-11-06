@@ -1,0 +1,73 @@
+{% load static %}<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Mục tiêu &amp; OKR · JOYDIGI</title>
+  <link rel="stylesheet" href="{% static 'okr_web/css/app.css' %}?v={{ asset_version }}">
+  <link rel="stylesheet" href="{% static 'okr_web/css/django.css' %}?v={{ asset_version }}">
+</head>
+<body class="joyokr-body">
+{# JOYOKR v1.6.45 template-parts/app-shell.php, served by Django. Login, profile #}
+{# and user administration belong to the HR web, so those links point there. #}
+<a class="joyokr-skip-link" href="#joyokr-view">Chuyển đến nội dung</a>
+<div class="joyokr-shell" data-joyokr-app>
+  <div class="joyokr-mobile-bar">
+    <button class="joyokr-icon-button" type="button" data-action="toggle-menu" aria-controls="joyokr-sidebar" aria-expanded="false" aria-label="Mở menu"><span class="joyokr-nav__icon joyokr-nav__icon--plain">{% include "okr_web/icon.html" with name="menu" %}</span></button>
+    <span class="joyokr-logo">JOYDIGI <strong>OKR</strong></span>
+  </div>
+  <div class="joyokr-overlay" data-action="close-menu" hidden></div>
+  <aside class="joyokr-sidebar" id="joyokr-sidebar">
+    <a class="joyokr-logo" href="/okr/" data-route="dashboard">JOYDIGI <strong>OKR</strong></a>
+    <nav class="joyokr-nav" aria-label="Điều hướng OKR">
+      <a href="/okr/dashboard" data-route="dashboard"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="dashboard" %}</span>Dashboard</a>
+      <a href="/okr/my-okrs" data-route="my-okrs"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="target" %}</span>OKR của tôi</a>
+      <a href="/okr/company-okrs" data-route="company-okrs"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="company" %}</span>OKR công ty</a>
+      <a href="/okr/tree" data-route="tree"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="tree" %}</span>Cây OKR</a>
+      <a href="/okr/teams" data-route="teams"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="teams" %}</span>Teams</a>
+      <a href="/okr/check-ins" data-route="check-ins"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="checkin" %}</span>Check-in</a>
+      <a href="/okr/reports" data-route="reports"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="reports" %}</span>Báo cáo</a>
+      <a href="/okr/notifications" data-route="notifications"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="notifications" %}</span>Thông báo<span class="joyokr-nav__count" data-notification-count hidden></span></a>
+      {% if can_approve or can_manage_organization or can_manage_cycles or can_manage_settings %}
+        <span class="joyokr-nav__group">Quản trị</span>
+        {% if can_approve %}
+          <a href="/okr/admin/approvals" data-route="admin/approvals"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="approval" %}</span>Duyệt OKR<span class="joyokr-nav__count joyokr-nav__count--approval" data-approval-count hidden></span></a>
+        {% endif %}
+        {% if can_manage_organization %}
+          {# JOYOKR's "Người dùng" is HR's job; OKR only grants its own roles. #}
+          <a href="/okr/admin/roles" data-route="admin/roles"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="user" %}</span>Vai trò OKR</a>
+          <a href="/okr/admin/departments" data-route="admin/departments"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="department" %}</span>Phòng ban</a>
+          <a href="/okr/admin/teams" data-route="admin/teams"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="teams" %}</span>Teams</a>
+        {% endif %}
+        {% if can_manage_cycles %}
+          <a href="/okr/admin/cycles" data-route="admin/cycles"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="calendar" %}</span>Chu kỳ OKR</a>
+        {% endif %}
+        {% if can_manage_settings %}
+          <a href="/okr/admin/settings" data-route="admin/settings"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="settings" %}</span>Cài đặt</a>
+        {% endif %}
+      {% endif %}
+    </nav>
+    <div class="joyokr-sidebar__foot">
+      <span class="joyokr-sidebar__user"><span class="joyokr-avatar joyokr-avatar--sm">{{ viewer_name|slice:":1"|upper }}</span><span>{{ viewer_name }}</span></span>
+      <a href="/" class="joyokr-back-to-hr" data-external><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="back" %}</span>Về Web HR</a>
+      <a href="/logout/" data-external><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="logout" %}</span>Đăng xuất</a>
+    </div>
+  </aside>
+  <main class="joyokr-main" id="joyokr-view" tabindex="-1"></main>
+  <dialog class="joyokr-dialog" data-dialog aria-labelledby="joyokr-dialog-title">
+    <div data-dialog-content></div>
+  </dialog>
+  <div class="joyokr-toast" data-toast role="status" aria-live="polite" hidden></div>
+  <div class="screen-reader-text" data-live-region aria-live="polite"></div>
+</div>
+{{ config|json_script:"joyokr-config" }}
+<script src="{% static 'okr_web/js/config.js' %}?v={{ asset_version }}"></script>
+<script src="{% static 'okr_web/js/domain.js' %}?v={{ asset_version }}"></script>
+<script src="{% static 'okr_web/js/api.js' %}?v={{ asset_version }}"></script>
+<script src="{% static 'okr_web/js/store.js' %}?v={{ asset_version }}"></script>
+<script src="{% static 'okr_web/js/views.js' %}?v={{ asset_version }}"></script>
+<script src="{% static 'okr_web/js/forms.js' %}?v={{ asset_version }}"></script>
+<script src="{% static 'okr_web/js/app.js' %}?v={{ asset_version }}"></script>
+</body>
+</html>

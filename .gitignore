@@ -138,6 +138,8 @@ dmypy.json
 
 # media file
 media/
+# OKR evidence files (private, never served by Nginx)
+private_media/
 
 # database backups
 backup/

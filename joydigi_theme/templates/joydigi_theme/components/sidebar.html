@@ -593,6 +593,8 @@
 
         var STANDALONE_URL_PATTERNS = [
           /^\/recruitment\/open-recruitments\/?/i,
+          // OKR web (JOYOKR interface) is a full page app, not an htmx swap.
+          /^\/okr(\/|$)/i,
         ];
         function isStandaloneUrl(url) {
           if (!url) return false;

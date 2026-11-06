@@ -1,4 +1,4 @@
-{% load static basefilters %}
+{% load static basefilters okr_web %}
 {% with checkin_admin=request.user|is_checkin_admin checkin_leader=request.user|is_checkin_leader %}
 {# Phase LEAVE-7A.3A: this is the *actual* rendered production sidebar — #}
 {# `leave/sidebar.py`'s MENU/SUBMENUS registry (and its own `templates/sidebar.html` #}
@@ -59,6 +59,13 @@
     <img src="{% static 'images/ui/announcement.svg' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
     <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Bảng tin</span>
 </a>
+{% if request.user|okr_access %}
+{# OKR web (JOYOKR interface on Django) is a full page of its own, not an htmx swap. #}
+<a href="/okr/" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Mục tiêu & OKR">
+    <img src="{% static 'images/ui/goal.png' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
+    <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Mục tiêu &amp; OKR</span>
+</a>
+{% endif %}
 {% if checkin_admin %}
 <a href="{% url 'checkin-settings' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Địa điểm và Wifi" title="Địa điểm và Wifi" hx-get="{% url 'checkin-settings' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
     <ion-icon name="location-outline" class="w-4.5 h-4.5 flex-shrink-0 text-lg transition duration-300"></ion-icon>

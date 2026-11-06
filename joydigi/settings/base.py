@@ -170,6 +170,8 @@ INSTALLED_APPS = [
     "joydigi_api",
     "pg_backup",
     "joydigi_dbtemplate",
+    # OKR module ported from JOYOKR; owns only okr_* tables.
+    "okr",
 ]
 
 # ========================================

@@ -14,6 +14,7 @@ from typing import Iterable, Optional
 
 from django.db import IntegrityError, transaction
 
+from okr import pilot
 from okr.models import OKRKeyResult, OKRNotification, OKRObjective
 from okr.models.base import employee_company_id
 from okr.models.choices import ApprovalStatus, ReferenceType
@@ -48,6 +49,9 @@ def send(
     one outside the company is dropped rather than failing the action.
     """
     if recipient is None:
+        return None
+    if not pilot.allows(recipient.pk):
+        # Pilot: nobody outside the list is notified about OKR they cannot open.
         return None
     if actor is not None and employee_company_id(actor) != company_id:
         actor = None

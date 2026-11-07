@@ -44,6 +44,15 @@ REDIS_URL = env("REDIS_URL", default=None)
 # developer machine without the secret must never fail to start.
 FIREBASE_CREDENTIALS_FILE = env("FIREBASE_CREDENTIALS_FILE", default="")
 
+# OKR pilot gate (okr/pilot.py). "all" (default): every active employee of a
+# company may use OKR, as before. "pilot": only the HR employee ids listed in
+# OKR_PILOT_EMPLOYEE_IDS (comma separated) may open /okr/ and /api/okr/; an
+# empty list closes OKR to everyone. Read at start: a change takes effect when
+# the service reloads its environment. HR, attendance and requests are not
+# affected.
+OKR_ACCESS_MODE = env.str("OKR_ACCESS_MODE", default="all")
+OKR_PILOT_EMPLOYEE_IDS = env.str("OKR_PILOT_EMPLOYEE_IDS", default="")
+
 # Phase NOTIFY-2. Who owns the APScheduler that drives auto punch-out,
 # forgotten-session finalization, work records and the four attendance
 # reminders.

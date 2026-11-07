@@ -36,6 +36,7 @@ from typing import Optional
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 
+from okr import pilot
 from okr.models import (
     OKRDepartmentRole,
     OKRKeyResult,
@@ -128,6 +129,11 @@ class OKRViewer:
                 "Tài khoản chưa gắn với nhân viên của công ty nào nên chưa dùng được OKR.",
                 403,
             )
+        # Pilot gate (okr/pilot.py): every OKR entry point goes through here —
+        # the REST API, the /okr/ web and the HR menu entry. Superusers and
+        # OKR roles do not bypass it.
+        if not pilot.allows(employee.pk):
+            raise OKRError(pilot.NOT_ENABLED_CODE, pilot.NOT_ENABLED_MESSAGE, 403)
         return cls(employee, company_id, user)
 
     @classmethod

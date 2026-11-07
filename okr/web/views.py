@@ -16,6 +16,7 @@ from django.http import Http404
 from django.middleware.csrf import get_token
 from django.shortcuts import render
 
+from okr import pilot
 from okr.services import organization
 from okr.services.access import OKRViewer
 from okr.services.errors import OKRError
@@ -93,12 +94,15 @@ def app_shell(request, route: str = ""):
     route = route.strip("/")
     if not ROUTES.match(route):
         raise Http404
+    reason = None
     try:
         viewer = OKRViewer.for_user(request.user)
-    except OKRError:
+    except OKRError as error:
         viewer = None
+        if error.code == pilot.NOT_ENABLED_CODE:
+            reason = error.message
     if viewer is None or not viewer.is_active:
-        response = render(request, "okr_web/access_denied.html", status=403)
+        response = render(request, "okr_web/access_denied.html", {"reason": reason}, status=403)
     else:
         caps = set(viewer.capabilities())
         response = render(

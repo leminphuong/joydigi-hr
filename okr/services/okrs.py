@@ -30,6 +30,7 @@ from okr.models.choices import (
 )
 from okr.services import activity, calculator, errors, notifications
 from okr.services.access import EDITABLE_CYCLE_STATUSES, LOCKED_STATUSES, OKRViewer, ScopeRef, scope_of
+from okr import pilot
 
 SCOPE_LEVELS = {Scope.COMPANY: 0, Scope.DEPARTMENT: 1, Scope.TEAM: 2, Scope.PERSONAL: 3}
 METRIC_LIMIT = Decimal("100000000000000")  # DECIMAL(18,4) holds |x| < 10^14
@@ -588,6 +589,8 @@ def _objective_data(viewer: OKRViewer, data: dict, *, current: Optional[OKRObjec
     owner = active_employee(company_id, owner_id)
     if owner is None:
         problems["owner_id"] = "Owner không hợp lệ."
+    elif not pilot.allows(owner.pk):
+        problems["owner_id"] = pilot.OWNER_NOT_IN_PILOT
     if scope == Scope.DEPARTMENT and not department_id:
         problems["department_id"] = "Vui lòng chọn phòng ban."
     if scope == Scope.TEAM and not team_id:
@@ -777,6 +780,8 @@ def _key_result_data(viewer: OKRViewer, data: dict) -> dict:
     owner = active_employee(company_id, _owner_input(viewer, data))
     if owner is None:
         problems["owner_id"] = "Owner không hợp lệ."
+    elif not pilot.allows(owner.pk):
+        problems["owner_id"] = pilot.OWNER_NOT_IN_PILOT
     if not title:
         problems["title"] = "Tên Key Result là bắt buộc."
     if start is not None and target is not None and float(target) == float(start):

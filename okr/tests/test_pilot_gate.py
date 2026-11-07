@@ -1,11 +1,16 @@
 """OKR pilot gate (okr/pilot.py): OKR_ACCESS_MODE=all|pilot and
 OKR_PILOT_EMPLOYEE_IDS. Web (/okr/, HR session) and REST (/api/okr/, JWT)
 are both gated; HR itself is not. The 12 required checks, plus the edges
-(empty list, unknown mode, superuser, revocation on the next request).
+(empty list, unknown or empty mode closes to everyone, superuser,
+revocation on the next request).
 """
 
+from io import StringIO
+
+from django.core.management import CommandError, call_command
 from django.test import Client, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
@@ -134,10 +139,30 @@ class PilotGateEdgeTests(PilotGateBase):
             for employee in (self.admin, self.manager, self.owner):
                 self.denied(employee)
 
-    def test_unknown_mode_fails_closed(self):
-        with override_settings(OKR_ACCESS_MODE="tat-ca", OKR_PILOT_EMPLOYEE_IDS=str(self.owner.pk)):
-            self.call(self.owner, "get", "me/")
-            self.denied(self.colleague)
+    def test_unknown_or_empty_mode_closes_okr_to_everyone_even_the_listed(self):
+        listed = ",".join(str(e.pk) for e in (self.admin, self.manager, self.owner))
+        for value in ("tat-ca", "pilto", "off", "", "  "):
+            with self.subTest(mode=value), override_settings(OKR_ACCESS_MODE=value, OKR_PILOT_EMPLOYEE_IDS=listed):
+                with self.assertLogs("okr.pilot", "WARNING"):
+                    self.assertEqual(pilot.mode(), pilot.MODE_CLOSED)
+                with self.assertLogs("okr.pilot", "WARNING"):
+                    for employee in (self.admin, self.manager, self.owner, self.colleague):
+                        self.denied(employee)
+                    self.assertEqual(self.page(self.owner).status_code, 403)
+                    self.assertFalse(okr_access(self.owner.employee_user_id))
+                    self.assertEqual(pilot.pilot_employee_ids(), frozenset())
+                    self.assertFalse(pilot.allows(self.owner.pk))
+
+    def test_closed_gate_refuses_role_grants_from_the_command_line(self):
+        authoriser = self.admin.employee_user_id
+        authoriser.is_superuser = True
+        authoriser.save()
+        for settings_override in (pilot_mode(), override_settings(OKR_ACCESS_MODE="tat-ca",
+                                                                  OKR_PILOT_EMPLOYEE_IDS=str(self.colleague.pk))):
+            with settings_override, self.assertRaises(CommandError):
+                call_command("okr_grant_role", "--employee", str(self.colleague.pk), "--role", "manager",
+                             "--granted-by", authoriser.username, "--yes", stdout=StringIO())
+        self.assertFalse(OKRRole.objects.filter(employee=self.colleague).exists())
 
     def test_superuser_and_okr_roles_do_not_bypass_the_gate(self):
         user = self.colleague.employee_user_id
@@ -170,13 +195,17 @@ class PilotGateEdgeTests(PilotGateBase):
             self.assertFalse(OKRNotification.objects.filter(recipient=self.colleague).exists())
 
     def test_hr_and_attendance_are_not_gated(self):
-        with pilot_mode(self.owner):
-            client = APIClient()
-            client.credentials(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(self.colleague.employee_user_id)}")
-            response = client.get(reverse("api-timesheet-month"))
-            self.assertNotIn(response.status_code, (401, 403))
-            self.assertNotIn(pilot.NOT_ENABLED_CODE, response.content.decode(errors="ignore"))
-            self.assertFalse(OKRCheckin.objects.exists())
+        today = timezone.localdate()
+        for settings_override in (pilot_mode(self.owner), pilot_mode(),
+                                  override_settings(OKR_ACCESS_MODE="tat-ca", OKR_PILOT_EMPLOYEE_IDS="")):
+            with settings_override:
+                client = APIClient()
+                client.credentials(
+                    HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(self.colleague.employee_user_id)}")
+                response = client.get(reverse("api-timesheet-month"), {"year": today.year, "month": today.month})
+                self.assertEqual(response.status_code, 200, response.content[:300])
+                self.assertNotIn(pilot.NOT_ENABLED_CODE, response.content.decode(errors="ignore"))
+        self.assertFalse(OKRCheckin.objects.exists())
 
 
 class PilotSettingParsingTests(PilotGateBase):

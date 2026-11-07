@@ -111,7 +111,7 @@ change takes effect when the service reloads):
 
 | Setting | Values | Effect |
 |---|---|---|
-| `OKR_ACCESS_MODE` | `all` (default) / `pilot` | `all`: every active employee of a company, as before. `pilot`: only the listed employees. Any other value closes OKR to everyone (logged). |
+| `OKR_ACCESS_MODE` | `all` (default when unset) / `pilot` | `all`: every active employee of a company, as before. `pilot`: only the listed employees. Any other value, an empty one included, closes OKR to everyone, the listed employees too (logged). |
 | `OKR_PILOT_EMPLOYEE_IDS` | HR employee ids, comma separated | Who may use OKR in `pilot` mode. Empty: nobody. |
 
 In `pilot` mode `OKRViewer.for_user` refuses everyone else with
@@ -125,7 +125,9 @@ HR, attendance and requests are not affected.
 
 Turn on: `OKR_ACCESS_MODE=pilot` and `OKR_PILOT_EMPLOYEE_IDS=12,57,301` in the
 server's `.env`, then restart the service. Add or remove someone: edit the
-list, restart. Turn off: `OKR_ACCESS_MODE=all` (or remove it), restart.
+list, restart. Close OKR to everyone (emergency): `OKR_ACCESS_MODE=pilot` with an empty
+`OKR_PILOT_EMPLOYEE_IDS=`, restart; never `all`, which opens it to every employee. End the
+pilot (open to all, only when decided): `OKR_ACCESS_MODE=all`, restart.
 
 ## Running locally (isolated)
 

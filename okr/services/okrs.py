@@ -17,7 +17,7 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from base.models import Department
-from okr.models import OKRCheckin, OKRCycle, OKRKeyResult, OKRObjective, OKRTeam
+from okr.models import OKRCheckin, OKRCycle, OKREvidence, OKRKeyResult, OKRObjective, OKRTeam
 from okr.models.base import department_allows_company, employee_company_id
 from okr.models.choices import (
     ActivityAction,
@@ -721,10 +721,34 @@ def update_objective(viewer: OKRViewer, objective_id, data: dict) -> OKRObjectiv
         for field, value in values.items():
             setattr(current, field, value)
         current.save()
-        activity.log(
-            viewer.employee, ActivityAction.UPDATED, objective=current, metadata={"fields": sorted(values)}
-        )
+        metadata = {"fields": sorted(values)}
+        moved = []
         if previous_owner_id != current.owner_id:
+            # Reassignment. A key result the previous owner held moves with the
+            # objective only while it has no history: no check-in and no evidence.
+            # One with history stays with the person who did the work until an
+            # admin hands it over explicitly (edit that key result's owner); its
+            # check-ins and evidence are never touched. Key results given to
+            # someone else keep their owner.
+            held = list(OKRKeyResult.objects.filter(objective=current, owner_id=previous_owner_id).order_by("id"))
+            with_history = set(
+                OKRCheckin.objects.filter(key_result__in=held).values_list("key_result_id", flat=True)
+            ) | set(OKREvidence.objects.filter(key_result__in=held).values_list("key_result_id", flat=True))
+            moved = [kr for kr in held if kr.pk not in with_history]
+            kept = [kr.pk for kr in held if kr.pk in with_history]
+            if moved:
+                OKRKeyResult.objects.filter(pk__in=[kr.pk for kr in moved]).update(
+                    owner=current.owner, updated_at=timezone.now()
+                )
+            metadata["owner_changed"] = {
+                "from": previous_owner_id,
+                "to": current.owner_id,
+                "key_results": [kr.pk for kr in moved],
+                "kept_with_history": kept,
+            }
+        activity.log(viewer.employee, ActivityAction.UPDATED, objective=current, metadata=metadata)
+        if previous_owner_id != current.owner_id:
+            # One notice for the objective covers the key results that moved with it.
             _notify_assignment(viewer, ReferenceType.OBJECTIVE, current, values["owner"])
     return current
 

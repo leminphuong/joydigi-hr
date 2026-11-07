@@ -174,7 +174,8 @@
     const unitSuggestions = ['%', 'App', 'Game', 'Website', 'User', 'VNĐ', 'USD', 'Lượt', 'Bài', 'Extension'];
     const value = item
       ? { ...item, priority: item.priority || 'medium' }
-      : { objective_id: context.objectiveId, owner_user_id: globalScope.JoyOKRConfig.currentUser.id, unit: '%', start_value: 0, current_value: 0, target_value: 100, weight: defaultWeight, priority: 'medium', due_date: objective?.end_date || '' };
+      // A new key result goes to the objective's owner (who checks in on it), not to whoever types it.
+      : { objective_id: context.objectiveId, owner_user_id: objective?.owner_user_id || globalScope.JoyOKRConfig.currentUser.id, unit: '%', start_value: 0, current_value: 0, target_value: 100, weight: defaultWeight, priority: 'medium', due_date: objective?.end_date || '' };
     return {
       type: 'key-result', isNew: !item, title: item ? 'Sửa Key Result' : 'Tạo Key Result',
       body: `<p class="joyokr-muted">Key Result là kết quả đo được, không phải danh sách đầu việc. Bắt đầu là số thực tế đầu chu kỳ; Hiện tại ban đầu bằng Bắt đầu. Ví dụ: Hoàn thiện 10 game chạy ổn định trên web — đơn vị: game.</p>${hidden('objective_id', value.objective_id)}${field('title', 'Tên Key Result', value.title, { required: true })}${textarea('description', 'Mô tả', value.description)}${select('owner_user_id', 'Owner', users, value.owner_user_id, 'id', 'display_name', true)}

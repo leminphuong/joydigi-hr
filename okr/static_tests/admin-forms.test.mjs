@@ -3,7 +3,7 @@
 // (400 cycle_closed, 409 last_admin) reaching the user.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ADMIN_CAPS, load, makeConfig, makeDocument, owner, page } from './harness.mjs';
+import { ADMIN_CAPS, load, makeConfig, makeDocument, objectiveDetail, owner, page } from './harness.mjs';
 
 const FORM_FILES = ['domain.js', 'api.js', 'store.js', 'forms.js'];
 const IMG = '<img src=x onerror=alert(1)>';
@@ -377,4 +377,16 @@ test('admin actions open the matching forms', async () => {
   await app.JoyOKR.forms.handleAction('open-role', { dataset: {} });
   assert.ok(app.content.innerHTML.includes('Gán vai trò OKR'));
   assert.ok(app.dialog.open);
+});
+
+test('key result form: a new key result is proposed to the objective owner, not to whoever creates it', async () => {
+  // Assignment on the web: the admin (id 7) adds a key result to an objective owned by employee 8,
+  // who must be able to check in on it from the app.
+  const { JoyOKR } = setup({
+    'GET /api/okr/objectives/12/': { body: objectiveDetail({ owner: owner(8, 'Trần Quản Lý'), key_results: [] }) },
+    'GET /api/okr/people/': { body: PEOPLE },
+  });
+  const definition = await JoyOKR.forms.helpers.buildDefinition('key-result', { objectiveId: 12 });
+  assert.match(definition.body, /<option value="8" selected>/);
+  assert.doesNotMatch(definition.body, /<option value="7" selected>/);
 });

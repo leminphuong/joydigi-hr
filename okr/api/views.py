@@ -86,7 +86,12 @@ class ObjectiveListView(OKRAPIView):
         items = okrs.objectives_for(viewer.company_id).filter(viewer.objective_visibility())
         owner = params.get("owner")
         if owner == "me":
-            items = items.filter(owner_id=viewer.employee_id)
+            # "Của tôi" = what the viewer is assigned: objectives they own, and
+            # objectives (still visible to them) in which they own a key result.
+            items = items.filter(
+                Q(owner_id=viewer.employee_id)
+                | Q(key_results__owner_id=viewer.employee_id, key_results__deleted_at__isnull=True)
+            ).distinct()
         elif owner:
             # Another person's objectives, still only those the viewer may see.
             items = items.filter(owner_id=self.int_param("owner"))

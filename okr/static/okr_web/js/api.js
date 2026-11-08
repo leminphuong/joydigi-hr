@@ -318,6 +318,24 @@
     };
   }
 
+  // Filter selects and the Teams page need every row the viewer may see, not
+  // only the first page (the server pages by 20, at most 100): follow `next`.
+  // Capped so a broken server answer cannot loop forever.
+  const MAX_LIST_PAGES = 50;
+
+  async function sendAllPages(path, query, mapItem) {
+    const items = [];
+    let total = 0;
+    for (let page = 1; page <= MAX_LIST_PAGES; page += 1) {
+      const payload = await send('GET', path, { query: { ...query, page, page_size: MAX_PAGE_SIZE } });
+      const rows = results(payload);
+      items.push(...rows.map(mapItem));
+      total = Number(payload?.count) || items.length;
+      if (!payload?.next || !rows.length) break;
+    }
+    return { items, total, page: 1, per_page: Math.max(items.length, 1), total_pages: 1, complete: items.length >= total };
+  }
+
   function results(payload) {
     return Array.isArray(payload?.results) ? payload.results : [];
   }
@@ -1193,9 +1211,11 @@
     }).then((result) => ({ ...result, destination_cycle_id: toId(result?.destination_cycle_id), objective_count: Number(result?.objective_count) || 0 }))],
 
     // Teams. JOYOKR hid a team with DELETE and brought it back with /restore.
-    ['GET', /^teams$/, ({ query }) => send('GET', 'teams/', {
-      query: { ...pageQuery(query), status: oneOf(query.status, RECORD_STATUSES) },
-    }).then((payload) => toPage(payload, mapTeam, query))],
+    ['GET', /^teams$/, ({ query, options }) => (options?.allPages
+      ? sendAllPages('teams/', { status: oneOf(query.status, RECORD_STATUSES) }, mapTeam)
+      : send('GET', 'teams/', {
+        query: { ...pageQuery(query), status: oneOf(query.status, RECORD_STATUSES) },
+      }).then((payload) => toPage(payload, mapTeam, query)))],
     ['POST', /^teams$/, ({ body }) => send('POST', 'teams/', { body: teamBody(body), fieldNames: TEAM_FIELDS }).then(mapTeam)],
     ['GET', /^teams\/(\d+)$/, ({ id }) => send('GET', `teams/${id}/`).then(mapTeam)],
     ['PUT', /^teams\/(\d+)$/, ({ id, body }) => send('PUT', `teams/${id}/`, { body: teamBody(body), fieldNames: TEAM_FIELDS }).then(mapTeam)],
@@ -1210,7 +1230,9 @@
       .then((item) => ({ ...mapTeam(item), message: 'Đã cập nhật thành viên team.' }))],
 
     // Departments belong to the HR web: OKR only names their OKR manager.
-    ['GET', /^departments$/, ({ query }) => send('GET', 'departments/', { query: pageQuery(query) }).then((payload) => toPage(payload, mapDepartment, query))],
+    ['GET', /^departments$/, ({ query, options }) => (options?.allPages
+      ? sendAllPages('departments/', {}, mapDepartment)
+      : send('GET', 'departments/', { query: pageQuery(query) }).then((payload) => toPage(payload, mapDepartment, query)))],
     ['PUT', /^departments\/(\d+)(?:\/okr-manager)?$/, ({ id, body }) => {
       const values = plainBody(body);
       return send('PUT', `departments/${id}/okr-manager/`, {
@@ -1218,9 +1240,13 @@
         fieldNames: DEPARTMENT_FIELDS,
       }).then((item) => ({ ...mapDepartment(item), message: 'Đã cập nhật quản lý OKR của phòng ban.' }));
     }],
-    ['GET', /^people$/, ({ query }) => send('GET', 'people/', {
-      query: { ...pageQuery(query), q: text(query.search ?? query.q).trim() || undefined, department: idParam(query.department_id ?? query.department) },
-    }).then((payload) => toPage(payload, (person) => ({ ...person, id: toId(person.id), display_name: text(person.name) }), query))],
+    ['GET', /^people$/, ({ query, options }) => {
+      const mapPerson = (person) => ({ ...person, id: toId(person.id), display_name: text(person.name) });
+      const filters = { q: text(query.search ?? query.q).trim() || undefined, department: idParam(query.department_id ?? query.department) };
+      return options?.allPages
+        ? sendAllPages('people/', filters, mapPerson)
+        : send('GET', 'people/', { query: { ...pageQuery(query), ...filters } }).then((payload) => toPage(payload, mapPerson, query));
+    }],
 
     // OKR roles (admin only): separate from HR permissions.
     ['GET', /^roles$/, ({ query }) => send('GET', 'roles/', { query: pageQuery(query) }).then((payload) => toPage(payload, mapRole, query))],

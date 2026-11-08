@@ -8,6 +8,7 @@ from typing import Optional
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Count
 from django.utils import timezone
 
 from okr.models import OKRCycle, OKRKeyResult, OKRObjective
@@ -96,8 +97,25 @@ def resolve_cycle(viewer: OKRViewer, cycle_id=None, *, fallback_latest: bool = F
     if cycle is None and fallback_latest:
         cycle = latest_with_objectives(viewer.company_id)
     if cycle is None:
-        raise errors.OKRError("no_cycle", "Chưa có chu kỳ OKR đang hoạt động.", 404)
+        raise errors.OKRError("no_cycle", no_cycle_message(viewer.company_id), 404)
     return cycle
+
+
+def no_cycle_message(company_id: int) -> str:
+    """Why there is no cycle to show, so 'not created yet' and 'created but
+    still a draft' are told apart (the code stays ``no_cycle``: app 1.0.2
+    matches on the code and shows its own text)."""
+    counts = {
+        row["status"]: row["n"]
+        for row in cycles_for(company_id).order_by().values("status").annotate(n=Count("id"))
+    }
+    base = "Chưa có chu kỳ OKR đang hoạt động."
+    drafts, closed = counts.get(CycleStatus.DRAFT, 0), counts.get(CycleStatus.CLOSED, 0)
+    if drafts:
+        return f"{base} Có {drafts} chu kỳ đang ở trạng thái Nháp: Quản trị OKR cần kích hoạt chu kỳ."
+    if closed:
+        return f"{base} Các chu kỳ đã có đều đã đóng: Quản trị OKR cần tạo hoặc mở lại một chu kỳ."
+    return f"{base} Quản trị OKR chưa tạo chu kỳ nào."
 
 
 def _require_admin(viewer: OKRViewer):

@@ -45,6 +45,7 @@ from base.methods import (
 from base.models import CompanyLeaves, Holidays, PenaltyAccounts
 from base.roles import is_checkin_admin
 from employee.models import Employee
+from joydigi.upload_validation import accepted_uploads
 from joydigi.decorators import (
     hx_request_required,
     logger,
@@ -4461,7 +4462,7 @@ def view_leaverequest_comment(request, leave_id):
         no_comments = True
 
     if request.FILES:
-        files = request.FILES.getlist("files")
+        files = accepted_uploads(request, request.FILES.getlist("files"))
         comment_id = request.GET["comment_id"]
         comment = LeaverequestComment.objects.get(id=comment_id)
         attachments = []
@@ -4622,7 +4623,7 @@ def view_allocationrequest_comment(request, leave_id):
         no_comments = True
 
     if request.FILES:
-        files = request.FILES.getlist("files")
+        files = accepted_uploads(request, request.FILES.getlist("files"))
         comment_id = request.GET["comment_id"]
         comment = LeaveallocationrequestComment.objects.get(id=comment_id)
         attachments = []
@@ -5372,7 +5373,7 @@ if apps.is_installed("attendance"):
             no_comments = True
 
         if request.FILES:
-            files = request.FILES.getlist("files")
+            files = accepted_uploads(request, request.FILES.getlist("files"))
             comment_id = request.GET["comment_id"]
             comment = CompensatoryLeaverequestComment.objects.get(id=comment_id)
             attachments = []

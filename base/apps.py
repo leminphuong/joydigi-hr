@@ -23,6 +23,12 @@ class BaseConfig(AppConfig):
         # the hook is the models' own `save()` rather than ~50 approval views.
         request_decisions.connect()
 
+        # Audit 2026-11-08 (F-04): refuse unsafe attachments however they are
+        # saved (forms, API, or views assigning request.FILES directly).
+        from joydigi.upload_validation import connect_upload_guard
+
+        connect_upload_guard()
+
         super().ready()
         check_for_no_permissions_models()
 

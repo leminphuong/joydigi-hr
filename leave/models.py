@@ -32,6 +32,7 @@ from employee.models import Employee, EmployeeWorkInformation
 from joydigi import joydigi_middlewares
 from joydigi.joydigi_middlewares import _thread_locals
 from joydigi.methods import get_joydigi_model_class
+from joydigi.upload_validation import validate_upload
 from joydigi.models import JoydigiModel, upload_path
 from joydigi_audit.methods import get_diff
 from joydigi_audit.models import JoydigiAuditInfo, JoydigiAuditLog
@@ -974,6 +975,7 @@ class LeaveRequest(JoydigiModel):
         blank=True,
         upload_to=upload_path,
         verbose_name=_("Attachment"),
+        validators=[validate_upload],
     )
     status = models.CharField(
         max_length=30,
@@ -1914,7 +1916,7 @@ class LeaveRequest(JoydigiModel):
 
 
 class LeaverequestFile(models.Model):
-    file = models.FileField(upload_to=upload_path)
+    file = models.FileField(upload_to=upload_path, validators=[validate_upload])
 
 
 class LeaverequestComment(JoydigiModel):
@@ -1947,6 +1949,7 @@ class LeaveAllocationRequest(JoydigiModel):
         blank=True,
         upload_to=upload_path,
         verbose_name=_("Attachment"),
+        validators=[validate_upload],
     )
     description = models.TextField(verbose_name=_("Description"))
     status = models.CharField(

@@ -40,6 +40,7 @@ from employee.methods.duration_methods import format_time, strtime_seconds
 from joydigi import joydigi_middlewares
 from joydigi.joydigi_middlewares import _thread_locals
 from joydigi.methods import get_joydigi_model_class
+from joydigi.upload_validation import validate_upload
 from joydigi.models import JoydigiModel, has_xss, upload_path
 from joydigi_audit.methods import get_diff
 from joydigi_audit.models import JoydigiAuditInfo, JoydigiAuditLog
@@ -1150,7 +1151,7 @@ class EmployeeBankDetails(JoydigiModel):
 
 
 class NoteFiles(JoydigiModel):
-    files = models.FileField(upload_to=upload_path, blank=True, null=True)
+    files = models.FileField(upload_to=upload_path, blank=True, null=True, validators=[validate_upload])
     objects = models.Manager()
 
     def __str__(self):
@@ -1183,7 +1184,7 @@ class PolicyMultipleFile(JoydigiModel):
     PoliciesMultipleFile model
     """
 
-    attachment = models.FileField(upload_to=upload_path)
+    attachment = models.FileField(upload_to=upload_path, validators=[validate_upload])
 
 
 class Policy(JoydigiModel):
@@ -1355,7 +1356,7 @@ class DisciplinaryAction(JoydigiModel):
         validators=[validate_time_format],
     )
     start_date = models.DateField(null=True)
-    attachment = models.FileField(upload_to=upload_path, null=True, blank=True)
+    attachment = models.FileField(upload_to=upload_path, null=True, blank=True, validators=[validate_upload])
     objects = JoydigiCompanyManager("employee_id__employee_work_info__company_id")
 
     def __str__(self) -> str:

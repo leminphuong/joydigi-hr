@@ -43,6 +43,7 @@ from employee.models import Employee
 
 # Create your models here.
 from joydigi.methods import get_joydigi_model_class
+from joydigi.upload_validation import validate_upload
 from joydigi.models import JoydigiModel, upload_path
 from joydigi_audit.models import JoydigiAuditInfo, JoydigiAuditLog
 from joydigi_views.cbv_methods import render_template
@@ -1068,7 +1069,7 @@ class Attendance(JoydigiModel):
 
 
 class AttendanceRequestFile(JoydigiModel):
-    file = models.FileField(upload_to=upload_path)
+    file = models.FileField(upload_to=upload_path, validators=[validate_upload])
 
 
 class AttendanceRequestComment(JoydigiModel):

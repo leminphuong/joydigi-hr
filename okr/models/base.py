@@ -39,11 +39,35 @@ def employee_company_id(employee):
     )
 
 
+def company_department_filter(company_id):
+    """``Q`` on ``base.Department`` for the departments a company uses in OKR.
+
+    A department belongs to the company when it is linked to it in HR, linked
+    to no company (HR treats those as shared), or is the department of at
+    least one active employee of the company. The last rule matters because
+    HR's web assigns a new department to the company picked in the session
+    (or to none, or to several), so a department can be linked to one company
+    record while the people in it work for another; without it OKR hid such
+    departments from its filters while the check-in tree still grouped those
+    people under them (2026-11-08, app filter showing only "ADS"). A
+    department only another company uses stays out: nothing crosses
+    companies."""
+    from django.db.models import Q
+
+    from employee.models import EmployeeWorkInformation
+
+    staffed = EmployeeWorkInformation._base_manager.filter(
+        company_id=company_id, employee_id__is_active=True, department_id__isnull=False
+    ).values("department_id")
+    return Q(company_id=company_id) | Q(company_id__isnull=True) | Q(pk__in=staffed)
+
+
 def department_allows_company(department, company_id) -> bool:
-    """A department is usable by a company when it is linked to it, or when
-    it is linked to no company at all (HR treats those as shared)."""
-    linked = set(department.company_id.values_list("pk", flat=True))
-    return not linked or company_id in linked
+    """Whether ``department`` is one of the company's OKR departments
+    (``company_department_filter``)."""
+    if department is None or company_id is None:
+        return False
+    return type(department)._base_manager.filter(company_department_filter(company_id), pk=department.pk).exists()
 
 
 class OKRQuerySet(models.QuerySet):

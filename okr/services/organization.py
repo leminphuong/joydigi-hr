@@ -25,7 +25,7 @@ from okr.models import (
     OKRTeamMember,
     validate_rating_ranges,
 )
-from okr.models.base import department_allows_company
+from okr.models.base import company_department_filter, department_allows_company
 from okr.models.choices import (
     OKRRoleType,
     RecordStatus,
@@ -68,17 +68,17 @@ def people(viewer: OKRViewer, *, search: str = "", department_id=None):
 
 
 def _company_departments(company_id: int) -> list:
-    """Active HR departments linked to the company, or linked to none
-    (HR treats those as shared). Read through the base manager: HR's
-    default manager filters by the web session's selected company, while
-    OKR always works in the employee's own company."""
-    rows = Department._base_manager.filter(is_active=True).prefetch_related("company_id")
-    usable = []
-    for department in rows.order_by("department", "id"):
-        linked = {company.pk for company in department.company_id.all()}
-        if not linked or company_id in linked:
-            usable.append(department)
-    return usable
+    """Active HR departments the company uses (``company_department_filter``:
+    linked to it, shared, or staffed by its active employees), in one query.
+    Read through the base manager: HR's default manager filters by the web
+    session's selected company, while OKR always works in the employee's own
+    company."""
+    return list(
+        Department._base_manager.filter(is_active=True)
+        .filter(company_department_filter(company_id))
+        .distinct()
+        .order_by("department", "id")
+    )
 
 
 def departments(viewer: OKRViewer) -> list:

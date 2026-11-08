@@ -223,20 +223,15 @@
 
   async function renderCompanyOkrs() {
     const query = currentQuery();
-    const [result, departmentsResult, teamsResult, peopleResult] = await Promise.all([
+    // The objective list must not depend on the filter lists: a failed list
+    // only empties its select and is reported (filterLists).
+    const [result, filters] = await Promise.all([
       api().request('objectives', { query }),
-      api().request('departments', { query: { status: 'active', per_page: 100 } }),
-      api().request('teams', { query: { status: 'active', per_page: 100 } }),
-      api().request('people', { query: { per_page: 100 } }),
+      filterLists(),
     ]);
-    const filters = {
-      departments: departmentsResult.items || [],
-      teams: teamsResult.items || [],
-      people: peopleResult.items || [],
-    };
     return page('OKR công ty', 'Theo dõi mục tiêu ở mọi cấp trong tổ chức', (can('joyokr_edit_managed') || can('joyokr_manage_settings')) ? actionButton('+ Tạo Objective', 'open-objective') : '', `
-      ${okrToolbar('company-okrs', filters)}
-      ${objectiveTableCard(result, 'Chưa có Objective phù hợp với bộ lọc.')}`);
+      ${okrToolbar('company-okrs', filters)}${filterFailureNotice(filters)}
+      ${objectiveTableCard(result, emptyObjectivesMessage(query))}`);
   }
 
   async function renderTree() {
@@ -256,7 +251,7 @@
 
   async function renderTeams() {
     const [teams, dashboard] = await Promise.all([
-      api().request('teams', { query: { per_page: 100, status: 'active' } }),
+      api().request('teams', { query: { status: 'active' }, allPages: true }),
       // The progress columns come from the cycle dashboard, which answers 404
       // when no cycle is active (e.g. the only cycle is still a draft). The
       // team list itself does not depend on a cycle, so it must still show;
@@ -1062,15 +1057,42 @@
     </div>`;
   }
 
-  /** Departments, teams and people for the filter selects; a failed list only empties its select. */
+  /**
+   * Departments, teams and people for the filter selects, every page of each
+   * (a company with more than 100 people or departments must still see them
+   * all). A failed list only empties its select and is named in `failed`, so
+   * the page can say it could not load it instead of looking like 'no data'.
+   * An expired session still fails the page (login redirect).
+   */
   async function filterLists() {
-    const itemsOf = (promise) => promise.then((result) => result?.items || []).catch(() => []);
+    const failed = [];
+    const itemsOf = (label, promise) => promise.then((result) => result?.items || []).catch((error) => {
+      if (error?.status === 401) throw error;
+      failed.push(label);
+      return [];
+    });
     const [departments, teams, people] = await Promise.all([
-      itemsOf(api().request('departments', { query: { status: 'active', per_page: 100 } })),
-      itemsOf(api().request('teams', { query: { status: 'active', per_page: 100 } })),
-      itemsOf(api().request('people', { query: { per_page: 100 } })),
+      itemsOf('phòng ban', api().request('departments', { query: {}, allPages: true })),
+      itemsOf('team', api().request('teams', { query: { status: 'active' }, allPages: true })),
+      itemsOf('nhân viên', api().request('people', { query: {}, allPages: true })),
     ]);
-    return { departments, teams, people };
+    return { departments, teams, people, failed };
+  }
+
+  /** Names the filter lists that could not be loaded (not the same as 'none exist'). */
+  function filterFailureNotice(lists = {}) {
+    const failed = Array.isArray(lists.failed) ? lists.failed : [];
+    if (!failed.length) return '';
+    return `<div class="joyokr-alert" role="alert" data-filter-failure>Không tải được danh sách ${escapeHtml(failed.join(', '))} cho bộ lọc. Hãy tải lại trang; nếu vẫn lỗi, báo quản trị hệ thống.</div>`;
+  }
+
+  /** 'Nothing matches the filters' only when a filter is set; otherwise say there is nothing yet. */
+  function emptyObjectivesMessage(query = {}) {
+    const filtered = ['search', 'q', 'scope', 'department_id', 'team_id', 'owner_user_id', 'approval_status', 'cycle_id']
+      .some((key) => query[key] !== undefined && query[key] !== '');
+    return filtered
+      ? 'Chưa có Objective phù hợp với bộ lọc.'
+      : 'Chưa có Objective nào bạn được xem. Objective của người khác chỉ hiện sau khi được duyệt.';
   }
 
   /**
@@ -1079,7 +1101,7 @@
    * picked; without one the server keeps choosing by its default rule.
    */
   function objectiveFilterToolbar(route, query, lists = {}, extra = '') {
-    return `<form class="joyokr-toolbar" data-filter-form data-filter-route="${escapeAttr(route)}"><select class="joyokr-select" name="scope"><option value="">Tất cả cấp</option>${options(SCOPE_VALUES, query.scope)}</select>${entityOptions('department_id', 'Tất cả phòng ban', lists.departments || [], query.department_id, 'name')}${entityOptions('team_id', 'Tất cả team', lists.teams || [], query.team_id, 'name')}${entityOptions('owner_user_id', 'Tất cả owner', lists.people || [], query.owner_user_id, 'display_name')}${extra}<input type="hidden" name="cycle_id" value="${escapeAttr(query.cycle_id || '')}"><button class="joyokr-button" type="submit">Lọc</button></form>`;
+    return `${filterFailureNotice(lists)}<form class="joyokr-toolbar" data-filter-form data-filter-route="${escapeAttr(route)}"><select class="joyokr-select" name="scope"><option value="">Tất cả cấp</option>${options(SCOPE_VALUES, query.scope)}</select>${entityOptions('department_id', 'Tất cả phòng ban', lists.departments || [], query.department_id, 'name')}${entityOptions('team_id', 'Tất cả team', lists.teams || [], query.team_id, 'name')}${entityOptions('owner_user_id', 'Tất cả owner', lists.people || [], query.owner_user_id, 'display_name')}${extra}<input type="hidden" name="cycle_id" value="${escapeAttr(query.cycle_id || '')}"><button class="joyokr-button" type="submit">Lọc</button></form>`;
   }
 
   /** Applied filters (api.js mapFilters) as human-readable [label, value] pairs. */

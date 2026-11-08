@@ -8,7 +8,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # Setup environment
-cp .env.dist .env
+cp .env.example .env
 # Edit .env with your configuration
 
 # Initialize database
@@ -21,7 +21,7 @@ python manage.py runserver
 
 Python 12 
 winget install -e --id Python.Python.3.12
-postgresql://postgres:admin123@localhost:5432/joydigi_hr
+postgresql://postgres:<DB_PASSWORD>@localhost:5432/joydigi_hr
 
 
 venv\Scripts\activate
@@ -37,7 +37,7 @@ Docker
 GCP Storage 
 Supportted Formats for DATABASE_URL nhiều Data
 
-d3f6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d
+DB_INIT_PASSWORD=<giá trị thật chỉ đặt trong .env trên server>
 
 
 alb

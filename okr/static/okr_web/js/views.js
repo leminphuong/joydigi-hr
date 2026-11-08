@@ -257,14 +257,28 @@
   async function renderTeams() {
     const [teams, dashboard] = await Promise.all([
       api().request('teams', { query: { per_page: 100, status: 'active' } }),
-      api().request('dashboard', { query: currentQuery(), summaryOnly: true }),
+      // The progress columns come from the cycle dashboard, which answers 404
+      // when no cycle is active (e.g. the only cycle is still a draft). The
+      // team list itself does not depend on a cycle, so it must still show;
+      // only an expired session keeps failing the page (login redirect).
+      api().request('dashboard', { query: currentQuery(), summaryOnly: true }).catch((error) => {
+        if (error?.status === 401) throw error;
+        return { teams: [], cycle: null, expected_progress: 0, progressUnavailable: error?.message || 'Chưa tải được tiến độ.' };
+      }),
     ]);
+    const withProgress = !dashboard.progressUnavailable;
     const progressByTeam = new Map((dashboard.teams || []).map((team) => [Number(team.id), team]));
     const rows = (teams.items || []).map((team) => {
       const summary = progressByTeam.get(Number(team.id)) || {};
-      return `<tr data-route="company-okrs" data-route-query="team_id=${escapeAttr(team.id)}" tabindex="0" role="link"><td><div class="joyokr-cell-title">${escapeHtml(team.name)}</div><div class="joyokr-cell-sub">${escapeHtml(team.department_name || '')}</div></td><td>${escapeHtml(team.manager_name || 'Chưa gán')}</td><td>${number(team.member_count)}</td><td>${number(summary.objective_count || 0)}</td><td>${progressBar(summary.progress || 0, dashboard.expected_progress, health(summary.progress || 0, dashboard.expected_progress), true)}</td><td><strong>${number(summary.progress || 0)}%</strong></td></tr>`;
+      const progressCells = withProgress
+        ? `<td>${number(summary.objective_count || 0)}</td><td>${progressBar(summary.progress || 0, dashboard.expected_progress, health(summary.progress || 0, dashboard.expected_progress), true)}</td><td><strong>${number(summary.progress || 0)}%</strong></td>`
+        : '<td>—</td><td>—</td><td></td>';
+      return `<tr data-route="company-okrs" data-route-query="team_id=${escapeAttr(team.id)}" tabindex="0" role="link"><td><div class="joyokr-cell-title">${escapeHtml(team.name)}</div><div class="joyokr-cell-sub">${escapeHtml(team.department_name || '')}</div></td><td>${escapeHtml(team.manager_name || 'Chưa gán')}</td><td>${number(team.member_count)}</td>${progressCells}</tr>`;
     }).join('');
-    return page('Teams', 'Tiến độ và nguồn lực theo team', cycleSelect(dashboard.cycle), tableCard(['Team', 'Manager', 'Thành viên', 'Objective', 'Tiến độ', ''], rows, 'Chưa có team hoạt động.'));
+    const notice = withProgress
+      ? ''
+      : `<div class="joyokr-alert" role="note" data-teams-progress-notice><p>${escapeHtml(dashboard.progressUnavailable)} Danh sách team vẫn hiển thị; cột Objective và Tiến độ sẽ có khi có chu kỳ đang hoạt động.</p></div>`;
+    return page('Teams', 'Tiến độ và nguồn lực theo team', cycleSelect(dashboard.cycle), `${notice}${tableCard(['Team', 'Manager', 'Thành viên', 'Objective', 'Tiến độ', ''], rows, 'Chưa có team hoạt động.')}`);
   }
 
   async function renderCheckins() {

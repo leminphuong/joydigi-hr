@@ -178,3 +178,29 @@ auth_refresh_diagnostic.jsonl
 # private key: it must never be committed. Only this file is ignored, so
 # anything else placed in secrets/ stays visible to review.
 secrets/firebase-service-account.json
+
+# Secrets and key material (security clean-up 2026-11-08). Real values live
+# only in the server's .env / secret store, never in this repository.
+.env.*
+!.env.example
+*.env
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+*.ovpn
+*service-account*.json
+*-credentials.json
+credentials*.json
+# Database dumps and exports
+*.dump
+*.sql.gz
+*.backup
+pg_dump_*.sql
+# Local notes that may hold credentials
+*.local
+secrets.txt

@@ -132,7 +132,11 @@ class AnnouncementFeedCompanyIsolationTests(TestCase):
         from django.core.files.uploadedfile import SimpleUploadedFile
 
         attachment = Attachment.objects.create(
-            file=SimpleUploadedFile("pic.png", b"fake-bytes", content_type="image/png")
+            # A real PNG header: HR attachments are checked against their
+            # extension since the 2026-11-08 upload hardening.
+            file=SimpleUploadedFile(
+                "pic.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, content_type="image/png"
+            )
         )
         self.post_a.attachments.add(attachment)
 

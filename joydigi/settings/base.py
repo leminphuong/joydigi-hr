@@ -527,12 +527,17 @@ ENABLE_DB_BACKUP = env.bool("ENABLE_DB_BACKUP", default=True)
 """
 DB_INIT_PASSWORD: str
 
-The password used for database setup and initialization. This password is a
-48-character alphanumeric string generated using a UUID to ensure high entropy and security.
+The password for the setup wizard (/initialize-database/) and the demo-data
+loader. Read from the environment only; there is no default (the old default
+was a public value). When unset, neither page can be unlocked
+(base.views.db_init_password_matches), and production (DEBUG=False) refuses to
+start until a real value is set (joydigi/settings/security.py).
 """
-DB_INIT_PASSWORD = env(
-    "DB_INIT_PASSWORD", default="d3f6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d"
-)
+DB_INIT_PASSWORD = env("DB_INIT_PASSWORD", default="")
+
+# Password given to the demo employees created by the demo-data loader. Unset
+# means those accounts get an unusable password and cannot log in.
+DEMO_EMPLOYEE_PASSWORD = env("DEMO_EMPLOYEE_PASSWORD", default="")
 
 # ========================================
 # PERMISSIONS / CUSTOM LOGIC

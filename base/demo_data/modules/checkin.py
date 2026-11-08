@@ -47,7 +47,9 @@ from leave.models import AvailableLeave, LeaveRequest, LeaveType
 
 
 DEMO_MARKER = "joydigi-checkin-v1"
-DEFAULT_EMPLOYEE_PASSWORD = "123456"
+# Demo employees' password comes from the environment (DEMO_EMPLOYEE_PASSWORD);
+# unset means the demo accounts cannot log in. No password is hardcoded.
+DEMO_EMPLOYEE_PASSWORD_SETTING = "DEMO_EMPLOYEE_PASSWORD"
 
 #: The company's standard working week — Phase COMPANY-STANDARD-SHIFT-0800-1700.
 #:
@@ -302,11 +304,15 @@ def _ensure_user_and_employee(
     user.is_active = True
     user.is_staff = spec.role == ADMIN_ROLE
     user.is_superuser = spec.role == ADMIN_ROLE
-    user.set_password(
+    password = (
         settings.DB_INIT_PASSWORD
         if spec.role == ADMIN_ROLE
-        else DEFAULT_EMPLOYEE_PASSWORD
+        else getattr(settings, DEMO_EMPLOYEE_PASSWORD_SETTING, "")
     )
+    if password:
+        user.set_password(password)
+    else:
+        user.set_unusable_password()
     user.save()
 
     employee = Employee.objects.entire().filter(employee_user_id=user).first()

@@ -15,7 +15,9 @@ Hệ thống tự tạo dữ liệu bằng `base.demo_data.modules.checkin`, g�
 - Đơn nghỉ phép, yêu cầu chấm công ngoài bán kính, lịch làm việc và bảng tin.
 
 Tài khoản quản trị có tên đăng nhập `admin`; mật khẩu chính là giá trị
-`DB_INIT_PASSWORD`. Các tài khoản mẫu còn lại dùng mật khẩu `123456`.
+`DB_INIT_PASSWORD`. Các tài khoản mẫu còn lại dùng mật khẩu khai báo trong
+`DEMO_EMPLOYEE_PASSWORD` (tệp `.env`); nếu để trống, các tài khoản này không
+đăng nhập được. Không có mật khẩu nào được ghi cứng trong mã nguồn.
 
 Bộ tạo dữ liệu có thể chạy lại an toàn và không tạo trùng nhân viên hoặc bản
 ghi chấm công.

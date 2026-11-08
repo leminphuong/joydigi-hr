@@ -96,9 +96,11 @@ class JoydigiDemoDataTests(TestCase):
         self.assertEqual(attendances.earliest("attendance_date").attendance_date, date(2026, 7, 1))
         self.assertEqual(attendances.latest("attendance_date").attendance_date, date(2026, 8, 20))
         self.assertTrue(JoydigiUser.objects.get(username="admin").check_password("demo-secret"))
-        self.assertTrue(
-            JoydigiUser.objects.get(username="lan.phuong").check_password("123456")
-        )
+        # DEMO_EMPLOYEE_PASSWORD is unset in this class: demo employees get an
+        # unusable password instead of the old hardcoded "123456".
+        demo_employee = JoydigiUser.objects.get(username="lan.phuong")
+        self.assertFalse(demo_employee.has_usable_password())
+        self.assertFalse(demo_employee.check_password("123456"))
         self.assertEqual(CheckInLocation.objects.filter(company_id=company).count(), 1)
         self.assertEqual(OfficeWifi.objects.filter(company_id=company).count(), 1)
 
@@ -113,3 +115,46 @@ class JoydigiDemoDataTests(TestCase):
             Attendance.objects.entire().filter(employee_id__in=employees).count(),
             attendances.count(),
         )
+
+
+@override_settings(DB_INIT_PASSWORD="demo-secret", DEMO_EMPLOYEE_PASSWORD="demo-employee-secret")
+class DemoEmployeePasswordFromEnvironmentTests(TestCase):
+    def test_demo_employees_use_the_configured_password(self):
+        seed_joydigi_checkin_demo(today=date(2026, 8, 20))
+        demo_employee = JoydigiUser.objects.get(username="lan.phuong")
+        self.assertTrue(demo_employee.check_password("demo-employee-secret"))
+        self.assertFalse(demo_employee.check_password("123456"))
+
+
+class DbInitPasswordTests(TestCase):
+    """DB_INIT_PASSWORD has no default; an unset value unlocks nothing."""
+
+    def test_unset_password_never_matches(self):
+        from base.views import db_init_password_matches
+
+        with override_settings(DB_INIT_PASSWORD=""):
+            self.assertFalse(db_init_password_matches(""))
+            self.assertFalse(db_init_password_matches(None))
+            self.assertFalse(db_init_password_matches("anything"))
+
+    def test_configured_password_matches_only_itself(self):
+        from base.views import db_init_password_matches
+
+        with override_settings(DB_INIT_PASSWORD="s3cret-value"):
+            self.assertTrue(db_init_password_matches("s3cret-value"))
+            self.assertFalse(db_init_password_matches("s3cret-valuE"))
+            self.assertFalse(db_init_password_matches(""))
+            self.assertFalse(db_init_password_matches(None))
+
+    @patch("base.views.initialize_database_condition", return_value=True)
+    def test_demo_loader_refuses_an_empty_password_when_unset(self, _initializing):
+        with override_settings(DB_INIT_PASSWORD=""), patch("base.demo_data.run_enterprise_demo_seeder") as seeder:
+            self.client.post(reverse("load-demo-database"), {"load_data_password": ""})
+        seeder.assert_not_called()
+
+    def test_settings_default_is_not_the_old_public_value(self):
+        from django.conf import settings
+
+        from joydigi.settings.security import INSECURE_DB_INIT_PASSWORDS
+
+        self.assertNotIn(settings.DB_INIT_PASSWORD, INSECURE_DB_INIT_PASSWORDS)

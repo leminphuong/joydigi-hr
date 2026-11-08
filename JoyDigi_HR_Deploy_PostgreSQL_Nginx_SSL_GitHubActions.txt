@@ -1,3 +1,7 @@
+# ĐÃ LÀM SẠCH (08/11/2026): mật khẩu CSDL và IP máy chủ được thay bằng
+# <DB_PASSWORD> và <VPS_IP>. Giá trị thật chỉ nằm trong .env trên VPS và
+# nơi lưu trữ bí mật của nhóm, không bao giờ đưa vào repository.
+
 JOYDIGI HR - TÀI LIỆU TRIỂN KHAI CHUẨN
 PostgreSQL + Django + Gunicorn + systemd + aaPanel Nginx + SSL Let's Encrypt + GitHub Actions
 ========================================================================================
@@ -20,11 +24,11 @@ Mục tiêu triển khai:
 - PostgreSQL host: localhost:5432
 - PostgreSQL role: postgres
 - Database: joydigi_hr
-- Connection URL hiện tại: postgresql://postgres:admin123@localhost:5432/joydigi_hr
+- Connection URL hiện tại: postgresql://postgres:<DB_PASSWORD>@localhost:5432/joydigi_hr
 - SSL certificate: /etc/letsencrypt/live/checkin.joydigi.net/fullchain.pem
 - SSL private key: /etc/letsencrypt/live/checkin.joydigi.net/privkey.pem
 
-NOTE BẢO MẬT: mật khẩu admin123 là thông tin nhạy cảm và khá yếu. Sau khi triển khai ổn định nên đổi sang mật khẩu mạnh, cập nhật .env và restart joydigi-hr. Không commit .env lên GitHub.
+NOTE BẢO MẬT: mật khẩu <DB_PASSWORD> là thông tin nhạy cảm và khá yếu. Sau khi triển khai ổn định nên đổi sang mật khẩu mạnh, cập nhật .env và restart joydigi-hr. Không commit .env lên GitHub.
 
 2. Kiến trúc hoạt động
 ----------------------
@@ -65,20 +69,20 @@ sudo -u postgres psql
 
 Trong psql:
 
-ALTER USER postgres WITH PASSWORD 'admin123';
+ALTER USER postgres WITH PASSWORD '<DB_PASSWORD>';
 CREATE DATABASE joydigi_hr OWNER postgres;
 \l
 \q
 
 Kiểm tra kết nối:
 
-PGPASSWORD='admin123' psql -h localhost -p 5432 -U postgres -d joydigi_hr -c "SELECT current_database(), current_user;"
+PGPASSWORD='<DB_PASSWORD>' psql -h localhost -p 5432 -U postgres -d joydigi_hr -c "SELECT current_database(), current_user;"
 
 Kết quả mong đợi:
 joydigi_hr | postgres
 
 Chuỗi kết nối:
-postgresql://postgres:admin123@localhost:5432/joydigi_hr
+postgresql://postgres:<DB_PASSWORD>@localhost:5432/joydigi_hr
 
 5. Clone source từ GitHub
 -------------------------
@@ -137,10 +141,10 @@ TIME_ZONE=Asia/Ho_Chi_Minh
 DB_ENGINE=django.db.backends.postgresql
 DB_NAME=joydigi_hr
 DB_USER=postgres
-DB_PASSWORD=admin123
+DB_PASSWORD=<DB_PASSWORD>
 DB_HOST=localhost
 DB_PORT=5432
-DATABASE_URL=postgresql://postgres:admin123@localhost:5432/joydigi_hr
+DATABASE_URL=postgresql://postgres:<DB_PASSWORD>@localhost:5432/joydigi_hr
 
 ALLOWED_HOSTS=checkin.joydigi.net,localhost,127.0.0.1
 CSRF_TRUSTED_ORIGINS=https://checkin.joydigi.net
@@ -334,7 +338,7 @@ Test + reload:
 12. DNS và SSL Let's Encrypt
 ----------------------------
 DNS hiện tại:
-A checkin.joydigi.net -> 155.103.50.61
+A checkin.joydigi.net -> <VPS_IP>
 AAAA -> không có
 
 Tạo thư mục ACME:
@@ -444,7 +448,7 @@ chmod 600 /root/.ssh/authorized_keys
 cat /root/.ssh/github_actions_vps
 
 Trong GitHub repository -> Settings -> Secrets and variables -> Actions, tạo:
-VPS_HOST = 155.103.50.61
+VPS_HOST = <VPS_IP>
 VPS_USER = root
 VPS_SSH_KEY = nội dung private key /root/.ssh/github_actions_vps
 
@@ -548,7 +552,7 @@ cd /var/www/joydigi-hr
 ./venv/bin/python manage.py check
 
 Test PostgreSQL:
-PGPASSWORD='admin123' psql -h localhost -U postgres -d joydigi_hr -c "SELECT now(), current_database(), current_user;"
+PGPASSWORD='<DB_PASSWORD>' psql -h localhost -U postgres -d joydigi_hr -c "SELECT now(), current_database(), current_user;"
 
 Test aaPanel Nginx:
 /www/server/nginx/sbin/nginx -t -c /www/server/nginx/conf/nginx.conf
@@ -720,11 +724,11 @@ KHI: PostgreSQL connection refused
 Kiểm tra:
 systemctl status postgresql --no-pager
 ss -lntp | grep 5432
-PGPASSWORD='admin123' psql -h localhost -U postgres -d joydigi_hr
+PGPASSWORD='<DB_PASSWORD>' psql -h localhost -U postgres -d joydigi_hr
 
 KHI: password authentication failed for user postgres
 Đặt lại password:
-sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'admin123';"
+sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '<DB_PASSWORD>';"
 Sau đó kiểm tra .env và restart app.
 
 KHI: Git clone báo destination path already exists
@@ -774,7 +778,7 @@ echo "===== PUBLIC HTTPS ====="
 curl -I --max-time 15 https://checkin.joydigi.net || true
 
 echo "===== POSTGRES ====="
-PGPASSWORD='admin123' psql -h localhost -U postgres -d joydigi_hr -c "SELECT now(), current_database(), current_user;" || true
+PGPASSWORD='<DB_PASSWORD>' psql -h localhost -U postgres -d joydigi_hr -c "SELECT now(), current_database(), current_user;" || true
 
 echo "===== NGINX CONFIG ====="
 /www/server/nginx/sbin/nginx -t -c /www/server/nginx/conf/nginx.conf

@@ -5,6 +5,7 @@ This module is used to map url pattens with django views or methods
 """
 
 import csv
+import hmac
 import json
 import mimetypes
 import os
@@ -356,6 +357,16 @@ def can_decide_shift_reallocation(request, shift_request):
     return ShiftRequest._default_manager.filter(pk=shift_request.pk).exists()
 
 
+def db_init_password_matches(value) -> bool:
+    """True only when DB_INIT_PASSWORD is configured and ``value`` equals it.
+
+    DB_INIT_PASSWORD gates the setup wizard and the demo-data loader. It has
+    no default any more (the old public Horilla default was a known value),
+    so an unset password unlocks nothing; the comparison is constant-time."""
+    expected = getattr(settings, "DB_INIT_PASSWORD", "") or ""
+    return bool(expected) and isinstance(value, str) and hmac.compare_digest(value, expected)
+
+
 def initialize_database_condition():
     """
     Determines if the database initialization process should be triggered.
@@ -546,7 +557,7 @@ def load_demo_database(request):
             return redirect("/")
         if request.method == "GET":
             return render(request, "demo_database/auth_load_data.html")
-        if request.POST.get("load_data_password") != settings.DB_INIT_PASSWORD:
+        if not db_init_password_matches(request.POST.get("load_data_password")):
             messages.error(request, _("Mật khẩu tạo dữ liệu mẫu không đúng."))
             return redirect(home)
 
@@ -575,7 +586,7 @@ def load_demo_database(request):
 
     if initializing_database:
         if request.method == "POST":
-            if request.POST.get("load_data_password") == settings.DB_INIT_PASSWORD:
+            if db_init_password_matches(request.POST.get("load_data_password")):
                 import tempfile
 
                 data_files = [
@@ -706,7 +717,7 @@ def initialize_database(request):
     if initialize_database_condition():
         if request.method == "POST":
             password = request._post.get("password")
-            if settings.DB_INIT_PASSWORD == password:
+            if db_init_password_matches(password):
                 return redirect(initialize_database_user)
             else:
                 messages.warning(

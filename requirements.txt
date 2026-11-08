@@ -3,15 +3,15 @@ arabic-reshaper
 asgiref
 asn1crypto
 bs4
-bleach==6.2.0
-certifi
+bleach==6.4.0
+certifi>=2026.10.23
 cffi
 chardet
 charset-normalizer
 click
-cryptography==44.0.2
+cryptography==50.0.2
 cssselect2
-Django==5.2
+Django==5.2.17
 django-auditlog
 django-apscheduler
 django-cors-headers
@@ -25,8 +25,8 @@ django-model-utils
 django-redis==5.4.0
 django-simple-history
 django-widget-tweaks
-djangorestframework==3.16.0
-djangorestframework-simplejwt==5.5.0
+djangorestframework==3.18.3
+djangorestframework-simplejwt==5.5.1
 et-xmlfile
 firebase-admin==6.9.0
 geopy
@@ -43,7 +43,7 @@ opencv-python==5.0.0.93
 insightface==1.0.1
 onnxruntime==1.23.2; python_version < "3.11"
 onnxruntime==1.28.0; python_version >= "3.11"
-oauthlib
+oauthlib>=4.0.1
 openpyxl
 oscrypto
 pandas
@@ -53,7 +53,7 @@ pycparser
 pyHanko
 pyhanko-certvalidator
 PyMuPDF
-pypdf
+pypdf>=6.21.4
 pypng
 python-bidi
 python-dateutil
@@ -63,7 +63,7 @@ qrcode
 reportlab==4.0.9
 requests
 responses
-setuptools
+setuptools>=84.1.0
 six
 sqlparse
 svglib
@@ -73,7 +73,7 @@ typing_extensions
 tzdata
 tzlocal
 uritools
-urllib3
+urllib3>=2.8.0
 utils
 webencodings
 xhtml2pdf
@@ -83,3 +83,8 @@ psycopg2-binary==2.9.10
 whitenoise==6.9.0
 django-storages
 coverage>=7.0
+
+# Security floors (audit 2026-11-08): transitive packages with published advisories.
+PyJWT>=2.15.1
+msgpack>=1.2.4
+pyasn1>=0.6.5

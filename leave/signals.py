@@ -11,7 +11,13 @@ from django.utils.translation import gettext_lazy as _
 from employee.models import Employee, EmployeeWorkInformation
 
 from joydigi.methods import get_joydigi_model_class
-from leave.models import AvailableLeave, LeaveRequest, LeaveRequestConditionApproval, LeaveType
+from leave.models import (
+    AvailableLeave,
+    LeaveRequest,
+    LeaveRequestConditionApproval,
+    LeaveType,
+    LeaveTypeCondition,
+)
 
 if apps.is_installed("attendance"):
 
@@ -214,3 +220,130 @@ def auto_approve_self_approval_stage(sender, instance, created, **kwargs):
     """
     if created and instance.manager_id == instance.leave_request_id.employee_id:
         sender.objects.filter(pk=instance.pk).update(is_approved=True)
+
+
+# -- automatic sync on admin and employee changes (2026-11-09) ---------------
+
+from django.db.models.signals import m2m_changed  # noqa: E402
+
+
+@receiver(pre_save, sender=LeaveType)
+def remember_leave_type_scope(sender, instance, **kwargs):
+    """Keep what decided eligibility before this save (active, company)."""
+    previous = None
+    if instance.pk:
+        previous = (
+            LeaveType._base_manager.filter(pk=instance.pk).values_list("is_active", "company_id_id").first()
+        )
+    instance._sync_previous_scope = previous
+
+
+@receiver(post_save, sender=LeaveType)
+def sync_leave_type_when_scope_widens(sender, instance, created, **kwargs):
+    """Re-activating a type, or moving it to another company / all companies,
+    opens it for the employees who are now eligible. Creation is handled by
+    ``assign_new_leave_type_to_employees``; editing the name or the days does
+    nothing here, so a balance an admin removed on purpose is not re-opened
+    and no existing balance is ever recomputed."""
+    if created or not instance.is_active:
+        return
+    previous = getattr(instance, "_sync_previous_scope", None)
+    was_active, old_company = previous if previous else (False, None)
+    if was_active and old_company == instance.company_id_id:
+        return
+
+    def _sync():
+        from leave.services import sync_leave_type
+
+        with transaction.atomic():
+            sync_leave_type(instance)
+
+    transaction.on_commit(_sync)
+
+
+@receiver(m2m_changed, sender=LeaveType.conditions.through)
+def sync_leave_type_when_conditions_change(sender, instance, action, reverse, pk_set, **kwargs):
+    """Changing a type's conditions can make more employees eligible."""
+    if action == "pre_clear" and reverse:
+        # Clearing from the condition's side passes no pk_set afterwards:
+        # remember which types are about to lose this condition.
+        instance._sync_cleared_leave_types = list(
+            LeaveType._base_manager.filter(conditions=instance).values_list("pk", flat=True)
+        )
+        return
+    if action not in ("post_add", "post_remove", "post_clear"):
+        return
+    if reverse:
+        if action == "post_clear":
+            pk_set = getattr(instance, "_sync_cleared_leave_types", None)
+        leave_types = list(LeaveType._base_manager.filter(pk__in=pk_set or []))
+    else:
+        leave_types = [instance]
+
+    def _sync():
+        from leave.services import sync_leave_type
+
+        with transaction.atomic():
+            for leave_type in leave_types:
+                sync_leave_type(leave_type)
+
+    transaction.on_commit(_sync)
+
+
+@receiver(post_save, sender=LeaveTypeCondition)
+def sync_leave_types_when_condition_edited(sender, instance, created, **kwargs):
+    """Editing a condition (its type or value) can make more employees
+    eligible for every leave type that uses it."""
+    if created:
+        return
+    leave_types = list(LeaveType._base_manager.filter(conditions=instance))
+    if not leave_types:
+        return
+
+    def _sync():
+        from leave.services import sync_leave_type
+
+        with transaction.atomic():
+            for leave_type in leave_types:
+                sync_leave_type(leave_type)
+
+    transaction.on_commit(_sync)
+
+
+# Employee fields that decide eligibility: being active, and the ones
+# evaluate_leave_type_conditions() reads from the employee itself (the
+# department / employment type / grade ones live on the work information,
+# whose own signal above already re-syncs on every save).
+_EMPLOYEE_ELIGIBILITY_FIELDS = ("is_active", "gender", "marital_status", "country")
+
+
+@receiver(pre_save, sender=Employee)
+def remember_employee_eligibility(sender, instance, **kwargs):
+    previous = None
+    if instance.pk:
+        previous = (
+            Employee._base_manager.filter(pk=instance.pk).values_list(*_EMPLOYEE_ELIGIBILITY_FIELDS).first()
+        )
+    instance._sync_previous_eligibility = previous
+
+
+@receiver(post_save, sender=Employee)
+def sync_reactivated_employee(sender, instance, created, **kwargs):
+    """An employee who is re-activated, or whose gender / marital status /
+    nationality changes, gets every type they are now eligible for. Any
+    other edit of the profile does nothing here, so a balance HR removed on
+    purpose is not quietly re-opened by, say, a phone-number change. New
+    employees are handled by ``assign_leave_types_to_new_employee``."""
+    if created or not instance.is_active:
+        return
+    current = tuple(getattr(instance, field) for field in _EMPLOYEE_ELIGIBILITY_FIELDS)
+    if getattr(instance, "_sync_previous_eligibility", None) == current:
+        return
+
+    def _sync():
+        from leave.services import sync_employee
+
+        with transaction.atomic():
+            sync_employee(instance)
+
+    transaction.on_commit(_sync)

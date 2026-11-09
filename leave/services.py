@@ -153,9 +153,10 @@ def ensure_available_leave(employee, leave_type):
     if not leave_type_matches_company(leave_type, employee):
         return None, False
 
-    existing = AvailableLeave.objects.filter(
-        employee_id=employee, leave_type_id=leave_type
-    ).first()
+    # Read through the base manager: the default managers filter by the company
+    # selected in the current HR web session, so who saved what (and which
+    # company they had picked) used to decide who got a leave type.
+    existing = _existing_available_leave(employee, leave_type)
     if existing is not None:
         return existing, False
 
@@ -171,7 +172,20 @@ def ensure_available_leave(employee, leave_type):
     # save() runs pre_save_processing(), which is what fills reset_date,
     # expired_date and total_leave_days — the manual path relies on the same
     # method, so nothing is recomputed differently here.
-    available_leave.save()
+    #
+    # Two admins (or an admin and a signal) can both see "no row" at once.
+    # The (leave_type_id, employee_id) unique constraint lets only one
+    # insert win; the other rolls back its savepoint and returns the winner.
+    from django.db import IntegrityError, transaction
+
+    try:
+        with transaction.atomic():
+            available_leave.save()
+    except IntegrityError:
+        winner = _existing_available_leave(employee, leave_type)
+        if winner is None:
+            raise
+        return winner, False
     return available_leave, True
 
 
@@ -181,7 +195,7 @@ def assignable_employees(leave_type):
 
     return [
         employee
-        for employee in Employee.objects.filter(is_active=True).select_related(
+        for employee in Employee._base_manager.filter(is_active=True).select_related(
             "employee_work_info__company_id"
         )
         if leave_type_matches_company(leave_type, employee)
@@ -194,7 +208,7 @@ def assignable_leave_types(employee):
 
     return [
         leave_type
-        for leave_type in LeaveType.objects.filter(is_active=True)
+        for leave_type in LeaveType._base_manager.filter(is_active=True)
         if leave_type_matches_company(leave_type, employee)
     ]
 
@@ -229,3 +243,198 @@ def get_condition_display_choices():
         "grade": [],
         "service_duration": [],
     }
+
+
+def compensatory_leave_type_for(selected_company):
+    """The compensatory leave type, created once.
+
+    ``LeaveType.clean`` allows a single compensatory type, but the settings
+    pages used to ``get_or_create`` one per selected company *and* one with no
+    company when "all" was selected, so visiting them in both modes produced
+    two "Compensatory Leave Type" rows that every employee then received.
+    Reuse whichever exists — an active one first, then the oldest, so once an
+    admin switches off the duplicates the one left active is the one used —
+    and only when there is none, create it for the selected company (or with
+    no company for "all")."""
+    from leave.models import LeaveType
+
+    existing = (
+        LeaveType._base_manager.filter(is_compensatory_leave=True)
+        .order_by("-is_active", "id")
+        .first()
+    )
+    if existing is not None:
+        return existing
+    company_id = None
+    if selected_company and selected_company != "all":
+        try:
+            company_id = int(selected_company)
+        except (TypeError, ValueError):
+            company_id = None
+    return LeaveType.objects.create(
+        is_compensatory_leave=True,
+        company_id_id=company_id,
+        name="Compensatory Leave Type",
+        payment="paid",
+    )
+
+
+def requestable_available_leave(employee):
+    """An employee's balances for the leave types they may request: active
+    types only, in name order (stable pages), whatever company an HR session
+    has selected."""
+    from leave.models import AvailableLeave
+
+    from django.db.models import Q
+
+    company = employee_company(employee)
+    offered = Q(leave_type_id__company_id__isnull=True)
+    if company is not None:
+        offered |= Q(leave_type_id__company_id=company)
+    return (
+        AvailableLeave._base_manager.filter(employee_id=employee, leave_type_id__is_active=True)
+        .filter(offered)
+        .select_related("leave_type_id")
+        .order_by("leave_type_id__name", "leave_type_id_id")
+    )
+
+
+def _existing_available_leave(employee, leave_type):
+    """The employee's balance row for ``leave_type``, read without the HR
+    session's company filter (``None`` when there is none)."""
+    from leave.models import AvailableLeave
+
+    return AvailableLeave._base_manager.filter(employee_id=employee, leave_type_id=leave_type).first()
+
+
+# -- automatic sync (2026-11-09) ----------------------------------------------
+#
+# A balance (AvailableLeave) is what lets an employee request a leave type. It
+# is opened automatically, once, for every active employee the type is
+# offered to (same company or a company-less type, conditions met), whenever
+# something makes them newly eligible: the type is created, re-activated,
+# moved to another company or to all companies, or its conditions change; the
+# employee is created, re-activated or transferred. Opening is idempotent and
+# never touches an existing balance: saving a type again does not re-add
+# days, and nothing is ever deleted, so used days and past requests stay.
+
+
+def sync_leave_type(leave_type):
+    """Open ``leave_type`` for every eligible employee who has no balance yet.
+    Returns how many balances were opened."""
+    if leave_type is None or not getattr(leave_type, "is_active", False):
+        return 0
+    opened = 0
+    for employee in assignable_employees(leave_type):
+        _row, created = ensure_available_leave(employee, leave_type)
+        opened += int(bool(created))
+    return opened
+
+
+def sync_employee(employee):
+    """Open every leave type ``employee`` is now eligible for. Returns how
+    many balances were opened."""
+    if employee is None or not getattr(employee, "is_active", False):
+        return 0
+    opened = 0
+    for leave_type in assignable_leave_types(employee):
+        _row, created = ensure_available_leave(employee, leave_type)
+        opened += int(bool(created))
+    return opened
+
+
+# -- what the employee may request, in words they can act on -------------------
+
+NO_EMPLOYEE_MESSAGE = (
+    "Tài khoản của bạn chưa gắn với hồ sơ nhân viên nên chưa tạo được đơn. "
+    "Vui lòng liên hệ HR."
+)
+NO_WORK_INFO_MESSAGE = (
+    "Hồ sơ của bạn chưa có thông tin công việc nên chưa tạo được đơn nghỉ phép. "
+    "Vui lòng liên hệ HR để cập nhật hồ sơ."
+)
+NO_COMPANY_MESSAGE = (
+    "Hồ sơ công việc của bạn chưa có công ty nên chưa tạo được đơn nghỉ phép. "
+    "Vui lòng liên hệ HR để cập nhật hồ sơ."
+)
+NOT_ASSIGNED_SHORT = "Chưa được cấp. Vui lòng liên hệ HR."
+NO_BALANCE_MESSAGE = "Hết số ngày phép của loại này."
+
+
+def employee_has_work_info(employee):
+    """Whether ``employee`` has an ``EmployeeWorkInformation`` row (the
+    approval chain and the company are read from it)."""
+    return getattr(employee, "employee_work_info", None) is not None
+
+
+def leave_type_offered_to(leave_type, company):
+    """Whether ``leave_type`` is offered to ``company`` (its own or shared)."""
+    type_company = getattr(leave_type, "company_id_id", None)
+    return type_company is None or (company is not None and type_company == getattr(company, "pk", company))
+
+
+def leave_option_status(available_leave):
+    """``(status, requestable, message)`` for one balance row in the app list.
+
+    ``available``: can be requested. ``no_balance``: a limited type whose
+    remaining days (available + carried forward) are used up."""
+    leave_type = available_leave.leave_type_id
+    remaining = (available_leave.available_days or 0) + (available_leave.carryforward_days or 0)
+    if getattr(leave_type, "limit_leave", True) and remaining <= 0:
+        return "no_balance", False, NO_BALANCE_MESSAGE
+    return "available", True, None
+
+
+def unassigned_eligible_leave_types(employee):
+    """Active types offered to the employee's company that they meet the
+    conditions of, but have no balance for (data from before automatic sync,
+    or a balance an admin removed). Shown in the app as 'contact HR'."""
+    from leave.models import AvailableLeave
+
+    # An employee whose work information has no company still gets the
+    # shared (company-less) types: assignable_leave_types() already applies
+    # that rule, so only a missing work information means "nothing".
+    if not employee_has_work_info(employee):
+        return []
+    opened = set(
+        AvailableLeave._base_manager.filter(employee_id=employee).values_list("leave_type_id", flat=True)
+    )
+    missing = []
+    for leave_type in assignable_leave_types(employee):
+        if leave_type.pk in opened:
+            continue
+        eligible, _msg = evaluate_leave_type_conditions(leave_type, employee)
+        if eligible:
+            missing.append(leave_type)
+    return sorted(missing, key=lambda item: (item.name or "").lower())
+
+
+def leave_request_problem(employee, leave_type):
+    """Why ``employee`` cannot request ``leave_type`` at all, as a sentence for
+    the employee (``None`` when nothing stands in the way). Dates, balance
+    and overlaps are checked afterwards by the existing validation."""
+    if employee is None:
+        return NO_EMPLOYEE_MESSAGE
+    if not employee_has_work_info(employee):
+        return NO_WORK_INFO_MESSAGE
+    if leave_type is None:
+        return "Vui lòng chọn loại phép."
+    company = employee_company(employee)
+    name = leave_type.name
+    if not leave_type.is_active:
+        return f"Loại phép «{name}» đã ngừng áp dụng. Vui lòng chọn loại phép khác hoặc liên hệ HR."
+    if company is None and not leave_type_offered_to(leave_type, None):
+        # Shared types stay requestable, as before; only a company's own
+        # type needs the company on the work information.
+        return (
+            f"Hồ sơ công việc của bạn chưa có công ty nên chưa dùng được loại phép «{name}». "
+            "Vui lòng liên hệ HR để cập nhật hồ sơ."
+        )
+    if not leave_type_offered_to(leave_type, company):
+        return (
+            f"Loại phép «{name}» không áp dụng cho công ty của bạn. "
+            "Vui lòng liên hệ HR nếu bạn cho rằng đây là nhầm lẫn."
+        )
+    if _existing_available_leave(employee, leave_type) is None:
+        return f"Bạn chưa được cấp loại phép «{name}». Vui lòng liên hệ HR để được cấp."
+    return None

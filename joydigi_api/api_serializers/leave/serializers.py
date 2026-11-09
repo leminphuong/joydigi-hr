@@ -22,6 +22,13 @@ def leave_Validations(self, data):
     employee = data.get("employee_id")
     leave_type_id = data.get("leave_type_id")
     attachment = data.get("attachment")
+    # Who may request this type at all, said in words the employee can act
+    # on (inactive type, another company, no work information, not opened).
+    from leave.services import leave_request_problem
+
+    problem = leave_request_problem(employee, leave_type_id)
+    if problem:
+        raise serializers.ValidationError(problem)
     available_leave = (
         AvailableLeave.objects.filter(
             leave_type_id=leave_type_id, employee_id=employee
@@ -52,9 +59,11 @@ def leave_Validations(self, data):
     )
     errors = {}
     # checking if there is any requested days is overlapping with the existing leave request
+    # Rejected and cancelled requests no longer hold their dates (the web's
+    # LeaveRequest.clean already excluded them).
     leave_requests = employee.leaverequest_set.filter(
         start_date__lte=end_date, end_date__gte=start_date
-    )
+    ).exclude(status__in=["cancelled", "rejected"])
     if self.instance:
         leave_requests = leave_requests.exclude(id=self.instance.id)
     if leave_requests:
@@ -141,6 +150,75 @@ class GetAvailableLeaveTypeSerializer(serializers.ModelSerializer):
         return obj.available_days + obj.carryforward_days
 
 
+class EmployeeLeaveOptionSerializer(GetAvailableLeaveTypeSerializer):
+    """One requestable balance for the app: the keys app 1.0.1/1.0.2 read,
+    plus remaining/granted days and a status the new app shows."""
+
+    remaining_days = serializers.SerializerMethodField()
+    granted_days = serializers.SerializerMethodField()
+    limited = serializers.SerializerMethodField()
+    requestable = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    status_message = serializers.SerializerMethodField()
+
+    class Meta(GetAvailableLeaveTypeSerializer.Meta):
+        fields = GetAvailableLeaveTypeSerializer.Meta.fields + [
+            "remaining_days",
+            "granted_days",
+            "limited",
+            "requestable",
+            "status",
+            "status_message",
+        ]
+
+    def get_remaining_days(self, obj):
+        return (obj.available_days or 0) + (obj.carryforward_days or 0)
+
+    def get_granted_days(self, obj):
+        leave_type = obj.leave_type_id
+        return leave_type.total_days if leave_type and leave_type.limit_leave else None
+
+    def get_limited(self, obj):
+        return bool(obj.leave_type_id and obj.leave_type_id.limit_leave)
+
+    def _status(self, obj):
+        from leave.services import leave_option_status
+
+        return leave_option_status(obj)
+
+    def get_requestable(self, obj):
+        return self._status(obj)[1]
+
+    def get_status(self, obj):
+        return self._status(obj)[0]
+
+    def get_status_message(self, obj):
+        return self._status(obj)[2]
+
+
+class UnassignedLeaveTypeSerializer(serializers.ModelSerializer):
+    """An eligible type the employee has no balance for yet."""
+
+    requestable = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    status_message = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LeaveType
+        fields = ["id", "name", "icon", "requestable", "status", "status_message"]
+
+    def get_requestable(self, obj):
+        return False
+
+    def get_status(self, obj):
+        return "not_assigned"
+
+    def get_status_message(self, obj):
+        from leave.services import NOT_ASSIGNED_SHORT
+
+        return NOT_ASSIGNED_SHORT
+
+
 class userLeaveRequestGetAllSerilaizer(serializers.ModelSerializer):
     leave_type_id = serializers.SerializerMethodField()
 
@@ -186,6 +264,10 @@ class UserLeaveRequestGetSerilaizer(serializers.ModelSerializer):
 
 
 class LeaveRequestCreateUpdateSerializer(serializers.ModelSerializer):
+    # Resolved without the request-time "active only" filter of the default
+    # manager, so an inactive type reaches leave_request_problem() and the
+    # employee reads "đã ngừng áp dụng" instead of DRF's "Invalid pk".
+    leave_type_id = serializers.PrimaryKeyRelatedField(queryset=LeaveType._base_manager.all())
 
     class Meta:
         model = LeaveRequest

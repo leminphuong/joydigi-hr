@@ -23,16 +23,65 @@ from ...api_decorators.base.decorators import manager_permission_required
 from ...api_methods.base.methods import groupby_queryset
 
 
+class AvailableLeavePagination(PageNumberPagination):
+    """20 per page by default; a client may ask up to 100 (`page_size`)."""
+
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class EmployeeAvailableLeaveGetAPIView(APIView):
+    """The leave types the employee may request, with their balances.
+
+    Active types only (an inactive type cannot be requested), in name order
+    so pages are stable, read without the HR session's company filter.
+    """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        employee = request.user.employee_get
-        available_leave = employee.available_leave.all()
-        paginator = PageNumberPagination()
+        from django.core.exceptions import ObjectDoesNotExist
+
+        from joydigi_api.api_serializers.leave.serializers import (
+            EmployeeLeaveOptionSerializer,
+            UnassignedLeaveTypeSerializer,
+        )
+        from leave.services import (
+            NO_COMPANY_MESSAGE,
+            NO_EMPLOYEE_MESSAGE,
+            NO_WORK_INFO_MESSAGE,
+            employee_company,
+            employee_has_work_info,
+            requestable_available_leave,
+            unassigned_eligible_leave_types,
+        )
+
+        def empty(message):
+            # 200 with a message, not a 500: the app shows it as is.
+            return Response(
+                {"count": 0, "next": None, "previous": None, "results": [], "unassigned": [], "message": message}
+            )
+
+        try:
+            employee = request.user.employee_get
+        except ObjectDoesNotExist:
+            return empty(NO_EMPLOYEE_MESSAGE)
+        if not employee_has_work_info(employee):
+            return empty(NO_WORK_INFO_MESSAGE)
+        available_leave = requestable_available_leave(employee)
+        paginator = AvailableLeavePagination()
         page = paginator.paginate_queryset(available_leave, request)
-        serializer = GetAvailableLeaveTypeSerializer(page, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        serializer = EmployeeLeaveOptionSerializer(page, many=True)
+        response = paginator.get_paginated_response(serializer.data)
+        # Eligible types HR has not opened yet: listed apart (old apps read
+        # only `results`), so the new app can say "contact HR".
+        response.data["unassigned"] = UnassignedLeaveTypeSerializer(
+            unassigned_eligible_leave_types(employee), many=True
+        ).data
+        # No company on the work information: shared types still work, and
+        # the app shows this only when nothing at all is listed.
+        response.data["message"] = NO_COMPANY_MESSAGE if employee_company(employee) is None else None
+        return response
 
 
 class EmployeeLeaveRequestGetCreateAPIView(APIView):
@@ -64,7 +113,14 @@ class EmployeeLeaveRequestGetCreateAPIView(APIView):
         return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
-        employee_id = request.user.employee_get.id
+        from django.core.exceptions import ObjectDoesNotExist
+
+        from leave.services import NO_EMPLOYEE_MESSAGE
+
+        try:
+            employee_id = request.user.employee_get.id
+        except ObjectDoesNotExist:
+            return Response({"non_field_errors": [NO_EMPLOYEE_MESSAGE]}, status=400)
         data = request.data
         if isinstance(data, QueryDict):
             data = data.dict()

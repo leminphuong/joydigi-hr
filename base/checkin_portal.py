@@ -35,7 +35,9 @@ def _sync_annual_leave(company, days):
     from employee.models import Employee
     from leave.models import AvailableLeave, LeaveType
 
-    leave_type = LeaveType.objects.filter(
+    # Base managers: the default ones filter by the company selected in the
+    # admin's web session, which could hide this company's type or people.
+    leave_type = LeaveType._base_manager.filter(
         company_id=company, name="Nghỉ phép năm"
     ).first()
     previous_total = float(leave_type.total_days or 0) if leave_type else 0
@@ -56,11 +58,11 @@ def _sync_annual_leave(company, days):
         leave_type.save(update_fields=["total_days"])
 
     difference = float(days) - previous_total
-    employees = Employee.objects.filter(
+    employees = Employee._base_manager.filter(
         is_active=True, employee_work_info__company_id=company
     )
     for employee in employees:
-        balance, created = AvailableLeave.objects.get_or_create(
+        balance, created = AvailableLeave._base_manager.get_or_create(
             employee_id=employee,
             leave_type_id=leave_type,
             defaults={"available_days": days},

@@ -69,7 +69,7 @@ from leave.methods import (
 )
 from leave.models import *
 from leave.models import leave_requested_dates
-from leave.services import evaluate_leave_type_conditions
+from leave.services import compensatory_leave_type_for, evaluate_leave_type_conditions
 from leave.threading import LeaveMailSendThread
 from notifications.signals import notify
 
@@ -4771,21 +4771,13 @@ def compensatory_leave_settings_view(request):
             .first()
             .compensatory_leave
         )
-        leave_type, create = LeaveType.objects.get_or_create(
-            is_compensatory_leave=True,
-            company_id_id=selected_company,
-            defaults={"name": "Compensatory Leave Type", "payment": "paid"},
-        )
+        leave_type = compensatory_leave_type_for(selected_company)
     else:
         enabled_compensatory = (
             LeaveGeneralSetting.objects.exists()
             and LeaveGeneralSetting.objects.first().compensatory_leave
         )
-        leave_type, create = LeaveType.objects.get_or_create(
-            is_compensatory_leave=True,
-            company_id=None,
-            defaults={"name": "Compensatory Leave Type", "payment": "paid"},
-        )
+        leave_type = compensatory_leave_type_for(selected_company)
     request.session["ordered_ids_leavetype"] = []
     context = {"enabled_compensatory": enabled_compensatory, "leave_type": leave_type}
     return render(request, "compensatory_settings.html", context)
@@ -4839,11 +4831,7 @@ def leave_rules_settings_view(request):
             .first()
             .compensatory_leave
         )
-        leave_type, _create = LeaveType.objects.get_or_create(
-            is_compensatory_leave=True,
-            company_id_id=selected_company,
-            defaults={"name": "Compensatory Leave Type", "payment": "paid"},
-        )
+        leave_type = compensatory_leave_type_for(selected_company)
         enabled_restriction = EmployeePastLeaveRestrict.objects.filter(
             company_id_id=selected_company
         ).first()
@@ -4856,11 +4844,7 @@ def leave_rules_settings_view(request):
             LeaveGeneralSetting.objects.exists()
             and LeaveGeneralSetting.objects.first().compensatory_leave
         )
-        leave_type, _create = LeaveType.objects.get_or_create(
-            is_compensatory_leave=True,
-            company_id=None,
-            defaults={"name": "Compensatory Leave Type", "payment": "paid"},
-        )
+        leave_type = compensatory_leave_type_for(selected_company)
         enabled_restriction = EmployeePastLeaveRestrict.objects.filter(
             company_id__isnull=True
         ).first()

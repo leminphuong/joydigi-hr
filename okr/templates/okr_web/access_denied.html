@@ -10,7 +10,7 @@
 <body class="joyokr-body">
   <main class="joyokr-access-denied" id="joyokr-view">
     <h1>Chưa được dùng Mục tiêu &amp; OKR</h1>
-    <p>Tài khoản này chưa gắn với nhân viên đang làm việc của một công ty. Vui lòng liên hệ quản trị viên HR.</p>
+    <p>{% if reason %}{{ reason }}{% else %}Tài khoản này chưa gắn với nhân viên đang làm việc của một công ty. Vui lòng liên hệ quản trị viên HR.{% endif %}</p>
     <a class="joyokr-button" href="/">Về Web HR</a>
     <a class="joyokr-button" href="/logout/">Đăng xuất</a>
   </main>

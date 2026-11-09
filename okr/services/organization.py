@@ -16,6 +16,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count
 
 from base.models import Department
+from okr import pilot
 from okr.models import (
     OKRDepartmentRole,
     OKRRole,
@@ -63,6 +64,9 @@ def people(viewer: OKRViewer, *, search: str = "", department_id=None):
     )
     if department_id:
         rows = rows.filter(employee_work_info__department_id=department_id)
+    if pilot.is_active():
+        # Pilot: pickers offer only people who can actually open OKR.
+        rows = rows.filter(pk__in=pilot.pilot_employee_ids())
     # Vietnamese-aware and independent of the database collation.
     return text_search.search(rows, search, ["employee_first_name", "employee_last_name"])
 
@@ -122,6 +126,8 @@ def set_department_manager(viewer: OKRViewer, department_id, manager_id) -> Depa
         manager = active_employee(viewer.company_id, manager_id)
         if manager is None:
             raise errors.validation({"manager_id": "Người quản lý không hợp lệ."})
+        if not pilot.allows(manager.pk):
+            raise errors.validation({"manager_id": pilot.NOT_IN_PILOT})
     with transaction.atomic():
         role = (
             OKRDepartmentRole.objects.for_company(viewer.company_id)
@@ -230,7 +236,7 @@ def set_team_members(viewer: OKRViewer, team_id, employee_ids) -> OKRTeam:
     wanted, invalid = {}, []
     for raw in employee_ids:
         employee = active_employee(viewer.company_id, raw)
-        if employee is None:
+        if employee is None or not pilot.allows(employee.pk):
             invalid.append(str(raw))
         else:
             wanted[employee.pk] = employee
@@ -265,6 +271,8 @@ def grant_role(viewer: OKRViewer, employee_id, role: str) -> OKRRole:
     employee = active_employee(viewer.company_id, employee_id)
     if employee is None:
         problems["employee_id"] = "Nhân sự không hợp lệ."
+    elif not pilot.allows(employee.pk):
+        problems["employee_id"] = pilot.NOT_IN_PILOT
     if problems:
         raise errors.validation(problems)
     try:

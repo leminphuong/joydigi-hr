@@ -18,6 +18,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.db.models import Q
 
+from okr import pilot
 from okr.models import OKRRole
 from okr.models.base import employee_company_id
 from okr.models.choices import OKRRoleType
@@ -86,6 +87,9 @@ class Command(BaseCommand):
                 raise CommandError("Không thể gỡ quản trị OKR cuối cùng của công ty.")
         elif existing is not None:
             raise CommandError("Nhân viên đã có vai trò này.")
+        elif not pilot.allows(employee.pk):
+            # Pilot mode: a role for someone outside the list could never be used.
+            raise CommandError(pilot.NOT_IN_PILOT + " Thêm vào OKR_PILOT_EMPLOYEE_IDS trước.")
         if not options["yes"]:
             self.stdout.write("Chạy thử: chưa thay đổi gì. Thêm --yes để áp dụng.")
             return

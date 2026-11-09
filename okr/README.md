@@ -104,6 +104,31 @@ doc's "Web endpoints" section and tested in `tests/test_web_api.py`.
 - **No second user system**: OKR never creates users or departments. HR owns
   them.
 
+## Pilot gate (`okr/pilot.py`)
+
+Two environment settings (read by `joydigi/settings/base.py` at start; a
+change takes effect when the service reloads):
+
+| Setting | Values | Effect |
+|---|---|---|
+| `OKR_ACCESS_MODE` | `all` (default when unset) / `pilot` | `all`: every active employee of a company, as before. `pilot`: only the listed employees. Any other value, an empty one included, closes OKR to everyone, the listed employees too (logged). |
+| `OKR_PILOT_EMPLOYEE_IDS` | HR employee ids, comma separated | Who may use OKR in `pilot` mode. Empty: nobody. |
+
+In `pilot` mode `OKRViewer.for_user` refuses everyone else with
+`403 {"code": "okr_not_enabled"}`, so every `/api/okr/` endpoint, the
+`/okr/` web (access-denied page) and the HR menu entry are closed — not just
+hidden. HR superusers and OKR roles do not bypass it, and it never grants a
+role. Objective/key result owners, team members, department OKR managers and
+OKR roles must be pilot employees (400 with a warning otherwise); the people
+pickers list only them; OKR notifications to anyone else are not stored.
+HR, attendance and requests are not affected.
+
+Turn on: `OKR_ACCESS_MODE=pilot` and `OKR_PILOT_EMPLOYEE_IDS=12,57,301` in the
+server's `.env`, then restart the service. Add or remove someone: edit the
+list, restart. Close OKR to everyone (emergency): `OKR_ACCESS_MODE=pilot` with an empty
+`OKR_PILOT_EMPLOYEE_IDS=`, restart; never `all`, which opens it to every employee. End the
+pilot (open to all, only when decided): `OKR_ACCESS_MODE=all`, restart.
+
 ## Running locally (isolated)
 
 Use a settings module that points at a throwaway database (SQLite is fine for

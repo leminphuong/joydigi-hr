@@ -185,28 +185,54 @@ def assign_leave_types_to_new_employee(sender, instance, created, **kwargs):
     transaction.on_commit(_assign)
 
 
+#: Work-information fields that decide which leave types an employee gets:
+#: the company (scope) and the ones evaluate_leave_type_conditions() reads
+#: (department, employment type, job position as "grade").
+_WORK_INFO_ELIGIBILITY_FIELDS = ("company_id_id", "department_id_id", "employee_type_id_id", "job_position_id_id")
+
+
+@receiver(pre_save, sender=EmployeeWorkInformation)
+def remember_work_info_eligibility(sender, instance, **kwargs):
+    previous = None
+    if instance.pk:
+        previous = (
+            EmployeeWorkInformation._base_manager.filter(pk=instance.pk)
+            .values_list(*[name[:-3] for name in _WORK_INFO_ELIGIBILITY_FIELDS])
+            .first()
+        )
+    instance._sync_previous_eligibility = previous
+
+
 @receiver(post_save, sender=EmployeeWorkInformation)
-def assign_leave_types_on_work_info(sender, instance, **kwargs):
+def assign_leave_types_on_work_info(sender, instance, created, **kwargs):
     """Fill in the company-scoped types once an employee's company is known.
 
     An employee's company lives on their work information, which is saved
-    after the employee itself and can be changed later. Runs on every save
-    (not just `created`) so a transfer between companies also picks up the new
-    company's types. `ensure_available_leave` is idempotent, so re-running
-    costs nothing and never disturbs a balance that already exists — and
-    nothing is removed here: taking a leave type away from someone stays a
-    deliberate, manual act.
+    after the employee itself and can be changed later. Runs when the work
+    information is created, and when the company, department, employment type
+    or job position changes — a transfer picks up the new company's types.
+
+    2026-11-11: no longer on every save. Saving a profile to fix a joining
+    date or a phone number opened every missing balance with the configured
+    days ("Nghỉ Phép Năm" configured at 1 day handed out 1 day); old gaps are
+    closed by ``leave.balance_sync`` (HR-approved command / scheduled sync)
+    instead, never as a side effect of an unrelated edit. Nothing is removed
+    here: taking a leave type away from someone stays a deliberate, manual act.
     """
     employee = instance.employee_id
     if employee is None:
         return
+    if not created:
+        current = tuple(getattr(instance, name) for name in _WORK_INFO_ELIGIBILITY_FIELDS)
+        if getattr(instance, "_sync_previous_eligibility", None) == current:
+            return
 
     def _assign():
         from leave.services import assignable_leave_types, ensure_available_leave
 
         with transaction.atomic():
             for leave_type in assignable_leave_types(employee):
-                ensure_available_leave(employee, leave_type)
+                ensure_available_leave(employee, leave_type, reason="Tự động: hồ sơ công việc mới / đổi công ty, phòng ban")
 
     transaction.on_commit(_assign)
 

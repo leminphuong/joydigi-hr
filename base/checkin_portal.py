@@ -30,46 +30,106 @@ def _current_company(request):
     return company or Company.objects.filter(hq=True).first() or Company.objects.first()
 
 
-def _sync_annual_leave(company, days):
-    """Đồng bộ tham số phép năm với loại phép và quỹ phép của nhân viên."""
+ANNUAL_LEAVE_TYPE_NAME = "Nghỉ phép năm"
+
+
+def _fold(text):
+    """A name compared without case, accents, "đ" or repeated spaces."""
+    import unicodedata
+
+    text = unicodedata.normalize("NFD", str(text or ""))
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    return " ".join(text.replace("đ", "d").replace("Đ", "D").casefold().split())
+
+
+def _annual_leave_types(company):
+    """The company's annual leave type(s), matched by name loosely.
+
+    The exact-name lookup used to miss "Nghỉ Phép Năm" and then CREATE a
+    second "Nghỉ phép năm" type (2026-11-10 audit)."""
+    from leave.models import LeaveType
+
+    target = _fold(ANNUAL_LEAVE_TYPE_NAME)
+    candidates = LeaveType._base_manager.filter(
+        Q(company_id=company) | Q(company_id__isnull=True), is_compensatory_leave=False
+    ).order_by("pk")
+    return [leave_type for leave_type in candidates if _fold(leave_type.name) == target]
+
+
+def annual_leave_preview(company, days):
+    """What saving "Số ngày phép mỗi năm" = ``days`` would do. Reads only.
+
+    ``status``: ``change`` (the one annual type gets ``days`` as its
+    configured days), ``unchanged``, ``none`` (no annual type: nothing is
+    created), ``ambiguous`` (several: none is touched) or ``unlimited``."""
     from employee.models import Employee
-    from leave.models import AvailableLeave, LeaveType
+    from leave.models import AvailableLeave
 
-    # Base managers: the default ones filter by the company selected in the
-    # admin's web session, which could hide this company's type or people.
-    leave_type = LeaveType._base_manager.filter(
-        company_id=company, name="Nghỉ phép năm"
-    ).first()
-    previous_total = float(leave_type.total_days or 0) if leave_type else 0
-    if leave_type is None:
-        leave_type = LeaveType.objects.create(
-            company_id=company,
-            name="Nghỉ phép năm",
-            payment="paid",
-            payment_type="paid",
-            limit_leave=True,
-            total_days=days,
-            require_approval="yes",
-            exclude_company_leave="yes",
-            exclude_holiday="yes",
-        )
-    elif previous_total != float(days):
-        leave_type.total_days = days
-        leave_type.save(update_fields=["total_days"])
-
-    difference = float(days) - previous_total
-    employees = Employee._base_manager.filter(
-        is_active=True, employee_work_info__company_id=company
+    types = _annual_leave_types(company)
+    preview = {"days": days, "names": [t.name for t in types]}
+    if not types:
+        return {**preview, "status": "none"}
+    if len(types) > 1:
+        return {**preview, "status": "ambiguous"}
+    leave_type = types[0]
+    preview.update(type=leave_type, name=leave_type.name, previous=leave_type.total_days)
+    if not leave_type.limit_leave:
+        return {**preview, "status": "unlimited"}
+    same = (
+        float(leave_type.total_days or 0) == float(days)
+        and float(leave_type.count or 0) == float(days)
+        and leave_type.period_in == "day"
     )
-    for employee in employees:
-        balance, created = AvailableLeave._base_manager.get_or_create(
-            employee_id=employee,
-            leave_type_id=leave_type,
-            defaults={"available_days": days},
+    employees = Employee._base_manager.filter(is_active=True, employee_work_info__company_id=company)
+    kept = AvailableLeave._base_manager.filter(leave_type_id=leave_type, employee_id__in=employees).count()
+    preview.update(kept=kept, missing=max(employees.count() - kept, 0))
+    return {**preview, "status": "unchanged" if same else "change"}
+
+
+def _sync_annual_leave(company, days):
+    """Make the company's annual leave type hand out ``days`` from now on.
+
+    2026-11-11. Changes ONLY the type's configured days (``count`` and the
+    ``total_days`` new balances are seeded with). It never creates a type,
+    never touches a balance — no days added to or removed from anyone — and
+    leaves other companies alone. Missing balances are opened by the leave
+    sync with the new number. Returns ``annual_leave_preview``'s answer."""
+    preview = annual_leave_preview(company, days)
+    if preview["status"] == "change":
+        leave_type = preview["type"]
+        leave_type.count = days
+        leave_type.period_in = "day"
+        leave_type.total_days = days
+        leave_type.save()
+    return preview
+
+
+def _annual_leave_message(preview, *, skipped=False):
+    if skipped and preview["status"] == "change":
+        return "Đã lưu quy định chấm công. Loại phép năm giữ nguyên cấu hình cũ."
+    status = preview["status"]
+    if status == "change":
+        return (
+            f"Đã lưu quy định chấm công. Loại phép \"{preview['name']}\" cấp {preview['days']} ngày cho quỹ mới; "
+            "quỹ phép hiện có giữ nguyên."
         )
-        if not created and difference:
-            balance.available_days = max(float(balance.available_days) + difference, 0)
-            balance.save(update_fields=["available_days", "total_leave_days"])
+    if status == "none":
+        return (
+            "Đã lưu quy định chấm công. Công ty chưa có loại phép năm nên không đổi gì "
+            "(hệ thống không tự tạo loại phép)."
+        )
+    if status == "ambiguous":
+        return (
+            "Đã lưu quy định chấm công. Có nhiều loại phép trùng tên phép năm ("
+            + ", ".join(preview["names"])
+            + ") nên không loại nào bị đổi."
+        )
+    return "Đã lưu quy định chấm công."
+
+
+def _policy_for(company):
+    """The company's check-in policy, read only: a GET must not create it."""
+    return CheckInPolicy.objects.filter(company_id=company).first() or CheckInPolicy(company_id=company)
 
 
 def _kiosk_location(request):
@@ -915,8 +975,9 @@ def _checkin_settings_context(
     location_instance=None,
     wifi_instance=None,
     success_message="",
+    annual_leave_preview=None,
 ):
-    policy, _ = CheckInPolicy.objects.get_or_create(company_id=company)
+    policy = _policy_for(company)
     return {
         "company": company,
         "policy_form": policy_form or CheckInPolicyForm(instance=policy),
@@ -927,6 +988,7 @@ def _checkin_settings_context(
         "locations": CheckInLocation.objects.filter(company_id=company),
         "wifi_networks": OfficeWifi.objects.filter(company_id=company),
         "success_message": success_message,
+        "annual_leave_preview": annual_leave_preview,
     }
 
 
@@ -944,7 +1006,7 @@ def checkin_settings(request):
     if company is None:
         messages.error(request, "Cần tạo công ty trước khi cài đặt chấm công.")
         return redirect("settings")
-    policy, _ = CheckInPolicy.objects.get_or_create(company_id=company)
+    policy = _policy_for(company)
     location_instance = _settings_instance(
         CheckInLocation, request.GET.get("edit_location"), company
     )
@@ -957,16 +1019,31 @@ def checkin_settings(request):
         if action == "policy":
             form = CheckInPolicyForm(request.POST, instance=policy)
             if form.is_valid():
-                saved_policy = form.save()
-                _sync_annual_leave(company, saved_policy.annual_leave_days)
-                if request.headers.get("HX-Target") == "checkinSettingsContent":
+                days = form.cleaned_data["annual_leave_days"]
+                decision = request.POST.get("annual_leave_decision", "")
+                preview = annual_leave_preview(company, days)
+                # Changing the annual leave type's days is shown first and
+                # saved only once confirmed — or the admin keeps it as is.
+                if preview["status"] == "change" and decision not in (f"confirm:{days}", "skip"):
                     return _render_checkin_settings(
                         request,
                         _checkin_settings_context(
-                            company, success_message="Đã lưu quy định chấm công."
+                            company, policy_form=form, annual_leave_preview=preview
                         ),
                     )
-                messages.success(request, "Đã lưu quy định chấm công.")
+                saved_policy = form.save()
+                if decision == "skip":
+                    message = _annual_leave_message(preview, skipped=True)
+                else:
+                    message = _annual_leave_message(
+                        _sync_annual_leave(company, saved_policy.annual_leave_days)
+                    )
+                if request.headers.get("HX-Target") == "checkinSettingsContent":
+                    return _render_checkin_settings(
+                        request,
+                        _checkin_settings_context(company, success_message=message),
+                    )
+                messages.success(request, message)
                 return redirect("checkin-settings")
         elif action == "location":
             instance = _settings_instance(

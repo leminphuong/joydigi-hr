@@ -65,3 +65,12 @@ def evidence_upload_to(instance, filename):
         instance.key_result.company_id if instance.key_result_id else "unscoped"
     )
     return f"evidence/{company_id}/{now:%Y}/{now:%m}/{uuid4().hex}{ext}"
+
+
+def chat_upload_to(instance, filename):
+    """Same private storage as evidence, under ``chat/``; random name, the
+    uploader's file name kept in ``OKRChatAttachment.original_name``."""
+    ext = os.path.splitext(filename)[1].lower()[:10]
+    now = timezone.now()
+    company_id = instance.company_id or (instance.room.company_id if instance.room_id else "unscoped")
+    return f"chat/{company_id}/{now:%Y}/{now:%m}/{uuid4().hex}{ext}"

@@ -16,13 +16,14 @@ from django.http import Http404
 from django.middleware.csrf import get_token
 from django.shortcuts import render
 
-from okr.services import organization
+from okr.services import chat, organization
 from okr.services.access import OKRViewer
 from okr.services.errors import OKRError
 
 # The SPA's own routes (JOYOKR ``app.js``); anything else under /okr/ is a 404.
 ROUTES = re.compile(
     r"^(dashboard|my-okrs|company-okrs|tree|teams|check-ins|reports|notifications"
+    r"|messages|messages/\d+"
     r"|objectives/\d+|key-results/\d+"
     r"|admin/(approvals|roles|departments|teams|cycles|settings))?$"
 )
@@ -75,6 +76,9 @@ def _config(request, viewer: OKRViewer, route: str) -> dict:
         # The company's at-risk threshold (OKRSettings), for statuses the
         # browser works out itself; JOYOKR's web assumed 15.
         "warningThreshold": float(organization.get_settings(viewer.company_id).warning_threshold),
+        # OKR chat (2026-11-09): the page, the menu entry and the "Trao đổi"
+        # buttons only exist while OKR_CHAT_ENABLED is on.
+        "chatEnabled": chat.enabled_for(viewer.employee_id),
         "strings": {
             "loading": "Đang tải dữ liệu…",
             "error": "Đã có lỗi xảy ra. Vui lòng thử lại.",
@@ -93,10 +97,15 @@ def app_shell(request, route: str = ""):
     route = route.strip("/")
     if not ROUTES.match(route):
         raise Http404
+    if route.startswith("messages") and not chat.enabled():
+        raise Http404
     try:
         viewer = OKRViewer.for_user(request.user)
     except OKRError:
         viewer = None
+    # During a chat pilot, the page exists only for the test group.
+    if route.startswith("messages") and viewer is not None and not chat.enabled_for(viewer.employee_id):
+        raise Http404
     if viewer is None or not viewer.is_active:
         response = render(request, "okr_web/access_denied.html", status=403)
     else:
@@ -112,6 +121,7 @@ def app_shell(request, route: str = ""):
                 "can_manage_organization": "manage_organization" in caps,
                 "can_manage_cycles": "manage_cycles" in caps,
                 "can_manage_settings": "manage_settings" in caps,
+                "chat_enabled": chat.enabled_for(viewer.employee_id),
             },
         )
     response["Content-Security-Policy"] = CONTENT_SECURITY_POLICY

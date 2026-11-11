@@ -179,19 +179,23 @@ class AutoAssignAvailableLeaveTests(TestCase):
         ken = self._employee("Ken", self.company_a)
         leave_type = self._leave_type("Annual", company=self.company_a)
 
-        # Simulate pre-existing data that never got an assignment.
+        # Simulate pre-existing data that never got an assignment (no row and
+        # no history: a deleted row would count as revoked and stay closed).
         AvailableLeave.objects.filter(
             employee_id=ken, leave_type_id=leave_type
+        ).delete()
+        AvailableLeave.history.filter(
+            employee_id=ken.pk, leave_type_id=leave_type.pk
         ).delete()
         self.assertFalse(self._has(ken, leave_type))
 
         out = StringIO()
-        call_command("backfill_available_leave", stdout=out)
+        call_command("backfill_available_leave", "--use-type-total", stdout=out)
         self.assertIn("CREATED            : 1", out.getvalue())
         self.assertTrue(self._has(ken, leave_type))
 
         out2 = StringIO()
-        call_command("backfill_available_leave", stdout=out2)
+        call_command("backfill_available_leave", "--use-type-total", stdout=out2)
         self.assertIn("CREATED            : 0", out2.getvalue())
 
     def test_backfill_dry_run_writes_nothing(self):
@@ -214,7 +218,7 @@ class AutoAssignAvailableLeaveTests(TestCase):
         row.carryforward_days = 1.0
         row.save()
 
-        call_command("backfill_available_leave", stdout=StringIO())
+        call_command("backfill_available_leave", "--use-type-total", stdout=StringIO())
 
         row.refresh_from_db()
         self.assertEqual(row.available_days, 2.0)

@@ -385,6 +385,12 @@
                     {% if object.limit_leave %}{{ object.count|floatformat:"-2" }} day{{ object.count|pluralize }}{% else %}Unlimited{% endif %}
                 </span>
             </div>
+            {% if object.limit_leave %}
+            <div class="leave-type-detail__item" data-testid="leave-type-seed-days">
+                <span class="leave-type-detail__label">Số ngày cấp vào quỹ mới</span>
+                <span class="leave-type-detail__value">{{ object.total_days|floatformat:"-2" }} ngày</span>
+            </div>
+            {% endif %}
             <div class="leave-type-detail__item">
                 <span class="leave-type-detail__label">Payment</span>
                 <span class="leave-type-detail__pill leave-type-detail__pill--{% if object.payment_type == 'paid' or not object.payment_type and object.payment == 'paid' %}paid{% else %}no{% endif %}">

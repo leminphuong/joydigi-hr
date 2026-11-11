@@ -54,6 +54,23 @@ def leave_reset():
     )
 
 
+def sync_missing_leave_balances():
+    """Open the balances still missing (2026-11-11).
+
+    Does nothing unless ``LEAVE_AUTO_SYNC_ENABLED`` is true: it seeds each
+    type's configured days, so it is switched on only once those are the
+    approved ones. Rules and limits: ``leave.balance_sync``.
+    """
+    import logging
+
+    try:
+        from leave.balance_sync import run_scheduled_sync
+
+        run_scheduled_sync()
+    except Exception:  # a scheduler job must never take the worker down
+        logging.getLogger("leave.sync").exception("scheduled leave sync failed")
+
+
 if not any(
     cmd in sys.argv
     for cmd in ["makemigrations", "migrate", "compilemessages", "flush", "shell"]
@@ -63,5 +80,6 @@ if not any(
     """
     scheduler = BackgroundScheduler()
     scheduler.add_job(leave_reset, "interval", hours=4)
+    scheduler.add_job(sync_missing_leave_balances, "interval", hours=6)
 
     scheduler.start()

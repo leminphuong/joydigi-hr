@@ -120,7 +120,8 @@
   const routePatterns = [
     ['objectives/:id', /^objectives\/(\d+)$/],
     ['key-results/:id', /^key-results\/(\d+)$/],
-    ['static', /^(dashboard|my-okrs|company-okrs|tree|teams|check-ins|reports|notifications|admin\/approvals|admin\/roles|admin\/departments|admin\/teams|admin\/cycles|admin\/settings)$/],
+    ['messages/:id', /^messages\/(\d+)$/],
+    ['static', /^(dashboard|my-okrs|company-okrs|tree|teams|check-ins|reports|notifications|messages|admin\/approvals|admin\/roles|admin\/departments|admin\/teams|admin\/cycles|admin\/settings)$/],
   ];
   // JOYOKR routes whose job the HR web now does (user admin, own profile).
   const HR_OWNED_ROUTES = new Set(['profile', 'admin/users']);
@@ -180,6 +181,8 @@
     }
     const renderId = ++renderSequence;
     const isCurrent = () => renderId === renderSequence;
+    // Leaving a chat room stops its polling before the next page loads.
+    namespace.chat?.stop?.();
     const match = matchRoute(route);
     namespace.store.setState({ route, query: Object.fromEntries(new URLSearchParams(globalScope.location.search)) });
     closeMenu();
@@ -297,13 +300,14 @@
       if (!match) continue;
       if (kind === 'objectives/:id') return { name: 'objective-detail', params: { id: Number(match[1]) } };
       if (kind === 'key-results/:id') return { name: 'key-result-detail', params: { id: Number(match[1]) } };
+      if (kind === 'messages/:id') return { name: 'messages-room', params: { id: Number(match[1]) } };
       return { name: route, params: {} };
     }
     return null;
   }
 
   function markActiveNavigation(route) {
-    const primary = route.replace(/^(objectives|key-results)\/\d+$/, 'company-okrs');
+    const primary = route.replace(/^(objectives|key-results)\/\d+$/, 'company-okrs').replace(/^messages\/\d+$/, 'messages');
     document.querySelectorAll('[data-route]').forEach((link) => {
       const active = link.dataset.route === primary;
       link.classList.toggle('is-active', active);

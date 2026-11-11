@@ -23,15 +23,29 @@ class IndividualLeaveTab(MainParentListView):
         """
         context data
         """
+        from leave.services import (
+            requestable_leave_options,
+            shared_fund_summaries,
+            unassigned_eligible_leave_types,
+        )
+
         context = super().get_context_data(**kwargs)
         pk = self.kwargs.get("pk")
         employee = Employee.objects.get(id=pk)
-        user_leave = employee.available_leave.all()
+        # The same list the app gets (2026-11-11): balances of active types
+        # offered to the employee's company. `available_leave.all()` also
+        # listed balances of switched-off types (Nghỉ Bù) and hid nothing
+        # missing; HR now also sees the eligible types with no balance yet.
+        # A shared annual fund shows once as a summary, then once per request
+        # type drawing on it, all with the same days (2026-11-11).
+        user_leave = requestable_leave_options(employee)
 
         if self.request.user.employee_get == employee:
             context["user_leaves"] = user_leave
         else:
             context["employee_leaves"] = user_leave
+        context["missing_leave_types"] = unassigned_eligible_leave_types(employee)
+        context["shared_funds"] = shared_fund_summaries(employee)
         return context
 
     def get_queryset(self):

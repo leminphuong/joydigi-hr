@@ -92,6 +92,14 @@ FACE_MODEL_ROOT = env("FACE_MODEL_ROOT", default="~/.insightface")
 FACE_DETECTION_SIZE = env.int("FACE_DETECTION_SIZE", default=640)
 FACE_IMAGE_MAX_BYTES = env.int("FACE_IMAGE_MAX_BYTES", default=5 * 1024 * 1024)
 
+# OKR chat (2026-11-09). Off by default: the backend can be deployed before the
+# app build that has chat; while off every /api/okr/chat/ endpoint answers 404
+# `chat_disabled` and no chat notification or push is produced.
+OKR_CHAT_ENABLED = env.bool("OKR_CHAT_ENABLED", default=False)
+# A test group (employee ids, comma-separated): while set, only these people
+# get chat — API, web menu, notifications and push. Empty: everyone.
+OKR_CHAT_PILOT_EMPLOYEE_IDS = env.list("OKR_CHAT_PILOT_EMPLOYEE_IDS", default=[])
+
 # Phase FIX A.1B — the first attendance date governed by automatic
 # forgotten-session finalization, as YYYY-MM-DD.
 #

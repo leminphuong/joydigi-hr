@@ -68,7 +68,7 @@ from leave.methods import (
     parse_excel_date,
 )
 from leave.models import *
-from leave.models import leave_requested_dates
+from leave.models import balance_leave_type, leave_requested_dates
 from leave.services import compensatory_leave_type_for, evaluate_leave_type_conditions
 from leave.threading import LeaveMailSendThread
 from notifications.signals import notify
@@ -465,7 +465,7 @@ def leave_request_creation(request, type_id=None, emp_id=None):
                 employee_id = leave_request.employee_id
                 leave_type_id = leave_request.leave_type_id
                 available_leave = AvailableLeave.objects.get(
-                    leave_type_id=leave_type_id, employee_id=employee_id
+                    leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
                 )
                 leave_request.created_by = request.user.employee_get
                 leave_request.save()
@@ -1035,7 +1035,7 @@ def leave_request_approve(request, id, emp_id=None):
     leave_type_id = leave_request.leave_type_id
     try:
         available_leave = AvailableLeave.objects.get(
-            leave_type_id=leave_type_id, employee_id=employee_id
+            leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
         )
     except AvailableLeave.DoesNotExist:
         messages.error(
@@ -1297,7 +1297,7 @@ def leave_request_cancel(request, id, emp_id=None):
             employee_id = leave_request.employee_id
             leave_type_id = leave_request.leave_type_id
             available_leave = AvailableLeave.objects.get(
-                leave_type_id=leave_type_id, employee_id=employee_id
+                leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
             )
             if leave_request.status != "rejected":
                 available_leave.available_days += leave_request.approved_available_days
@@ -1748,6 +1748,15 @@ def leave_assign(request):
 
         if leave_type_ids and employee_ids:
             leave_types = LeaveType.objects.filter(id__in=leave_type_ids)
+            # A type sharing another's fund has no balance of its own (2026-11-11).
+            for shared in leave_types.filter(shared_balance_with__isnull=False):
+                messages.warning(
+                    request,
+                    _("{leave_type} dùng chung quỹ với {pool}: hãy cấp {pool}.").format(
+                        leave_type=shared.name, pool=shared.shared_balance_with.name
+                    ),
+                )
+            leave_types = leave_types.filter(shared_balance_with__isnull=True)
             employees = Employee.objects.filter(id__in=employee_ids)
 
             existing_assignments = set(
@@ -2377,7 +2386,7 @@ def user_leave_request(request, id):
         start_date_breakdown = request.POST.get("start_date_breakdown")
         end_date_breakdown = request.POST.get("end_date_breakdown")
         available_leave = AvailableLeave.objects.get(
-            employee_id=employee, leave_type_id=leave_type
+            employee_id=employee, leave_type_id=balance_leave_type(leave_type)
         )
         available_total_leave = (
             available_leave.available_days + available_leave.carryforward_days
@@ -2424,7 +2433,7 @@ def user_leave_request(request, id):
                 employee_id = leave_request.employee_id
                 leave_type_id = leave_request.leave_type_id
                 available_leave = AvailableLeave.objects.get(
-                    leave_type_id=leave_type_id, employee_id=employee_id
+                    leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
                 )
                 if leave_request.requested_days > available_leave.available_days:
                     leave = (
@@ -2554,7 +2563,7 @@ def user_request_update(request, id):
                     leave_type = leave_request.leave_type_id
                     employee = request.user.employee_get
                     available_leave = AvailableLeave.objects.get(
-                        employee_id=employee, leave_type_id=leave_type
+                        employee_id=employee, leave_type_id=balance_leave_type(leave_type)
                     )
                     available_total_leave = (
                         available_leave.available_days
@@ -3357,7 +3366,7 @@ def leave_request_create(request):
                     employee_id = leave_request.employee_id
                     leave_type_id = leave_request.leave_type_id
                     available_leave = AvailableLeave.objects.get(
-                        leave_type_id=leave_type_id, employee_id=employee_id
+                        leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
                     )
                     if leave_request.requested_days > available_leave.available_days:
                         leave = (
@@ -3770,19 +3779,15 @@ def leave_allocation_request_approve(request, req_id):
     leave_allocation_request = LeaveAllocationRequest.objects.get(id=req_id)
     if leave_allocation_request.status == "requested":
         employee = leave_allocation_request.employee_id
-        if (
-            employee.available_leave.all()
-            .filter(leave_type_id=leave_allocation_request.leave_type_id)
-            .exists()
-        ):
+        # Extra days of a type that shares a fund go to that fund (2026-11-11).
+        balance_type = balance_leave_type(leave_allocation_request.leave_type_id)
+        if employee.available_leave.all().filter(leave_type_id=balance_type).exists():
             available_leave = (
-                employee.available_leave.all()
-                .filter(leave_type_id=leave_allocation_request.leave_type_id)
-                .first()
+                employee.available_leave.all().filter(leave_type_id=balance_type).first()
             )
         else:
             available_leave = AvailableLeave(
-                leave_type_id=leave_allocation_request.leave_type_id,
+                leave_type_id=balance_type,
                 employee_id=employee,
             )
         available_leave.available_days += leave_allocation_request.requested_days
@@ -3837,7 +3842,7 @@ def leave_allocation_request_reject(request, req_id):
                     leave_type = leave_allocation_request.leave_type_id
                     requested_days = leave_allocation_request.requested_days
                     available_leave = AvailableLeave.objects.filter(
-                        leave_type_id=leave_type,
+                        leave_type_id=balance_leave_type(leave_type),
                         employee_id=leave_allocation_request.employee_id,
                     ).first()
                     available_leave.available_days = max(
@@ -5638,7 +5643,10 @@ def employee_view_individual_leave_tab(request, pk, **kwargs):
         if instances
         else json.dumps([])
     )
-    employee_leaves = employee.available_leave.all()
+    # Same list as the app and the profile tab: active types only (2026-11-11).
+    from leave.services import requestable_available_leave
+
+    employee_leaves = requestable_available_leave(employee)
     filtered_employee_ids = request.session.get("filtered_employees", [])
     filtered_employees = Employee.objects.filter(id__in=filtered_employee_ids)
 

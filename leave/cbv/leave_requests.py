@@ -36,7 +36,7 @@ from joydigi_views.generic.cbv.views import (
 from leave.filters import LeaveRequestFilter
 from leave.forms import LeaveRequestCreationForm, LeaveRequestExportForm
 from leave.methods import filter_conditional_leave_request
-from leave.models import AvailableLeave, LeaveRequest, LeaveType
+from leave.models import AvailableLeave, LeaveRequest, LeaveType, balance_leave_type
 from leave.threading import LeaveMailSendThread
 from leave.views import multiple_approvals_check
 from notifications.signals import notify
@@ -504,7 +504,7 @@ class LeaveRequestFormView(JoydigiFormView):
                     employee_id = leave_request.employee_id
                     leave_type_id = leave_request.leave_type_id
                     available_leave = AvailableLeave.objects.get(
-                        leave_type_id=leave_type_id, employee_id=employee_id
+                        leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
                     )
                     leave_request.created_by = self.request.user.employee_get
                     leave_request.save()

@@ -42,6 +42,9 @@
     'check-ins': renderCheckins,
     'reports': renderReports,
     'notifications': renderNotifications,
+    // Chat (chat.js; only reachable while JoyOKRConfig.chatEnabled).
+    'messages': renderChat,
+    'messages-room': renderChat,
     'objective-detail': renderObjectiveDetail,
     'key-result-detail': renderKeyResultDetail,
     'admin/approvals': renderApprovals,
@@ -54,6 +57,11 @@
     'admin/settings': renderAdminSettings,
   };
 
+  async function renderChat(params) {
+    if (!namespace.chat?.renderPage) throw new Error('Tính năng trao đổi chưa được bật.');
+    return namespace.chat.renderPage(params);
+  }
+
   /** Renders a named application view into the supplied outlet. */
   async function render(name, context) {
     const renderer = renderers[name];
@@ -63,6 +71,8 @@
     // Every renderer builds its markup with escapeHtml/escapeAttr (or numeric
     // coercion) around all API and URL data, so this sink only sees escaped text.
     context.outlet.innerHTML = html;
+    namespace.chat?.mount?.(context.outlet, name);
+    namespace.chat?.refreshBadge?.();
     if (name !== 'notifications') {
       try {
         const notificationSummary = await api().request('notifications', { query: { per_page: 1 } });
@@ -514,7 +524,7 @@
     const krWeightNotice = krWeightValid
       ? `<p class="joyokr-cell-sub">Tổng trọng số KR: ${number(krWeightTotal)}% · hợp lệ để gửi duyệt.</p>`
       : `<div class="joyokr-weight-warning"><strong>Tổng trọng số KR: ${number(krWeightTotal)}% — phải bằng 100%.</strong><span>Objective chưa thể gửi duyệt.</span>${canEditObjective && (item.key_results || []).length >= 2 ? actionButton('Chia đều trọng số', 'normalize-kr-weights', { id: item.id }, 'small') : ''}</div>`;
-    return page(item.title, raw(`${badge(item.scope)} ${escapeHtml(item.owner_name || '')}`), `${canEditObjective ? actionButton('Sửa', 'edit-objective', { id: item.id }, 'small') : ''} ${workflow} ${canEditObjective ? actionButton('Xóa', 'delete-objective', { id: item.id }, 'danger small') : ''}`, `
+    return page(item.title, raw(`${badge(item.scope)} ${escapeHtml(item.owner_name || '')}`), `${namespace.chat?.openButton?.('objective', item.id) || ''} ${canEditObjective ? actionButton('Sửa', 'edit-objective', { id: item.id }, 'small') : ''} ${workflow} ${canEditObjective ? actionButton('Xóa', 'delete-objective', { id: item.id }, 'danger small') : ''}`, `
       <section class="joyokr-card joyokr-card--pad">${detailGrid([
         ['Owner', item.owner_name], ['Chu kỳ', item.cycle_name], ['Trọng số', `${number(item.weight)}%`],
         ['Tiến độ', progressText(item)], ['Kỳ vọng', item.progress_is_provisional ? '—' : `${number(item.expected_progress)}%`], ['Trạng thái', raw(objectiveHealthBadge(item))],
@@ -535,7 +545,7 @@
     const canEditKeyResult = item.can_edit === true;
     // Django computes the check-in rule (owner, KR + Objective approved, cycle active).
     const canCheckin = item.can_checkin === true;
-    const actions = `${canCheckin ? actionButton('CHECK-IN', 'open-checkin', { id: item.id }, 'primary') : ''} ${canEditKeyResult ? actionButton('Sửa', 'edit-key-result', { id: item.id }, 'small') : ''} ${canEditKeyResult ? actionButton('Xóa', 'delete-key-result', { id: item.id, objectiveId: item.objective_id }, 'danger small') : ''}`;
+    const actions = `${namespace.chat?.openButton?.('key_result', item.id) || ''} ${canCheckin ? actionButton('CHECK-IN', 'open-checkin', { id: item.id }, 'primary') : ''} ${canEditKeyResult ? actionButton('Sửa', 'edit-key-result', { id: item.id }, 'small') : ''} ${canEditKeyResult ? actionButton('Xóa', 'delete-key-result', { id: item.id, objectiveId: item.objective_id }, 'danger small') : ''}`;
     const checkinHint = canCheckin ? '' : '<p class="joyokr-muted">Check-in chỉ dành cho Owner của KR sau khi Objective cha đã được duyệt và chu kỳ đang hoạt động. KR được duyệt tự động cùng Objective.</p>';
     return page(item.title, raw(`<button class="joyokr-link" data-route="objectives/${routeId(item.objective_id)}">${escapeHtml(item.objective_title)}</button>`), actions, `
       <section class="joyokr-card joyokr-card--pad"><div class="joyokr-grid joyokr-grid--3"><div><span class="joyokr-muted">Tiến độ</span><strong class="joyokr-score joyokr-score--block">${number(item.progress)}%</strong>${progressBar(item.progress, item.expected_progress, item.health)}</div><div>${detailGrid([['Giá trị', `${number(item.current_value)} / ${number(item.target_value)} ${item.unit}`], ['Trạng thái', raw(badge(item.health))]])}</div><div>${detailGrid([['Owner', item.owner_name], ['Confidence', checkins[0]?.confidence ? `${number(checkins[0].confidence)}/5` : '—']])}</div></div></section>

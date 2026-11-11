@@ -16,7 +16,7 @@ from base.methods import filtersubordinates
 from joydigi_api.api_serializers.leave.serializers import *
 from leave.filters import *
 from leave.methods import filter_conditional_leave_request
-from leave.models import AvailableLeave, LeaveAllocationRequest, LeaveRequest, LeaveType
+from leave.models import AvailableLeave, LeaveAllocationRequest, LeaveRequest, LeaveType, balance_leave_type
 from notifications.signals import notify
 
 from ...api_decorators.base.decorators import manager_permission_required
@@ -52,7 +52,7 @@ class EmployeeAvailableLeaveGetAPIView(APIView):
             NO_WORK_INFO_MESSAGE,
             employee_company,
             employee_has_work_info,
-            requestable_available_leave,
+            requestable_leave_options,
             unassigned_eligible_leave_types,
         )
 
@@ -68,7 +68,9 @@ class EmployeeAvailableLeaveGetAPIView(APIView):
             return empty(NO_EMPLOYEE_MESSAGE)
         if not employee_has_work_info(employee):
             return empty(NO_WORK_INFO_MESSAGE)
-        available_leave = requestable_available_leave(employee)
+        # One entry per request type; types sharing a fund all carry that
+        # fund's days (2026-11-11).
+        available_leave = requestable_leave_options(employee)
         paginator = AvailableLeavePagination()
         page = paginator.paginate_queryset(available_leave, request)
         serializer = EmployeeLeaveOptionSerializer(page, many=True)
@@ -129,8 +131,15 @@ class EmployeeLeaveRequestGetCreateAPIView(APIView):
             data.get("start_date") if not data.get("end_date") else data.get("end_date")
         )
         serializer = LeaveRequestCreateUpdateSerializer(data=data)
-        if serializer.is_valid():
-            leave_request = serializer.save()
+        from django.db import transaction
+
+        # Validate and save under one transaction: the balance row is locked
+        # while it is checked, so two requests sent together can not both
+        # pass against the same days (2026-11-11).
+        with transaction.atomic():
+            valid = serializer.is_valid()
+            leave_request = serializer.save() if valid else None
+        if valid:
             with contextlib.suppress(Exception):
                 notify.send(
                     request.user.employee_get,
@@ -449,6 +458,8 @@ class AssignLeaveGetCreateAPIView(APIView):
             leave_type_ids = serializer.validated_data.get("leave_type_ids")
             for employee_id in employee_ids:
                 for leave_type_id in leave_type_ids:
+                    if leave_type_id.shared_balance_with_id:
+                        continue  # shares another type's fund: no balance of its own
                     if not AvailableLeave.objects.filter(
                         employee_id=employee_id, leave_type_id=leave_type_id
                     ).exists():
@@ -868,7 +879,7 @@ class LeaveRequestRejectAPIView(APIView):
     def leave_calculation(self, leave_request, employee_id):
         leave_type_id = leave_request.leave_type_id
         available_leave = AvailableLeave.objects.get(
-            leave_type_id=leave_type_id, employee_id=employee_id
+            leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
         )
         available_leave.available_days += leave_request.approved_available_days
         available_leave.carryforward_days += leave_request.approved_carryforward_days
@@ -881,7 +892,9 @@ class LeaveRequestRejectAPIView(APIView):
     @manager_permission_required("leave.change_leaverequest")
     def put(self, request, pk):
         leave_request = self.get_leave_request(pk)
-        employee_id = request.user.employee_get
+        # The days go back to the employee who asked for them — this used to
+        # be the rejecting manager's balance (2026-11-11).
+        employee_id = leave_request.employee_id
         if leave_request.status != "rejected":
             self.leave_calculation(leave_request, employee_id)
             with contextlib.suppress(Exception):
@@ -938,7 +951,7 @@ class LeaveAllocationApproveAPIView(APIView):
     def approve_calculations(self, leave_allocation_request):
         available_leave = AvailableLeave.objects.get_or_create(
             employee_id=leave_allocation_request.employee_id,
-            leave_type_id=leave_allocation_request.leave_type_id,
+            leave_type_id=balance_leave_type(leave_allocation_request.leave_type_id),
         )[0]
         available_leave.available_days += leave_allocation_request.requested_days
         available_leave.save()
@@ -968,7 +981,7 @@ class LeaveAllocationRequestRejectAPIView(APIView):
             leave_type = leave_allocation_request.leave_type_id
             requested_days = leave_allocation_request.requested_days
             available_leave = AvailableLeave.objects.filter(
-                leave_type_id=leave_type,
+                leave_type_id=balance_leave_type(leave_type),
                 employee_id=leave_allocation_request.employee_id,
             ).first()
             available_leave.available_days = max(
@@ -1026,7 +1039,7 @@ class LeaveRequestBulkApproveDeleteAPIview(APIView):
             employee_id = leave_request.employee_id
             leave_type_id = leave_request.leave_type_id
             available_leave = AvailableLeave.objects.get(
-                leave_type_id=leave_type_id, employee_id=employee_id
+                leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
             )
             total_available_leave = (
                 available_leave.available_days + available_leave.carryforward_days

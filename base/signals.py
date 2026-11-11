@@ -54,8 +54,10 @@ def create_deduction_cutleave_from_penalty(sender, instance, created, **kwargs):
             and instance.leave_type_id
             and instance.minus_leaves
         ):
+            from leave.models import balance_leave_type
+
             available = instance.employee_id.available_leave.filter(
-                leave_type_id=instance.leave_type_id
+                leave_type_id=balance_leave_type(instance.leave_type_id)
             ).first()
             unit = round(instance.minus_leaves * 2) / 2
             if not instance.deduct_from_carry_forward:
@@ -107,8 +109,10 @@ def delete_deduction_cutleave_from_penalty(sender, instance, **kwargs):
             deduction.delete()
 
     if apps.is_installed("leave") and instance.leave_type_id and instance.minus_leaves:
+        from leave.models import balance_leave_type
+
         available = instance.employee_id.available_leave.filter(
-            leave_type_id=instance.leave_type_id
+            leave_type_id=balance_leave_type(instance.leave_type_id)
         ).first()
         if available:
             unit = round(instance.minus_leaves * 2) / 2

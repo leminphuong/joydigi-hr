@@ -1,6 +1,6 @@
 from django.urls import path
 
-from okr.api import views
+from okr.api import chat_views, views
 
 app_name = "okr-api"
 
@@ -49,4 +49,21 @@ urlpatterns = [
     path("notifications/", views.NotificationListView.as_view(), name="notifications"),
     path("notifications/<int:pk>/read/", views.NotificationReadView.as_view(), name="notification-read"),
     path("notifications/read-all/", views.NotificationReadAllView.as_view(), name="notifications-read-all"),
+    # Chat (2026-11-09; 404 `chat_disabled` while OKR_CHAT_ENABLED is off).
+    path("chat/rooms/", chat_views.ChatRoomListView.as_view(), name="chat-rooms"),
+    path("chat/rooms/<int:pk>/", chat_views.ChatRoomDetailView.as_view(), name="chat-room"),
+    path("chat/rooms/<int:pk>/members/", chat_views.ChatRoomMembersView.as_view(), name="chat-room-members"),
+    path("chat/rooms/<int:pk>/messages/", chat_views.ChatRoomMessagesView.as_view(), name="chat-room-messages"),
+    path("chat/rooms/<int:pk>/read/", chat_views.ChatRoomReadView.as_view(), name="chat-room-read"),
+    path("chat/rooms/<int:pk>/mute/", chat_views.ChatRoomMuteView.as_view(), name="chat-room-mute"),
+    path("chat/messages/<int:pk>/", chat_views.ChatMessageDetailView.as_view(), name="chat-message"),
+    path("chat/attachments/", chat_views.ChatAttachmentView.as_view(), name="chat-attachments"),
+    path("chat/attachments/<int:pk>/", chat_views.ChatAttachmentDetailView.as_view(), name="chat-attachment"),
+    path(
+        "chat/attachments/<int:pk>/download/",
+        chat_views.ChatAttachmentDownloadView.as_view(),
+        name="chat-attachment-download",
+    ),
+    path("chat/unread-count/", chat_views.ChatUnreadCountView.as_view(), name="chat-unread-count"),
+    path("chat/search/", chat_views.ChatSearchView.as_view(), name="chat-search"),
 ]

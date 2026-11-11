@@ -34,7 +34,19 @@
     </style>
 
     <div>
-        {% include "leave/user_leave/user_leave.html" %}
+        {% if user_leaves %}
+            {% include "leave/user_leave/user_leave.html" %}
+        {% elif employee_leaves %}
+            {# HR viewing someone else: the same cards, read-only (a click would open HR's own request form). #}
+            {% include "leave/user_leave/user_leave.html" with user_leaves=employee_leaves readonly_cards=True %}
+        {% endif %}
+        {% if missing_leave_types %}
+            <div class="p-3 mb-2 rounded-md text-sm" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412" data-testid="missing-leave-types" role="status">
+                <strong>Đủ điều kiện nhưng chưa có quỹ phép:</strong>
+                {% for leave_type in missing_leave_types %}{{ leave_type.name }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+                Chưa gửi đơn được với các loại này cho tới khi quỹ được mở (đồng bộ quỹ phép hoặc HR cấp).
+            </div>
+        {% endif %}
     </div>
 
     {% include "generic/components.html" %}

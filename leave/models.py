@@ -339,6 +339,21 @@ class LeaveType(JoydigiModel):
             "Percentage of salary paid during leave (0–100). Used only when Payment Type is Custom."
         ),
     )
+    # 2026-11-11 — one fund for two request types. A type with this set has
+    # no balance of its own: its requests are checked against, deducted from
+    # and refunded to the balance of `shared_balance_with` (JOYDIGI: "Nghỉ
+    # Phép Năm" and "NGHỈ PHÉP THÁNG" draw on one 12-day annual fund). The
+    # type keeps its own rules (holidays, approval, attachment). Set through
+    # `manage.py convert_shared_annual_balance`; the leave type forms leave
+    # the field out on purpose, so saving a form never clears it.
+    shared_balance_with = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="shared_balance_users",
+        verbose_name=_("Dùng chung quỹ với loại phép"),
+    )
     conditions = models.ManyToManyField(
         LeaveTypeCondition,
         blank=True,
@@ -614,6 +629,9 @@ class LeaveType(JoydigiModel):
 
     def clean(self, *args, **kwargs):
         super().clean(self)
+        shared_balance_problem = leave_type_shared_balance_problem(self)
+        if shared_balance_problem:
+            raise ValidationError({"shared_balance_with": shared_balance_problem})
         if self.is_compensatory_leave:
             if (
                 LeaveType.objects.filter(is_compensatory_leave=True)
@@ -875,8 +893,59 @@ class AvailableLeave(JoydigiModel):
         self.carryforward_days = round(max(self.carryforward_days, 0), 3)
 
     def save(self, *args, **kwargs):
+        if self.pk is None and self.leave_type_id_id:
+            pool_id = (
+                LeaveType._base_manager.filter(pk=self.leave_type_id_id)
+                .values_list("shared_balance_with", flat=True)
+                .first()
+            )
+            if pool_id:
+                # A type that shares a fund has no balance of its own: a row
+                # here would be a second, independent fund (2026-11-11).
+                raise ValidationError(
+                    _("Loại phép này dùng chung quỹ với loại phép #%(pool)s: cấp quỹ cho loại đó.")
+                    % {"pool": pool_id}
+                )
         self.pre_save_processing()
         super().save(*args, **kwargs)
+
+
+def balance_leave_type(leave_type):
+    """The leave type whose balance a request of ``leave_type`` uses.
+
+    ``leave_type`` itself, or the type it shares its fund with
+    (``LeaveType.shared_balance_with``, one level). Accepts an instance or an
+    id and answers in kind, so it drops into any
+    ``AvailableLeave.objects.get(leave_type_id=...)`` lookup."""
+    if leave_type is None or leave_type == "":
+        return leave_type
+    if isinstance(leave_type, LeaveType):
+        pool_id = leave_type.shared_balance_with_id
+        return leave_type.shared_balance_with if pool_id else leave_type
+    pool_id = (
+        LeaveType._base_manager.filter(pk=leave_type).values_list("shared_balance_with", flat=True).first()
+    )
+    return pool_id or leave_type
+
+
+def leave_type_shared_balance_problem(leave_type):
+    """Why ``leave_type.shared_balance_with`` is not allowed (``None`` if fine)."""
+    pool = leave_type.shared_balance_with
+    if pool is None:
+        return None
+    if leave_type.pk and pool.pk == leave_type.pk:
+        return _("Một loại phép không thể dùng chung quỹ với chính nó.")
+    if pool.shared_balance_with_id:
+        return _("Loại phép được chọn cũng đang dùng quỹ của loại khác: chọn loại giữ quỹ.")
+    if leave_type.pk and LeaveType._base_manager.filter(shared_balance_with=leave_type).exists():
+        return _("Loại phép này đang giữ quỹ cho loại khác nên không thể dùng quỹ của loại khác.")
+    if leave_type.is_compensatory_leave or pool.is_compensatory_leave:
+        return _("Nghỉ bù không dùng chung quỹ.")
+    if not leave_type.limit_leave or not pool.limit_leave:
+        return _("Chỉ loại phép có giới hạn ngày mới dùng chung quỹ.")
+    if pool.company_id_id is not None and pool.company_id_id != leave_type.company_id_id:
+        return _("Loại phép giữ quỹ phải cùng công ty (hoặc dùng chung cho mọi công ty).")
+    return None
 
 
 def restrict_leaves(restri):
@@ -1590,7 +1659,7 @@ class LeaveRequest(JoydigiModel):
 
         # Check if leave type is assigned to employee
         if not AvailableLeave.objects.filter(
-            employee_id=self.employee_id, leave_type_id=leave_type
+            employee_id=self.employee_id, leave_type_id=balance_leave_type(leave_type)
         ).exists():
             raise ValidationError(
                 {
@@ -1643,7 +1712,7 @@ class LeaveRequest(JoydigiModel):
 
         # Avaialable leave days and requested leave days checking
         available_leave = AvailableLeave.objects.get(
-            employee_id=self.employee_id, leave_type_id=leave_type
+            employee_id=self.employee_id, leave_type_id=balance_leave_type(leave_type)
         )
 
         requested_days = calculate_requested_days(
@@ -1781,7 +1850,7 @@ class LeaveRequest(JoydigiModel):
         employee_id = self.employee_id
         leave_type_id = self.leave_type_id
         available_leave = AvailableLeave.objects.get(
-            leave_type_id=leave_type_id, employee_id=employee_id
+            leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
         )
         if self.requested_days > available_leave.available_days:
             leave = self.requested_days - available_leave.available_days

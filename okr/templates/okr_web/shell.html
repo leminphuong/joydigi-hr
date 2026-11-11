@@ -7,6 +7,7 @@
   <title>Mục tiêu &amp; OKR · JOYDIGI</title>
   <link rel="stylesheet" href="{% static 'okr_web/css/app.css' %}?v={{ asset_version }}">
   <link rel="stylesheet" href="{% static 'okr_web/css/django.css' %}?v={{ asset_version }}">
+  {% if chat_enabled %}<link rel="stylesheet" href="{% static 'okr_web/css/chat.css' %}?v={{ asset_version }}">{% endif %}
 </head>
 <body class="joyokr-body">
 {# JOYOKR v1.6.45 template-parts/app-shell.php, served by Django. Login, profile #}
@@ -28,6 +29,9 @@
       <a href="/okr/teams" data-route="teams"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="teams" %}</span>Teams</a>
       <a href="/okr/check-ins" data-route="check-ins"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="checkin" %}</span>Check-in</a>
       <a href="/okr/reports" data-route="reports"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="reports" %}</span>Báo cáo</a>
+      {% if chat_enabled %}
+      <a href="/okr/messages" data-route="messages"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="chat" %}</span>Tin nhắn<span class="joyokr-nav__count" data-chat-count hidden></span></a>
+      {% endif %}
       <a href="/okr/notifications" data-route="notifications"><span class="joyokr-nav__icon">{% include "okr_web/icon.html" with name="notifications" %}</span>Thông báo<span class="joyokr-nav__count" data-notification-count hidden></span></a>
       {% if can_approve or can_manage_organization or can_manage_cycles or can_manage_settings %}
         <span class="joyokr-nav__group">Quản trị</span>
@@ -66,6 +70,7 @@
 <script src="{% static 'okr_web/js/domain.js' %}?v={{ asset_version }}"></script>
 <script src="{% static 'okr_web/js/api.js' %}?v={{ asset_version }}"></script>
 <script src="{% static 'okr_web/js/store.js' %}?v={{ asset_version }}"></script>
+{% if chat_enabled %}<script src="{% static 'okr_web/js/chat.js' %}?v={{ asset_version }}"></script>{% endif %}
 <script src="{% static 'okr_web/js/views.js' %}?v={{ asset_version }}"></script>
 <script src="{% static 'okr_web/js/forms.js' %}?v={{ asset_version }}"></script>
 <script src="{% static 'okr_web/js/app.js' %}?v={{ asset_version }}"></script>

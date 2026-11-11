@@ -319,6 +319,9 @@ def notification(item, available) -> dict:
     reference = None
     if item.reference_type and item.reference_id:
         reference = {"type": item.reference_type, "id": item.reference_id, "available": bool(available)}
+        if item.reference_type == "chat_message":
+            # The room to open, read only when the viewer may still use it.
+            reference["room_id"] = getattr(item, "chat_room_id", None) if available else None
     return {
         "id": item.pk,
         "type": item.notification_type,

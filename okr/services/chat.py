@@ -125,13 +125,28 @@ def enabled() -> bool:
     return bool(getattr(settings, "OKR_CHAT_ENABLED", False))
 
 
+#: Stands for "a pilot list was given but none of it is a valid id": nobody.
+_NOBODY = frozenset({0})
+
+
 def pilot_employee_ids() -> frozenset:
     """``OKR_CHAT_PILOT_EMPLOYEE_IDS`` (2026-11-11): when set, chat is open to
-    these employees only — a test group before everyone. Empty: everyone."""
+    these employees only — a test group before everyone. Empty: everyone.
+
+    Fails closed: an entry that is not a numeric employee id (a badge such as
+    "NV006", a name, a typo) is ignored with a warning, and a list with no
+    valid id at all opens chat to nobody — never to the whole company."""
     raw = getattr(settings, "OKR_CHAT_PILOT_EMPLOYEE_IDS", None) or ()
     if isinstance(raw, str):
         raw = raw.split(",")
-    return frozenset(int(item) for item in raw if str(item).strip().isdigit())
+    items = [str(item).strip() for item in raw if str(item).strip()]
+    if not items:
+        return frozenset()
+    valid = frozenset(int(item) for item in items if item.isdigit() and int(item) > 0)
+    invalid = [item for item in items if not (item.isdigit() and int(item) > 0)]
+    if invalid:
+        logger.warning("OKR_CHAT_PILOT_EMPLOYEE_IDS: ignored %d entr(ies) that are not employee ids", len(invalid))
+    return valid or _NOBODY
 
 
 def enabled_for(employee_id) -> bool:

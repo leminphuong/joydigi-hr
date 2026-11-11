@@ -14,6 +14,7 @@ provide the main entry points for interacting with the application's functionali
 import logging
 import uuid
 
+from joydigi.upload_validation import accepted_uploads
 from joydigi.http.response import JoydigiRedirect
 from joydigi.methods import remove_dynamic_url
 
@@ -2472,7 +2473,7 @@ def view_attendancerequest_comment(request, attendance_id):
         no_comments = True
 
     if request.FILES:
-        files = request.FILES.getlist("files")
+        files = accepted_uploads(request, request.FILES.getlist("files"))
         comment_id = request.GET["comment_id"]
         comment = AttendanceRequestComment.objects.get(id=comment_id)
         attachments = []

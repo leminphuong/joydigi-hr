@@ -32,6 +32,7 @@ from employee.models import (
     Policy,
     PolicyMultipleFile,
 )
+from joydigi.upload_validation import accepted_uploads
 from joydigi.decorators import hx_request_required, login_required, permission_required
 from joydigi.http.response import JoydigiRedirect
 from joydigi_auth.models import JoydigiUser
@@ -185,7 +186,7 @@ def add_attachment(request):
             request, message=_("No Policy found matching the query.")
         )
 
-    files = request.FILES.getlist("files")
+    files = accepted_uploads(request, request.FILES.getlist("files"))
     attachments = []
     for file in files:
         attachment = PolicyMultipleFile()

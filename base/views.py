@@ -188,6 +188,7 @@ from employee.models import (
     EmployeeWorkInformation,
     ProfileEditFeature,
 )
+from joydigi.upload_validation import accepted_uploads
 from joydigi.decorators import (
     any_permission_required,
     delete_permission,
@@ -7756,7 +7757,7 @@ def view_shift_comment(request, shift_id):
     if not comments.exists():
         no_comments = True
     if request.FILES:
-        files = request.FILES.getlist("files")
+        files = accepted_uploads(request, request.FILES.getlist("files"))
         comment_id = request.GET["comment_id"]
         comment = ShiftRequestComment.objects.get(id=comment_id)
         attachments = []
@@ -7832,7 +7833,7 @@ def view_work_type_comment(request, work_type_id):
     if not comments.exists():
         no_comments = True
     if request.FILES:
-        files = request.FILES.getlist("files")
+        files = accepted_uploads(request, request.FILES.getlist("files"))
         comment_id = request.GET["comment_id"]
         comment = WorkTypeRequestComment.objects.get(id=comment_id)
         attachments = []

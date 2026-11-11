@@ -21,6 +21,7 @@ from base.joydigi_company_manager import JoydigiCompanyManager
 from joydigi import joydigi_middlewares
 from joydigi.joydigi_middlewares import _thread_locals
 from joydigi.methods import get_joydigi_model_class
+from joydigi.upload_validation import validate_upload
 from joydigi.models import JoydigiModel, NoPermissionModel, upload_path
 from joydigi_audit.models import JoydigiAuditInfo, JoydigiAuditLog
 from joydigi_auth.models import JoydigiUser
@@ -1438,7 +1439,7 @@ class RosterPublishLog(models.Model):
 
 
 class BaserequestFile(models.Model):
-    file = models.FileField(upload_to=upload_path)
+    file = models.FileField(upload_to=upload_path, validators=[validate_upload])
     objects = models.Manager()
 
 
@@ -2433,7 +2434,7 @@ class Attachment(models.Model):
     Attachment model for multiple attachments in announcements.
     """
 
-    file = models.FileField(upload_to=upload_path)
+    file = models.FileField(upload_to=upload_path, validators=[validate_upload])
 
     def __str__(self):
         return self.file.name

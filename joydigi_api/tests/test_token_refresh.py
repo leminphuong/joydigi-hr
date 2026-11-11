@@ -86,7 +86,7 @@ class TokenRefreshContractTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         access = AccessToken(response.data["access"])
-        self.assertEqual(access["user_id"], self.user.pk)
+        self.assertEqual(int(access["user_id"]), self.user.pk)  # str since simplejwt 5.5.1
 
     def test_missing_refresh_field_rejected_safely(self):
         response = self.client.post(REFRESH_URL, {}, format="json")

@@ -142,7 +142,7 @@ class ExpiredAuthorizationHeaderTests(RefreshBase):
         self.assertEqual(response.status_code, 200)
         # The minted pair belongs to the refresh token's subject.
         self.assertEqual(
-            RefreshToken(response.data["refresh"])["user_id"], self.user.id
+            int(RefreshToken(response.data["refresh"])["user_id"]), self.user.id
         )
 
 
@@ -381,6 +381,6 @@ class MintedClaimLifetimeTests(RefreshBase):
 
         self.assertEqual(life, timedelta(days=30))
         self.assertEqual(issued["token_type"], "refresh")
-        self.assertEqual(issued["user_id"], self.user.id)
+        self.assertEqual(int(issued["user_id"]), self.user.id)  # str since simplejwt 5.5.1
         self.assertIn("jti", issued)
         self.assertIn("session_version", issued)

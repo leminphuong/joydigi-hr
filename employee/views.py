@@ -119,6 +119,7 @@ from employee.models import (
     NoteFiles,
 )
 from employee.services import account_deletion
+from joydigi.upload_validation import accepted_uploads
 from joydigi.decorators import (
     hx_request_required,
     logger,
@@ -3838,7 +3839,7 @@ def add_more_employee_files(request, note_id):
     employee_id = note.employee_id.id
 
     if request.method == "POST":
-        files = request.FILES.getlist("files")
+        files = accepted_uploads(request, request.FILES.getlist("files"))
 
         for file in files:
             ext = os.path.splitext(file.name)[1].lower()

@@ -370,7 +370,15 @@ class LeaveTypeAssignForm(JoydigiFormView):
         if form.is_valid():
             if form.instance.pk:
                 leave_type = LeaveType.objects.get(id=form.instance.pk)
-                if not leave_type.is_compensatory_leave:
+                if leave_type.shared_balance_with_id:
+                    # 2026-11-11: no separate balance for a type sharing a fund.
+                    messages.warning(
+                        self.request,
+                        _("{leave_type} dùng chung quỹ với {pool}: hãy cấp {pool}.").format(
+                            leave_type=leave_type.name, pool=leave_type.shared_balance_with.name
+                        ),
+                    )
+                elif not leave_type.is_compensatory_leave:
                     employee_ids = self.request.POST.getlist("employee_id")
                     for employee_id in employee_ids:
                         employee = Employee.objects.get(id=employee_id)

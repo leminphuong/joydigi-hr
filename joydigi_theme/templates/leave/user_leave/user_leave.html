@@ -1,14 +1,19 @@
 {% load static i18n i18n %}
+{% include "leave/user_leave/shared_funds.html" %}
 <div class="grid grid-cols-12 gap-3 mb-2">
     {% for user_leave in user_leaves %}
         <div
             class="col-span-2"
+            {% if readonly_cards %}
+            data-testid="leave-balance-card"
+            {% else %}
             id="requestCreateCard"
             data-toggle="oh-modal-toggle"
             data-target="#objectCreateModal"
             hx-get="{% url 'user-request' user_leave.leave_type_id.id %}"
             hx-target="#objectCreateModalTarget"
             role="button"
+            {% endif %}
         >
             <div class="p-5 bg-white rounded-md shadow-card h-full">
                 <div class="oh-profile oh-profile--md">

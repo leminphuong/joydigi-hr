@@ -31,7 +31,7 @@ from leave.methods import (
     company_leave_dates_list,
     holiday_dates_list,
 )
-from leave.models import AvailableLeave, LeaveRequest, LeaveType, leave_requested_dates
+from leave.models import AvailableLeave, LeaveRequest, LeaveType, leave_requested_dates, balance_leave_type
 from leave.threading import LeaveMailSendThread
 from notifications.signals import notify
 
@@ -48,11 +48,15 @@ class MyLeaveRequestView(TemplateView):
         """
         context data
         """
+        from leave.services import requestable_leave_options, shared_fund_summaries
+
         context = super().get_context_data(**kwargs)
-        user_leave = AvailableLeave.objects.filter(
-            employee_id=self.request.user.employee_get
-        )
-        context["user_leaves"] = user_leave
+        # Active types offered to the employee's company, like the app
+        # (2026-11-11): a switched-off type (Nghỉ Bù) is no longer a card; a
+        # shared annual fund is one card per request type, same days.
+        employee = getattr(self.request.user, "employee_get", None)
+        context["user_leaves"] = requestable_leave_options(employee) if employee else []
+        context["shared_funds"] = shared_fund_summaries(employee) if employee else []
         return context
 
 
@@ -339,7 +343,7 @@ class MyLeaveRequestForm(JoydigiFormView):
                 leave_type = leave_request.leave_type_id
                 employee = self.request.user.employee_get
                 available_leave = AvailableLeave.objects.get(
-                    employee_id=employee, leave_type_id=leave_type
+                    employee_id=employee, leave_type_id=balance_leave_type(leave_type)
                 )
                 available_total_leave = (
                     available_leave.available_days + available_leave.carryforward_days
@@ -399,7 +403,7 @@ class MyLeaveRequestForm(JoydigiFormView):
                             employee_id = leave_request.employee_id
                             leave_type_id = leave_request.leave_type_id
                             available_leave = AvailableLeave.objects.get(
-                                leave_type_id=leave_type_id, employee_id=employee_id
+                                leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
                             )
                             if (
                                 leave_request.requested_days
@@ -514,7 +518,7 @@ class MyLeaveRequestSingleForm(JoydigiFormView):
         start_date_breakdown = self.request.POST.get("start_date_breakdown")
         end_date_breakdown = self.request.POST.get("end_date_breakdown")
         available_leave = AvailableLeave.objects.get(
-            employee_id=employee, leave_type_id=leave_type
+            employee_id=employee, leave_type_id=balance_leave_type(leave_type)
         )
         available_total_leave = (
             available_leave.available_days + available_leave.carryforward_days
@@ -571,7 +575,7 @@ class MyLeaveRequestSingleForm(JoydigiFormView):
                     employee_id = leave_request.employee_id
                     leave_type_id = leave_request.leave_type_id
                     available_leave = AvailableLeave.objects.get(
-                        leave_type_id=leave_type_id, employee_id=employee_id
+                        leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
                     )
                     if leave_request.requested_days > available_leave.available_days:
                         leave = (

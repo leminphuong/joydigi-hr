@@ -126,6 +126,43 @@
     }
   }
 
+  // A multipart upload with progress and cancel (2026-11-11, chat files).
+  // fetch() reports no upload progress, so this one call uses XHR, with the
+  // same session cookie, CSRF header and error mapping as send().
+  // Returns { promise, abort }; abort() rejects with code "aborted".
+  function upload(path, formData, options = {}) {
+    const cfg = config();
+    const url = buildUrl(cfg.root, path, options.query);
+    const request = new globalScope.XMLHttpRequest();
+    const promise = new Promise((resolve, reject) => {
+      request.open('POST', url);
+      request.withCredentials = true;
+      request.timeout = normalizeTimeout(options.timeoutMs ?? 120000);
+      request.setRequestHeader('Accept', 'application/json');
+      request.setRequestHeader('X-CSRFToken', String(cfg.csrfToken || ''));
+      if (request.upload && typeof options.onProgress === 'function') {
+        request.upload.onprogress = (event) => {
+          if (event.lengthComputable && event.total > 0) options.onProgress(Math.min(1, event.loaded / event.total));
+        };
+      }
+      request.onload = () => {
+        let payload = null;
+        try {
+          payload = request.responseText ? JSON.parse(request.responseText) : null;
+        } catch (error) {
+          payload = null;
+        }
+        if (request.status >= 200 && request.status < 300) resolve(payload);
+        else reject(toApiError(request.status, payload, options.fieldNames));
+      };
+      request.onerror = () => reject(new ApiError('Không thể kết nối máy chủ. Vui lòng kiểm tra mạng và thử lại.', 0, {}, { code: 'network_error', status: 0 }));
+      request.ontimeout = () => reject(new ApiError('Tải tệp mất quá nhiều thời gian. Vui lòng thử lại.', 408, {}, { code: 'request_timeout', status: 408 }));
+      request.onabort = () => reject(new ApiError('Đã hủy tải tệp.', 0, {}, { code: 'aborted', status: 0 }));
+      request.send(formData);
+    });
+    return { promise, abort: () => request.abort() };
+  }
+
   function normalizeTimeout(value) {
     const timeout = Number(value);
     return Number.isFinite(timeout) && timeout > 0 ? timeout : DEFAULT_TIMEOUT_MS;
@@ -708,6 +745,7 @@
       if (item.type === 'approval_requested') route = 'admin/approvals';
       else if (reference.type === 'objective') route = `objectives/${referenceId}`;
       else if (reference.type === 'key_result') route = `key-results/${referenceId}`;
+      else if (reference.type === 'chat_message' && toId(reference.room_id)) route = `messages/${toId(reference.room_id)}`;
     }
     return {
       id: toId(item?.id),
@@ -1303,6 +1341,7 @@
     send,
     ApiError,
     newClientRequestId,
+    upload,
     safeHttpUrl,
     evidenceDownloadUrl,
     warningThreshold,

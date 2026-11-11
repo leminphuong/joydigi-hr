@@ -29,6 +29,7 @@ from joydigi_widgets.widgets.joydigi_multi_select_field import JoydigiMultiSelec
 from joydigi_widgets.widgets.select_widgets import JoydigiMultiSelectWidget
 from leave.methods import get_leave_day_attendance
 from leave.models import (
+    balance_leave_type,
     AvailableLeave,
     LeaveAllocationRequest,
     LeaveallocationrequestComment,
@@ -42,6 +43,27 @@ from leave.models import (
 
 CHOICES = [("yes", _("Yes")), ("no", _("No"))]
 LEAVE_MAX_LIMIT = 1e5
+
+#: Days in one "period_in" unit — the same table the leave type form's
+#: script uses to turn "Tổng số ngày" (count) into total_days.
+PERIOD_DAYS = {"day": 1, "month": 30, "year": 365}
+
+
+def _derive_total_days(cleaned_data):
+    """total_days (what every balance is seeded with) from what HR typed.
+
+    The form shows ``count`` ("Tổng số ngày") and keeps ``total_days`` in a
+    hidden input filled by a script on "change". A form saved without that
+    script running (another page, HTMX swap, keyboard submit) kept a stale
+    total_days — 2026-11-11, "Nghỉ Phép Năm" showed one number and seeded
+    another. The server now derives it, so the two can not drift apart.
+    """
+    if not cleaned_data.get("limit_leave"):
+        return
+    count = cleaned_data.get("count")
+    unit = PERIOD_DAYS.get(cleaned_data.get("period_in") or "day")
+    if count is not None and unit:
+        cleaned_data["total_days"] = round(float(count) * unit, 2)
 
 
 class LeaveTypeConditionForm(forms.ModelForm):
@@ -178,7 +200,9 @@ class LeaveTypeForm(ConditionForm):
         # also be explicitly rendered there, or a submitted form would
         # silently save `is_active=False` (an unrendered checkbox
         # posts as unchecked).
-        exclude = ["conditions"]
+        # shared_balance_with: set by convert_shared_annual_balance only, never
+        # by a form (an unrendered field would save as empty) — 2026-11-11.
+        exclude = ["conditions", "shared_balance_with"]
         labels = {
             "name": _("Name"),
         }
@@ -198,6 +222,7 @@ class LeaveTypeForm(ConditionForm):
             cleaned_data["reset_based"] = "yearly"
             cleaned_data["reset_month"] = "1"
             cleaned_data["reset_day"] = "1"
+        _derive_total_days(cleaned_data)
 
         payment_type = cleaned_data.get("payment_type")
         payment_percentage = cleaned_data.get("payment_percentage")
@@ -230,7 +255,9 @@ class UpdateLeaveTypeForm(ConditionForm):
         # Phase LEAVE-7A.2: see the matching note on `LeaveTypeForm`
         # above — `is_active` must also be explicitly rendered in
         # `leave_type_form_fragment.html`.
-        exclude = ["conditions"]
+        # shared_balance_with: set by convert_shared_annual_balance only, never
+        # by a form (an unrendered field would save as empty) — 2026-11-11.
+        exclude = ["conditions", "shared_balance_with"]
         # Phase LEAVE-7A.3: `leave_type_form_fragment.html` renders
         # each field via `{{ form.<field>.label }}` — scoped to this
         # form only (not the model's verbose_name, which would also
@@ -302,6 +329,7 @@ class UpdateLeaveTypeForm(ConditionForm):
             cleaned_data["reset_based"] = "yearly"
             cleaned_data["reset_month"] = "1"
             cleaned_data["reset_day"] = "1"
+        _derive_total_days(cleaned_data)
 
         payment_type = cleaned_data.get("payment_type")
         payment_percentage = cleaned_data.get("payment_percentage")
@@ -904,7 +932,7 @@ class LeaveAllocationBulkForm(BaseModelForm):
         """
         employee = allocation_request.employee_id
         available_leave = employee.available_leave.filter(
-            leave_type_id=allocation_request.leave_type_id
+            leave_type_id=balance_leave_type(allocation_request.leave_type_id)
         ).first()
         if not available_leave:
             available_leave = AvailableLeave(

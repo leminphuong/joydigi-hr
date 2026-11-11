@@ -121,6 +121,18 @@
                 {% csrf_token %}<input type="hidden" name="action" value="policy">
                 <div class="checkin-field"><label for="{{ policy_form.late_threshold_minutes.id_for_label }}">Ngưỡng đi muộn (phút)</label>{{ policy_form.late_threshold_minutes }}{{ policy_form.late_threshold_minutes.errors }}</div>
                 <div class="checkin-field"><label for="{{ policy_form.annual_leave_days.id_for_label }}">Số ngày phép mỗi năm</label>{{ policy_form.annual_leave_days }}{{ policy_form.annual_leave_days.errors }}</div>
+                {% if annual_leave_preview %}
+                <div class="checkin-flash" data-testid="annual-leave-preview" role="alert" style="flex-direction:column;align-items:flex-start;background:#fff7ed;border-color:#fdba74;color:#9a3412">
+                    <strong>Xem trước trước khi lưu</strong>
+                    <span>Loại phép "{{ annual_leave_preview.name }}": số ngày cấp cho quỹ mới {{ annual_leave_preview.previous|floatformat:"-2" }} → {{ annual_leave_preview.days }} ngày.</span>
+                    <span>Quỹ phép hiện có của {{ annual_leave_preview.kept }} nhân viên giữ nguyên: không cộng, không trừ ngày nào.</span>
+                    <span>{{ annual_leave_preview.missing }} nhân viên chưa có quỹ loại này sẽ nhận {{ annual_leave_preview.days }} ngày khi được đồng bộ (không mở ngay).</span>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+                        <button class="checkin-submit" type="submit" name="annual_leave_decision" value="confirm:{{ annual_leave_preview.days }}">Xác nhận đổi thành {{ annual_leave_preview.days }} ngày</button>
+                        <button class="checkin-edit" type="submit" name="annual_leave_decision" value="skip">Chỉ lưu quy định, giữ nguyên loại phép</button>
+                    </div>
+                </div>
+                {% endif %}
                 <div class="checkin-toggle"><label for="{{ policy_form.allow_remote.id_for_label }}">Cho phép làm việc từ xa</label>{{ policy_form.allow_remote }}</div>
                 <div class="checkin-toggle"><label for="{{ policy_form.allow_outside_radius_request.id_for_label }}">Cho gửi đơn ngoài bán kính</label>{{ policy_form.allow_outside_radius_request }}</div>
                 <button class="checkin-submit" type="submit"><ion-icon name="save-outline"></ion-icon> Lưu quy định</button>

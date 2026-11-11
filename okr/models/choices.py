@@ -75,6 +75,9 @@ class RoleEventAction(models.TextChoices):
 class ReferenceType(models.TextChoices):
     OBJECTIVE = "objective", _("Objective")
     KEY_RESULT = "key_result", _("Key result")
+    # 2026-11-09: a chat mention or reply points at the message (its room is
+    # read from it). Only written while OKR_CHAT_ENABLED is on.
+    CHAT_MESSAGE = "chat_message", _("Chat message")
 
 
 class EvidenceType(models.TextChoices):

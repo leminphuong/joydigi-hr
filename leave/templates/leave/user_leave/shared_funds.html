@@ -1,0 +1,21 @@
+{% comment %}
+2026-11-11: a fund shared by several request types (JOYDIGI: NGHỈ PHÉP THÁNG
+and Nghỉ Phép Năm draw on ONE annual fund). Shown once, above the cards, so
+two cards with the same days never read as two funds.
+{% endcomment %}
+{% for fund in shared_funds %}
+    <div class="p-4 mb-3 rounded-md bg-white shadow-card" data-testid="shared-fund">
+        <h5 class="font-semibold mb-2 text-sm">{{ fund.title|upper }}</h5>
+        <div class="grid grid-cols-12 gap-3 text-xs text-dark-200">
+            <div class="col-span-3"><p>Đã cấp / tích lũy</p><p class="text-sm font-bold">{{ fund.granted|floatformat:"-2" }} ngày</p></div>
+            <div class="col-span-3"><p>Đã sử dụng (đã duyệt)</p><p class="text-sm font-bold">{{ fund.used|floatformat:"-2" }} ngày</p></div>
+            <div class="col-span-3"><p>Đang chờ duyệt</p><p class="text-sm font-bold">{{ fund.pending|floatformat:"-2" }} ngày</p></div>
+            <div class="col-span-3"><p>Còn lại</p><p class="text-sm font-bold" data-testid="shared-fund-remaining">{{ fund.remaining|floatformat:"-2" }} ngày</p></div>
+        </div>
+        <p class="mt-2 text-xs">
+            Tạo đơn bằng
+            {% for leave_type in fund.types %}<strong>{{ leave_type.name }}</strong>{% if not forloop.last %} hoặc {% endif %}{% endfor %}:
+            các hình thức này dùng chung một quỹ, không cộng ngày.
+        </p>
+    </div>
+{% endfor %}

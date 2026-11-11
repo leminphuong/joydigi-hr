@@ -1,4 +1,12 @@
 from okr.models.base import AppendOnlyError
+from okr.models.chat import (
+    ChatRoomKind,
+    OKRChatAttachment,
+    OKRChatMember,
+    OKRChatMention,
+    OKRChatMessage,
+    OKRChatRoom,
+)
 from okr.models.configuration import OKRSettings, default_rating_ranges, validate_rating_ranges
 from okr.models.cycle import OKRCycle
 from okr.models.engagement import (
@@ -14,6 +22,12 @@ from okr.models.organization import OKRDepartmentRole, OKRRole, OKRRoleEvent, OK
 
 __all__ = [
     "AppendOnlyError",
+    "ChatRoomKind",
+    "OKRChatAttachment",
+    "OKRChatMember",
+    "OKRChatMention",
+    "OKRChatMessage",
+    "OKRChatRoom",
     "OKRActivity",
     "OKRCheckin",
     "OKRComment",

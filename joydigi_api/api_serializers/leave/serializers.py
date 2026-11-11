@@ -4,6 +4,7 @@ from rest_framework import serializers
 from employee.models import Employee
 from leave.methods import calculate_requested_days
 from leave.models import *
+from leave.models import balance_leave_type
 
 
 def leave_Validations(self, data):
@@ -29,15 +30,17 @@ def leave_Validations(self, data):
     problem = leave_request_problem(employee, leave_type_id)
     if problem:
         raise serializers.ValidationError(problem)
-    available_leave = (
-        AvailableLeave.objects.filter(
-            leave_type_id=leave_type_id, employee_id=employee
-        )[0]
-        if AvailableLeave.objects.filter(
-            leave_type_id=leave_type_id, employee_id=employee
-        ).exists()
-        else None
-    )
+    from django.db import transaction
+
+    from leave.services import pending_shared_days, shared_fund_types
+
+    balance_type = balance_leave_type(leave_type_id)
+    balances = AvailableLeave.objects.filter(leave_type_id=balance_type, employee_id=employee)
+    if transaction.get_connection().in_atomic_block:
+        # Two requests sent at once wait for each other here, so together
+        # they can not overdraw the fund (2026-11-11).
+        balances = balances.select_for_update()
+    available_leave = balances.first()
     if not available_leave:
         raise serializers.ValidationError(
             _("Employee is not assigned with leave type %(leave_type)s.")
@@ -57,6 +60,10 @@ def leave_Validations(self, data):
     total_leave_days = (
         available_leave.available_days + available_leave.carryforward_days
     )
+    if shared_fund_types(available_leave.leave_type_id):
+        # One fund for several request types: days already asked for and
+        # not yet decided are held, whatever type they were asked as.
+        total_leave_days -= pending_shared_days(employee, available_leave.leave_type_id, exclude_request=self.instance)
     errors = {}
     # checking if there is any requested days is overlapping with the existing leave request
     # Rejected and cancelled requests no longer hold their dates (the web's
@@ -160,6 +167,7 @@ class EmployeeLeaveOptionSerializer(GetAvailableLeaveTypeSerializer):
     requestable = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
     status_message = serializers.SerializerMethodField()
+    shared_balance = serializers.SerializerMethodField()
 
     class Meta(GetAvailableLeaveTypeSerializer.Meta):
         fields = GetAvailableLeaveTypeSerializer.Meta.fields + [
@@ -169,12 +177,18 @@ class EmployeeLeaveOptionSerializer(GetAvailableLeaveTypeSerializer):
             "requestable",
             "status",
             "status_message",
+            "shared_balance",
         ]
 
     def get_remaining_days(self, obj):
         return (obj.available_days or 0) + (obj.carryforward_days or 0)
 
     def get_granted_days(self, obj):
+        fund = getattr(obj, "shared_fund", None)
+        if fund:
+            # A shared fund holds what was granted/accrued this year: what is
+            # left plus what approved requests of its types used.
+            return self.get_remaining_days(obj) + _shared_fund_used_days(obj, fund)
         leave_type = obj.leave_type_id
         return leave_type.total_days if leave_type and leave_type.limit_leave else None
 
@@ -194,6 +208,46 @@ class EmployeeLeaveOptionSerializer(GetAvailableLeaveTypeSerializer):
 
     def get_status_message(self, obj):
         return self._status(obj)[2]
+
+    def get_shared_balance(self, obj):
+        """For a fund shared by several request types (2026-11-11): which
+        fund, which types, how many days left and pending. ``None`` else."""
+        fund = getattr(obj, "shared_fund", None)
+        if not fund:
+            return None
+        from datetime import date
+
+        from leave.services import pending_shared_days
+
+        remaining = self.get_remaining_days(obj)
+        used = _shared_fund_used_days(obj, fund)
+        return {
+            "fund_type_id": fund["fund_type"].pk,
+            "fund_name": "Quỹ phép năm",
+            "year": date.today().year,
+            "types": [{"id": t.pk, "name": t.name} for t in fund["types"]],
+            # Granted / accrued so far this year: what is left plus what
+            # approved requests of the fund's types used.
+            "granted_days": remaining + used,
+            "used_days_this_year": used,
+            "remaining_days": remaining,
+            "pending_days": pending_shared_days(obj.employee_id, fund["fund_type"]),
+        }
+
+
+def _shared_fund_used_days(obj, fund):
+    """Days approved this year over every request type of the fund."""
+    from datetime import date
+
+    from django.db.models import Sum
+
+    total = LeaveRequest._base_manager.filter(
+        employee_id=obj.employee_id,
+        leave_type_id__in=[t.pk for t in fund["types"]],
+        status="approved",
+        start_date__year=date.today().year,
+    ).aggregate(total=Sum("requested_days"))["total"]
+    return float(total or 0)
 
 
 class UnassignedLeaveTypeSerializer(serializers.ModelSerializer):
@@ -578,7 +632,7 @@ class LeaveRequestApproveSerializer(serializers.ModelSerializer):
         employee_id = leave_request.employee_id
         leave_type_id = leave_request.leave_type_id
         available_leave = AvailableLeave.objects.get(
-            leave_type_id=leave_type_id, employee_id=employee_id
+            leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
         )
         total_available_leave = (
             available_leave.available_days + available_leave.carryforward_days

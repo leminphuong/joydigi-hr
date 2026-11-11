@@ -139,6 +139,14 @@ def reference_availability(viewer: OKRViewer, notifications: Iterable[OKRNotific
     for item in notifications:
         if not item.reference_type or not item.reference_id:
             continue
+        if item.reference_type == ReferenceType.CHAT_MESSAGE:
+            # Chat: available while the viewer may still open that room.
+            from okr.services import chat
+
+            target = chat.notification_target(viewer, item.reference_id)
+            availability[item.pk] = target is not None
+            item.chat_room_id = target.room_id if target is not None else None
+            continue
         live = _live_target(viewer, item.reference_type, item.reference_id)
         if live is None:
             availability[item.pk] = False

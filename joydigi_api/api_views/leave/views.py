@@ -19,7 +19,59 @@ from leave.methods import filter_conditional_leave_request
 from leave.models import AvailableLeave, LeaveAllocationRequest, LeaveRequest, LeaveType, balance_leave_type
 from notifications.signals import notify
 
-from ...api_decorators.base.decorators import manager_permission_required
+from ...api_decorators.base.decorators import (
+    actor_of,
+    can_manage_employee,
+    employee_from_data,
+    forbidden,
+    is_direct_manager,
+    manager_permission_required,
+)
+
+
+def _leave_review_problem(user, leave_request):
+    """None when the caller may decide `leave_request` now, else the reason.
+
+    SEC-02 (2026-11-13): the same rule as the web approval (leave/views.py):
+    a superuser; otherwise never one's own request; with several approval
+    steps, the approver of the current step once the earlier steps are done;
+    otherwise a check-in admin or the employee's own reporting manager.
+    """
+    from base.roles import is_checkin_admin
+
+    if getattr(user, "is_superuser", False):
+        return None
+    actor = actor_of(user)
+    if actor is None:
+        return _("You do not have permission to perform this action.")
+    if leave_request.employee_id_id == actor.pk:
+        return _("You cannot approve your own leave request.")
+    if leave_request.multiple_approvals():
+        step = (
+            LeaveRequestConditionApproval.objects.filter(
+                manager_id=actor, leave_request_id=leave_request, is_approved=False, is_rejected=False
+            )
+            .order_by("sequence")
+            .first()
+        )
+        if step is None:
+            return "Bạn không phải người duyệt ở bước hiện tại."
+        if LeaveRequestConditionApproval.objects.filter(
+            leave_request_id=leave_request, sequence__lt=step.sequence, is_approved=False
+        ).exists():
+            return "Đơn này chưa được duyệt ở bước trước."
+        return None
+    if is_checkin_admin(user) or is_direct_manager(user, leave_request.employee_id):
+        return None
+    return "Bạn chỉ được duyệt đơn của thành viên trong nhóm mình."
+
+
+def _may_handle(user, obj, perm):
+    """Read/edit/delete a request: its own employee, or someone who may manage them."""
+    actor = actor_of(user)
+    if actor is not None and obj.employee_id_id == actor.pk:
+        return True
+    return can_manage_employee(user, obj.employee_id, perm)
 from ...api_methods.base.methods import groupby_queryset
 
 
@@ -345,6 +397,13 @@ class LeaveAllocationRequestGetCreateAPIView(APIView):
     def post(self, request):
         data = request.data
         employee_id = self.get_user(request).employee_get.id
+        target = employee_from_data(request)
+        if target is None:
+            return Response({"employee_id": [_("This field is required.")]}, status=400)
+        if target.pk != employee_id and not can_manage_employee(
+            request.user, target, "leave.add_leaveallocationrequest"
+        ):
+            return forbidden()
         if isinstance(data, QueryDict):
             data = data.dict()
         data["created_by"] = employee_id
@@ -382,12 +441,16 @@ class LeaveAllocationRequestGetUpdateDeleteAPIView(APIView):
     @manager_permission_required("leave.view_leaveallocationrequest")
     def get(self, request, pk):
         allocation_request = self.get_leave_allocation_request(pk)
+        if not _may_handle(request.user, allocation_request, "leave.view_leaveallocationrequest"):
+            return forbidden()
         serializer = LeaveAllocationRequestGetSerializer(allocation_request)
         return Response(serializer.data, status=200)
 
     @manager_permission_required("leave.change_leaveallocationrequest")
     def put(self, request, pk):
         allocation_request = self.get_leave_allocation_request(pk)
+        if not _may_handle(request.user, allocation_request, "leave.change_leaveallocationrequest"):
+            return forbidden()
         if allocation_request.status == "requested":
             serializer = LeaveAllocationRequestSerilaizer(
                 allocation_request, data=request.data
@@ -404,6 +467,8 @@ class LeaveAllocationRequestGetUpdateDeleteAPIView(APIView):
     @manager_permission_required("leave.delete_leaveallocationrequest")
     def delete(self, request, pk):
         allocation_request = self.get_leave_allocation_request(pk)
+        if not _may_handle(request.user, allocation_request, "leave.delete_leaveallocationrequest"):
+            return forbidden()
         if allocation_request.status == "requested":
             allocation_request.delete()
             return Response(status=200)
@@ -566,6 +631,13 @@ class LeaveRequestGetCreateAPIView(APIView):
 
     @manager_permission_required("leave.add_leaverequest")
     def post(self, request):
+        target = employee_from_data(request)
+        actor = actor_of(request.user)
+        if target is None:
+            return Response({"employee_id": [_("This field is required.")]}, status=400)
+        if not ((actor is not None and target.pk == actor.pk)
+                or can_manage_employee(request.user, target, "leave.add_leaverequest")):
+            return forbidden()
         data = request.data
         if isinstance(data, QueryDict):
             data = data.dict()
@@ -609,6 +681,8 @@ class LeaveRequestGetUpdateDeleteAPIView(APIView):
     @manager_permission_required("leave.view_leaverequest")
     def get(self, request, pk):
         leave_request = self.get_leave_request(pk)
+        if not _may_handle(request.user, leave_request, "leave.view_leaverequest"):
+            return forbidden()
         serializer = LeaveRequestGetSerilaizer(
             leave_request, context={"request": request}
         )
@@ -617,6 +691,8 @@ class LeaveRequestGetUpdateDeleteAPIView(APIView):
     @manager_permission_required("leave.change_leaverequest")
     def put(self, request, pk):
         leave_request = self.get_leave_request(pk)
+        if not _may_handle(request.user, leave_request, "leave.change_leaverequest"):
+            return forbidden()
         if leave_request.status == "requested":
             data = request.data
             if isinstance(data, QueryDict):
@@ -654,6 +730,8 @@ class LeaveRequestGetUpdateDeleteAPIView(APIView):
     @manager_permission_required("leave.delete_leaverequest")
     def delete(self, request, pk):
         leave_request = self.get_leave_request(pk)
+        if not _may_handle(request.user, leave_request, "leave.delete_leaverequest"):
+            return forbidden()
         if leave_request.status == "requested":
             leave_request.delete()
             return Response(status=200)
@@ -822,18 +900,24 @@ class LeaveRequestApproveAPIView(APIView):
             leave_request.status = "approved"
             leave_request.save()
         else:
-            conditional_requests = leave_request.multiple_approvals()
-            approver = [
-                manager
-                for manager in conditional_requests["managers"]
-                if manager.employee_user_id == request.user
-            ]
-            condition_approval = LeaveRequestConditionApproval.objects.filter(
-                manager_id=approver[0], leave_request_id=leave_request
-            ).first()
+            # The caller's current step (checked by _leave_review_problem);
+            # the request is approved once no step is left (2026-11-13: it
+            # used to approve the caller's row whatever the order).
+            condition_approval = (
+                LeaveRequestConditionApproval.objects.filter(
+                    manager_id=actor_of(request.user),
+                    leave_request_id=leave_request,
+                    is_approved=False,
+                    is_rejected=False,
+                )
+                .order_by("sequence")
+                .first()
+            )
             condition_approval.is_approved = True
             condition_approval.save()
-            if approver[0] == conditional_requests["managers"][-1]:
+            if not LeaveRequestConditionApproval.objects.filter(
+                leave_request_id=leave_request, is_approved=False
+            ).exists():
                 self.leave_approve_calculation(leave_request, available_leave)
                 leave_request.status = "approved"
                 leave_request.save()
@@ -841,6 +925,9 @@ class LeaveRequestApproveAPIView(APIView):
     @manager_permission_required("leave.change_leaverequest")
     def put(self, request, pk):
         leave_request = self.get_leave_request(pk)
+        problem = _leave_review_problem(request.user, leave_request)
+        if problem:
+            return forbidden(problem)
         serializer = LeaveRequestApproveSerializer(leave_request, data=request.data)
         if serializer.is_valid():
             available_leave = serializer.validated_data.get("available_leave")
@@ -895,6 +982,9 @@ class LeaveRequestRejectAPIView(APIView):
         # The days go back to the employee who asked for them — this used to
         # be the rejecting manager's balance (2026-11-11).
         employee_id = leave_request.employee_id
+        problem = _leave_review_problem(request.user, leave_request)
+        if problem:
+            return forbidden(problem)
         if leave_request.status != "rejected":
             self.leave_calculation(leave_request, employee_id)
             with contextlib.suppress(Exception):
@@ -959,6 +1049,12 @@ class LeaveAllocationApproveAPIView(APIView):
     @manager_permission_required("leave.change_leaveallocationrequest")
     def put(self, request, pk):
         leave_allocation_request = self.get_leave_allocation_request(pk)
+        # Never one's own allocation; only someone who may manage that
+        # employee (web: leave/decorators.py) — 2026-11-13.
+        if not can_manage_employee(
+            request.user, leave_allocation_request.employee_id, "leave.change_leaveallocationrequest"
+        ):
+            return forbidden()
         if leave_allocation_request.status == "requested":
             self.approve_calculations(leave_allocation_request)
             leave_allocation_request.status = "approved"
@@ -992,6 +1088,10 @@ class LeaveAllocationRequestRejectAPIView(APIView):
     @manager_permission_required("leave.change_leaveallocationrequest")
     def put(self, request, pk):
         leave_allocation_request = self.get_leave_allocation_request(pk)
+        if not can_manage_employee(
+            request.user, leave_allocation_request.employee_id, "leave.change_leaveallocationrequest"
+        ):
+            return forbidden()
         if leave_allocation_request.status != "rejected":
             self.reject_calculation(leave_allocation_request)
             leave_allocation_request.status = "rejected"
@@ -1011,7 +1111,7 @@ class LeaveRequestBulkApproveDeleteAPIview(APIView):
                 {"leave_request_id": [_("This field is required")]}
             )
         leave_requests = LeaveRequest.objects.filter(id__in=leave_request_ids).exclude(
-            status__in=["reject", "cancelled", "approved"]
+            status__in=["rejected", "cancelled", "approved"]
         )
         if leave_requests:
             return leave_requests
@@ -1036,6 +1136,15 @@ class LeaveRequestBulkApproveDeleteAPIview(APIView):
     def put(self, request):
         leave_requests = self.get_leave_requests(request)
         for leave_request in leave_requests:
+            problem = _leave_review_problem(request.user, leave_request)
+            if problem:
+                return forbidden(problem)
+            if leave_request.multiple_approvals() and not request.user.is_superuser:
+                # Bulk approval would skip the later steps.
+                return Response(
+                    {"error": "Đơn có nhiều bước duyệt phải duyệt từng đơn."}, status=400
+                )
+        for leave_request in leave_requests:
             employee_id = leave_request.employee_id
             leave_type_id = leave_request.leave_type_id
             available_leave = AvailableLeave.objects.get(
@@ -1053,6 +1162,8 @@ class LeaveRequestBulkApproveDeleteAPIview(APIView):
     @manager_permission_required("leave.delete_leaverequest")
     def delete(self, request):
         leave_requests = self.get_leave_requests(request)
+        if not all(_may_handle(request.user, item, "leave.delete_leaverequest") for item in leave_requests):
+            return forbidden()
         leave_requests.delete()
         return Response(status=200)
 
@@ -1175,6 +1286,10 @@ class EmployeeAvailableLeaveTypeGetAPIView(APIView):
 
     def get(self, request, pk):
         employee = self.get_employee(pk)
+        actor = actor_of(request.user)
+        if not ((actor is not None and employee.pk == actor.pk)
+                or can_manage_employee(request.user, employee, "leave.view_availableleave")):
+            return forbidden()
         available_leave = employee.available_leave.all()
         leave_type_ids = available_leave.values_list("leave_type_id", flat=True)
         leave_types = LeaveType.objects.filter(id__in=leave_type_ids)

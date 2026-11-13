@@ -40,6 +40,9 @@ from employee.models import Actiontype, Employee
 from notifications.signals import notify
 
 from ...api_decorators.base.decorators import (
+    can_manage_employee,
+    employee_from_data,
+    forbidden,
     check_approval_status,
     manager_or_owner_permission_required,
     manager_permission_required,
@@ -568,7 +571,11 @@ class IndividualRotatingWorktypesView(APIView):
             return Response({"error": _("you have no permssion to view")}, status=400)
         if pk:
             rotating_work_type_assign = object_check(RotatingWorkTypeAssign, pk)
-            if rotating_work_type_assign is None:
+            # The permission check above is on ?employee_id=: the record
+            # must belong to that employee (2026-11-13).
+            if rotating_work_type_assign is None or str(rotating_work_type_assign.employee_id_id) != str(
+                request.GET.get("employee_id")
+            ):
                 return Response(
                     {"error": _("RotatingWorkTypeAssign not found")}, status=404
                 )
@@ -612,9 +619,16 @@ class RotatingWorkTypeAssignView(APIView):
                 return Response(
                     {"error": _("RotatingWorkTypeAssign not found")}, status=404
                 )
+            if not can_manage_employee(
+                request.user, rotating_work_type_assign.employee_id, "base.view_rotatingworktypeassign", allow_self=True
+            ):
+                return forbidden()
             serializer = self.serializer_class(rotating_work_type_assign)
             return Response(serializer.data, status=200)
-        rotating_work_type_assigns = RotatingWorkTypeAssign.objects.all()
+        # Managers see their own and their team's, not everyone's (2026-11-13).
+        rotating_work_type_assigns = permission_based_queryset(
+            request.user, "base.view_rotatingworktypeassign", RotatingWorkTypeAssign.objects.all(), user_obj=True
+        )
         rotating_work_type_assigns_filter_queryset = self.filterset_class(
             request.GET, queryset=rotating_work_type_assigns
         ).qs
@@ -635,6 +649,10 @@ class RotatingWorkTypeAssignView(APIView):
 
     @manager_permission_required("base.add_rotatingworktypeassign")
     def post(self, request):
+        if not can_manage_employee(
+            request.user, employee_from_data(request), "base.add_rotatingworktypeassign"
+        ):
+            return forbidden()
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             obj = serializer.save()
@@ -664,6 +682,12 @@ class RotatingWorkTypeAssignView(APIView):
             return Response(
                 {"error": _("RotatingWorkTypeAssign not found")}, status=404
             )
+        target = employee_from_data(request) or rotating_work_type_assign.employee_id
+        if not all(
+            can_manage_employee(request.user, who, "base.change_rotatingworktypeassign")
+            for who in {rotating_work_type_assign.employee_id, target}
+        ):
+            return forbidden()
         serializer = self.serializer_class(rotating_work_type_assign, data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -677,6 +701,10 @@ class RotatingWorkTypeAssignView(APIView):
             return Response(
                 {"error": _("RotatingWorkTypeAssign not found")}, status=404
             )
+        if not can_manage_employee(
+            request.user, rotating_work_type_assign.employee_id, "base.delete_rotatingworktypeassign"
+        ):
+            return forbidden()
         response, status_code = object_delete(RotatingWorkTypeAssign, pk)
         return Response(response, status=status_code)
 
@@ -874,7 +902,11 @@ class IndividualRotatingShiftView(APIView):
 
         if pk:
             rotating_shift_assign = object_check(RotatingShiftAssign, pk)
-            if rotating_shift_assign is None:
+            # The permission check above is on ?employee_id=: the record
+            # must belong to that employee (2026-11-13).
+            if rotating_shift_assign is None or str(rotating_shift_assign.employee_id_id) != str(
+                request.GET.get("employee_id")
+            ):
                 return Response(
                     {"error": _("RotatingShiftAssign not found")}, status=404
                 )
@@ -905,10 +937,16 @@ class RotatingShiftAssignView(APIView):
                 return Response(
                     {"error": _("RotatingShiftAssign not found")}, status=404
                 )
+            if not can_manage_employee(
+                request.user, rotating_shift_assign.employee_id, "base.view_rotatingshiftassign", allow_self=True
+            ):
+                return forbidden()
             serializer = self.serializer_class(rotating_shift_assign)
             return Response(serializer.data, status=200)
-
-        rotating_shift_assigns = RotatingShiftAssign.objects.all()
+        # Managers see their own and their team's, not everyone's (2026-11-13).
+        rotating_shift_assigns = permission_based_queryset(
+            request.user, "base.view_rotatingshiftassign", RotatingShiftAssign.objects.all(), user_obj=True
+        )
         rotating_shift_assigns_filter_queryset = self.filterset_class(
             request.GET, queryset=rotating_shift_assigns
         ).qs
@@ -929,6 +967,10 @@ class RotatingShiftAssignView(APIView):
 
     @manager_permission_required("base.add_rotatingshiftassign")
     def post(self, request):
+        if not can_manage_employee(
+            request.user, employee_from_data(request), "base.add_rotatingshiftassign"
+        ):
+            return forbidden()
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -940,6 +982,12 @@ class RotatingShiftAssignView(APIView):
         rotating_shift_assign = object_check(RotatingShiftAssign, pk)
         if rotating_shift_assign is None:
             return Response({"error": _("RotatingShiftAssign not found")}, status=404)
+        target = employee_from_data(request) or rotating_shift_assign.employee_id
+        if not all(
+            can_manage_employee(request.user, who, "base.change_rotatingshiftassign")
+            for who in {rotating_shift_assign.employee_id, target}
+        ):
+            return forbidden()
         serializer = self.serializer_class(rotating_shift_assign, data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -951,6 +999,10 @@ class RotatingShiftAssignView(APIView):
         rotating_shift_assign = object_check(RotatingShiftAssign, pk)
         if rotating_shift_assign is None:
             return Response({"error": _("RotatingShiftAssign not found")}, status=404)
+        if not can_manage_employee(
+            request.user, rotating_shift_assign.employee_id, "base.delete_rotatingshiftassign"
+        ):
+            return forbidden()
         response, status_code = object_delete(RotatingShiftAssign, pk)
         return Response(response, status=status_code)
 
@@ -1235,30 +1287,44 @@ class ShiftRequestBulkCancelView(APIView):
 class ShiftRequestDeleteView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @staticmethod
+    def _may_delete(request, shift_request):
+        # SEC-01 (2026-11-13): the requester themself, or someone who may
+        # manage that employee — never anybody with a token.
+        actor = getattr(request.user, "employee_get", None)
+        if actor is not None and shift_request.employee_id_id == actor.pk:
+            return True
+        return can_manage_employee(request.user, shift_request.employee_id, "base.delete_shiftrequest")
+
     def delete(self, request, pk=None):
-
         if pk is None:
-            try:
-                ids = request.data["ids"]
-                shift_requests = ShiftRequest.objects.filter(id__in=ids)
-                shift_requests.delete()
-            except Exception as e:
-                return Response({"status": "failed", "error": str(e)}, status=400)
+            ids = request.data.get("ids") if hasattr(request.data, "get") else None
+            if not isinstance(ids, (list, tuple)) or not ids:
+                return Response({"status": "failed", "error": "ids must be a non-empty list"}, status=400)
+            shift_requests = list(ShiftRequest.objects.filter(id__in=ids))
+            # All or nothing: one record outside the caller's reach refuses the lot.
+            if not all(self._may_delete(request, item) for item in shift_requests):
+                return forbidden()
+            ShiftRequest.objects.filter(id__in=[item.pk for item in shift_requests]).delete()
             return Response({"status": "success"}, status=200)
-        try:
-            shift_request = ShiftRequest.objects.get(id=pk)
-            if not shift_request.approved:
-                raise
-            shift_request.delete()
-
-        except ShiftRequest.DoesNotExist:
+        shift_request = ShiftRequest.objects.filter(id=pk).first()
+        if shift_request is None:
             return Response(
                 {"status": "failed", "error": _("Shift request does not exists")},
                 status=400,
             )
+        if not self._may_delete(request, shift_request):
+            return forbidden()
+        # ShiftRequest.delete() keeps approved entries. This endpoint used to
+        # refuse unapproved ones itself (a bare `raise`, a 500), so it never
+        # deleted anything; it now follows the model and says so.
+        if shift_request.approved:
+            return Response(
+                {"status": "failed", "error": _("The request entry cannot be deleted.")},
+                status=400,
+            )
+        shift_request.delete()
         return Response({"status": "deleted"}, status=200)
-
-
 class ShiftRequestExportView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1270,7 +1336,15 @@ class ShiftRequestAllocationView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, id):
-        shift_request = ShiftRequest.objects.get(id=id)
+        shift_request = ShiftRequest.objects.filter(id=id).first()
+        if shift_request is None:
+            return Response({"status": "failed"}, status=404)
+        actor = getattr(request.user, "employee_get", None)
+        if not (
+            (actor is not None and shift_request.employee_id_id == actor.pk)
+            or can_manage_employee(request.user, shift_request.employee_id, "base.change_shiftrequest")
+        ):
+            return forbidden()
         if not shift_request.is_any_request_exists():
             shift_request.reallocate_approved = True
             shift_request.reallocate_canceled = False
@@ -1291,6 +1365,14 @@ class RotatingShiftAssignBulkArchive(APIView):
 
     def put(self, request, status):
         ids = request.data.get("ids", None)
+        if not isinstance(ids, (list, tuple)) or not ids:
+            return Response({"error": "ids must be a non-empty list"}, status=400)
+        # All or nothing, each assignment checked against its employee (2026-11-13).
+        if not all(
+            can_manage_employee(request.user, item.employee_id, "base.change_rotatingshiftassign")
+            for item in RotatingShiftAssign.objects.filter(id__in=ids).select_related("employee_id")
+        ):
+            return forbidden()
         try:
             rotating_shift_asssign = RotatingShiftAssign.objects.filter(id__in=ids)
             rotating_shift_asssign.update(is_active=status)
@@ -1304,6 +1386,14 @@ class RotatingShiftAssignBulkDelete(APIView):
 
     def delete(self, request):
         ids = request.data.get("ids", None)
+        if not isinstance(ids, (list, tuple)) or not ids:
+            return Response({"error": "ids must be a non-empty list"}, status=400)
+        # All or nothing, each assignment checked against its employee (2026-11-13).
+        if not all(
+            can_manage_employee(request.user, item.employee_id, "base.delete_rotatingshiftassign")
+            for item in RotatingShiftAssign.objects.filter(id__in=ids).select_related("employee_id")
+        ):
+            return forbidden()
         try:
             rotating_shift_asssign = RotatingShiftAssign.objects.filter(id__in=ids)
             rotating_shift_asssign.delete()

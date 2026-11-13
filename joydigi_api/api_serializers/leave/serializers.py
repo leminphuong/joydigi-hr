@@ -400,7 +400,9 @@ class LeaveTypeAllGetSerializer(serializers.ModelSerializer):
 
 
 class LeaveAllocationRequestCreateSerializer(serializers.ModelSerializer):
-    requested_days = serializers.FloatField(required=True)
+    # Bounded (2026-11-13): an allocation request asked for any number of
+    # days, and approving it added them all to the balance.
+    requested_days = serializers.FloatField(required=True, min_value=0.5, max_value=366)
 
     class Meta:
         model = LeaveAllocationRequest

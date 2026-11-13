@@ -13,12 +13,23 @@ create, and detail-by-pk requires the caller to own the record (or be
 its reporting manager / hold the view permission).
 """
 
+from datetime import date, timedelta
+
 from django.test import TestCase
 from rest_framework.test import APIClient
 
 from base.models import EmployeeShift, ShiftRequest, WorkType, WorkTypeRequest
 from employee.models import EmployeeWorkInformation
 from joydigi.testkit import make_company, make_employee, make_user
+
+
+def _future_day():
+    """A date the request validators accept on any day the suite runs.
+
+    The validators refuse a requested date before today, so a fixed date
+    ("2026-09-01") made the create tests fail with 400 once it had passed —
+    before they ever reached the ownership check they exist for."""
+    return (date.today() + timedelta(days=30)).isoformat()
 
 
 class ShiftWorkTypeRequestIDORTests(TestCase):
@@ -61,14 +72,18 @@ class ShiftWorkTypeRequestIDORTests(TestCase):
             {
                 "employee_id": self.victim.id,  # spoof attempt
                 "shift_id": self.shift.id,
-                "requested_date": "2026-09-01",
-                "requested_till": "2026-09-01",
+                "requested_date": _future_day(),
+                "requested_till": _future_day(),
                 "description": "spoofed",
             },
         )
-        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.status_code, 201, response.data)
         created = ShiftRequest.objects.get(id=response.data["id"])
         self.assertEqual(created.employee_id_id, self.attacker.id)
+        self.assertFalse(
+            ShiftRequest.objects.filter(employee_id=self.victim).exists(),
+            "nothing may be created in the victim's name",
+        )
 
     def test_shift_request_detail_denies_non_owner(self):
         victim_request = ShiftRequest.objects.create(
@@ -103,14 +118,18 @@ class ShiftWorkTypeRequestIDORTests(TestCase):
             {
                 "employee_id": self.victim.id,  # spoof attempt
                 "work_type_id": self.work_type.id,
-                "requested_date": "2026-09-01",
-                "requested_till": "2026-09-01",
+                "requested_date": _future_day(),
+                "requested_till": _future_day(),
                 "description": "spoofed",
             },
         )
         self.assertEqual(response.status_code, 201, response.data)
         created = WorkTypeRequest.objects.get(id=response.data["id"])
         self.assertEqual(created.employee_id_id, self.attacker.id)
+        self.assertFalse(
+            WorkTypeRequest.objects.filter(employee_id=self.victim).exists(),
+            "nothing may be created in the victim's name",
+        )
 
     def test_work_type_request_detail_denies_non_owner(self):
         victim_request = WorkTypeRequest.objects.create(

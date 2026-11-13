@@ -14,6 +14,39 @@ from joydigi.joydigi_middlewares import _thread_locals
 from joydigi_views.cbv_methods import decorator_with_arguments
 
 
+# -- object-level access (security fix 2026-11-13) -----------------------------
+#
+# `ManagerPermission` below is only a coarse gate: it lets through anybody who
+# manages *someone*. On its own it let any manager act on every employee of
+# every company, and approve their own requests. Every view that acts on one
+# employee's record must also ask `can_manage_employee` for that employee —
+# the same rule the hardened web paths use (attendance/views/requests.py
+# `_can_review_attendance_request`, leave/views.py approve, leave/decorators).
+
+
+from base.access import actor_of, can_manage_employee, is_direct_manager  # noqa: E402,F401
+
+
+def employee_from_data(request, key="employee_id"):
+    """The Employee named by `key` in the request body, or None."""
+    from employee.models import Employee
+
+    data = request.data
+    raw = data.get(key) if hasattr(data, "get") else None
+    if isinstance(raw, (list, tuple)):
+        raw = raw[0] if raw else None
+    if hasattr(raw, "pk"):
+        raw = raw.pk
+    return Employee.objects.filter(pk=raw).first() if str(raw or "").strip().isdigit() else None
+
+
+def forbidden(message=None):
+    return Response(
+        {"error": message or _("You do not have permission to perform this action.")},
+        status=status.HTTP_403_FORBIDDEN,
+    )
+
+
 class ManagerPermission(BasePermission):
     leave_perm = [
         "leave.view_leaverequest",
@@ -70,34 +103,38 @@ def manager_or_owner_permission_required(model_class, perm):
     def decorator(func):
         @wraps(func)
         def wrapper(self, request, pk=None, *args, **kwargs):
+            actor = actor_of(request.user)
             if pk:
-                try:
-                    obj = model_class.objects.get(pk=pk)
-                    # Check if the requesting user is the owner of the object
-                    if obj.employee_id == request.user.employee_get:
-                        return func(self, request, pk, *args, **kwargs)
-                except model_class.DoesNotExist:
+                obj = model_class.objects.filter(pk=pk).first()
+                if obj is None:
                     return Response(
                         {"error": f"{model_class.__name__} does not exist"},
                         status=status.HTTP_404_NOT_FOUND,
                     )
-            else:
-                if (
-                    request.data.get("employee_id", None)
-                    == request.user.employee_get.id
-                ):
-                    return func(self, request, *args, **kwargs)
-            # If not the owner, check for manager permission
-            permission = ManagerPermission()
-            if permission.has_permission(request, perm) and pk:
-                return func(self, request, pk, *args, **kwargs)
-            elif permission.has_permission(request, perm) and pk == None:
+                if actor is not None and obj.employee_id == actor:
+                    return func(self, request, pk, *args, **kwargs)
+                # Not the owner: only someone who may manage *that* employee
+                # (2026-11-13; it used to be any manager of anyone).
+                if can_manage_employee(request.user, obj.employee_id, perm):
+                    return func(self, request, pk, *args, **kwargs)
+                return forbidden()
+            raw = request.data.get("employee_id", None)
+            target_id = int(raw) if str(raw or "").strip().isdigit() else None
+            if actor is not None and target_id == actor.pk:
                 return func(self, request, *args, **kwargs)
-            else:
-                return Response(
-                    {"error": _("You do not have permission to perform this action.")},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
+            if target_id is not None:
+                from employee.models import Employee
+
+                target = Employee.objects.filter(pk=target_id).first()
+                if can_manage_employee(request.user, target, perm):
+                    return func(self, request, *args, **kwargs)
+                return forbidden()
+            # No employee named: only a real permission holder or an admin.
+            from base.roles import is_checkin_admin
+
+            if request.user.has_perm(perm) or is_checkin_admin(request.user):
+                return func(self, request, *args, **kwargs)
+            return forbidden()
 
         return wrapper
 

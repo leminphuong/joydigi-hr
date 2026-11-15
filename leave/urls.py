@@ -1,6 +1,8 @@
 from django import views
 from django.apps import apps
 from django.urls import path
+
+from leave import cancellation_views
 from django.views.generic import RedirectView
 
 from base.cbv import company_leaves, holidays
@@ -205,6 +207,17 @@ urlpatterns = [
         name="leave-requests-bulk-reject",
     ),
     path("request-cancel/<int:id>/", views.leave_request_cancel, name="request-cancel"),
+    # 2026-11-13: cancelling an approved leave needs a manager/HR decision.
+    path(
+        "cancellation-requests/",
+        cancellation_views.cancellation_requests_view,
+        name="leave-cancellation-requests",
+    ),
+    path(
+        "cancellation-requests/<int:pk>/<str:decision>/",
+        cancellation_views.cancellation_request_decide,
+        name="leave-cancellation-decide",
+    ),
     path(
         "request-cancel/<int:id>/<int:emp_id>/",
         views.leave_request_cancel,

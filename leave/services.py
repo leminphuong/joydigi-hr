@@ -503,6 +503,8 @@ def shared_fund_summaries(employee, year=None):
             employee_id=employee, leave_type_id__in=[t.pk for t in types], status="approved", start_date__year=year
         ).aggregate(total=Sum("requested_days"))["total"] or 0
         remaining = (row.available_days or 0) + (row.carryforward_days or 0)
+        from leave import monthly_limit
+
         summaries.append(
             {
                 "title": f"Quỹ phép năm {year}",
@@ -511,6 +513,12 @@ def shared_fund_summaries(employee, year=None):
                 "used": float(used),
                 "pending": pending_shared_days(employee, row.leave_type_id),
                 "granted": remaining + float(used),
+                # The monthly usage limit (2026-11-15): this month and the
+                # next two, so a request for next month shows its room too.
+                "monthly_limit": monthly_limit.limit_days() if monthly_limit.is_limited(row.leave_type_id) else None,
+                "months": monthly_limit.months_ahead(employee, row.leave_type_id)
+                if monthly_limit.is_limited(row.leave_type_id)
+                else [],
             }
         )
     return summaries

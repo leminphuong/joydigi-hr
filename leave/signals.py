@@ -40,37 +40,40 @@ if apps.is_installed("attendance"):
         if instance.status == "approved":
             for date in period_dates:
                 try:
-                    work_entry = WorkRecords.objects.entire().filter(
-                        date=date,
-                        employee_id=instance.employee_id,
-                    ).first() or WorkRecords()
-                    work_entry.employee_id = instance.employee_id
-                    work_entry.is_leave_record = True
-                    work_entry.leave_request_id = instance
-                    work_entry.day_percentage = (
-                        0.50
-                        if instance.start_date == date
-                        and instance.start_date_breakdown == "first_half"
-                        or instance.end_date == date
-                        and instance.end_date_breakdown == "second_half"
-                        else 0.00
-                    )
-                    status = (
-                        "CONF"
-                        if instance.start_date == date
-                        and instance.start_date_breakdown == "first_half"
-                        or instance.end_date == date
-                        and instance.end_date_breakdown == "second_half"
-                        else "ABS"
-                    )
-                    work_entry.work_record_type = status
-                    work_entry.date = date
-                    work_entry.message = (
-                        "Leave"
-                        if status == "ABS"
-                        else _("Half day Attendance need to validate")
-                    )
-                    work_entry.save()
+                    # A savepoint (2026-11-13): approvals now run inside a
+                    # transaction, and a failed write here must not abort it.
+                    with transaction.atomic():
+                        work_entry = WorkRecords.objects.entire().filter(
+                            date=date,
+                            employee_id=instance.employee_id,
+                        ).first() or WorkRecords()
+                        work_entry.employee_id = instance.employee_id
+                        work_entry.is_leave_record = True
+                        work_entry.leave_request_id = instance
+                        work_entry.day_percentage = (
+                            0.50
+                            if instance.start_date == date
+                            and instance.start_date_breakdown == "first_half"
+                            or instance.end_date == date
+                            and instance.end_date_breakdown == "second_half"
+                            else 0.00
+                        )
+                        status = (
+                            "CONF"
+                            if instance.start_date == date
+                            and instance.start_date_breakdown == "first_half"
+                            or instance.end_date == date
+                            and instance.end_date_breakdown == "second_half"
+                            else "ABS"
+                        )
+                        work_entry.work_record_type = status
+                        work_entry.date = date
+                        work_entry.message = (
+                            "Leave"
+                            if status == "ABS"
+                            else _("Half day Attendance need to validate")
+                        )
+                        work_entry.save()
 
                 except Exception as e:
                     print(e)
@@ -90,6 +93,25 @@ if apps.is_installed("attendance"):
         work_records = WorkRecords._base_manager.filter(
             leave_request_id=instance
         ).delete()
+
+
+@receiver(pre_delete, sender=LeaveRequest)
+def give_back_days_of_deleted_leave(sender, instance, **kwargs):
+    """A deleted leave gives back the days it recorded as taken, once
+    (2026-11-13). Every delete path — web, API, bulk, admin — used to drop
+    an approved leave and keep its days taken for good. The row is read again
+    under its lock, so an approval racing the delete is seen."""
+    from leave.balance_ops import lock_balance, refund_for_request, relock
+
+    if not instance.pk:
+        return
+    with transaction.atomic():
+        try:
+            current = relock(instance)
+        except LeaveRequest.DoesNotExist:
+            return
+        if current.approved_available_days or current.approved_carryforward_days:
+            refund_for_request(current, lock_balance(current.employee_id, current.leave_type_id))
 
 
 # @receiver(post_migrate)

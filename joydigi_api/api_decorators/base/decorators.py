@@ -37,7 +37,9 @@ def employee_from_data(request, key="employee_id"):
         raw = raw[0] if raw else None
     if hasattr(raw, "pk"):
         raw = raw.pk
-    return Employee.objects.filter(pk=raw).first() if str(raw or "").strip().isdigit() else None
+    # ASCII digits only (2026-11-14): "²".isdigit() is True and made a 500.
+    text = str(raw or "").strip()
+    return Employee.objects.filter(pk=int(text)).first() if text.isascii() and text.isdigit() else None
 
 
 def forbidden(message=None):

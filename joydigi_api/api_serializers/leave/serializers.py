@@ -92,6 +92,30 @@ def leave_Validations(self, data):
             _("Employee doesn't have enough leave days..")
         )
 
+    # At most LEAVE_MONTHLY_USAGE_LIMIT_DAYS of the shared fund used per
+    # calendar month (2026-11-15), same rule as the web. The fund's balance
+    # row is locked above, so two requests at once wait for each other.
+    from leave import monthly_limit
+
+    if start_date and end_date and start_date <= end_date:
+        exclude_pk = getattr(self.instance, "pk", None)
+        candidate_changes = True
+        if self.instance is not None:
+            candidate = LeaveRequest(
+                pk=self.instance.pk, employee_id=employee, leave_type_id=leave_type_id,
+                start_date=start_date, end_date=end_date, start_date_breakdown=start_date_breakdown,
+                end_date_breakdown=end_date_breakdown, status=self.instance.status,
+            )
+            candidate_changes = monthly_limit.adds_usage(candidate)
+        if candidate_changes:
+            problem = monthly_limit.monthly_limit_problem(
+                employee, leave_type_id, start_date, end_date, start_date_breakdown, end_date_breakdown,
+                exclude_pk=exclude_pk,
+            )
+            if problem:
+                # Same shape as the balance error: every app build shows it.
+                raise serializers.ValidationError(problem, code="monthly_limit")
+
     if leave_type_id.require_attachment == "yes" and attachment == None:
         errors["attachment"] = [_("This field is required.")]
 
@@ -232,7 +256,21 @@ class EmployeeLeaveOptionSerializer(GetAvailableLeaveTypeSerializer):
             "used_days_this_year": used,
             "remaining_days": remaining,
             "pending_days": pending_shared_days(obj.employee_id, fund["fund_type"]),
+            # 2026-11-15: at most `limit_days` used per calendar month; this
+            # month and the next two. Old apps ignore the key.
+            "monthly_limit": _monthly_limit(obj.employee_id, fund["fund_type"]),
         }
+
+
+def _monthly_limit(employee, fund_type):
+    from leave import monthly_limit
+
+    if not monthly_limit.is_limited(fund_type):
+        return None
+    return {
+        "limit_days": monthly_limit.limit_days(),
+        "months": monthly_limit.months_ahead(employee, fund_type),
+    }
 
 
 def _shared_fund_used_days(obj, fund):
@@ -275,6 +313,8 @@ class UnassignedLeaveTypeSerializer(serializers.ModelSerializer):
 
 class userLeaveRequestGetAllSerilaizer(serializers.ModelSerializer):
     leave_type_id = serializers.SerializerMethodField()
+    # 2026-11-13: the newest cancellation request, or null (additive).
+    cancellation = serializers.SerializerMethodField()
 
     class Meta:
         model = LeaveRequest
@@ -295,9 +335,16 @@ class userLeaveRequestGetAllSerilaizer(serializers.ModelSerializer):
             return LeaveTypeAllGetSerializer(obj.leave_type_id).data
         return None
 
+    def get_cancellation(self, obj):
+        from leave.cancellation import cancellation_json, latest_cancellation
+
+        return cancellation_json(latest_cancellation(obj))
+
 
 class UserLeaveRequestGetSerilaizer(serializers.ModelSerializer):
     leave_type_id = serializers.SerializerMethodField()
+    # 2026-11-13: the newest cancellation request, or null (additive).
+    cancellation = serializers.SerializerMethodField()
 
     class Meta:
         model = LeaveRequest
@@ -315,6 +362,11 @@ class UserLeaveRequestGetSerilaizer(serializers.ModelSerializer):
         if obj.leave_type_id:
             return LeaveTypeAllGetSerializer(obj.leave_type_id).data
         return None
+
+    def get_cancellation(self, obj):
+        from leave.cancellation import cancellation_json, latest_cancellation
+
+        return cancellation_json(latest_cancellation(obj))
 
 
 class LeaveRequestCreateUpdateSerializer(serializers.ModelSerializer):

@@ -1,0 +1,9 @@
+{% if waiting %}
+<div class="d-flex align-items-center gap-2">
+    <span class="oh-badge oh-badge--warning">Chờ duyệt hủy</span>
+    <span class="text-muted">{{ waiting.reason|default:"" }}</span>
+    <a href="{% url 'leave-cancellation-requests' %}#cancellation-{{ waiting.pk }}" class="oh-btn oh-btn--secondary oh-btn--small">Xử lý yêu cầu hủy</a>
+</div>
+{% else %}
+<span>{{ instance.cancellation_status_display }}</span>
+{% endif %}

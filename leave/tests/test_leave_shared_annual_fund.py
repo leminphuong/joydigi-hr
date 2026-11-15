@@ -17,6 +17,7 @@ from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import connection
+from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -212,6 +213,9 @@ class SharedAnnualFundTests(SharedFundFixtures):
             admin_rows_before, "the rejecting manager's balance is untouched",
         )
 
+    # 5-day requests in one month: the monthly usage limit (2026-11-15) is
+    # off here so the balance hold is what is tested, as before.
+    @override_settings(LEAVE_MONTHLY_USAGE_LIMIT_DAYS=0)
     def test_09_no_request_over_the_shared_balance_pending_included(self):
         self.convert(expect=2)  # 11 left
         self.assertEqual(self.ask(self.monthly, NEXT_MONDAY, days=12).status_code, 400)

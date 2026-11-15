@@ -61,7 +61,9 @@ class LeaveRequestApproveBalanceTests(TestCase):
         self.assertEqual(req.approved_available_days, 3)
         self.assertEqual(req.status, "approved")
 
-    def test_approve_dips_into_carryforward(self):
+    def test_approve_uses_carryforward_first(self):
+        # 2026-11-13: one order everywhere — the web approval's — the
+        # carry-forward (it expires first), then the year's days.
         avail = self.AvailableLeave.objects.create(
             employee_id=self.employee,
             leave_type_id=self.leave_type,
@@ -72,10 +74,10 @@ class LeaveRequestApproveBalanceTests(TestCase):
         req = self._request(3)
         req.no_approval()
         avail.refresh_from_db()
-        self.assertEqual(avail.available_days, 0)
-        self.assertEqual(avail.carryforward_days, 2)
-        self.assertEqual(req.approved_available_days, 1)
-        self.assertEqual(req.approved_carryforward_days, 2)
+        self.assertEqual(avail.available_days, 1)
+        self.assertEqual(avail.carryforward_days, 1)
+        self.assertEqual(req.approved_available_days, 0)
+        self.assertEqual(req.approved_carryforward_days, 3)
         self.assertEqual(req.status, "approved")
 
     def test_insufficient_balance_gate_blocks(self):

@@ -1,0 +1,99 @@
+{% extends 'index.html' %}
+{% load i18n %}
+{% block content %}
+{# 2026-11-13: cancellation requests of approved leaves, for the people who may decide them. #}
+<section class="oh-wrapper oh-main__topbar">
+    <div class="oh-main__titlebar oh-main__titlebar--left">
+        <h1 class="oh-main__titlebar-title fw-bold">Duyệt yêu cầu hủy phép</h1>
+    </div>
+</section>
+<div class="oh-wrapper">
+    <p class="text-muted mb-3">
+        Đơn đã duyệt vẫn có hiệu lực, và số ngày phép vẫn bị trừ, cho tới khi yêu cầu hủy được chấp thuận.
+        Chấp thuận sẽ chuyển đơn sang <strong>Đã hủy</strong> và hoàn đúng số ngày đã trừ.
+    </p>
+
+    <h2 class="h5 mt-3">Đang chờ xử lý ({{ waiting|length }})</h2>
+    {% if waiting %}
+    <div class="oh-sticky-table">
+        <div class="oh-sticky-table__table">
+            <div class="oh-sticky-table__thead">
+                <div class="oh-sticky-table__tr">
+                    <div class="oh-sticky-table__th">Nhân viên</div>
+                    <div class="oh-sticky-table__th">Loại phép</div>
+                    <div class="oh-sticky-table__th">Thời gian nghỉ</div>
+                    <div class="oh-sticky-table__th">Số ngày</div>
+                    <div class="oh-sticky-table__th">Lý do hủy</div>
+                    <div class="oh-sticky-table__th">Gửi lúc</div>
+                    <div class="oh-sticky-table__th">Xử lý</div>
+                </div>
+            </div>
+            <div class="oh-sticky-table__tbody">
+                {% for row in waiting %}
+                <div class="oh-sticky-table__tr" id="cancellation-{{ row.pk }}">
+                    <div class="oh-sticky-table__td">{{ row.leave_request.employee_id.get_full_name }}</div>
+                    <div class="oh-sticky-table__td">{{ row.leave_request.leave_type_id }}</div>
+                    <div class="oh-sticky-table__td">{{ row.leave_request.start_date|date:"d/m/Y" }} – {{ row.leave_request.end_date|date:"d/m/Y" }}</div>
+                    <div class="oh-sticky-table__td">{{ row.leave_request.requested_days }}</div>
+                    <div class="oh-sticky-table__td">{{ row.reason|default:"—" }}</div>
+                    <div class="oh-sticky-table__td">{{ row.created_at|date:"d/m/Y H:i" }}</div>
+                    <div class="oh-sticky-table__td">
+                        <form method="post" action="{% url 'leave-cancellation-decide' row.pk 'approve' %}"
+                              onsubmit="return confirm('Chấp thuận hủy đơn này? Đơn sẽ chuyển sang Đã hủy và số ngày phép sẽ được hoàn.');"
+                              class="d-flex gap-1 mb-1">
+                            {% csrf_token %}
+                            <input type="text" name="reason" class="oh-input" placeholder="Ghi chú (không bắt buộc)" maxlength="1000">
+                            <button type="submit" class="oh-btn oh-btn--success oh-btn--small">Chấp thuận hủy</button>
+                        </form>
+                        <form method="post" action="{% url 'leave-cancellation-decide' row.pk 'reject' %}"
+                              onsubmit="return confirm('Từ chối yêu cầu hủy? Đơn vẫn có hiệu lực, số ngày phép không đổi.');"
+                              class="d-flex gap-1">
+                            {% csrf_token %}
+                            <input type="text" name="reason" class="oh-input" placeholder="Lý do từ chối" maxlength="1000">
+                            <button type="submit" class="oh-btn oh-btn--danger oh-btn--small">Từ chối hủy</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="oh-wrapper text-center p-4 text-muted">Không có yêu cầu hủy nào cần bạn xử lý.</div>
+    {% endif %}
+
+    <h2 class="h5 mt-4">Đã xử lý gần đây</h2>
+    {% if decided %}
+    <div class="oh-sticky-table">
+        <div class="oh-sticky-table__table">
+            <div class="oh-sticky-table__thead">
+                <div class="oh-sticky-table__tr">
+                    <div class="oh-sticky-table__th">Nhân viên</div>
+                    <div class="oh-sticky-table__th">Thời gian nghỉ</div>
+                    <div class="oh-sticky-table__th">Kết quả</div>
+                    <div class="oh-sticky-table__th">Ngày hoàn</div>
+                    <div class="oh-sticky-table__th">Người xử lý</div>
+                    <div class="oh-sticky-table__th">Lúc</div>
+                    <div class="oh-sticky-table__th">Ghi chú / lý do</div>
+                </div>
+            </div>
+            <div class="oh-sticky-table__tbody">
+                {% for row in decided %}
+                <div class="oh-sticky-table__tr">
+                    <div class="oh-sticky-table__td">{{ row.leave_request.employee_id.get_full_name }}</div>
+                    <div class="oh-sticky-table__td">{{ row.leave_request.start_date|date:"d/m/Y" }} – {{ row.leave_request.end_date|date:"d/m/Y" }}</div>
+                    <div class="oh-sticky-table__td">{{ row.get_status_display }}</div>
+                    <div class="oh-sticky-table__td">{% if row.status == 'approved' %}{{ row.refunded_available_days|add:row.refunded_carryforward_days }}{% else %}—{% endif %}</div>
+                    <div class="oh-sticky-table__td">{{ row.decided_by.get_full_name|default:"—" }}</div>
+                    <div class="oh-sticky-table__td">{{ row.decided_at|date:"d/m/Y H:i" }}</div>
+                    <div class="oh-sticky-table__td">{{ row.decision_reason|default:"—" }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="oh-wrapper text-center p-4 text-muted">Chưa có yêu cầu hủy nào được xử lý.</div>
+    {% endif %}
+</div>
+{% endblock content %}

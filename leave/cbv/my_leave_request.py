@@ -8,7 +8,7 @@ from typing import Any
 
 from django.contrib import messages
 from django.db.models import Q
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import render
 from django.urls import resolve, reverse, reverse_lazy
 from django.utils.decorators import method_decorator
@@ -31,6 +31,8 @@ from leave.methods import (
     company_leave_dates_list,
     holiday_dates_list,
 )
+from leave.balance_ops import EDIT_REFUSED, approve_without_review, edit_refusal, save_edited_leave
+from leave.monthly_limit import LeaveRuleError
 from leave.models import AvailableLeave, LeaveRequest, LeaveType, leave_requested_dates, balance_leave_type
 from leave.threading import LeaveMailSendThread
 from notifications.signals import notify
@@ -256,6 +258,7 @@ class MyLeaveRequestDetailView(JoydigiDetailedView):
         (_("Start Date"), "start_date"),
         (_("End Date"), "end_date"),
         (_("Status"), "get_status_display"),
+        ("Yêu cầu hủy", "cancellation_status_display"),
         (_("Description"), "description"),
         (_("Reason for Rejection"), "rejected_action", True),
         (_("View attachment"), "attachment_action", True),
@@ -280,6 +283,19 @@ class MyLeaveRequestForm(JoydigiFormView):
     #     emp = self.request.user.employee_get
     #     initial["employee_id"] = emp
     #     return initial
+
+    def get_queryset(self):
+        """The leave being edited — only the employee's OWN (2026-11-14).
+
+        A colleague's leave, even with its id, is not found: 404 on GET and
+        POST alike, before any form is built from it."""
+        pk = self.kwargs.get("pk")
+        if not pk:
+            return None  # a new request
+        own = LeaveRequest.objects.filter(pk=pk, employee_id=self.request.user.employee_get).first()
+        if own is None:
+            raise Http404("Không tìm thấy đơn nghỉ phép.")
+        return own
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -335,6 +351,9 @@ class MyLeaveRequestForm(JoydigiFormView):
             )
             if form.instance.pk:
                 leave_request = form.save(commit=False)
+                # Never the employee_id of the POST (a hidden field): the
+                # leave stays its owner's (2026-11-14).
+                leave_request.employee_id = emp
 
                 start_date = leave_request.start_date
                 end_date = leave_request.end_date
@@ -384,10 +403,15 @@ class MyLeaveRequestForm(JoydigiFormView):
                         )
                         requested_days = requested_days - company_leave_count
                 if requested_days <= available_total_leave:
-                    leave_request.save()
-                    messages.success(
-                        self.request, _("Leave request updated successfully")
-                    )
+                    # Only a leave still waiting may be edited by its
+                    # employee, and never over a decision committed
+                    # meanwhile (2026-11-13, P1-2).
+                    if save_edited_leave(leave_request, only_if_status="requested", owner_id=emp.id):
+                        messages.success(
+                            self.request, _("Leave request updated successfully")
+                        )
+                    else:
+                        messages.error(self.request, edit_refusal(leave_request))
                 else:
                     form.add_error(
                         None,
@@ -399,41 +423,16 @@ class MyLeaveRequestForm(JoydigiFormView):
                         # if form.instance.pk:
                         leave_request = form.save(commit=False)
                         save = True
-                        if leave_request.leave_type_id.require_approval == "no":
-                            employee_id = leave_request.employee_id
-                            leave_type_id = leave_request.leave_type_id
-                            available_leave = AvailableLeave.objects.get(
-                                leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
-                            )
-                            if (
-                                leave_request.requested_days
-                                > available_leave.available_days
-                            ):
-                                leave = (
-                                    leave_request.requested_days
-                                    - available_leave.available_days
-                                )
-                                leave_request.approved_available_days = (
-                                    available_leave.available_days
-                                )
-                                available_leave.available_days = 0
-                                available_leave.carryforward_days = (
-                                    available_leave.carryforward_days - leave
-                                )
-                                leave_request.approved_carryforward_days = leave
-                            else:
-                                available_leave.available_days = (
-                                    available_leave.available_days
-                                    - leave_request.requested_days
-                                )
-                                leave_request.approved_available_days = (
-                                    leave_request.requested_days
-                                )
-                            leave_request.status = "approved"
-                            available_leave.save()
+                        auto_approve = leave_request.leave_type_id.require_approval == "no"  # approved under locks once saved (2026-11-13)
                         if save:
                             leave_request.created_by = self.request.user.employee_get
-                            leave_request.save()
+                            try:
+                                leave_request.save()
+                            except LeaveRuleError as refused:  # lost a race under the fund's lock (2026-11-15)
+                                messages.error(self.request, " ".join(refused.messages))
+                                return self.HttpResponse()
+                            if auto_approve:
+                                approve_without_review(leave_request)
                             messages.success(
                                 self.request,
                                 _("Leave request created successfully"),
@@ -571,38 +570,16 @@ class MyLeaveRequestSingleForm(JoydigiFormView):
                 leave_request.leave_type_id = leave_type
                 leave_request.employee_id = employee
 
-                if leave_request.leave_type_id.require_approval == "no":
-                    employee_id = leave_request.employee_id
-                    leave_type_id = leave_request.leave_type_id
-                    available_leave = AvailableLeave.objects.get(
-                        leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
-                    )
-                    if leave_request.requested_days > available_leave.available_days:
-                        leave = (
-                            leave_request.requested_days
-                            - available_leave.available_days
-                        )
-                        leave_request.approved_available_days = (
-                            available_leave.available_days
-                        )
-                        available_leave.available_days = 0
-                        available_leave.carryforward_days = (
-                            available_leave.carryforward_days - leave
-                        )
-                        leave_request.approved_carryforward_days = leave
-                    else:
-                        available_leave.available_days = (
-                            available_leave.available_days
-                            - leave_request.requested_days
-                        )
-                        leave_request.approved_available_days = (
-                            leave_request.requested_days
-                        )
-                    leave_request.status = "approved"
-                    available_leave.save()
+                auto_approve = leave_request.leave_type_id.require_approval == "no"  # approved under locks once saved (2026-11-13)
                 if save:
                     leave_request.created_by = employee
-                    leave_request.save()
+                    try:
+                        leave_request.save()
+                    except LeaveRuleError as refused:  # lost a race under the fund's lock (2026-11-15)
+                        messages.error(self.request, " ".join(refused.messages))
+                        return self.HttpResponse()
+                    if auto_approve:
+                        approve_without_review(leave_request)
                     messages.success(
                         self.request, _("Leave request created successfully")
                     )

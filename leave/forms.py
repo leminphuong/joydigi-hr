@@ -930,21 +930,33 @@ class LeaveAllocationBulkForm(BaseModelForm):
         the allocation request as approved, mirroring the logic in
         leave.views.leave_allocation_request_approve.
         """
-        employee = allocation_request.employee_id
-        available_leave = employee.available_leave.filter(
-            leave_type_id=balance_leave_type(allocation_request.leave_type_id)
-        ).first()
-        if not available_leave:
-            available_leave = AvailableLeave(
-                leave_type_id=allocation_request.leave_type_id,
-                employee_id=employee,
+        from django.db import transaction
+
+        from leave.balance_ops import relock
+
+        with transaction.atomic():
+            # Locked and checked again (2026-11-13): approving the same
+            # allocation twice at once must add its days once.
+            allocation_request = relock(allocation_request)
+            if allocation_request is None or allocation_request.status != "requested":
+                return
+            employee = allocation_request.employee_id
+            fund_type = balance_leave_type(allocation_request.leave_type_id)
+            available_leave = (
+                AvailableLeave._base_manager.select_for_update()
+                .filter(employee_id=employee, leave_type_id=fund_type)
+                .first()
             )
-        available_leave.available_days = (
-            available_leave.available_days or 0
-        ) + allocation_request.requested_days
-        available_leave.save()
-        allocation_request.status = "approved"
-        allocation_request.save()
+            if not available_leave:
+                # The fund's own type when the type shares one (was the
+                # requested type, which then held days nobody could use).
+                available_leave = AvailableLeave(leave_type_id=fund_type, employee_id=employee)
+            available_leave.available_days = (
+                available_leave.available_days or 0
+            ) + allocation_request.requested_days
+            available_leave.save()
+            allocation_request.status = "approved"
+            allocation_request.save()
 
 
 class LeaveAllocationRequestRejectForm(forms.Form):

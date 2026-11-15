@@ -34,6 +34,11 @@ SUBMENUS = [
         "accessibility": "leave.sidebar.leave_request_accessibility",
     },
     {
+        "menu": _("Duyệt yêu cầu hủy"),
+        "redirect": reverse_lazy("leave-cancellation-requests"),
+        "accessibility": "leave.sidebar.cancellation_accessibility",
+    },
+    {
         "menu": _("Xin cấp ngày nghỉ"),
         "redirect": reverse_lazy("leave-allocation-request-view"),
     },
@@ -69,6 +74,18 @@ def dashboard_accessibility(request, submenu, user_perms, *args, **kwargs):
             reverse_lazy("leave-employee-dashboard") + "?dashboard=true"
         )
     return True
+
+
+def cancellation_accessibility(request, submenu, user_perms, *args, **kwargs):
+    """Who may decide cancellation requests (2026-11-13): reporting managers,
+    HR with the leave permission, check-in admins."""
+    from base.roles import is_checkin_admin
+
+    return (
+        request.user.has_perm("leave.change_leaverequest")
+        or is_checkin_admin(request.user)
+        or is_reportingmanager(request.user)
+    )
 
 
 def leave_request_accessibility(request, submenu, user_perms, *args, **kwargs):

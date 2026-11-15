@@ -12,6 +12,21 @@ two cards with the same days never read as two funds.
             <div class="col-span-3"><p>Đang chờ duyệt</p><p class="text-sm font-bold">{{ fund.pending|floatformat:"-2" }} ngày</p></div>
             <div class="col-span-3"><p>Còn lại</p><p class="text-sm font-bold" data-testid="shared-fund-remaining">{{ fund.remaining|floatformat:"-2" }} ngày</p></div>
         </div>
+        {% if fund.monthly_limit %}
+        {% comment %}2026-11-15: at most fund.monthly_limit days used per calendar month.{% endcomment %}
+        <div class="mt-3 text-xs text-dark-200" data-testid="monthly-limit">
+            <p class="mb-1">Giới hạn sử dụng: tối đa <strong>{{ fund.monthly_limit|floatformat:"-2" }} ngày/tháng</strong> (đã duyệt và đang chờ duyệt đều được tính).</p>
+            <div class="grid grid-cols-12 gap-3">
+                {% for month in fund.months %}
+                <div class="col-span-4" data-testid="monthly-limit-month">
+                    <p>Tháng {{ month.month|stringformat:"02d" }}/{{ month.year }}</p>
+                    <p>Đã dùng / đang giữ: <strong>{{ month.held_days|floatformat:"-2" }}</strong> ngày</p>
+                    <p>Còn đăng ký được: <strong data-testid="monthly-limit-remaining">{{ month.remaining_days|floatformat:"-2" }}</strong> ngày</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
         <p class="mt-2 text-xs">
             Tạo đơn bằng
             {% for leave_type in fund.types %}<strong>{{ leave_type.name }}</strong>{% if not forloop.last %} hoặc {% endif %}{% endfor %}:

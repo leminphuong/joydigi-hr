@@ -18,23 +18,30 @@ def leave_reset():
         # Looping through all available leaves
         available_leaves = leave_type.employee_available_leave.all()
 
-        for available_leave in available_leaves:
-            reset_date = available_leave.reset_date
-            expired_date = available_leave.expired_date
-            if reset_date == today_date:
-                available_leave.update_carryforward()
-                # new_reset_date = available_leave.set_reset_date(assigned_date=today_date,available_leave = available_leave)
-                new_reset_date = available_leave.set_reset_date(
-                    assigned_date=today_date, available_leave=available_leave
-                )
-                available_leave.reset_date = new_reset_date
-                available_leave.save()
-            if expired_date and expired_date <= today_date:
-                new_expired_date = available_leave.set_expired_date(
-                    available_leave=available_leave, assigned_date=today_date
-                )
-                available_leave.expired_date = new_expired_date
-                available_leave.save()
+        for listed in available_leaves:
+            # One row at a time, locked and read again (2026-11-13): an
+            # approval at the same moment can not be overwritten by the reset.
+            from django.db import transaction
+
+            from leave.balance_ops import relock
+
+            with transaction.atomic():
+                available_leave = relock(listed)
+                reset_date = available_leave.reset_date
+                expired_date = available_leave.expired_date
+                if reset_date == today_date:
+                    available_leave.update_carryforward()
+                    new_reset_date = available_leave.set_reset_date(
+                        assigned_date=today_date, available_leave=available_leave
+                    )
+                    available_leave.reset_date = new_reset_date
+                    available_leave.save()
+                if expired_date and expired_date <= today_date:
+                    new_expired_date = available_leave.set_expired_date(
+                        available_leave=available_leave, assigned_date=today_date
+                    )
+                    available_leave.expired_date = new_expired_date
+                    available_leave.save()
 
         if (
             leave_type.carryforward_expire_date

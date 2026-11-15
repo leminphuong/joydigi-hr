@@ -54,20 +54,11 @@ def create_deduction_cutleave_from_penalty(sender, instance, created, **kwargs):
             and instance.leave_type_id
             and instance.minus_leaves
         ):
-            from leave.models import balance_leave_type
+            # Locked, never below zero, and what was really taken is
+            # recorded for the delete below (2026-11-13).
+            from leave.balance_ops import deduct_penalty
 
-            available = instance.employee_id.available_leave.filter(
-                leave_type_id=balance_leave_type(instance.leave_type_id)
-            ).first()
-            unit = round(instance.minus_leaves * 2) / 2
-            if not instance.deduct_from_carry_forward:
-                available.available_days = max(0, (available.available_days - unit))
-            else:
-                available.carryforward_days = max(
-                    0, (available.carryforward_days - unit)
-                )
-
-            available.save()
+            deduct_penalty(instance)
 
 
 @receiver(post_delete, sender=PenaltyAccounts)
@@ -109,21 +100,10 @@ def delete_deduction_cutleave_from_penalty(sender, instance, **kwargs):
             deduction.delete()
 
     if apps.is_installed("leave") and instance.leave_type_id and instance.minus_leaves:
-        from leave.models import balance_leave_type
+        # Gives back exactly what the penalty took, once (2026-11-13).
+        from leave.balance_ops import restore_penalty
 
-        available = instance.employee_id.available_leave.filter(
-            leave_type_id=balance_leave_type(instance.leave_type_id)
-        ).first()
-        if available:
-            unit = round(instance.minus_leaves * 2) / 2
-            if not instance.deduct_from_carry_forward:
-                available.available_days += unit  # Restore the deducted days
-            else:
-                available.carryforward_days += (
-                    unit  # Restore the deducted carryforward days
-                )
-
-            available.save()
+        restore_penalty(instance)
 
 
 # @receiver(post_migrate)

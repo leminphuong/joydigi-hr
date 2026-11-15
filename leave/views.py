@@ -17,7 +17,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import ProtectedError, Q
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -56,6 +56,8 @@ from joydigi.decorators import (
 from joydigi.group_by import group_by_queryset
 from joydigi.http.response import JoydigiRedirect
 from joydigi.methods import get_joydigi_model_class, remove_dynamic_url
+from leave.balance_ops import approve_without_review
+from leave.balance_ops import relock
 from leave.decorators import *
 from leave.filters import *
 from leave.forms import *
@@ -69,6 +71,28 @@ from leave.methods import (
 )
 from leave.models import *
 from leave.models import balance_leave_type, leave_requested_dates
+from leave.request_access import (
+    COMP_CHANGE_PERM,
+    COMP_DELETE_PERM,
+    DECIDED,
+    DECIDED_MESSAGE,
+    DELETE_PERM,
+    DELETED,
+    MISSING,
+    deletable_attachments,
+    delete_waiting_leave,
+    is_admin_for,
+    may_add_comment,
+    may_attach_to,
+    may_delete_comment,
+    may_manage_employee,
+    may_manage_leave,
+    may_read_comments,
+    may_view_compensatory,
+    may_view_leave,
+    requested_ids,
+    whole_number,
+)
 from leave.services import compensatory_leave_type_for, evaluate_leave_type_conditions
 from leave.threading import LeaveMailSendThread
 from notifications.signals import notify
@@ -461,39 +485,12 @@ def leave_request_creation(request, type_id=None, emp_id=None):
             leave_request = form.save(commit=False)
             save = True
 
-            if leave_request.leave_type_id.require_approval == "no":
-                employee_id = leave_request.employee_id
-                leave_type_id = leave_request.leave_type_id
-                available_leave = AvailableLeave.objects.get(
-                    leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
-                )
-                leave_request.created_by = request.user.employee_get
-                leave_request.save()
-                if leave_request.requested_days > available_leave.available_days:
-                    leave = (
-                        leave_request.requested_days - available_leave.available_days
-                    )
-                    leave_request.approved_available_days = (
-                        available_leave.available_days
-                    )
-                    available_leave.available_days = 0
-                    available_leave.carryforward_days = (
-                        available_leave.carryforward_days - leave
-                    )
-                    leave_request.approved_carryforward_days = leave
-                else:
-                    available_leave.available_days = (
-                        available_leave.available_days - leave_request.requested_days
-                    )
-                    leave_request.approved_available_days = leave_request.requested_days
-                leave_request.status = "approved"
+            auto_approve = leave_request.leave_type_id.require_approval == "no"  # approved under locks once saved (2026-11-13)
             if save:
                 leave_request.created_by = request.user.employee_get
                 leave_request.save()
-                try:
-                    available_leave.save()
-                except:
-                    pass
+                if auto_approve:
+                    approve_without_review(leave_request)
 
                 if multiple_approvals_check(leave_request.id):
                     conditional_requests = multiple_approvals_check(leave_request.id)
@@ -978,16 +975,28 @@ def leave_request_delete(request, id):
 
     Returns:
     GET : return leave request view template
+
+    Any reporting manager enters; only a leave of someone the caller may
+    manage (HR/Admin of the company, the reporting manager) is deleted, and
+    only while it waits — both checked on the locked row (2026-11-14).
     """
     previous_data = request.GET.urlencode()
+    outcome = None
     try:
-        leave_request = LeaveRequest.objects.get(id=id)
-        messages.success(request, _("Leave request deleted successfully.."))
-        leave_request.delete()
-    except (LeaveRequest.DoesNotExist, OverflowError, ValueError):
-        messages.error(request, _("Leave request not found."))
+        leave_request = LeaveRequest.objects.filter(id=id).first()
+        outcome = MISSING if leave_request is None else delete_waiting_leave(
+            leave_request, lambda row: may_manage_leave(request.user, row, DELETE_PERM)
+        )
+    except (OverflowError, ValueError):
+        outcome = MISSING
     except ProtectedError:
         messages.error(request, _("Related entries exists"))
+    if outcome == DELETED:
+        messages.success(request, _("Leave request deleted successfully.."))
+    elif outcome == DECIDED:
+        messages.error(request, DECIDED_MESSAGE)
+    elif outcome is not None:
+        messages.error(request, _("Leave request not found."))
     hx_target = request.META.get("HTTP_HX_TARGET", None)
     if hx_target == "leaveRequest":
         leave_requests = LeaveRequest.objects.all()
@@ -1000,6 +1009,7 @@ def leave_request_delete(request, id):
 
 @login_required
 @manager_can_enter("leave.change_leaverequest")
+@transaction.atomic  # rows below are locked (2026-11-13)
 def leave_request_approve(request, id, emp_id=None):
     """
     function used to approve a leave request.
@@ -1014,14 +1024,16 @@ def leave_request_approve(request, id, emp_id=None):
     GET : If `emp_id` is provided, it returns to the "/employee/employee-view/{employee_id}/" template after approval.
           Otherwise, it returns to the default leave request view template.
     """
-    leave_request = LeaveRequest.find(id)
+    leave_request = relock(LeaveRequest.objects.filter(id=id).first())
     if not leave_request:
         return JoydigiRedirect(
             request, message=_("No leave rquest found matching the query.")
         )
     employee_id = leave_request.employee_id
     actor = getattr(request.user, "employee_get", None)
-    if not leave_request.multiple_approvals() and not is_checkin_admin(request.user):
+    # A check-in admin of the employee's company (2026-11-14): under "All my
+    # companies" the admin role of any company used to count.
+    if not leave_request.multiple_approvals() and not is_admin_for(request.user, leave_request.employee_id):
         if employee_id.get_reporting_manager() != actor:
             messages.error(request, "Bạn chỉ được duyệt đơn của thành viên trong nhóm mình.")
             return JoydigiRedirect(request)
@@ -1034,7 +1046,7 @@ def leave_request_approve(request, id, emp_id=None):
             return JoydigiRedirect(request)
     leave_type_id = leave_request.leave_type_id
     try:
-        available_leave = AvailableLeave.objects.get(
+        available_leave = AvailableLeave._base_manager.select_for_update().get(
             leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
         )
     except AvailableLeave.DoesNotExist:
@@ -1066,7 +1078,11 @@ def leave_request_approve(request, id, emp_id=None):
     send_notification = False
     approved = False
     error_message = ""
-    if leave_request.status != "approved":
+    # Only a leave waiting for approval (2026-11-13, P1-1): this used to be
+    # `!= "approved"`, so a cancelled leave (withdrawn, or whose cancellation
+    # was approved) or a rejected one came back approved and its days were
+    # taken again. Same rule as the mobile API; the row is locked above.
+    if leave_request.status == "requested":
         if total_available_leave >= leave_request.requested_days:
             if leave_request.requested_days > available_leave.carryforward_days:
                 leave = leave_request.requested_days - available_leave.carryforward_days
@@ -1158,14 +1174,17 @@ def leave_request_approve(request, id, emp_id=None):
                     mail_thread = LeaveMailSendThread(
                         request, leave_request, type="approve"
                     )
-                    mail_thread.start()
+                    transaction.on_commit(mail_thread.start)  # after the locked rows are saved
         else:
             error_message = str(
                 _(f"{employee_id} dont have enough leave days to approve the request..")
             )
             messages.error(request, error_message)
-    else:
+    elif leave_request.status == "approved":
         error_message = str(_("Leave request already approved"))
+        messages.error(request, error_message)
+    else:
+        error_message = "Đơn không còn ở trạng thái chờ duyệt (đã hủy hoặc đã từ chối), không thể duyệt."
         messages.error(request, error_message)
     if request.headers.get("HX-Request"):
         response = HttpResponse("", status=200)
@@ -1256,6 +1275,7 @@ def leave_bulk_reject(request):
 @login_required
 @hx_request_required
 @manager_can_enter("leave.change_leaverequest")
+@transaction.atomic  # rows below are locked (2026-11-13)
 def leave_request_cancel(request, id, emp_id=None):
     """
     function used to Reject leave request.
@@ -1274,7 +1294,7 @@ def leave_request_cancel(request, id, emp_id=None):
     if request.method == "POST":
         form = RejectForm(request.POST)
         if form.is_valid():
-            leave_request = LeaveRequest.objects.get(id=id)
+            leave_request = relock(LeaveRequest.objects.get(id=id))
             current_approval = (
                 LeaveRequestConditionApproval.objects.filter(
                     leave_request_id=leave_request,
@@ -1285,7 +1305,16 @@ def leave_request_cancel(request, id, emp_id=None):
                 .first()
             )
             actor = getattr(request.user, "employee_get", None)
-            if not current_approval and not is_checkin_admin(request.user):
+            # Nobody — a check-in admin or superuser included — rejects their
+            # own leave to get its days back (2026-11-13, P1-4).
+            if (
+                actor is not None
+                and leave_request.employee_id_id == actor.pk
+                and (leave_request.approved_available_days or leave_request.approved_carryforward_days)
+            ):
+                messages.error(request, "Bạn không thể tự từ chối đơn đã duyệt của chính mình để lấy lại ngày phép; hãy gửi yêu cầu hủy để quản lý hoặc HR duyệt.")
+                return JoydigiRedirect(request)
+            if not current_approval and not is_admin_for(request.user, leave_request.employee_id):
                 if leave_request.employee_id.get_reporting_manager() != actor:
                     messages.error(
                         request, "Bạn chỉ được từ chối đơn của thành viên trong nhóm mình."
@@ -1296,7 +1325,7 @@ def leave_request_cancel(request, id, emp_id=None):
                 return JoydigiRedirect(request)
             employee_id = leave_request.employee_id
             leave_type_id = leave_request.leave_type_id
-            available_leave = AvailableLeave.objects.get(
+            available_leave = AvailableLeave._base_manager.select_for_update().get(
                 leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
             )
             if leave_request.status != "rejected":
@@ -1348,7 +1377,7 @@ def leave_request_cancel(request, id, emp_id=None):
                     )
 
                 mail_thread = LeaveMailSendThread(request, leave_request, type="reject")
-                mail_thread.start()
+                transaction.on_commit(mail_thread.start)  # after the locked rows are saved
             else:
                 messages.error(request, _("Leave request already rejected."))
 
@@ -1377,49 +1406,42 @@ def leave_request_cancel(request, id, emp_id=None):
 @hx_request_required
 def user_leave_cancel(request, id):
     """
-    function used to cancel approved leave request by employee.
+    The employee asks to cancel their approved leave (2026-11-13 policy).
 
-    Parameters:
-    request (HttpRequest): The HTTP request object.
-    id : leave request id
-
-    Returns:
-    GET :  it returns to the default my leave request view template.
-
+    The leave stays approved — days still taken — until the reporting manager
+    or HR approves the request (``/leave/cancellation-requests/``). A leave
+    still waiting for approval is simply withdrawn.
     """
-    leave_request = LeaveRequest.objects.get(id=id)
-    employee_id = leave_request.employee_id
-    if employee_id.employee_user_id.id == request.user.id:
-        current_date = date.today()
-        if (
-            leave_request.status == "approved"
-            and leave_request.end_date >= current_date
-        ):
-            form = RejectForm()
-            if request.method == "POST":
-                form = RejectForm(request.POST)
-                if form.is_valid():
-                    leave_request.reject_reason = form.cleaned_data["reason"]
-                    leave_request.status = "cancelled"
-                    leave_request.save()
-                    messages.success(
-                        request, _("Leave request cancelled successfully..")
-                    )
+    from leave.cancellation import CancellationError, request_cancellation
 
-                    mail_thread = LeaveMailSendThread(
-                        request, leave_request, type="cancel"
-                    )
-                    mail_thread.start()
-                    return JoydigiRedirect(request)
-            return render(
-                request,
-                "leave/leave_request/user_cancel_form.html",
-                {"form": form, "id": id},
-            )
-        messages.error(request, _("You can't cancel this leave request."))
+    leave_request = LeaveRequest.objects.filter(id=id).first()
+    if leave_request is None or leave_request.employee_id.employee_user_id_id != request.user.id:
+        messages.error(request, _("You don't have the permission."))
         return JoydigiRedirect(request)
-    messages.error(request, _("You don't have the permission."))
-    return JoydigiRedirect(request)
+    form = RejectForm()
+    if request.method == "POST":
+        form = RejectForm(request.POST)
+        if form.is_valid():
+            try:
+                outcome, _cancellation = request_cancellation(
+                    request.user, leave_request.pk, form.cleaned_data["reason"]
+                )
+            except CancellationError as error:
+                messages.error(request, error.message)
+                return JoydigiRedirect(request)
+            if outcome == "cancelled":
+                messages.success(request, _("Leave request cancelled successfully.."))
+            else:
+                messages.success(
+                    request,
+                    "Đã gửi yêu cầu hủy. Đơn vẫn có hiệu lực cho tới khi quản lý hoặc HR duyệt.",
+                )
+            return JoydigiRedirect(request)
+    return render(
+        request,
+        "leave/leave_request/user_cancel_form.html",
+        {"form": form, "id": id},
+    )
 
 
 @login_required
@@ -1434,20 +1456,28 @@ def one_request_view(request, id):
 
     Returns:
     GET : return one leave request view template
+
+    Any reporting manager enters; only a leave the caller may see is shown
+    (own, someone they may manage, a step they approve) — else 404
+    (2026-11-14).
     """
-    leave_request = LeaveRequest.objects.get(id=id)
+    leave_request = LeaveRequest.objects.filter(id=id).first()
+    if leave_request is None or not may_view_leave(request.user, leave_request):
+        raise Http404("Không tìm thấy đơn nghỉ phép.")
     context = {
         "leave_request": leave_request,
         "current_date": date.today(),
         "dashboard": request.GET.get("dashboard"),
+        "previous": id,
+        "next": id,
     }
     requests_ids_json = request.GET.get("instances_ids")
 
     if requests_ids_json:
-        requests_ids = json.loads(requests_ids_json)
-        previous_id, next_id = closest_numbers(requests_ids, id)
-        context["previous"] = previous_id
-        context["next"] = next_id
+        with contextlib.suppress(TypeError, ValueError):
+            previous_id, next_id = closest_numbers(json.loads(requests_ids_json), id)
+            context["previous"] = previous_id
+            context["next"] = next_id
         context["requests_ids"] = requests_ids_json
     return render(request, "leave/leave_request/one_request_view.html", context)
 
@@ -2429,34 +2459,12 @@ def user_leave_request(request, id):
             leave_request.leave_type_id = leave_type
             leave_request.employee_id = employee
 
-            if leave_request.leave_type_id.require_approval == "no":
-                employee_id = leave_request.employee_id
-                leave_type_id = leave_request.leave_type_id
-                available_leave = AvailableLeave.objects.get(
-                    leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
-                )
-                if leave_request.requested_days > available_leave.available_days:
-                    leave = (
-                        leave_request.requested_days - available_leave.available_days
-                    )
-                    leave_request.approved_available_days = (
-                        available_leave.available_days
-                    )
-                    available_leave.available_days = 0
-                    available_leave.carryforward_days = (
-                        available_leave.carryforward_days - leave
-                    )
-                    leave_request.approved_carryforward_days = leave
-                else:
-                    available_leave.available_days = (
-                        available_leave.available_days - leave_request.requested_days
-                    )
-                    leave_request.approved_available_days = leave_request.requested_days
-                leave_request.status = "approved"
-                available_leave.save()
+            auto_approve = leave_request.leave_type_id.require_approval == "no"  # approved under locks once saved (2026-11-13)
             if save:
                 leave_request.created_by = employee
                 leave_request.save()
+                if auto_approve:
+                    approve_without_review(leave_request)
 
                 if multiple_approvals_check(leave_request.id):
                     conditional_requests = multiple_approvals_check(leave_request.id)
@@ -2659,8 +2667,18 @@ def user_request_delete(request, id):
     try:
         leave_request = LeaveRequest.objects.get(id=id)
         if request.user.employee_get == leave_request.employee_id:
-            messages.success(request, _("Leave request deleted successfully.."))
-            leave_request.delete()
+            # Only a request still waiting may be withdrawn (2026-11-13): an
+            # approved one is cancelled through a cancellation request.
+            with transaction.atomic():
+                locked = relock(leave_request)
+                if locked.status != "requested":
+                    messages.error(
+                        request,
+                        "Đơn đã được xử lý. Đơn đã duyệt cần gửi yêu cầu hủy.",
+                    )
+                else:
+                    locked.delete()
+                    messages.success(request, _("Leave request deleted successfully.."))
     except LeaveRequest.DoesNotExist:
         messages.error(request, _("User has no leave request.."))
     except ProtectedError:
@@ -2882,9 +2900,18 @@ def user_request_one(request, id):
 
     Returns:
     GET : return one user leave request view template
+
+    The caller's own leave, or a leave the caller may see as HR/Admin of the
+    company, reporting manager or step approver (the employee profile's
+    leave tab opens this view too); anything else is not found (2026-11-14).
     """
-    leave_request = LeaveRequest.objects.get(id=id)
+    leave_request = LeaveRequest.objects.filter(id=id).first()
+    if leave_request is None or not may_view_leave(request.user, leave_request):
+        raise Http404("Không tìm thấy đơn nghỉ phép.")
     try:
+        # Without a list (previous / next) the modal used to fail on unset
+        # names and send the user to "/".
+        previous_id = next_id = id
         requests_ids_json = request.GET.get("instances_ids")
         if requests_ids_json:
             requests_ids = json.loads(requests_ids_json)
@@ -3362,38 +3389,12 @@ def leave_request_create(request):
                 leave_request = form.save(commit=False)
                 save = True
 
-                if leave_request.leave_type_id.require_approval == "no":
-                    employee_id = leave_request.employee_id
-                    leave_type_id = leave_request.leave_type_id
-                    available_leave = AvailableLeave.objects.get(
-                        leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
-                    )
-                    if leave_request.requested_days > available_leave.available_days:
-                        leave = (
-                            leave_request.requested_days
-                            - available_leave.available_days
-                        )
-                        leave_request.approved_available_days = (
-                            available_leave.available_days
-                        )
-                        available_leave.available_days = 0
-                        available_leave.carryforward_days = (
-                            available_leave.carryforward_days - leave
-                        )
-                        leave_request.approved_carryforward_days = leave
-                    else:
-                        available_leave.available_days = (
-                            available_leave.available_days
-                            - leave_request.requested_days
-                        )
-                        leave_request.approved_available_days = (
-                            leave_request.requested_days
-                        )
-                    leave_request.status = "approved"
-                    available_leave.save()
+                auto_approve = leave_request.leave_type_id.require_approval == "no"  # approved under locks once saved (2026-11-13)
                 if save:
                     leave_request.created_by = request.user.employee_get
                     leave_request.save()
+                    if auto_approve:
+                        approve_without_review(leave_request)
 
                     if multiple_approvals_check(leave_request.id):
                         conditional_requests = multiple_approvals_check(
@@ -3553,11 +3554,20 @@ def leave_allocation_request_single_view(request, req_id):
     my_request = False
     if request.GET.get("my_request") == "True":
         my_request = True
+    # The caller's own request, or one of an employee they may manage — else
+    # not found (2026-11-14): any logged-in user used to see any request.
+    leave_allocation_request = LeaveAllocationRequest.objects.filter(id=req_id).first()
+    actor = getattr(request.user, "employee_get", None)
+    if leave_allocation_request is None or not (
+        (actor is not None and leave_allocation_request.employee_id_id == actor.pk)
+        or may_manage_employee(request.user, leave_allocation_request.employee_id, "leave.view_leaveallocationrequest")
+    ):
+        raise Http404("Không tìm thấy yêu cầu cấp phép.")
+    previous_id = next_id = req_id  # without a list this used to be a 500
     requests_ids_json = request.GET.get("instances_ids")
     if requests_ids_json:
-        requests_ids = json.loads(requests_ids_json)
-        previous_id, next_id = closest_numbers(requests_ids, req_id)
-    leave_allocation_request = LeaveAllocationRequest.find(req_id)
+        with contextlib.suppress(TypeError, ValueError):
+            previous_id, next_id = closest_numbers(json.loads(requests_ids_json), req_id)
     context = {
         "leave_allocation_request": leave_allocation_request,
         "my_request": my_request,
@@ -3765,6 +3775,7 @@ def leave_allocation_request_update(request, req_id):
 
 @login_required
 @leave_allocation_reject_permission()
+@transaction.atomic  # rows below are locked (2026-11-13)
 def leave_allocation_request_approve(request, req_id):
     """
     function used to approve a leave allocation request.
@@ -3776,16 +3787,23 @@ def leave_allocation_request_approve(request, req_id):
     Returns:
     GET :It returns to the default leave allocation request view template.
     """
-    leave_allocation_request = LeaveAllocationRequest.objects.get(id=req_id)
+    leave_allocation_request = relock(LeaveAllocationRequest.objects.get(id=req_id))
+    # The decorator's check, again on the locked row (2026-11-14).
+    if not may_manage_employee(
+        request.user, leave_allocation_request.employee_id, "leave.delete_leaveallocationrequest"
+    ):
+        messages.error(request, "Bạn chỉ được xử lý yêu cầu cấp phép của thành viên trong nhóm mình.")
+        return JoydigiRedirect(request)
     if leave_allocation_request.status == "requested":
         employee = leave_allocation_request.employee_id
         # Extra days of a type that shares a fund go to that fund (2026-11-11).
         balance_type = balance_leave_type(leave_allocation_request.leave_type_id)
-        if employee.available_leave.all().filter(leave_type_id=balance_type).exists():
-            available_leave = (
-                employee.available_leave.all().filter(leave_type_id=balance_type).first()
-            )
-        else:
+        available_leave = (
+            AvailableLeave._base_manager.select_for_update()
+            .filter(employee_id=employee, leave_type_id=balance_type)
+            .first()
+        )
+        if available_leave is None:
             available_leave = AvailableLeave(
                 leave_type_id=balance_type,
                 employee_id=employee,
@@ -3816,6 +3834,7 @@ def leave_allocation_request_approve(request, req_id):
 @login_required
 @hx_request_required
 @leave_allocation_reject_permission()
+@transaction.atomic  # rows below are locked (2026-11-13)
 def leave_allocation_request_reject(request, req_id):
     """
     function used to Reject leave allocation request.
@@ -3828,7 +3847,13 @@ def leave_allocation_request_reject(request, req_id):
     GET : It returns to the default leave allocation request view template.
 
     """
-    leave_allocation_request = LeaveAllocationRequest.objects.get(id=req_id)
+    leave_allocation_request = relock(LeaveAllocationRequest.objects.get(id=req_id))
+    # The decorator's check, again on the locked row (2026-11-14).
+    if not may_manage_employee(
+        request.user, leave_allocation_request.employee_id, "leave.delete_leaveallocationrequest"
+    ):
+        messages.error(request, "Bạn chỉ được xử lý yêu cầu cấp phép của thành viên trong nhóm mình.")
+        return JoydigiRedirect(request)
     if (
         leave_allocation_request.status == "requested"
         or leave_allocation_request.status == "approved"
@@ -3841,7 +3866,7 @@ def leave_allocation_request_reject(request, req_id):
                 if leave_allocation_request.status == "approved":
                     leave_type = leave_allocation_request.leave_type_id
                     requested_days = leave_allocation_request.requested_days
-                    available_leave = AvailableLeave.objects.filter(
+                    available_leave = AvailableLeave._base_manager.select_for_update().filter(
                         leave_type_id=balance_leave_type(leave_type),
                         employee_id=leave_allocation_request.employee_id,
                     ).first()
@@ -3996,24 +4021,30 @@ def assigned_leave_select_filter(request):
 def leave_request_bulk_delete(request):
     """
     This method is used to delete a bulk of leave requests.
+
+    The ids come from the browser: each leave is deleted only when the
+    caller may manage its employee and it still waits, both checked on the
+    locked row (2026-11-14). Any reporting manager enters this view.
     """
-    ids = request.POST["ids"]
-    ids = json.loads(ids)
     count = 0  # To track the number of successfully deleted requests
-    for leave_request_id in ids:
+    for leave_request_id in requested_ids(request.POST.get("ids")):
+        leave_request = LeaveRequest.objects.filter(id=leave_request_id).first()
         try:
-            leave_request = LeaveRequest.objects.get(id=leave_request_id)
-            employee = leave_request.employee_id
-            if leave_request.status == "requested":
-                leave_request.delete()
-                count += 1
-            else:
-                messages.error(
-                    request,
-                    _("{}'s leave request cannot be deleted.".format(employee)),
-                )
-        except Exception as e:
-            messages.error(request, _("An error occurred: {}.".format(str(e))))
+            outcome = MISSING if leave_request is None else delete_waiting_leave(
+                leave_request, lambda row: may_manage_leave(request.user, row, DELETE_PERM)
+            )
+        except ProtectedError:
+            messages.error(request, _("Related entries exists"))
+            continue
+        if outcome == DELETED:
+            count += 1
+        elif outcome == DECIDED:
+            messages.error(
+                request,
+                _("{}'s leave request cannot be deleted.".format(leave_request.employee_id)),
+            )
+        else:
+            messages.error(request, _("Leave request not found."))
 
     if count > 0:
         messages.success(
@@ -4081,25 +4112,31 @@ def leave_request_select_filter(request):
 def user_request_bulk_delete(request):
     """
     This method is used to delete bulk of leaves requests
+
+    "My leave requests": only the caller's OWN leaves that still wait
+    (2026-11-14). The ids come from the browser and are never trusted: a
+    colleague's leave is "not found", and the owner and the status are
+    checked again on the locked row, in the same transaction as the delete.
     """
-    ids = request.POST["ids"]
-    ids = json.loads(ids)
-    for leave_request_id in ids:
+    employee = getattr(request.user, "employee_get", None)
+    for leave_request_id in requested_ids(request.POST.get("ids")):
+        leave_request = (
+            LeaveRequest.objects.filter(id=leave_request_id, employee_id=employee).first()
+            if employee is not None
+            else None
+        )
         try:
-            leave_request = LeaveRequest.objects.get(id=leave_request_id)
-            status = leave_request.status
-            if leave_request.status == "requested":
-                leave_request.delete()
-                messages.success(
-                    request,
-                    _("Leave request deleted."),
-                )
-            else:
-                messages.error(
-                    request,
-                    _("You cannot delete leave request with status {}.".format(status)),
-                )
-        except Exception as e:
+            outcome = MISSING if leave_request is None else delete_waiting_leave(
+                leave_request, lambda row: row.employee_id_id == employee.pk
+            )
+        except ProtectedError:
+            messages.error(request, _("Related entries exists"))
+            continue
+        if outcome == DELETED:
+            messages.success(request, _("Leave request deleted."))
+        elif outcome == DECIDED:
+            messages.error(request, DECIDED_MESSAGE)
+        else:
             messages.error(request, _("Leave request not found."))
     return JsonResponse({"message": "Success"})
 
@@ -4288,9 +4325,15 @@ def employee_available_leave_count(request):
 def cut_available_leave(request, instance_id):
     """
     This method is used to create the penalties
+
+    Only on a leave of an employee the caller may manage — never their own
+    (2026-11-14): any manager of somebody fined, or took days from, anyone.
     """
     previous_data = request.GET.urlencode()
-    instance = LeaveRequest.objects.get(id=instance_id)
+    instance = LeaveRequest.objects.filter(id=instance_id).first()
+    if instance is None or not may_manage_employee(request.user, instance.employee_id, "base.add_penaltyaccounts"):
+        messages.error(request, "Bạn chỉ được phạt đơn của thành viên trong nhóm mình.")
+        return HttpResponse("<script>reloadMessage();</script>")
     form = PenaltyAccountForm(employee=instance.employee_id)
     available = AvailableLeave.objects.filter(employee_id=instance.employee_id)
     if request.method == "POST":
@@ -4326,8 +4369,14 @@ def cut_available_leave(request, instance_id):
 def create_leaverequest_comment(request, leave_id):
     """
     This method renders form and template to create Leave request comments
+
+    Only someone who may see the leave's comments (2026-11-14): any logged-in
+    user used to comment on any leave and got its comments back.
     """
     leave = LeaveRequest.objects.filter(id=leave_id).first()
+    if not may_add_comment(request.user, leave):
+        messages.warning(request, _("You don't have permission"))
+        return render(request, "decorator_404.html")
     emp = request.user.employee_get
     form = LeaverequestcommentForm(
         initial={"employee_id": emp.id, "request_id": leave_id}
@@ -4448,13 +4497,14 @@ def create_leaverequest_comment(request, leave_id):
 def view_leaverequest_comment(request, leave_id):
     """
     This method is used to show Leave request comments
+
+    The leave's employee, someone who may manage them (comment permission or
+    reporting manager), or a step approver (2026-11-14): "manager of
+    somebody" used to read every leave's comments. Files are attached only
+    to a comment of this leave, by its author or a manager in scope.
     """
-    leave_request = LeaveRequest.find(leave_id)
-    if not (
-        request.user.employee_get == leave_request.employee_id
-        or request.user.has_perm("leave.view_leaverequestcomment")
-        or is_reportingmanager(request)
-    ):
+    leave_request = LeaveRequest.objects.filter(id=leave_id).first()
+    if not may_read_comments(request.user, leave_request):
         messages.warning(request, _("You don't have permission"))
         return render(request, "decorator_404.html")
 
@@ -4467,15 +4517,20 @@ def view_leaverequest_comment(request, leave_id):
 
     if request.FILES:
         files = request.FILES.getlist("files")
-        comment_id = request.GET["comment_id"]
-        comment = LeaverequestComment.objects.get(id=comment_id)
+        comment = LeaverequestComment._base_manager.filter(
+            id=whole_number(request.GET.get("comment_id")) or 0, request_id=leave_request
+        ).first()
+        if comment is None or not may_attach_to(request.user, comment):
+            messages.warning(request, _("You don't have permission"))
+            files = []
         attachments = []
         for file in files:
             file_instance = LeaverequestFile()
             file_instance.file = file
             file_instance.save()
             attachments.append(file_instance)
-        comment.files.add(*attachments)
+        if attachments:
+            comment.files.add(*attachments)
 
     return render(
         request,
@@ -4493,9 +4548,14 @@ def view_leaverequest_comment(request, leave_id):
 def create_allocationrequest_comment(request, leave_id):
     """
     This method renders form and template to create Allocation request comments
+
+    Only someone who may see the request's comments (2026-11-14).
     """
     previous_data = request.GET.urlencode()
     leave = LeaveAllocationRequest.objects.filter(id=leave_id).first()
+    if not may_add_comment(request.user, leave):
+        messages.warning(request, _("You don't have permission"))
+        return render(request, "decorator_404.html")
     emp = request.user.employee_get
     form = LeaveallocationrequestcommentForm(
         initial={"employee_id": emp.id, "request_id": leave_id}
@@ -4610,13 +4670,11 @@ def create_allocationrequest_comment(request, leave_id):
 def view_allocationrequest_comment(request, leave_id):
     """
     This method is used to show Allocation request comments
+
+    The request's employee or someone who may manage them (2026-11-14).
     """
-    leave_alloc_request = LeaveAllocationRequest.find(leave_id)
-    if not (
-        request.user.employee_get == leave_alloc_request.employee_id
-        or request.user.has_perm("leave.view_leaveallocationrequestcomment")
-        or is_reportingmanager(request)
-    ):
+    leave_alloc_request = LeaveAllocationRequest.objects.filter(id=leave_id).first()
+    if not may_read_comments(request.user, leave_alloc_request):
         messages.warning(request, _("You don't have permission"))
         return render(request, "decorator_404.html")
     comments = LeaveallocationrequestComment.objects.filter(
@@ -4628,15 +4686,22 @@ def view_allocationrequest_comment(request, leave_id):
 
     if request.FILES:
         files = request.FILES.getlist("files")
-        comment_id = request.GET["comment_id"]
-        comment = LeaveallocationrequestComment.objects.get(id=comment_id)
+        # Only to a comment of this request, by its author or a manager in
+        # scope (2026-11-14): any comment id used to be accepted.
+        comment = LeaveallocationrequestComment._base_manager.filter(
+            id=whole_number(request.GET.get("comment_id")) or 0, request_id=leave_alloc_request
+        ).first()
+        if comment is None or not may_attach_to(request.user, comment):
+            messages.warning(request, _("You don't have permission"))
+            files = []
         attachments = []
         for file in files:
             file_instance = LeaverequestFile()
             file_instance.file = file
             file_instance.save()
             attachments.append(file_instance)
-        comment.files.add(*attachments)
+        if attachments:
+            comment.files.add(*attachments)
 
     return render(
         request,
@@ -4655,15 +4720,16 @@ def view_allocationrequest_comment(request, leave_id):
 def delete_allocationrequest_comment(request, comment_id):
     """
     This method is used to delete Allocation request comments
+
+    Its author, or someone who may manage the employee (2026-11-14).
     """
     script = ""
-    comment = LeaveallocationrequestComment.find(comment_id)
+    comment = LeaveallocationrequestComment._base_manager.filter(id=comment_id).first()
+    if comment is None:
+        messages.error(request, _("No comment found matching the query."))
+        return HttpResponse(script)
     request_id = comment.request_id.id
-    if (
-        request.user.employee_get == comment.employee_id
-        or request.user.has_perm("leave.delete_leaveallocationrequestcomment")
-        or is_reportingmanager(request)
-    ):
+    if may_delete_comment(request.user, comment):
         comment.delete()
         messages.success(request, _("Comment deleted successfully!"))
     else:
@@ -4683,22 +4749,28 @@ def delete_allocation_comment_file(request):
     ids = request.GET.getlist("ids")
     leave_id = request.GET.get("leave_id")
     comment_id = request.GET.get("comment_id")
-    comment = LeaveallocationrequestComment.find(comment_id)
+    comment = LeaveallocationrequestComment._base_manager.filter(id=whole_number(comment_id) or 0).first()
     if not comment:
         return JoydigiRedirect(
             request, message=_("No comment found matching the query.")
         )
-    if (
-        request.user.employee_get == comment.employee_id
-        or request.user.has_perm("leave.delete_leaverequestfile")
-        or is_reportingmanager(request)
-    ):
-        LeaverequestFile.objects.filter(id__in=ids).delete()
+    # Only files of this comment of this request, which the caller may
+    # delete (2026-11-14): every id in `ids` used to be deleted.
+    files = deletable_attachments(
+        request.user,
+        LeaveallocationrequestComment,
+        LeaveAllocationRequest.objects.filter(id=whole_number(leave_id) or 0).first(),
+        ids,
+        comment_id=comment.pk,
+    )
+    if files.exists():
+        files.delete()
         messages.success(request, _("File deleted successfully"))
     else:
         messages.warning(request, _("You don't have permission"))
+        # A whole number only: `leave_id` came from the URL into the HTML.
         script = f"""
-                <span hx-get='/leave/allocation-request-view-comment/{leave_id}/' hx-target='#commentContainer' hx-trigger='load'></span>
+                <span hx-get='/leave/allocation-request-view-comment/{whole_number(leave_id) or 0}/' hx-target='#commentContainer' hx-trigger='load'></span>
                 """
     return HttpResponse(script)
 
@@ -4885,14 +4957,16 @@ def restrict_leaves_settings_view(request):
 def delete_leaverequest_comment(request, comment_id):
     """
     This method is used to delete Leave request comments
+
+    Its author, or someone who may manage the employee (2026-11-14): any
+    manager of somebody used to delete any comment.
     """
     script = ""
-    comment = LeaverequestComment.find(comment_id)
-    if (
-        request.user.employee_get == comment.employee_id
-        or request.user.has_perm("leave.delete_leaverequestcomment")
-        or is_reportingmanager(request)
-    ):
+    comment = LeaverequestComment._base_manager.filter(id=comment_id).first()
+    if comment is None:
+        messages.error(request, _("No comment found matching the query."))
+        return HttpResponse(script)
+    if may_delete_comment(request.user, comment):
         comment.delete()
         messages.success(request, _("Comment deleted successfully!"))
     else:
@@ -4913,19 +4987,24 @@ def delete_leave_comment_file(request):
     leave_id = request.GET.get("leave_id")
     if not leave_id:
         return JoydigiRedirect(request, message=_("No leave found matching the query."))
-    comment_id = request.GET["comment_id"]
-    comment = LeaverequestComment.find(comment_id)
-    if (
-        request.user.employee_get == comment.employee_id
-        or request.user.has_perm("leave.delete_leaverequestfile")
-        or is_reportingmanager(request)
-    ):
-        LeaverequestFile.objects.filter(id__in=ids).delete()
+    # Only files of this leave's comment, which the caller may delete
+    # (2026-11-14): the check was on `comment_id`, then every id in `ids`
+    # was deleted, whatever comment it belonged to.
+    files = deletable_attachments(
+        request.user,
+        LeaverequestComment,
+        LeaveRequest.objects.filter(id=whole_number(leave_id) or 0).first(),
+        ids,
+        comment_id=request.GET.get("comment_id"),
+    )
+    if files.exists():
+        files.delete()
         messages.success(request, _("File deleted successfully"))
     else:
         messages.warning(request, _("You don't have permission"))
+        # A whole number only: `leave_id` came from the URL into the HTML.
         script = f"""
-            <span hx-get="/leave/leave-request-view-comment/{leave_id}/?&amp;target=leaveRequest" hx-target="#commentContainer" hx-trigger="load"></span>
+            <span hx-get="/leave/leave-request-view-comment/{whole_number(leave_id) or 0}/?&amp;target=leaveRequest" hx-target="#commentContainer" hx-trigger="load"></span>
         """
     return HttpResponse(script)
 
@@ -4945,7 +5024,15 @@ if apps.is_installed("attendance"):
         GET : return attendance dates
         """
         if request.GET.get("employee_id"):
-            employee = Employee.objects.get(id=request.GET.get("employee_id"))
+            # The caller or an employee they may file a request for (2026-11-14):
+            # any logged-in user listed anyone's attendance; junk was a 500.
+            employee = Employee.objects.filter(id=whole_number(request.GET.get("employee_id")) or 0).first()
+            actor = getattr(request.user, "employee_get", None)
+            if employee is None or not (
+                (actor is not None and employee.pk == actor.pk)
+                or may_manage_employee(request.user, employee, "leave.add_compensatoryleaverequest")
+            ):
+                return HttpResponse("")
             holiday_attendance = get_leave_day_attendance(employee)
             # Get a list of tuples containing (id, attendance_date)
             attendance_dates = list(
@@ -4970,27 +5057,47 @@ if apps.is_installed("attendance"):
         Used to delete attachment
         """
         ids = request.GET.getlist("ids")
-        LeaverequestFile.objects.filter(id__in=ids).delete()
         leave_id = request.GET.get("leave_id")
         if not leave_id:
             return JoydigiRedirect(
                 request, message=_("No leave comment found matching the query.")
             )
-        comments = CompensatoryLeaverequestComment.objects.all()
-        if not request.user.has_perm("leave.delete_compensatoryleaverequestcomment"):
-            comments = comments.filter(employee_id__employee_user_id=request.user)
         if request.GET.get("compensatory"):
-            comments = comments.filter(request_id=leave_id).order_by("-created_at")
+            comment_model = CompensatoryLeaverequestComment
+            request_obj = CompensatoryLeaveRequest.objects.filter(id=whole_number(leave_id) or 0).first()
             template = "leave/compensatory_leave/compensatory_leave_comment.html"
         else:
-            comments = comments.filter(request_id=leave_id).order_by("-created_at")
+            comment_model = LeaverequestComment
+            request_obj = LeaveRequest.objects.filter(id=whole_number(leave_id) or 0).first()
             template = "leave/leave_request/leave_comment.html"
+        if request_obj is None:
+            return JoydigiRedirect(
+                request, message=_("No leave comment found matching the query.")
+            )
+        # Only files of a comment of this request which the caller may delete
+        # (2026-11-14): every id in `ids` used to be deleted first, by anybody
+        # logged in, before any check.
+        files = deletable_attachments(
+            request.user, comment_model, request_obj, ids, comment_id=request.GET.get("comment_id")
+        )
+        if files.exists():
+            files.delete()
+            messages.success(request, _("File deleted successfully"))
+        else:
+            messages.warning(request, _("You don't have permission"))
+        comments = (
+            comment_model.objects.filter(request_id=request_obj).order_by("-created_at")
+            if may_read_comments(request.user, request_obj)
+            else comment_model.objects.none()
+        )
         return render(
             request,
             template,
             {
                 "comments": comments,
-                "request_id": leave_id,
+                "request_id": request_obj.pk,
+                # leave_comment.html builds its links from the leave
+                "leave_request": request_obj,
             },
         )
 
@@ -4999,22 +5106,27 @@ if apps.is_installed("attendance"):
     def delete_leaverequest_compensatory_comment(request, comment_id):
         """
         This method is used to delete Leave request comments
+
+        Its author, or someone who may manage the employee (2026-11-14). A
+        comment that is not found, or not the caller's to delete, used to end
+        in a 500.
         """
         if request.GET.get("compensatory"):
-            comment = CompensatoryLeaverequestComment.objects.filter(id=comment_id)
-            if not request.user.has_perm(
-                "leave.delete_compensatoryleaverequestcomment"
-            ):
-                comment = comment.filter(employee_id__employee_user_id=request.user)
+            model = CompensatoryLeaverequestComment
             redirect_url = "view-compensatory-leave-comment"
         else:
-            comment = LeaverequestComment.objects.filter(id=comment_id)
-            if not request.user.has_perm("leave.delete_leaverequestcomment"):
-                comment = comment.filter(employee_id__employee_user_id=request.user)
+            model = LeaverequestComment
             redirect_url = "leave-request-view-comment"
-        leave_id = comment.first().request_id.id
-        comment.delete()
-        messages.success(request, _("Comment deleted successfully!"))
+        comment = model._base_manager.filter(id=comment_id).first()
+        if comment is None:
+            messages.error(request, _("No comment found matching the query."))
+            return HttpResponse("")
+        leave_id = comment.request_id_id
+        if may_delete_comment(request.user, comment):
+            comment.delete()
+            messages.success(request, _("Comment deleted successfully!"))
+        else:
+            messages.warning(request, _("You don't have permission"))
         return redirect(redirect_url, leave_id)
 
     @login_required
@@ -5212,10 +5324,29 @@ if apps.is_installed("attendance"):
         """
         function used to delete compensatory leave request,
         and reload the list view of compensatory leave requests.
+
+        Its employee, or someone who may manage them (2026-11-14): the
+        decorator lets every manager of somebody in (`manager_access`).
         """
         try:
-            comp_leave_req = CompensatoryLeaveRequest.objects.get(id=comp_id).delete()
-            messages.success(request, _("Compensatory leave request deleted."))
+            comp_leave_req = CompensatoryLeaveRequest.objects.get(id=comp_id)
+            actor = getattr(request.user, "employee_get", None)
+
+            def may_delete(row):
+                return (actor is not None and row.employee_id_id == actor.pk) or may_manage_employee(
+                    request.user, row.employee_id, COMP_DELETE_PERM
+                )
+
+            # Only a request still waiting, checked on the locked row: an
+            # approved one gave its days, and deleting it freed its
+            # attendance dates to be claimed again (2026-11-14).
+            outcome = delete_waiting_leave(comp_leave_req, may_delete)
+            if outcome == DELETED:
+                messages.success(request, _("Compensatory leave request deleted."))
+            elif outcome == DECIDED:
+                messages.error(request, "Yêu cầu phép bù đã được xử lý nên không thể xóa.")
+            else:
+                messages.error(request, "Bạn chỉ được xóa yêu cầu phép bù của mình hoặc của thành viên trong nhóm.")
 
         except:
             messages.error(request, _("Sorry, something went wrong!"))
@@ -5232,13 +5363,32 @@ if apps.is_installed("attendance"):
         """
         function used to approve compensatory leave request,
         and reload the list view of compensatory leave requests.
+
+        Only a request of an employee the caller may manage — never their
+        own — decided on the locked row (2026-11-14): any manager of
+        somebody approved any request, and two approvals at once granted the
+        days twice.
         """
         try:
             comp_leave_req = CompensatoryLeaveRequest.objects.get(id=comp_id)
-            if comp_leave_req.status == "requested":
-                comp_leave_req.status = "approved"
-                comp_leave_req.assign_compensatory_leave_type()
-                comp_leave_req.save()
+            approved = False
+            if not may_manage_employee(request.user, comp_leave_req.employee_id, COMP_CHANGE_PERM):
+                messages.error(request, "Bạn chỉ được duyệt yêu cầu phép bù của thành viên trong nhóm mình.")
+                if request.GET.get("individual"):
+                    return JoydigiRedirect(request)
+                return redirect("compensatory-tab-view")
+            with transaction.atomic():
+                locked = relock(comp_leave_req)
+                # checked again on the locked row: it may have moved meanwhile
+                if locked.status == "requested" and may_manage_employee(
+                    request.user, locked.employee_id, COMP_CHANGE_PERM
+                ):
+                    locked.status = "approved"
+                    locked.assign_compensatory_leave_type()
+                    locked.save()
+                    approved = True
+            comp_leave_req = locked
+            if approved:
                 messages.success(request, _("Compensatory leave request approved."))
                 with contextlib.suppress(Exception):
                     notify.send(
@@ -5281,16 +5431,35 @@ if apps.is_installed("attendance"):
         GET : It returns to the default compensatory leave request view template.
 
         """
-        comp_leave_req = CompensatoryLeaveRequest.objects.get(id=comp_id)
+        comp_leave_req = CompensatoryLeaveRequest.objects.filter(id=comp_id).first()
+        # Only a request of an employee the caller may manage — never their
+        # own — decided on the locked row (2026-11-14).
+        if comp_leave_req is None or not may_manage_employee(
+            request.user, comp_leave_req.employee_id, COMP_DELETE_PERM
+        ):
+            messages.error(request, "Bạn chỉ được từ chối yêu cầu phép bù của thành viên trong nhóm mình.")
+            return JoydigiRedirect(request)
         if comp_leave_req.status == "requested" or comp_leave_req.status == "approved":
             form = CompensatoryLeaveRequestRejectForm()
             if request.method == "POST":
                 form = CompensatoryLeaveRequestRejectForm(request.POST)
                 if form.is_valid():
-                    comp_leave_req.reject_reason = form.cleaned_data["reason"]
-                    comp_leave_req.status = "rejected"
-                    comp_leave_req.exclude_compensatory_leave()
-                    comp_leave_req.save()
+                    with transaction.atomic():
+                        locked = relock(comp_leave_req)
+                        if locked.status not in ("requested", "approved") or not may_manage_employee(
+                            request.user, locked.employee_id, COMP_DELETE_PERM
+                        ):
+                            messages.info(request, "Yêu cầu phép bù vừa được xử lý.")
+                            return JoydigiRedirect(request)
+                        was_approved = locked.status == "approved"
+                        locked.reject_reason = form.cleaned_data["reason"]
+                        locked.status = "rejected"
+                        # Only an approved request gave days to take back: a
+                        # waiting one used to take days granted by others.
+                        if was_approved:
+                            locked.exclude_compensatory_leave()
+                        locked.save()
+                    comp_leave_req = locked
                     messages.success(request, _("Compensatory Leave request rejected."))
                     with contextlib.suppress(Exception):
                         notify.send(
@@ -5328,14 +5497,20 @@ if apps.is_installed("attendance"):
         Returns:
         return compensatory leave request single view
         """
+        # The request's employee or someone who may manage them, else not
+        # found (2026-11-14): any logged-in user used to see any request.
+        comp_leave_req = CompensatoryLeaveRequest.objects.filter(id=comp_leave_id).first()
+        if comp_leave_req is None or not may_view_compensatory(request.user, comp_leave_req):
+            raise Http404("Không tìm thấy yêu cầu phép bù.")
+        previous_id = next_id = comp_leave_id
         requests_ids_json = request.GET.get("instances_ids")
         if requests_ids_json:
-            requests_ids = json.loads(requests_ids_json)
-            previous_id, next_id = closest_numbers(requests_ids, comp_leave_id)
-        comp_leave_req = CompensatoryLeaveRequest.objects.get(id=comp_leave_id)
+            with contextlib.suppress(TypeError, ValueError):
+                previous_id, next_id = closest_numbers(json.loads(requests_ids_json), comp_leave_id)
         context = {
             "comp_leave_req": comp_leave_req,
-            "my_request": eval_validate(request.GET.get("my_request")),
+            # A literal True/False from the link; missing used to be a 500.
+            "my_request": request.GET.get("my_request") == "True",
             "instances_ids": requests_ids_json,
             "previous": previous_id,
             "next": next_id,
@@ -5352,7 +5527,14 @@ if apps.is_installed("attendance"):
     def view_compensatory_leave_comment(request, comp_leave_id):
         """
         This method is used to show Leave request comments
+
+        The request's employee or someone who may manage them (2026-11-14):
+        any logged-in user used to read them and attach files to any comment.
         """
+        comp_leave = CompensatoryLeaveRequest.objects.filter(id=comp_leave_id).first()
+        if not may_read_comments(request.user, comp_leave):
+            messages.warning(request, _("You don't have permission"))
+            return render(request, "decorator_404.html")
         comments = CompensatoryLeaverequestComment.objects.filter(
             request_id=comp_leave_id
         ).order_by("-created_at")
@@ -5362,15 +5544,20 @@ if apps.is_installed("attendance"):
 
         if request.FILES:
             files = request.FILES.getlist("files")
-            comment_id = request.GET["comment_id"]
-            comment = CompensatoryLeaverequestComment.objects.get(id=comment_id)
+            comment = CompensatoryLeaverequestComment._base_manager.filter(
+                id=whole_number(request.GET.get("comment_id")) or 0, request_id=comp_leave
+            ).first()
+            if comment is None or not may_attach_to(request.user, comment):
+                messages.warning(request, _("You don't have permission"))
+                files = []
             attachments = []
             for file in files:
                 file_instance = LeaverequestFile()
                 file_instance.file = file
                 file_instance.save()
                 attachments.append(file_instance)
-            comment.files.add(*attachments)
+            if attachments:
+                comment.files.add(*attachments)
 
         return render(
             request,
@@ -5388,8 +5575,13 @@ if apps.is_installed("attendance"):
     def create_compensatory_leave_comment(request, comp_leave_id):
         """
         This method renders form and template to create Compensatory leave comments
+
+        Only someone who may see the request's comments (2026-11-14).
         """
         comp_leave = CompensatoryLeaveRequest.objects.filter(id=comp_leave_id).first()
+        if not may_add_comment(request.user, comp_leave):
+            messages.warning(request, _("You don't have permission"))
+            return render(request, "decorator_404.html")
         emp = request.user.employee_get
         form = CompensatoryLeaveRequestcommentForm(
             initial={"employee_id": emp.id, "request_id": comp_leave}
@@ -5633,6 +5825,12 @@ def employee_view_individual_leave_tab(request, pk, **kwargs):
         return JoydigiRedirect(
             request, message=_("No leave request found matching the query.")
         )
+    # Only the employee, someone who may manage their leave, or who may open
+    # their profile (2026-11-14): any logged-in user used to see it by id.
+    from leave.request_access import may_view_employee_leaves
+
+    if not may_view_employee_leaves(request.user, employee):
+        raise Http404("Không tìm thấy nhân viên.")
     instances = (
         LeaveRequest.objects.filter(employee_id=employee)
         if apps.is_installed("leave")

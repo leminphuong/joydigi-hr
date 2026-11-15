@@ -67,6 +67,9 @@ from leave.models import LeaveRequest
 logger = logging.getLogger(__name__)
 
 from ...api_decorators.base.decorators import (
+    can_manage_employee,
+    employee_from_data,
+    forbidden,
     manager_permission_required,
     permission_required,
 )
@@ -773,6 +776,10 @@ class AttendanceView(APIView):
 
     @manager_permission_required("attendance.add_attendance")
     def post(self, request):
+        # 2026-11-13: being a manager of someone no longer lets you create
+        # attendance for anyone (including yourself).
+        if not can_manage_employee(request.user, employee_from_data(request), "attendance.add_attendance"):
+            return forbidden()
         serializer = AttendanceSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -923,14 +930,18 @@ class OvertimeApproveView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request, pk):
-        try:
-            attendance = Attendance.objects.filter(id=pk).update(
-                attendance_overtime_approve=True
-            )
-        except Exception as E:
-            return Response({"error": str(E)}, status=400)
+        # SEC-03 (2026-11-13): the same rule as ValidateAttendanceView — a
+        # check-in admin or that employee's own reporting manager, never one's
+        # own record. `.save()` (not `.update()`) so hour accounts recompute.
+        from attendance.views.requests import _can_review_attendance_request
 
         attendance = Attendance.objects.filter(id=pk).first()
+        if attendance is None:
+            return Response({"error": _("Attendance not found.")}, status=404)
+        if not _can_review_attendance_request(request.user, attendance):
+            return forbidden(_("You are not allowed to approve this overtime."))
+        attendance.attendance_overtime_approve = True
+        attendance.save()
         try:
             notify.send(
                 request.user.employee_get,
@@ -1007,6 +1018,18 @@ class AttendanceRequestView(APIView):
     def post(self, request):
         from attendance.forms import NewRequestForm
 
+        # SEC-10 (2026-11-13): checked before the form, whose clean() writes
+        # to an existing attendance row. One's own request, or one the caller
+        # may file for that employee.
+        target = employee_from_data(request)
+        actor = getattr(request.user, "employee_get", None)
+        if target is None:
+            return Response({"employee_id": [_("This field is required.")]}, status=400)
+        if not (
+            (actor is not None and target.pk == actor.pk)
+            or can_manage_employee(request.user, target, "attendance.add_attendance")
+        ):
+            return forbidden()
         form = NewRequestForm(data=request.data)
         if form.is_valid():
             work_type = form.cleaned_data.get("work_type_id")
@@ -1032,7 +1055,15 @@ class AttendanceRequestView(APIView):
     def put(self, request, pk):
         from attendance.forms import AttendanceRequestForm
 
-        attendance = Attendance.objects.get(id=pk)
+        attendance = Attendance.objects.filter(id=pk).first()
+        if attendance is None:
+            return Response({"error": _("Attendance not found.")}, status=404)
+        actor = getattr(request.user, "employee_get", None)
+        if not (
+            (actor is not None and attendance.employee_id_id == actor.pk)
+            or can_manage_employee(request.user, attendance.employee_id, "attendance.change_attendance")
+        ):
+            return forbidden()
         form = AttendanceRequestForm(data=request.data, instance=attendance)
         if form.is_valid():
             attendance = Attendance.objects.get(id=form.instance.pk)
@@ -1069,6 +1100,15 @@ class AttendanceRequestApproveView(APIView):
 
     @manager_permission_required("attendance.change_attendance")
     def put(self, request, pk):
+        from attendance.views.requests import _can_review_attendance_request
+
+        target = Attendance.objects.filter(id=pk).first()
+        if target is None:
+            return Response({"error": _("Attendance not found.")}, status=404)
+        # 2026-11-13: a check-in admin or that employee's own manager; never
+        # one's own request (was: any manager of anyone).
+        if not _can_review_attendance_request(request.user, target):
+            return forbidden()
         try:
             attendance = Attendance.objects.get(id=pk)
             prev_attendance_date = attendance.attendance_date
@@ -1141,9 +1181,11 @@ class AttendanceRequestCancelView(APIView):
             attendance = Attendance.objects.get(id=pk)
             if (
                 attendance.employee_id.employee_user_id == request.user
-                or is_reportingmanager(request)
-                or request.user.has_perm("attendance.change_attendance")
+                or can_manage_employee(request.user, attendance.employee_id, "attendance.change_attendance")
             ):
+                # Read before it is cleared: a cancelled create-request is
+                # deleted (the check below never fired before 2026-11-13).
+                was_create_request = attendance.request_type == "create_request"
                 attendance.is_validate_request_approved = False
                 attendance.is_validate_request = False
                 attendance.request_description = None
@@ -1151,8 +1193,10 @@ class AttendanceRequestCancelView(APIView):
                 attendance.request_type = None
 
                 attendance.save()
-                if attendance.request_type == "create_request":
+                if was_create_request:
                     attendance.delete()
+            else:
+                return forbidden()
         except Exception as E:
             return Response({"error": str(E)}, status=400)
         return Response({"status": "success"}, status=200)
@@ -1211,6 +1255,8 @@ class AttendanceOverTimeView(APIView):
 
     @manager_permission_required("attendance.add_attendanceovertime")
     def post(self, request):
+        if not can_manage_employee(request.user, employee_from_data(request), "attendance.add_attendanceovertime"):
+            return forbidden()
         serializer = AttendanceOverTimeSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -1220,6 +1266,12 @@ class AttendanceOverTimeView(APIView):
     @manager_permission_required("attendance.change_attendanceovertime")
     def put(self, request, pk):
         attendance_ot = get_object_or_404(AttendanceOverTime, pk=pk)
+        target = employee_from_data(request) or attendance_ot.employee_id
+        if not all(
+            can_manage_employee(request.user, who, "attendance.change_attendanceovertime")
+            for who in {attendance_ot.employee_id, target}
+        ):
+            return forbidden()
         serializer = AttendanceOverTimeSerializer(
             instance=attendance_ot, data=request.data
         )
@@ -1248,12 +1300,24 @@ class LateComeEarlyOutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk=None):
-        data = LateComeEarlyOutFilter(request.GET)
+        # SEC-05 (2026-11-13): one's own rows, a manager's team, or everyone
+        # with the view permission — not every employee's for everybody.
+        scoped = permission_based_queryset(
+            request.user,
+            "attendance.view_attendancelatecomeearlyout",
+            AttendanceLateComeEarlyOut.objects.all(),
+            user_obj=True,
+        )
+        data = LateComeEarlyOutFilter(request.GET, queryset=scoped)
         serializer = AttendanceLateComeEarlyOutSerializer(data.qs, many=True)
         return Response(serializer.data, status=200)
 
     def delete(self, request, pk=None):
         attendance = get_object_or_404(AttendanceLateComeEarlyOut, pk=pk)
+        if not can_manage_employee(
+            request.user, attendance.employee_id, "attendance.delete_attendancelatecomeearlyout"
+        ):
+            return forbidden()
         attendance.delete()
         return Response({"message": _("Attendance deleted successfully")}, status=204)
 
@@ -1269,7 +1333,13 @@ class AttendanceActivityView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk=None):
-        data = AttendanceActivity.objects.all()
+        # SEC-05 (2026-11-13): scoped like the attendance list.
+        data = permission_based_queryset(
+            request.user,
+            "attendance.view_attendanceactivity",
+            AttendanceActivity.objects.all(),
+            user_obj=True,
+        )
         serializer = AttendanceActivitySerializer(data, many=True)
         return Response(serializer.data, status=200)
 
@@ -1506,6 +1576,7 @@ class MailTemplateView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @manager_permission_required("employee.change_employee")
     def get(self, request):
         instances = JoydigiMailTemplate.objects.all()
         serializer = MailTemplateSerializer(instances, many=True)
@@ -1523,14 +1594,18 @@ class ConvertedMailTemplateConvert(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request):
+        from base.mail_context import mail_template_context
+
         template_id = request.data.get("template_id", None)
-        employee_id = request.data.get("employee_id", None)
-        employee = Employee.objects.filter(id=employee_id).first()
+        employee = employee_from_data(request)
+        if not can_manage_employee(request.user, employee, "employee.change_employee"):
+            return forbidden()
         bdy = JoydigiMailTemplate.objects.filter(id=template_id).first()
+        if bdy is None:
+            return Response({"error": _("Template not found.")}, status=404)
         template_bdy = template.Template(bdy.body)
-        context = template.Context(
-            {"instance": employee, "self": request.user.employee_get}
-        )
+        # Plain strings only: a template can not walk the ORM (2026-11-13).
+        context = template.Context(mail_template_context(employee, request.user.employee_get))
         render_bdy = template_bdy.render(context)
         return Response(render_bdy)
 
@@ -1546,7 +1621,16 @@ class OfflineEmployeeMailsend(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        from base.mail_context import mail_template_context
+
         employee_id = request.POST.get("employee_id")
+        # 2026-11-13: same gate as the web send_mail_to_employee
+        # (manager_can_enter("employee.change_employee")), per employee.
+        employee = Employee.objects.filter(id=employee_id).first() if str(employee_id or "").isdigit() else None
+        if employee is None:
+            return Response({"error": _("Employee not found.")}, status=404)
+        if not can_manage_employee(request.user, employee, "employee.change_employee"):
+            return forbidden()
         subject = request.POST.get("subject", "")
         bdy = request.POST.get("body", "")
         other_attachments = request.FILES.getlist("other_attachments")
@@ -1555,7 +1639,6 @@ class OfflineEmployeeMailsend(APIView):
         ]
         email_backend = ConfiguredEmailBackend()
         host = email_backend.dynamic_username
-        employee = Employee.objects.get(id=employee_id)
         template_attachment_ids = request.POST.getlist("template_attachments")
         bodys = list(
             JoydigiMailTemplate.objects.filter(
@@ -1565,9 +1648,7 @@ class OfflineEmployeeMailsend(APIView):
         for html in bodys:
             # due to not having solid template we first need to pass the context
             template_bdy = template.Template(html)
-            context = template.Context(
-                {"instance": employee, "self": request.user.employee_get}
-            )
+            context = template.Context(mail_template_context(employee, request.user.employee_get))
             render_bdy = template_bdy.render(context)
             attachments.append(
                 (
@@ -1578,9 +1659,7 @@ class OfflineEmployeeMailsend(APIView):
             )
 
         template_bdy = template.Template(bdy)
-        context = template.Context(
-            {"instance": employee, "self": request.user.employee_get}
-        )
+        context = template.Context(mail_template_context(employee, request.user.employee_get))
         render_bdy = template_bdy.render(context)
 
         email = EmailMessage(

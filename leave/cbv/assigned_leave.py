@@ -131,13 +131,20 @@ class AssignedleaveList(JoydigiListView):
 
             add_available_days = request.POST.get("add_available_days")
             if add_available_days:
+                # Each row locked while its days are added (2026-11-13).
+                from django.db import transaction
+
+                from leave.balance_ops import relock
+
                 for available_leave in AvailableLeave.objects.filter(
                     id__in=instance_ids
                 ):
-                    available_leave.available_days = (
-                        available_leave.available_days or 0
-                    ) + float(add_available_days)
-                    available_leave.save()
+                    with transaction.atomic():
+                        row = relock(available_leave)
+                        row.available_days = round(
+                            (row.available_days or 0) + float(add_available_days), 3
+                        )
+                        row.save()
 
             messages.success(request, _("Selected Records updated"))
 

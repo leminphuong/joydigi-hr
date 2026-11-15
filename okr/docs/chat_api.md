@@ -19,6 +19,10 @@ Same conventions as the rest of `/api/okr/`:
   Empty (the default) means everyone in the company, as before. The flag only
   narrows: it never grants access to a room.
 
+  It fails closed. An entry that is not a numeric employee id (a badge such
+  as `NV006`, a name, `0`) is ignored with a warning in the log. A list with
+  no valid id at all opens chat to **nobody**, never to the whole company.
+
 Who may use a room is checked from live HR and OKR data on every request;
 the rules are in the docstring of `okr/services/chat.py`.
 

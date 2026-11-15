@@ -83,13 +83,18 @@ def leave_allocation_reject_permission(function=None, *args, **kwargs):
     ):
         """
         This method is used to check the employee can reject a leave allocation request or not
+
+        The employee's reporting manager, or HR holding the permission in the
+        employee's company — never for one's own request (2026-11-14): a
+        holder of the permission approved their own allocation, i.e. granted
+        themselves days.
         """
+        from leave.request_access import may_manage_employee
+
         try:
             leave_allocation_request = LeaveAllocationRequest.objects.get(id=req_id)
-            if (
-                request.user.has_perm("leave.delete_leaveallocationrequest")
-                or request.user.employee_get
-                == leave_allocation_request.employee_id.employee_work_info.reporting_manager_id
+            if may_manage_employee(
+                request.user, leave_allocation_request.employee_id, "leave.delete_leaveallocationrequest"
             ):
                 return function(request, *args, req_id=req_id, **kwargs)
 

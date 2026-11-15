@@ -9,7 +9,8 @@ from typing import Any
 
 from django.contrib import messages
 from django.db.models import Q
-from django.http import HttpResponse
+from django.core.exceptions import PermissionDenied
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import resolve, reverse, reverse_lazy
 from django.utils.decorators import method_decorator
@@ -36,6 +37,8 @@ from joydigi_views.generic.cbv.views import (
 from leave.filters import LeaveRequestFilter
 from leave.forms import LeaveRequestCreationForm, LeaveRequestExportForm
 from leave.methods import filter_conditional_leave_request
+from leave.balance_ops import EDIT_REFUSED, approve_without_review, edit_refusal, save_edited_leave
+from leave.monthly_limit import LeaveRuleError
 from leave.models import AvailableLeave, LeaveRequest, LeaveType, balance_leave_type
 from leave.threading import LeaveMailSendThread
 from leave.views import multiple_approvals_check
@@ -65,8 +68,11 @@ class LeaveRequestsListView(JoydigiListView):
         super().__init__(**kwargs)
         self.search_url = reverse("request-filter")
         self.view_id = "leaveRequest"
-        if self.request.user.has_perm("leave.change_leaverequest"):
-            self.bulk_update_fields = ["status"]
+        # No generic bulk edit of "status" (2026-11-15): it wrote the column
+        # with one UPDATE — no lock, no deduction or refund, no monthly
+        # limit. Approving / rejecting several requests goes through the
+        # bulk approve / bulk reject actions, which use the real decisions.
+        self.bulk_update_fields = []
 
     def handle_bulk_submission(self, request):
         instance_ids = request.POST.getlist("instance_ids")
@@ -92,9 +98,15 @@ class LeaveRequestsListView(JoydigiListView):
     def get_queryset(self):
         queryset = super().get_queryset()
         data = queryset
+        from leave.request_access import VIEW_PERM, within_reach
+
         queryset = filter_conditional_leave_request(self.request)
         qs = data.filter(id__in=queryset.values_list("id", flat=True))
         data = filtersubordinates(self.request, data, "leave.view_leaverequest") | qs
+        # Under "All my companies" the permission is the union of the
+        # caller's companies: keep only the companies where they hold it
+        # (2026-11-14), as every row's detail does.
+        data = within_reach(self.request.user, data, VIEW_PERM, extra_ids=queryset.values_list("id", flat=True))
         return data.distinct().select_related(
             "employee_id", "employee_id__employee_work_info", "leave_type_id"
         )
@@ -343,11 +355,13 @@ class LeaveRequestsDetailView(JoydigiDetailedView):
         (_("End Date"), "end_date"),
         (_("Created Date"), "requested_date"),
         (_("Created By"), "created_by"),
+        ("Yêu cầu hủy", "cancellation_action", True),
         (_("Description"), "description"),
         (_("View attachment"), "attachment_action", True),
     ]
     cols = {
         "description": 12,
+        "cancellation_action": 12,
     }
 
     def __init__(self, **kwargs):
@@ -355,6 +369,18 @@ class LeaveRequestsDetailView(JoydigiDetailedView):
         self.action_method = "leave_requests_detail_view_actions"
         if self.request.GET.get("dashboard"):
             self.action_method = None
+
+    def get_object(self, queryset=None):
+        """Any reporting manager enters; only a leave the caller may see is
+        shown (own, someone they may manage, a step they approve) — else not
+        found (2026-11-14)."""
+        from leave.request_access import may_view_leave
+
+        instance = super().get_object(queryset)
+        if instance is not None and not may_view_leave(self.request.user, instance):
+            self.instance = None
+            raise Http404("Không tìm thấy đơn nghỉ phép.")
+        return instance
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -390,6 +416,19 @@ class LeaveRequestFormView(JoydigiFormView):
     form_class = LeaveRequestCreationForm
     template_name = "cbv/leave_requests/form/inherit.html"
     new_display_title = _("Leave Request")
+
+    def get_queryset(self):
+        """The leave being edited, only when the caller may manage its
+        employee (2026-11-14): any reporting manager enters this form, but a
+        team lead acts on their own team only. Refused: 403."""
+        from base.access import can_manage_employee
+
+        instance = super().get_queryset()
+        if instance is not None and not can_manage_employee(
+            self.request.user, instance.employee_id, "leave.change_leaverequest", allow_self=True
+        ):
+            raise PermissionDenied("Bạn không có quyền sửa đơn nghỉ phép của nhân viên này.")
+        return instance
 
     def get_initial(self) -> dict:
         initial = super().get_initial()
@@ -469,16 +508,35 @@ class LeaveRequestFormView(JoydigiFormView):
         return self.render_to_response(self.get_context_data())
 
     def form_valid(self, form: LeaveRequestCreationForm) -> HttpResponse:
+        from base.access import can_manage_employee
+
+        user = self.request.user
         form = self.form_class(
             self.request.POST, self.request.FILES, instance=self.form.instance
         )
         if form.is_valid():
+            # The employee the leave is (re)assigned to comes from the POST:
+            # it must be someone the caller may manage (2026-11-14).
+            target = form.cleaned_data.get("employee_id")
+            if target is not None and not can_manage_employee(
+                user, target, "leave.add_leaverequest", allow_self=True
+            ):
+                raise PermissionDenied("Bạn không có quyền tạo hoặc sửa đơn nghỉ phép cho nhân viên này.")
             if form.instance.pk:
                 leave_request = form.save(commit=False)
-                save = True
+                # Never over a decision committed meanwhile, never writing
+                # the decision fields from the form's copy (2026-11-13, P1-2);
+                # the right to edit is checked again on the locked row.
+                save = save_edited_leave(
+                    leave_request,
+                    may_edit=lambda current: can_manage_employee(
+                        user, current.employee_id, "leave.change_leaverequest", allow_self=True
+                    ),
+                )
+                if not save:
+                    messages.error(self.request, edit_refusal(leave_request))
 
                 if save:
-                    leave_request.save()
                     messages.success(
                         self.request, _("Leave request is updated successfully")
                     )
@@ -500,40 +558,16 @@ class LeaveRequestFormView(JoydigiFormView):
                 leave_request = form.save(commit=False)
                 save = True
 
-                if leave_request.leave_type_id.require_approval == "no":
-                    employee_id = leave_request.employee_id
-                    leave_type_id = leave_request.leave_type_id
-                    available_leave = AvailableLeave.objects.get(
-                        leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
-                    )
-                    leave_request.created_by = self.request.user.employee_get
-                    leave_request.save()
-                    if leave_request.requested_days > available_leave.available_days:
-                        leave = (
-                            leave_request.requested_days
-                            - available_leave.available_days
-                        )
-                        leave_request.approved_available_days = (
-                            available_leave.available_days
-                        )
-                        available_leave.available_days = 0
-                        available_leave.carryforward_days = (
-                            available_leave.carryforward_days - leave
-                        )
-                        leave_request.approved_carryforward_days = leave
-                    else:
-                        available_leave.available_days = (
-                            available_leave.available_days
-                            - leave_request.requested_days
-                        )
-                        leave_request.approved_available_days = (
-                            leave_request.requested_days
-                        )
-                    leave_request.status = "approved"
-                    available_leave.save()
+                auto_approve = leave_request.leave_type_id.require_approval == "no"  # approved under locks once saved (2026-11-13)
                 if save:
                     leave_request.created_by = self.request.user.employee_get
-                    leave_request.save()
+                    try:
+                        leave_request.save()
+                    except LeaveRuleError as refused:  # lost a race under the fund's lock (2026-11-15)
+                        messages.error(self.request, " ".join(refused.messages))
+                        return self.HttpResponse()
+                    if auto_approve:
+                        approve_without_review(leave_request)
 
                     if multiple_approvals_check(leave_request.id):
                         conditional_requests = multiple_approvals_check(
@@ -587,9 +621,24 @@ class LeaveClashListView(LeaveRequestsListView):
     """
 
     def get_queryset(self):
+        from leave.request_access import VIEW_PERM, may_view_leave, within_reach
+
         queryset = JoydigiListView.get_queryset(self)
         pk = self.kwargs.get("pk")
-        record = LeaveRequest.objects.get(id=pk)
+        record = LeaveRequest.objects.filter(id=pk).first()
+        # Only for a leave the caller may see, and only the clashing leaves
+        # the leave list itself would show them (2026-11-14): this view
+        # skipped that scope, so any reporting manager listed the leaves of
+        # any department.
+        if record is None or not may_view_leave(self.request.user, record):
+            return queryset.none()
+        steps = filter_conditional_leave_request(self.request).values_list("id", flat=True)
+        queryset = within_reach(
+            self.request.user,
+            filtersubordinates(self.request, queryset, VIEW_PERM) | queryset.filter(id__in=steps),
+            VIEW_PERM,
+            extra_ids=steps,
+        )
         if record.status != "rejected" or record.status != "cancelled":
             queryset = (
                 queryset.filter(

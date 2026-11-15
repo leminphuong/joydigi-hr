@@ -2,7 +2,9 @@
 {% load i18n %}
 <div class=" {% if instance.status == 'rejected' %} diff-cell{% endif %}" onclick="event.stopPropagation()">
     <div class="flex items-center justify-center gap-1">
-        {% if instance.status == 'approved' and instance.end_date >= current_date %}
+        {% if instance.status == 'approved' and instance.waiting_cancellation %}
+            <span class="oh-badge oh-badge--warning" title="Đơn vẫn có hiệu lực cho tới khi được duyệt">Chờ duyệt hủy</span>
+        {% elif instance.status == 'approved' and instance.start_date >= current_date %}
             <a data-toggle="oh-modal-toggle"
                 data-target="#cancelModal"
                 hx-get="{% url 'user-request-cancel' instance.id %}"

@@ -4,20 +4,35 @@ This page is handling the cbv methods of leave tab in employee profile page.
 
 from typing import Any
 
+from django.http import Http404
 from django.urls import reverse
+from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 
 from base.methods import is_reportingmanager
 from employee.models import Employee
+from joydigi_views.cbv_methods import login_required
 from leave.cbv.my_leave_request import MainParentListView, MyLeaveRequestListView
 
 
+@method_decorator(login_required, name="dispatch")
 class IndividualLeaveTab(MainParentListView):
     """
     class for rendering leave tab in employee profile
     """
 
     template_name = "cbv/employee_individual/leave_tab.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        """Only the employee, someone who may manage their leave, or who may
+        open their profile (2026-11-14): any logged-in user used to list any
+        colleague's leaves and balances by id."""
+        from leave.request_access import may_view_employee_leaves
+
+        employee = Employee.objects.filter(id=kwargs.get("pk")).first()
+        if not may_view_employee_leaves(request.user, employee):
+            raise Http404("Không tìm thấy nhân viên.")
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs: Any):
         """

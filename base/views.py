@@ -6162,6 +6162,18 @@ def shift_request_delete(request, id):
 
     try:
         shift_request = ShiftRequest.find(id)
+        if shift_request is None:
+            raise ShiftRequest.DoesNotExist
+        # 2026-11-13: the requester, or someone who may manage that employee
+        # (was: anyone logged in).
+        from base.access import actor_of, can_manage_employee
+
+        actor = actor_of(request.user)
+        if not (
+            (actor is not None and shift_request.employee_id_id == actor.pk)
+            or can_manage_employee(request.user, shift_request.employee_id, "base.delete_shiftrequest")
+        ):
+            raise PermissionError
         user = shift_request.employee_id.employee_user_id
         messages.success(request, _("Shift request deleted"))
         shift_request.delete()
@@ -6179,6 +6191,8 @@ def shift_request_delete(request, id):
 
     except ShiftRequest.DoesNotExist:
         messages.error(request, _("Shift request not found."))
+    except PermissionError:
+        messages.error(request, _("You cannot delete this shift request."))
     except ProtectedError:
         messages.error(request, _("You cannot delete this shift request."))
 

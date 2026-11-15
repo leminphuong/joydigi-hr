@@ -15,8 +15,60 @@ def get_filter_url(current_url, request):
     return base_url + "?" + query_params.urlencode()
 
 
+#: Nested group-by paths that are safe to expose: organisation labels only.
+SAFE_GROUPBY_PATHS = frozenset({
+    "employee_id__employee_work_info__department_id",
+    "employee_id__employee_work_info__job_position_id",
+    "employee_id__employee_work_info__job_role_id",
+    "employee_id__employee_work_info__company_id",
+    "employee_id__employee_work_info__shift_id",
+    "employee_id__employee_work_info__work_type_id",
+    "employee_id__employee_work_info__employee_type_id",
+    "employee_id__employee_work_info__reporting_manager_id",
+})
+
+#: Field names never offered for grouping, whatever the model.
+_SENSITIVE_GROUPBY_HINTS = (
+    "password", "token", "secret", "key", "account", "bank", "salary",
+    "email", "phone", "mobile", "dob", "address", "embedding", "requested_data",
+)
+
+
+def allowed_groupby_field(model, field_name):
+    """`groupby_field` comes straight from the query string (2026-11-13).
+
+    It used to reach `queryset.values()` unchecked, so any ORM path worked —
+    `employee_id__employee_work_info__reporting_manager_id__employee_user_id__password`
+    read the manager's password hash. Only a concrete field of the model
+    itself (not a sensitive one) or one of SAFE_GROUPBY_PATHS is allowed.
+    """
+    from django.core.exceptions import FieldDoesNotExist
+
+    if not isinstance(field_name, str) or not field_name:
+        return False
+    if field_name in SAFE_GROUPBY_PATHS:
+        return True
+    if "__" in field_name or not field_name.isidentifier():
+        return False
+    if any(hint in field_name.lower() for hint in _SENSITIVE_GROUPBY_HINTS):
+        return False
+    try:
+        field = model._meta.get_field(field_name)
+    except FieldDoesNotExist:
+        return False
+    return bool(getattr(field, "concrete", False))
+
+
 def groupby_queryset(request, url, field_name, queryset):
-    queryset_with_counts = queryset.values(field_name)
+    from django.core.exceptions import FieldError
+    from rest_framework.response import Response
+
+    if not allowed_groupby_field(queryset.model, field_name):
+        return Response({"groupby_field": ["This field can not be used for grouping."]}, status=400)
+    try:
+        queryset_with_counts = list(queryset.values(field_name))
+    except FieldError:
+        return Response({"groupby_field": ["This field can not be used for grouping."]}, status=400)
 
     counts = Counter(item[field_name] for item in queryset_with_counts)
 

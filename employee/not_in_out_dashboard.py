@@ -33,6 +33,9 @@ from joydigi.decorators import hx_request_required, login_required, manager_can_
 from joydigi.http.response import JoydigiRedirect
 
 
+from base.mail_context import mail_template_context  # noqa: E402
+
+
 def paginator_qry(qryset, page_number):
     """
     This method is used to paginate query set
@@ -228,9 +231,7 @@ def get_mail_preview(request):
 
     # Keep `request` in context, but only as a sanitized proxy.
     context = {
-        "instance": employee_obj,
-        "model_instance": employee_obj,
-        "self": getattr(request.user, "employee_get", None),
+        **mail_template_context(employee_obj, getattr(request.user, "employee_get", None)),
         "request": build_safe_template_request(request),
     }
 
@@ -289,8 +290,9 @@ def send_mail_to_employee(request):
         for html in bodys:
             # due to not having solid template we first need to pass the context
             template_bdy = template.Template(html)
+            # Plain strings only: a template can not walk the ORM (2026-11-13).
             context = template.Context(
-                {"instance": employee, "self": request.user.employee_get}
+                mail_template_context(employee, request.user.employee_get)
             )
             render_bdy = template_bdy.render(context)
             attachments.append(
@@ -303,7 +305,7 @@ def send_mail_to_employee(request):
 
         template_bdy = template.Template(bdy)
         context = template.Context(
-            {"instance": employee, "self": request.user.employee_get}
+            mail_template_context(employee, request.user.employee_get)
         )
         render_bdy = template_bdy.render(context)
         send_to_mail = (

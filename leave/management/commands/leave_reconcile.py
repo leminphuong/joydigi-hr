@@ -133,7 +133,68 @@ def reconcile():
             {"leave_type_id": t, "leave_type": names.get(t), "problem": p, "count": n}
             for (t, p), n in sorted(inconsistent.items())
         ],
+        **leave_request_checks(),
     }
+
+
+def leave_request_checks():
+    """2026-11-15, read-only:
+
+    * approved leaves whose recorded days differ from the days taken from
+      the fund (approved_available_days + approved_carryforward_days) — what
+      an edit of an approved leave's dates used to leave behind;
+    * months in which an employee holds more of the shared fund than the
+      monthly limit (requests from before the limit, kept as they are).
+    """
+    from collections import defaultdict as _dd
+
+    from leave import monthly_limit
+    from leave.models import LeaveRequest
+
+    mismatched = []
+    approved = LeaveRequest._base_manager.filter(status="approved").values(
+        "pk", "employee_id", "leave_type_id", "start_date", "end_date",
+        "requested_days", "approved_available_days", "approved_carryforward_days",
+    )
+    for row in approved.iterator():
+        taken = float(row["approved_available_days"] or 0) + float(row["approved_carryforward_days"] or 0)
+        if abs(float(row["requested_days"] or 0) - taken) > 1e-6:
+            mismatched.append({
+                "leave_request_id": row["pk"], "employee_id": row["employee_id"],
+                "leave_type_id": row["leave_type_id"], "start_date": row["start_date"],
+                "end_date": row["end_date"], "requested_days": row["requested_days"], "taken_days": taken,
+            })
+    over_limit = []
+    limit = monthly_limit.limit_days()
+    if limit > 0:
+        seen = _dd(set)
+        rows = LeaveRequest._base_manager.select_related("leave_type_id").filter(
+            status__in=monthly_limit.COUNTED_STATUSES
+        ).values_list("employee_id", "leave_type_id", "start_date", "end_date")
+        for employee_id, leave_type_id, start, end in rows.iterator():
+            day = start.replace(day=1)
+            while day <= (end or start):
+                seen[(employee_id, leave_type_id)].add((day.year, day.month))
+                day = (day.replace(year=day.year + 1, month=1) if day.month == 12 else day.replace(month=day.month + 1))
+        from employee.models import Employee
+        from leave.models import LeaveType
+
+        checked = set()
+        for (employee_id, leave_type_id), months in seen.items():
+            leave_type = LeaveType._base_manager.filter(pk=leave_type_id).first()
+            if not monthly_limit.is_limited(leave_type):
+                continue
+            fund = tuple(monthly_limit.fund_type_ids(leave_type))
+            employee = Employee._base_manager.filter(pk=employee_id).first()
+            for year, month in sorted(months):
+                if (employee_id, fund, year, month) in checked:
+                    continue
+                checked.add((employee_id, fund, year, month))
+                usage = monthly_limit.month_usage(employee, leave_type, year, month)
+                if usage["held_days"] > limit + 1e-6:
+                    over_limit.append({"employee_id": employee_id, "year": year, "month": month,
+                                       "held_days": usage["held_days"], "limit_days": limit})
+    return {"approved_days_mismatch": mismatched, "months_over_limit": over_limit}
 
 
 class Command(BaseCommand):
@@ -173,4 +234,12 @@ class Command(BaseCommand):
         w("8. Số dư không khớp:")
         for item in report["inconsistent_balances"] or [{"count": 0}]:
             w(f"   {item['leave_type']} (#{item['leave_type_id']}) {item['problem']}: {item['count']}" if item["count"] else "   không có")
+        w(f"9. Đơn đã duyệt có số ngày khác số ngày đã trừ quỹ: {len(report['approved_days_mismatch'])}")
+        for item in report["approved_days_mismatch"][:50]:
+            w(f"   đơn #{item['leave_request_id']} (NV #{item['employee_id']}): ghi {item['requested_days']} ngày, "
+              f"đã trừ {item['taken_days']} ngày")
+        w(f"10. Tháng vượt giới hạn sử dụng (đơn cũ, giữ nguyên): {len(report['months_over_limit'])}")
+        for item in report["months_over_limit"][:50]:
+            w(f"   NV #{item['employee_id']} tháng {item['month']:02d}/{item['year']}: "
+              f"{item['held_days']} / {item['limit_days']} ngày")
         w("Không có gì bị ghi.")

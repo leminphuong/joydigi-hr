@@ -32,6 +32,9 @@ from joydigi_documents.models import Document, DocumentRequest
 from notifications.signals import notify
 
 from ...api_decorators.base.decorators import (
+    actor_of,
+    employee_from_data,
+    forbidden,
     manager_or_owner_permission_required,
     manager_permission_required,
 )
@@ -70,6 +73,23 @@ def object_delete(cls, pk):
         return "", 200
     except Exception as e:
         return {"error": str(e)}, 400
+
+
+#: What an employee may change on their own profile through the API
+#: (2026-11-13). Identity and access fields — email, is_active, the user
+#: account, badge, company data — stay with HR.
+SELF_EDITABLE_EMPLOYEE_FIELDS = frozenset({
+    "phone", "address", "country", "state", "city", "zip",
+    "dob", "gender", "qualification", "experience", "marital_status", "children",
+    "emergency_contact", "emergency_contact_name", "emergency_contact_relation",
+})
+
+
+def _is_hr(user, perm):
+    """A superuser, a check-in admin or a holder of the Django permission."""
+    from base.roles import is_checkin_admin
+
+    return bool(getattr(user, "is_superuser", False) or is_checkin_admin(user) or user.has_perm(perm))
 
 
 class EmployeeTypeAPIView(APIView):
@@ -162,17 +182,27 @@ class EmployeeAPIView(APIView):
 
     def put(self, request, pk):
         user = request.user
-        employee = Employee.objects.get(pk=pk)
-        if (
-            employee
-            in [user.employee_get, request.user.employee_get.get_reporting_manager()]
-        ) or user.has_perm("employee.change_employee"):
-            serializer = EmployeeSerializer(employee, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        return Response({"error": _("You don't have permission")}, status=400)
+        employee = Employee.objects.filter(pk=pk).first()
+        if employee is None:
+            return Response({"error": _("Employee not found.")}, status=404)
+        actor = actor_of(user)
+        # SEC-04 (2026-11-13): the old rule let an employee edit their own
+        # *manager's* record, every field included. Now HR edits anyone; an
+        # employee edits only their own profile and only the fields above.
+        if not _is_hr(user, "employee.change_employee"):
+            if actor is None or employee.pk != actor.pk:
+                return forbidden(_("You don't have permission"))
+            refused = sorted(set(request.data.keys()) - SELF_EDITABLE_EMPLOYEE_FIELDS)
+            if refused:
+                return forbidden(
+                    _("You can not change these fields yourself: %(fields)s")
+                    % {"fields": ", ".join(refused)}
+                )
+        serializer = EmployeeSerializer(employee, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @method_decorator(permission_required("employee.delete_employee"))
     def delete(self, request, pk):
@@ -285,6 +315,11 @@ class EmployeeBankDetailsAPIView(APIView):
         EmployeeBankDetails, "employee.add_employeebankdetails"
     )
     def post(self, request):
+        target = employee_from_data(request)
+        actor = actor_of(request.user)
+        if not ((actor is not None and target is not None and target.pk == actor.pk)
+                or _is_hr(request.user, "employee.add_employeebankdetails")):
+            return forbidden()
         serializer = EmployeeBankDetailsSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -303,6 +338,11 @@ class EmployeeBankDetailsAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        actor = actor_of(request.user)
+        target = employee_from_data(request) or bank_detail.employee_id
+        owner = actor is not None and bank_detail.employee_id_id == actor.pk and target.pk == actor.pk
+        if not (owner or _is_hr(request.user, "employee.change_employeebankdetails")):
+            return forbidden()
         serializer = EmployeeBankDetailsSerializer(bank_detail, data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -313,6 +353,8 @@ class EmployeeBankDetailsAPIView(APIView):
     def delete(self, request, pk):
         try:
             bank_detail = EmployeeBankDetails.objects.get(pk=pk)
+            if not _is_hr(request.user, "employee.delete_employeebankdetails"):
+                return forbidden()
             bank_detail.delete()
         except EmployeeBankDetails.DoesNotExist:
             return Response(
@@ -357,6 +399,8 @@ class EmployeeWorkInformationAPIView(APIView):
 
     @manager_permission_required("employee.add_employeeworkinformation")
     def post(self, request):
+        if not _is_hr(request.user, "employee.add_employeeworkinformation"):
+            return forbidden()
         serializer = EmployeeWorkInformationSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()

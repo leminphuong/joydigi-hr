@@ -6,7 +6,7 @@ import contextlib
 from typing import Any
 
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
@@ -307,6 +307,21 @@ class LeaveAllocationRequestDetailView(JoydigiDetailedView):
 
     action_method = "detail_action"
 
+    def get_object(self, queryset=None):
+        """Only the caller's own request, or one of an employee they may
+        manage — else not found (2026-11-14): any logged-in user used to
+        open any request and its attachment by id."""
+        from leave.request_access import is_own_leave, may_manage_employee
+
+        instance = super().get_object(queryset)
+        if instance is not None and not (
+            is_own_leave(self.request.user, instance)
+            or may_manage_employee(self.request.user, instance.employee_id, "leave.view_leaveallocationrequest")
+        ):
+            self.instance = None
+            raise Http404("Không tìm thấy yêu cầu cấp phép.")
+        return instance
+
     model = LeaveAllocationRequest
     title = _("Details")
     header = {
@@ -361,10 +376,59 @@ class LeaveAllocationRequestFormView(JoydigiFormView):
             )
         return super().form_invalid(form)
 
+    def may_edit(self, instance):
+        """The caller's own request, or one of an employee they may manage."""
+        from leave.request_access import is_own_leave, may_manage_employee
+
+        return is_own_leave(self.request.user, instance) or may_manage_employee(
+            self.request.user, instance.employee_id, "leave.change_leaveallocationrequest"
+        )
+
+    def may_file_for(self, employee):
+        """A request is for the caller, or for an employee they may manage."""
+        from leave.request_access import may_manage_employee
+
+        actor = getattr(self.request.user, "employee_get", None)
+        return employee is not None and (
+            (actor is not None and employee.pk == actor.pk)
+            or may_manage_employee(self.request.user, employee, "leave.add_leaveallocationrequest")
+        )
+
+    def get_queryset(self):
+        """The request being edited: the caller's own, or one of an employee
+        they may manage, still waiting — else not found (2026-11-14). Any
+        logged-in user used to open and save any request, in any status, and
+        could move it to themselves."""
+        pk = self.kwargs.get("pk")
+        if not pk:
+            return None  # a new request
+        instance = LeaveAllocationRequest.objects.filter(pk=pk).first()
+        if instance is None or instance.status != "requested" or not self.may_edit(instance):
+            raise Http404("Không tìm thấy yêu cầu cấp phép.")
+        return instance
+
     def form_valid(self, form: LeaveAllocationRequestForm) -> HttpResponse:
+        from django.db import transaction
+
+        from leave.balance_ops import relock
+
         if form.is_valid():
             self.form_class(self.request.FILES)
-            instance = form.save()
+            # For the caller or someone they may manage, whatever the browser
+            # sent; an edit is saved on the locked row while it still waits
+            # (2026-11-14).
+            if not self.may_file_for(form.cleaned_data.get("employee_id")):
+                messages.error(self.request, "Bạn chỉ được tạo yêu cầu cấp phép cho mình hoặc thành viên trong nhóm.")
+                return self.HttpResponse()
+            if self.kwargs.get("pk"):
+                with transaction.atomic():
+                    current = relock(form.instance)
+                    if current.status != "requested" or not self.may_edit(current):
+                        messages.error(self.request, "Yêu cầu cấp phép vừa được xử lý nên không thể sửa.")
+                        return self.HttpResponse()
+                    instance = form.save()
+            else:
+                instance = form.save()
             instance.skip_history = False
             if form.instance.pk:
                 message = _("Leave allocation request updated")

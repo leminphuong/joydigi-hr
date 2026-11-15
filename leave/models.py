@@ -11,7 +11,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q, Sum
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -1118,6 +1118,35 @@ class LeaveRequest(JoydigiModel):
             context={"instance": self, "current_date": current_date},
         )
 
+    @property
+    def waiting_cancellation(self):
+        """The cancellation request waiting for a decision, or None."""
+        return (
+            LeaveCancellationRequest._base_manager.filter(leave_request_id=self.pk, status="requested")
+            .order_by("-id")
+            .first()
+        )
+
+    def cancellation_status_display(self):
+        """The newest cancellation request, in words (2026-11-13)."""
+        latest = (
+            LeaveCancellationRequest._base_manager.filter(leave_request_id=self.pk).order_by("-id").first()
+        )
+        if latest is None:
+            return "—"
+        if latest.status == "requested":
+            return "Chờ duyệt hủy"
+        if latest.status == "approved":
+            return "Đã chấp thuận hủy"
+        return "Yêu cầu hủy bị từ chối" + (f": {latest.decision_reason}" if latest.decision_reason else "")
+
+    def cancellation_action(self):
+        """HR detail view: the cancellation state and a link to decide it."""
+        return render_template(
+            path="leave/leave_cancellation/detail_badge.html",
+            context={"instance": self, "waiting": self.waiting_cancellation},
+        )
+
     def detail_leave_actions(self):
         """
         method for rendering detail view action
@@ -1555,6 +1584,38 @@ class LeaveRequest(JoydigiModel):
         return overlapping_requests
 
     def save(self, *args, **kwargs):
+        """2026-11-15:
+
+        * an APPROVED request never changes employee, type, dates or day
+          count here (the days taken from the fund were counted on them):
+          ``ApprovedLeaveChangeError``; a note edit keeps its recorded days;
+        * a request that holds more days of a month than before (new, moved
+          dates, back to waiting/approved) is checked against the monthly
+          limit with the fund's balance row locked, in the same transaction
+          as the save, so two requests at once can not both pass.
+        """
+        from leave import monthly_limit
+
+        if monthly_limit.decided_balance_change(self):
+            raise monthly_limit.ApprovedLeaveChangeError(monthly_limit.APPROVED_EDIT_REFUSED)
+        if monthly_limit.is_limited(self.leave_type_id) and monthly_limit.adds_usage(self):
+            from leave.balance_ops import lock_balance
+
+            with transaction.atomic():
+                lock_balance(self.employee_id, self.leave_type_id)
+                self._compute_requested_days()
+                monthly_limit.check_request(self)
+                return self._save_and_route(*args, **kwargs)
+        self._compute_requested_days()
+        return self._save_and_route(*args, **kwargs)
+
+    def _compute_requested_days(self):
+        from leave import monthly_limit
+
+        kept = monthly_limit.stored_approved_days(self)
+        if kept is not None:
+            self.requested_days = kept
+            return
         self.requested_days = calculate_requested_days(
             self.start_date,
             self.end_date,
@@ -1569,6 +1630,8 @@ class LeaveRequest(JoydigiModel):
         else:
             self.exclude_leaves()
 
+    def _save_and_route(self, *args, **kwargs):
+
         if self.status in ["cancelled", "rejected"]:
             self.leave_clashes_count = 0
         else:
@@ -1576,7 +1639,13 @@ class LeaveRequest(JoydigiModel):
 
         super().save(*args, **kwargs)
 
-        self.update_leave_clashes_count()
+        # The clash count of the OTHER overlapping leaves is derived data:
+        # updated once this save is committed (2026-11-13, P1-3). Inside a
+        # decision it wrote other employees' rows while this row was locked,
+        # and two managers approving two overlapping leaves at once
+        # deadlocked on PostgreSQL. Outside a transaction it runs at once,
+        # as before; a failure there is logged, never undoes the decision.
+        transaction.on_commit(self.update_leave_clashes_count, robust=True)
         work_info = EmployeeWorkInformation.objects.filter(employee_id=self.employee_id)
         department_id = None
         emp_comp_id = None
@@ -1656,6 +1725,20 @@ class LeaveRequest(JoydigiModel):
         requ_days = set(self.requested_dates())
         restricted_leaves = RestrictLeave.objects.all()
         request = getattr(joydigi_middlewares._thread_locals, "request", None)
+
+        from leave import monthly_limit
+
+        # An approved request (2026-11-15): its days, type and employee are
+        # fixed — the fund was charged on them. A note edit is fine and is
+        # not re-validated against today's balance or limit.
+        if monthly_limit.decided_balance_change(self):
+            raise ValidationError(monthly_limit.APPROVED_EDIT_REFUSED)
+        if monthly_limit.stored_approved_days(self) is not None:
+            if leave_type.require_attachment == "yes" and not attachment:
+                raise ValidationError(
+                    {"attachment": _("An attachment is required for this leave request")}
+                )
+            return cleaned_data
 
         # Check if leave type is assigned to employee
         if not AvailableLeave.objects.filter(
@@ -1759,10 +1842,30 @@ class LeaveRequest(JoydigiModel):
 
         total_leave_days = available_days + carryforward_days + forcated_days
 
+        from leave.services import pending_shared_days, shared_fund_types
+
+        if shared_fund_types(available_leave.leave_type_id) and monthly_limit.adds_usage(self):
+            # One fund for several request types: days already asked for and
+            # not decided are held, as the mobile API does (2026-11-15).
+            total_leave_days -= pending_shared_days(
+                self.employee_id, available_leave.leave_type_id, exclude_request=self
+            )
+
         if not effective_requested_days <= total_leave_days:
             raise ValidationError(
                 _("Does not have sufficient leave balance for the requested dates.")
             )
+
+        # At most LEAVE_MONTHLY_USAGE_LIMIT_DAYS of the shared fund used per
+        # calendar month (2026-11-15). Checked again under the fund's row
+        # lock when saved.
+        if monthly_limit.adds_usage(self):
+            problem = monthly_limit.monthly_limit_problem(
+                self.employee_id, leave_type, self.start_date, self.end_date,
+                self.start_date_breakdown, self.end_date_breakdown, exclude_pk=self.pk,
+            )
+            if problem:
+                raise ValidationError(problem)
 
         # Get employee department and job if available
         work_info = EmployeeWorkInformation.objects.filter(
@@ -1847,26 +1950,19 @@ class LeaveRequest(JoydigiModel):
             self.requested_days = self.requested_days - company_leave_count
 
     def no_approval(self):
-        employee_id = self.employee_id
-        leave_type_id = self.leave_type_id
-        available_leave = AvailableLeave.objects.get(
-            leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
-        )
-        if self.requested_days > available_leave.available_days:
-            leave = self.requested_days - available_leave.available_days
-            self.approved_available_days = available_leave.available_days
-            available_leave.available_days = 0
-            available_leave.carryforward_days = (
-                available_leave.carryforward_days - leave
-            )
-            self.approved_carryforward_days = leave
-        else:
-            available_leave.available_days = (
-                available_leave.available_days - self.requested_days
-            )
-            self.approved_available_days = self.requested_days
+        """Approve with no review: the balance row is locked and the days
+        are taken like a manager's approval (carry-forward first, never
+        below zero — 2026-11-13). The caller saves the request."""
+        from django.db import transaction
+
+        from leave.balance_ops import deduct_for_request, lock_balance
+
+        with transaction.atomic():
+            balance = lock_balance(self.employee_id, self.leave_type_id)
+            if balance is None:
+                raise AvailableLeave.DoesNotExist("No leave balance for this leave type.")
+            deduct_for_request(self, balance)
         self.status = "approved"
-        available_leave.save()
 
     def multiple_approvals(self, *args, **kwargs):
         if hasattr(self, "_multiple_approvals_cache"):
@@ -1922,8 +2018,9 @@ class LeaveRequest(JoydigiModel):
         if self.status == "requested":
             super().delete(*args, **kwargs)
 
-            # Update the leave clashes count for all relevant leave requests
-            self.update_leave_clashes_count()
+            # Update the leave clashes count for all relevant leave requests,
+            # once the delete is committed (2026-11-13, P1-3).
+            transaction.on_commit(self.update_leave_clashes_count, robust=True)
         else:
             request = getattr(joydigi_middlewares._thread_locals, "request", None)
             if request:
@@ -1998,6 +2095,63 @@ class LeaverequestComment(JoydigiModel):
 
     def __str__(self) -> str:
         return f"{self.comment}"
+
+
+LEAVE_CANCELLATION_STATUS = (
+    ("requested", _("Chờ duyệt hủy")),
+    ("approved", _("Đã chấp thuận hủy")),
+    ("rejected", _("Đã từ chối hủy")),
+)
+
+
+class LeaveCancellationRequest(models.Model):
+    """An employee's request to cancel a leave that is already APPROVED
+    (JOYDIGI policy of 2026-11-13).
+
+    The leave keeps its status ``approved`` — and its effect on attendance,
+    reports and the balance — while the request waits. Only when a manager or
+    HR approves it does the leave become ``cancelled`` and get its days back,
+    exactly what was recorded as taken (``leave.cancellation``). A rejected
+    request changes nothing on the leave. At most one request per leave may
+    wait at a time (database constraint below).
+    """
+
+    leave_request = models.ForeignKey(
+        LeaveRequest,
+        on_delete=models.CASCADE,
+        related_name="cancellation_requests",
+        verbose_name=_("Leave request"),
+    )
+    requested_by = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    reason = models.TextField(blank=True, default="", max_length=1000)
+    status = models.CharField(
+        max_length=20, choices=LEAVE_CANCELLATION_STATUS, default="requested"
+    )
+    decided_by = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_reason = models.TextField(blank=True, default="", max_length=1000)
+    # What the approval gave back, for the record (0 for a rejected request).
+    refunded_available_days = models.FloatField(default=0)
+    refunded_carryforward_days = models.FloatField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-id"]
+        verbose_name = _("Leave cancellation request")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["leave_request"],
+                condition=Q(status="requested"),
+                name="leave_one_waiting_cancellation",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.leave_request_id}: {self.status}"
 
 
 class LeaveAllocationRequest(JoydigiModel):
@@ -2470,43 +2624,25 @@ if apps.is_installed("attendance"):
                 )
 
         def assign_compensatory_leave_type(self):
-            available_leave, created = AvailableLeave.objects.get_or_create(
-                employee_id=self.employee_id,
-                leave_type_id=self.leave_type_id,
-            )
-            available_leave.available_days += self.requested_days
-            available_leave.save()
+            from leave.balance_ops import add_days
+
+            add_days(self.employee_id, self.leave_type_id, self.requested_days, create=True)
 
         def __str__(self):
             return f"{self.employee_id}| {self.leave_type_id}| {self.id}"
 
         def assign_compensatory_leave_type(self):
-            available_leave, created = AvailableLeave.objects.get_or_create(
-                employee_id=self.employee_id,
-                leave_type_id=self.leave_type_id,
-            )
-            available_leave.available_days += self.requested_days
-            available_leave.save()
+            # Locked (2026-11-13); was a read-modify-write.
+            from leave.balance_ops import add_days
+
+            add_days(self.employee_id, self.leave_type_id, self.requested_days, create=True)
 
         def exclude_compensatory_leave(self):
-            if AvailableLeave.objects.filter(
-                employee_id=self.employee_id,
-                leave_type_id=self.leave_type_id,
-            ).exists():
-                available_leave = AvailableLeave.objects.filter(
-                    employee_id=self.employee_id,
-                    leave_type_id=self.leave_type_id,
-                ).first()
-                if available_leave.available_days < self.requested_days:
-                    available_leave.available_days = 0
-                    available_leave.carryforward_days = max(
-                        0,
-                        available_leave.carryforward_days
-                        - (self.requested_days - available_leave.available_days),
-                    )
-                else:
-                    available_leave.available_days -= self.requested_days
-                available_leave.save()
+            # Locked, never below zero (2026-11-13). The old code zeroed the
+            # year's days before computing the rest from them.
+            from leave.balance_ops import take_days
+
+            take_days(self.employee_id, self.leave_type_id, self.requested_days)
 
         def save(self, *args, **kwargs):
             self.leave_type_id = LeaveType.objects.filter(

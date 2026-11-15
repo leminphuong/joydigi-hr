@@ -214,6 +214,15 @@ class ChatPilotGroupTests(ChatFixtures):
         web.force_login(self.alice.employee_user_id)
         self.assertIn("chat.js", web.get("/okr/").content.decode())
 
+    def test_a_mistyped_pilot_list_fails_closed(self):
+        # Badges instead of ids must not open chat to the whole company.
+        with override_settings(OKR_CHAT_PILOT_EMPLOYEE_IDS=["NV006", " ", "abc"]):
+            self.assertEqual(self.api(self.alice, "get", "rooms/", expect=404)["code"], "chat_disabled")
+            self.api(self.carol, "get", "rooms/", expect=404)
+        with override_settings(OKR_CHAT_PILOT_EMPLOYEE_IDS=f"NV006,{self.alice.pk},0,-3"):
+            self.api(self.alice, "get", "rooms/")
+            self.api(self.bob, "get", "rooms/", expect=404)
+
     def test_without_a_pilot_list_everyone_has_chat(self):
         with override_settings(OKR_CHAT_PILOT_EMPLOYEE_IDS=[]):
             self.api(self.carol, "get", "rooms/")

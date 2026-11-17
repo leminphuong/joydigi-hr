@@ -126,6 +126,7 @@ from joydigi.decorators import (
     manager_can_enter,
     owner_can_enter,
     permission_required,
+    superuser_required,
 )
 from joydigi.filters import JoydigiPaginator
 from joydigi.group_by import group_by_queryset
@@ -1270,13 +1271,21 @@ def employee_profile_update(request):
 
 
 @login_required
-@permission_required("auth.delete_group")
+@superuser_required
 @require_http_methods(["POST"])
 def employee_user_group_assign_delete(_, obj_id):
     """
     This method is used to delete user group assign
+
+    Superuser only (2026-11-17): only a superuser grants or revokes roles.
+    It used to need ``auth.delete_group`` only.
     """
+    from base.models import CompanyGroupAssignment
+
     user = JoydigiUser.objects.get(id=obj_id)
+    # With company-scoped permissions the rights come from these rows, not
+    # from ``user.groups``: clearing only the M2M left every role in force.
+    CompanyGroupAssignment.objects.filter(user=user).delete()
     user.groups.clear()
     return redirect("/employee/employee-user-group-assign-view")
 

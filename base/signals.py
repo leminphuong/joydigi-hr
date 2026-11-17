@@ -393,7 +393,16 @@ def _resolve_group_permissions(config):
             ).values_list("id", flat=True)
         )
 
-    return Permission.objects.filter(id__in=set(permission_ids))
+    # Never the Director marker (2026-11-17): the admin role takes every
+    # permission of the ``base`` app here, and the marker is what makes a
+    # group the Director role. Only migration ``base 0017`` gives it, to the
+    # Director group it creates.
+    from base.roles import DIRECTOR_MARKER_APP_LABEL, DIRECTOR_MARKER_CODENAME
+
+    return Permission.objects.filter(id__in=set(permission_ids)).exclude(
+        content_type__app_label=DIRECTOR_MARKER_APP_LABEL,
+        codename=DIRECTOR_MARKER_CODENAME,
+    )
 
 
 @receiver(post_save, sender="employee.Employee")

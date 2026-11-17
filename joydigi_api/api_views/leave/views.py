@@ -30,43 +30,19 @@ from ...api_decorators.base.decorators import (
 )
 
 
-def _leave_review_problem(user, leave_request):
+def _leave_review_problem(user, leave_request, action="approve"):
     """None when the caller may decide `leave_request` now, else the reason.
 
-    SEC-02 (2026-11-13): the same rule as the web approval (leave/views.py):
-    a superuser; otherwise never one's own request; with several approval
-    steps, the approver of the current step once the earlier steps are done;
-    otherwise a check-in admin *of the employee's company* (2026-11-14: a JWT
-    request has no selected company, so an admin role in any company used to
-    count for every company) or the employee's own reporting manager.
+    2026-11-17: the one rule of the web, the API and the approval hub,
+    ``leave.request_access.review_problem``. With several approval steps,
+    only the approver of the current step, superuser included (a superuser
+    used to approve every step at once here); otherwise a check-in admin or
+    Director of the employee's company, or the reporting manager; never
+    one's own leave (a superuser may decide a one-step leave, as before).
     """
-    from leave.request_access import is_admin_for
+    from leave.request_access import review_problem
 
-    if getattr(user, "is_superuser", False):
-        return None
-    actor = actor_of(user)
-    if actor is None:
-        return _("You do not have permission to perform this action.")
-    if leave_request.employee_id_id == actor.pk:
-        return _("You cannot approve your own leave request.")
-    if leave_request.multiple_approvals():
-        step = (
-            LeaveRequestConditionApproval.objects.filter(
-                manager_id=actor, leave_request_id=leave_request, is_approved=False, is_rejected=False
-            )
-            .order_by("sequence")
-            .first()
-        )
-        if step is None:
-            return "Bạn không phải người duyệt ở bước hiện tại."
-        if LeaveRequestConditionApproval.objects.filter(
-            leave_request_id=leave_request, sequence__lt=step.sequence, is_approved=False
-        ).exists():
-            return "Đơn này chưa được duyệt ở bước trước."
-        return None
-    if is_admin_for(user, leave_request.employee_id) or is_direct_manager(user, leave_request.employee_id):
-        return None
-    return "Bạn chỉ được duyệt đơn của thành viên trong nhóm mình."
+    return review_problem(user, leave_request, action)
 
 
 def _may_handle(user, obj, perm):
@@ -1009,11 +985,16 @@ class LeaveRequestApproveAPIView(APIView):
             lock_leave_request,
         )
 
+        from leave.step_decisions import log_decision, notify_next_step
+
         leave_request = self.get_leave_request(pk)
         problem = _leave_review_problem(request.user, leave_request)
         if problem:
+            log_decision(request.user, leave_request, decision="approve", result="refused",
+                         request=request, channel="api", message=problem)
             return forbidden(problem)
         final = True
+        decided_step = None
         try:
             with transaction.atomic():
                 # Locked, then checked again (2026-11-13): a second approval of
@@ -1031,35 +1012,36 @@ class LeaveRequestApproveAPIView(APIView):
                     )
                 ensure_sufficient(leave_request, balance)  # at every step, as before
                 if leave_request.multiple_approvals():
-                    if request.user.is_superuser:
-                        LeaveRequestConditionApproval.objects.filter(
-                            leave_request_id=leave_request
-                        ).update(is_approved=True)
-                    else:
-                        step = (
-                            LeaveRequestConditionApproval._base_manager.select_for_update()
-                            .filter(
-                                manager_id=actor_of(request.user),
-                                leave_request_id=leave_request,
-                                is_approved=False,
-                                is_rejected=False,
-                            )
-                            .order_by("sequence")
-                            .first()
-                        )
-                        if step is None:
-                            return forbidden("Bạn không phải người duyệt ở bước hiện tại.")
-                        step.is_approved = True
-                        step.save()
-                        final = not LeaveRequestConditionApproval.objects.filter(
-                            leave_request_id=leave_request, is_approved=False
-                        ).exists()
+                    # Only the current step, by its approver, recorded with
+                    # who and when (2026-11-17), checked again on the locked
+                    # rows. A superuser no longer approves every step at
+                    # once; deciding on behalf of an approver needs a reason
+                    # (``/api/leave/override/<pk>/``).
+                    from leave.request_access import current_step
+                    from leave.step_decisions import locked_steps, mark_step
+
+                    steps = locked_steps(leave_request)
+                    problem = _leave_review_problem(request.user, leave_request)
+                    if problem:
+                        return forbidden(problem)
+                    step = current_step(leave_request, steps)
+                    if step is not None:
+                        mark_step(step, actor_of(request.user), approved=True)
+                        decided_step = step
+                    # Every step approved (this one, or all of them already:
+                    # e.g. an admin's own leave whose only step approved
+                    # itself) — the leave itself is approved now.
+                    final = current_step(leave_request, steps) is None
                 if final:
                     deduct_for_request(leave_request, balance)
                     leave_request.status = "approved"
                     leave_request.save()
         except LeaveBalanceError as error:
             return Response({"non_field_errors": [error.message]}, status=400)
+        log_decision(request.user, leave_request, decision="approve", result="ok",
+                     step=decided_step, request=request, channel="api")
+        if not final:
+            notify_next_step(leave_request, actor_of(request.user) or request.user)
         if final:
             with contextlib.suppress(Exception):
                 notify.send(
@@ -1091,15 +1073,35 @@ class LeaveRequestRejectAPIView(APIView):
         from django.db import transaction
 
         from leave.balance_ops import lock_balance, lock_leave_request, refund_for_request
+        from leave.request_access import clean_reason, current_step
+        from leave.step_decisions import (
+            REJECT_REASON_REQUIRED,
+            locked_steps,
+            log_decision,
+            mark_step,
+        )
 
         leave_request = self.get_leave_request(pk)
-        problem = _leave_review_problem(request.user, leave_request)
+        problem = _leave_review_problem(request.user, leave_request, "reject")
         if problem:
+            log_decision(request.user, leave_request, decision="reject", result="refused",
+                         request=request, channel="api", message=problem)
             return forbidden(problem)
+        reason = clean_reason(
+            request.data.get("reason") or request.data.get("reject_reason")
+        )
+        decided_step = None
         with transaction.atomic():
             leave_request = lock_leave_request(pk)
             if leave_request is None or leave_request.status == "rejected":
                 raise serializers.ValidationError(_("Nothing to reject."))
+            # Checked again on the locked rows; the current step records who
+            # rejected and when (2026-11-17).
+            steps = locked_steps(leave_request) if leave_request.status == "requested" else []
+            problem = _leave_review_problem(request.user, leave_request, "reject")
+            if problem:
+                return forbidden(problem)
+            decided_step = current_step(leave_request, steps) if steps else None
             # Nobody — a superuser included — rejects their own leave to get
             # its days back (2026-11-13, P1-4): that is a cancellation, which
             # needs someone else's approval.
@@ -1110,12 +1112,20 @@ class LeaveRequestRejectAPIView(APIView):
                 and (leave_request.approved_available_days or leave_request.approved_carryforward_days)
             ):
                 return forbidden("Bạn không thể tự từ chối đơn đã duyệt của chính mình để lấy lại ngày phép; hãy gửi yêu cầu hủy để quản lý hoặc HR duyệt.")
+            # A rejection says why (2026-11-17), as on the web.
+            if reason is None:
+                return Response({"reason": [REJECT_REASON_REQUIRED]}, status=400)
             # The days go back to the employee who asked for them (2026-11-11),
             # exactly once (2026-11-13): the refund zeroes what was recorded.
             balance = lock_balance(leave_request.employee_id, leave_request.leave_type_id)
             refund_for_request(leave_request, balance)
+            if decided_step is not None:
+                mark_step(decided_step, actor_of(request.user), approved=False)
             leave_request.status = "rejected"
+            leave_request.reject_reason = reason
             leave_request.save()
+        log_decision(request.user, leave_request, decision="reject", result="ok",
+                     step=decided_step, reason=reason, request=request, channel="api")
         with contextlib.suppress(Exception):
             notify.send(
                 request.user.employee_get,
@@ -1130,6 +1140,43 @@ class LeaveRequestRejectAPIView(APIView):
                 api_redirect=f"/api/leave/user-request/{leave_request.id}/",
             )
         return Response(status=200)
+
+
+class LeaveRequestOverrideAPIView(APIView):
+    """A Director of the employee's company (or a superuser) approves or
+    rejects the current step of a waiting leave on behalf of its approver
+    (2026-11-17). Body: ``decision`` ("approve" or "reject") and ``reason``
+    (at least 10 characters). One step per call."""
+
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, pk):
+        from leave.step_decisions import decide_on_behalf
+
+        ok, message = decide_on_behalf(
+            request.user,
+            pk,
+            request.data.get("decision"),
+            request.data.get("reason"),
+            request=request,
+            channel="api",
+        )
+        if ok:
+            return Response({"message": message}, status=200)
+        from leave.step_decisions import (
+            NO_BALANCE,
+            NOT_FOUND,
+            OVERRIDE_REASON_REQUIRED,
+            BalanceRefusal,
+        )
+
+        if message == NOT_FOUND:
+            return Response({"error": message}, status=404)
+        if isinstance(message, BalanceRefusal) or message in (
+            OVERRIDE_REASON_REQUIRED, NO_BALANCE, "Thao tác không hợp lệ."
+        ):
+            return Response({"error": str(message)}, status=400)
+        return Response({"error": message}, status=403)
 
 
 def _cancellation_error(error):
@@ -1322,8 +1369,9 @@ class LeaveRequestBulkApproveDeleteAPIview(APIView):
             problem = _leave_review_problem(request.user, leave_request)
             if problem:
                 return forbidden(problem)
-            if leave_request.multiple_approvals() and not request.user.is_superuser:
-                # Bulk approval would skip the later steps.
+            if leave_request.multiple_approvals():
+                # Bulk approval would skip the later steps, for a superuser
+                # too (2026-11-17): one step per action.
                 return Response(
                     {"error": "Đơn có nhiều bước duyệt phải duyệt từng đơn."}, status=400
                 )

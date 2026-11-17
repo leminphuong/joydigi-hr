@@ -1630,7 +1630,100 @@ class LeaveRequest(JoydigiModel):
         else:
             self.exclude_leaves()
 
+    # What decides the approval chain, and what an approver looked at
+    # (2026-11-17): once a step was decided these no longer change.
+    ROUTING_FIELDS = (
+        "employee_id",
+        "leave_type_id",
+        "start_date",
+        "end_date",
+        "start_date_breakdown",
+        "end_date_breakdown",
+        "requested_days",
+    )
+
+    def _stored_routing(self):
+        """The routing fields and status as stored, or None for a new row."""
+        if not self.pk:
+            return None
+        return (
+            type(self)._base_manager.filter(pk=self.pk)
+            .values("status", *self.ROUTING_FIELDS)
+            .first()
+        )
+
+    def _routing_changed(self, stored, *, days=True) -> bool:
+        current = {
+            "employee_id": self.employee_id_id,
+            "leave_type_id": self.leave_type_id_id,
+            "start_date": self.start_date,
+            "end_date": self.end_date,
+            "start_date_breakdown": self.start_date_breakdown,
+            "end_date_breakdown": self.end_date_breakdown,
+            "requested_days": self.requested_days,
+        }
+        for name in self.ROUTING_FIELDS:
+            before, after = stored.get(name), current[name]
+            if name == "requested_days" and not days:
+                continue
+            if name == "requested_days":
+                if float(before or 0) != float(after or 0):
+                    return True
+            elif str(before or "") != str(after or ""):
+                return True
+        return False
+
+    def _has_decided_step(self, stored) -> bool:
+        """A step someone decided: rejected, or approved by somebody other
+        than the employee (``leave.request_access.step_was_decided``)."""
+        steps = LeaveRequestConditionApproval._base_manager.filter(
+            leave_request_id_id=self.pk
+        )
+        return steps.filter(
+            Q(is_rejected=True)
+            | (Q(is_approved=True) & ~Q(manager_id_id=stored.get("employee_id")))
+        ).exists()
+
     def _save_and_route(self, *args, **kwargs):
+        # 2026-11-17: the approval chain is built when the leave is filed and
+        # is never deleted or rebuilt once one of its steps was decided. It
+        # used to be deleted and created again on every save of a waiting
+        # leave, so editing the note after step 1 approved put step 1 back to
+        # "waiting" and lost who approved it and when. Now:
+        # * a waiting leave with a decided step keeps its dates, days, type
+        #   and employee (``StepDecidedEditError``; the other fields can
+        #   still change), and its steps;
+        # * the chain is built for a new leave, and built again only when the
+        #   dates, days, type or employee change before any step is decided
+        #   (as before), never on a save that changes none of them.
+        stored = self._stored_routing()
+        decided = stored is not None and self._has_decided_step(stored)
+        if (
+            decided
+            and stored["status"] == "requested"
+            and self.status == "requested"
+            and not self._routing_changed(stored, days=False)
+        ):
+            # Same dates, type and employee: the day count the approvers
+            # looked at is kept, even if it would be counted differently now
+            # (a holiday added since). A note edit is never refused for that.
+            self.requested_days = stored["requested_days"]
+        if (
+            stored is not None
+            and stored["status"] == "requested"
+            and self.status == "requested"
+            and decided
+            and self._routing_changed(stored)
+        ):
+            from leave import monthly_limit
+
+            raise monthly_limit.StepDecidedEditError(
+                monthly_limit.STEP_DECIDED_EDIT_REFUSED
+            )
+        rebuild_steps = stored is None or (
+            not decided
+            and (stored["status"] != "requested" or self._routing_changed(stored))
+        )
 
         if self.status in ["cancelled", "rejected"]:
             self.leave_clashes_count = 0
@@ -1646,6 +1739,8 @@ class LeaveRequest(JoydigiModel):
         # deadlocked on PostgreSQL. Outside a transaction it runs at once,
         # as before; a failure there is logged, never undoes the decision.
         transaction.on_commit(self.update_leave_clashes_count, robust=True)
+        if self.status != "requested" or not rebuild_steps:
+            return
         work_info = EmployeeWorkInformation.objects.filter(employee_id=self.employee_id)
         department_id = None
         emp_comp_id = None
@@ -2375,6 +2470,13 @@ class LeaveRequestConditionApproval(models.Model):
         null=True,
         blank=True,
         related_name="leave_approval_actions",
+    )
+    # 2026-11-17: decided by a Director (or a superuser) on behalf of
+    # ``manager_id``, who stays the assigned approver; ``acted_by`` is who
+    # decided, ``override_reason`` why (also in the activity log).
+    is_override = models.BooleanField(default=False, verbose_name=_("Duyệt thay"))
+    override_reason = models.TextField(
+        null=True, blank=True, verbose_name=_("Lý do duyệt thay")
     )
 
     class Meta:

@@ -390,6 +390,17 @@ class ApprovedLeaveChangeError(LeaveRuleError):
     """A save would change the days or fund of a decided request."""
 
 
+STEP_DECIDED_EDIT_REFUSED = (
+    "Đơn đã được duyệt ở ít nhất một bước nên không thể sửa nhân viên, loại phép, "
+    "ngày nghỉ hay số ngày. Chỉ sửa được ghi chú. Để thay đổi, hãy rút đơn rồi gửi đơn mới."
+)
+
+
+class StepDecidedEditError(LeaveRuleError):
+    """A waiting multi-step request whose step was decided: its dates, days,
+    type and employee are what the approver looked at (2026-11-17)."""
+
+
 def _stored_approved(request):
     if not request.pk:
         return None

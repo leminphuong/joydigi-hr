@@ -1,0 +1,32 @@
+<tr>
+    <td class="px-5 py-3 font-medium">{{ item.employee_id.get_full_name }}</td>
+    <td class="px-5 py-3">{{ item.leave_type_id }}</td>
+    <td class="px-5 py-3">{{ item.start_date|date:"d/m/Y" }}</td>
+    <td class="px-5 py-3">{{ item.end_date|date:"d/m/Y"|default:"—" }}</td>
+    <td class="px-5 py-3">{{ item.requested_days|default:"—" }}</td>
+    <td class="px-5 py-3">{% if item.status == "requested" %}<span class="text-amber-600">Chờ duyệt</span>{% elif item.status == "approved" %}<span class="text-green-600">Đã duyệt</span>{% elif item.status == "rejected" or item.status == "cancelled" %}<span class="text-red-600">{% if item.status == "rejected" %}Đã từ chối{% else %}Đã hủy{% endif %}</span>{% else %}{{ item.status }}{% endif %}</td>
+    <td class="px-5 py-3">{% for step in item.approval_steps %}<div>Bước {{ step.sequence }} · {{ step.manager_id.get_full_name }} — {% if step.is_approved %}Đã duyệt{% elif step.is_rejected %}Đã từ chối{% else %}Đang chờ{% endif %}{% if step.acted_at %} lúc {{ step.acted_at|date:"H:i d/m/Y" }}{% endif %}{% if step.is_override %}<div class="text-xs text-gray-500">Duyệt thay bởi {{ step.acted_by.get_full_name|default:"quản trị hệ thống" }}. Lý do: {{ step.override_reason }}</div>{% elif step.acted_by and step.acted_by_id != step.manager_id_id %}<div class="text-xs text-gray-500">Thực hiện bởi {{ step.acted_by.get_full_name }}</div>{% endif %}</div>{% empty %}<span>Duyệt một bước</span>{% endfor %}</td>
+    <td class="px-5 py-3">
+        {% if item.status != "requested" %}<span class="text-xs text-gray-500">Đã xử lý</span>
+        {% elif item.can_act or item.can_reject %}
+        <div class="flex flex-col gap-2">
+            {% if item.can_act %}<form method="post" action="{% url 'request-approve' item.id %}">{% csrf_token %}<button class="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white" type="submit">Duyệt</button></form>{% endif %}
+            {% if item.can_reject %}<form method="post" action="{% url 'approval-hub-leave-reject' item.id %}" class="flex flex-col gap-1">{% csrf_token %}<input type="text" name="reason" required minlength="1" maxlength="255" placeholder="Lý do từ chối" class="rounded-lg border border-gray-200 px-2 py-1 text-xs"><button class="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50" type="submit">Từ chối</button></form>{% endif %}
+        </div>
+        {% elif item.current_approval %}<span class="text-xs text-amber-600">Đang chờ {{ item.current_approval.manager_id.get_full_name }}</span>
+        {% elif item.is_own_request %}<span class="text-xs text-gray-500">Không thể tự duyệt</span>
+        {% else %}<span class="text-xs text-gray-500">Chưa đến lượt duyệt</span>{% endif %}
+        {% if item.can_override %}
+        <details class="mt-2">
+            <summary class="cursor-pointer text-xs font-semibold text-primary-600">Duyệt thay bước {{ item.current_approval.sequence }}</summary>
+            <form method="post" action="{% url 'approval-hub-leave-override' item.id %}" class="mt-1 flex flex-col gap-1">{% csrf_token %}
+                <textarea name="reason" required minlength="10" maxlength="500" rows="2" placeholder="Lý do duyệt thay (ít nhất 10 ký tự)" class="rounded-lg border border-gray-200 px-2 py-1 text-xs"></textarea>
+                <div class="flex gap-2">
+                    <button name="decision" value="approve" type="submit" class="rounded-lg bg-green-600 px-3 py-1 text-xs font-semibold text-white">Duyệt thay</button>
+                    <button name="decision" value="reject" type="submit" class="rounded-lg border border-red-200 bg-white px-3 py-1 text-xs font-semibold text-red-600">Từ chối thay</button>
+                </div>
+            </form>
+        </details>
+        {% endif %}
+    </td>
+</tr>

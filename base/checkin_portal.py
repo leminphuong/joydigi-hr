@@ -17,9 +17,11 @@ from base.forms import CheckInLocationForm, CheckInPolicyForm, OfficeWifiForm
 from base.checkin_tokens import create_kiosk_session, resolve_kiosk_token
 from base.models import CheckInLocation, CheckInPolicy, Company, OfficeWifi
 from base.roles import (
+    approval_hub_access_required,
     checkin_admin_required,
     checkin_leader_required,
     is_checkin_admin,
+    is_checkin_leader,
 )
 from joydigi.http.response import JoydigiRedirect
 
@@ -447,54 +449,72 @@ def _outside_radius(attendance):
 _HUB_RECENT_LIMIT = 20
 
 
+def _decorate_leave_rows(request, rows):
+    """Steps, current step and the buttons of each leave row, all decided by
+    ``leave.request_access`` (the rule of the approve/reject views)."""
+    from leave.request_access import (
+        APPROVE,
+        REJECT,
+        current_step,
+        override_problem,
+        review_problem,
+    )
+
+    actor = getattr(request.user, "employee_get", None)
+    admin_cache, director_cache = {}, {}
+    for item in rows:
+        steps = sorted(
+            item.leaverequestconditionapproval_set.all(), key=lambda step: (step.sequence, step.id)
+        )
+        item.approval_steps = steps
+        item.current_approval = current_step(item, steps) if item.status == "requested" else None
+        item.is_own_request = item.employee_id_id == getattr(actor, "id", None)
+        item.can_act = item.can_reject = item.can_override = False
+        if item.status != "requested" or item.is_own_request:
+            # The hub never offers to decide one's own leave (as before).
+            continue
+        item.can_act = review_problem(request.user, item, APPROVE, steps=steps, admin_cache=admin_cache) is None
+        item.can_reject = review_problem(request.user, item, REJECT, steps=steps, admin_cache=admin_cache) is None
+        item.can_override = bool(item.current_approval) and override_problem(
+            request.user, item, steps=steps, director_cache=director_cache
+        ) is None
+    return rows
+
+
 @login_required
-@checkin_leader_required
+@approval_hub_access_required
 def approval_hub(request):
+    """The approval hub (2026-11-17): Trưởng nhóm, Quản trị viên, Giám đốc,
+    and whoever approves a step of a waiting leave (reporting manager or
+    "Điều kiện duyệt nhiều cấp", whatever their role). Someone who is here
+    only because of a step sees the leave section only."""
     from attendance.models import Attendance
     from base.models import ShiftRequest
     from leave.models import LeaveRequest
+    from leave.request_access import actionable_leave_ids, assigned_leave_ids
 
+    show_other_sections = is_checkin_leader(request.user)
     employee_ids = list(_visible_employees(request).values_list("pk", flat=True))
-    # employee_ids đã chứa đúng phạm vi Admin/Trưởng nhóm, vì vậy dùng
-    # queryset gốc để kết quả tại đây khớp với trang duyệt đầy đủ.
-    leave_queryset = LeaveRequest.objects.entire().filter(
-        employee_id_id__in=employee_ids
-    ).select_related("employee_id", "leave_type_id").prefetch_related(
-        "leaverequestconditionapproval_set__manager_id"
+    if not show_other_sections:
+        employee_ids = []
+    leave_rows = LeaveRequest.objects.entire().select_related(
+        "employee_id", "leave_type_id", "employee_id__employee_work_info"
+    ).prefetch_related("leaverequestconditionapproval_set__manager_id",
+                       "leaverequestconditionapproval_set__acted_by")
+    # Waiting for me: every leave whose current step is mine, plus the
+    # one-step leaves of my scope I may decide. Not capped: an old waiting
+    # leave must not fall off the page.
+    pending_ids = actionable_leave_ids(request.user, employee_ids)
+    my_pending_leaves = _decorate_leave_rows(
+        request, list(leave_rows.filter(pk__in=pending_ids).order_by("requested_date", "id"))
+    )
+    # History: my scope as before, plus every leave I approve a step of.
+    # employee_ids already has the Admin/Trưởng nhóm scope, so the unfiltered
+    # queryset matches the full approval page.
+    leave_queryset = leave_rows.filter(
+        Q(employee_id_id__in=employee_ids) | Q(pk__in=assigned_leave_ids(request.user))
     ).order_by("-requested_date", "-id")[:100]
-    actor = getattr(request.user, "employee_get", None)
-    admin_view = is_checkin_admin(request.user)
-    leave_requests = []
-    for item in leave_queryset:
-        approvals = list(item.leaverequestconditionapproval_set.all())
-        item.approval_steps = approvals
-        pending_step = next(
-            (
-                step
-                for step in approvals
-                if not step.is_approved and not step.is_rejected
-            ),
-            None,
-        )
-        item.current_approval = pending_step
-        item.is_own_request = item.employee_id_id == getattr(actor, "id", None)
-        item.can_act = False
-        if item.status != "requested":
-            item.current_approval = None
-        elif approvals:
-            item.can_act = bool(
-                pending_step
-                and pending_step.manager_id_id == getattr(actor, "id", None)
-            )
-        else:
-            item.can_act = bool(
-                not item.is_own_request
-                and (
-                    admin_view
-                    or item.employee_id.get_reporting_manager() == actor
-                )
-            )
-        leave_requests.append(item)
+    leave_requests = _decorate_leave_rows(request, list(leave_queryset))
     # Phase UI-4E.1A: the hub is a summary, not a pending-only filter —
     # every section below shows recent history across ALL statuses
     # (Pending/Approved/Rejected), capped to the most recent
@@ -605,6 +625,8 @@ def approval_hub(request):
         request,
         "checkin/approval_hub.html",
         {
+            "show_other_sections": show_other_sections,
+            "my_pending_leaves": my_pending_leaves,
             "leave_requests": leave_requests,
             "outside_requests": outside_requests,
             "shift_requests": shift_requests,

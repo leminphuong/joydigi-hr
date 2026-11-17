@@ -137,7 +137,14 @@ def filter_conditional_leave_request(request):
     """
     Filters and returns LeaveRequest objects that have been conditionally approved by the previous sequence of approvals.
     """
-    approval_manager = Employee.objects.filter(employee_user_id=request.user).first()
+    # The caller's own employee record (2026-11-17): through the
+    # company-scoped manager it was None whenever the selected company was not
+    # the approver's own, and they saw none of the leaves assigned to them.
+    approval_manager = getattr(request.user, "employee_get", None)
+    if approval_manager is None:
+        from leave.models import LeaveRequest
+
+        return LeaveRequest.objects.none()
     leave_request_ids = []
     if apps.is_installed("leave"):
         from leave.models import LeaveRequest, LeaveRequestConditionApproval

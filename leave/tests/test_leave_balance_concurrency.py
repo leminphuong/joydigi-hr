@@ -110,8 +110,9 @@ class World:
     def approve(self, user, request):
         return self.api(user).put(f"/api/leave/approve/{request.pk}/", format="json")
 
-    def reject(self, user, request):
-        return self.api(user).put(f"/api/leave/reject/{request.pk}/", format="json")
+    def reject(self, user, request, reason="race test"):
+        # 2026-11-17: a rejection needs a reason, on the API as on the web.
+        return self.api(user).put(f"/api/leave/reject/{request.pk}/", {"reason": reason}, format="json")
 
     def cancel(self, request, reason="race test"):
         return self.api(self.member_user).put(f"/api/leave/cancel/{request.pk}/", {"reason": reason}, format="json")

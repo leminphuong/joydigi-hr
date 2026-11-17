@@ -51,6 +51,16 @@
             <a class="mobile-bottom-nav__link" href="{% url 'user-request-view' %}" data-mobile-path="{% url 'user-request-view' %}" hx-get="{% url 'user-request-view' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
                 <ion-icon name="document-text-outline"></ion-icon><span>Đơn của tôi</span>
             </a>
+            {% if request.user|can_open_approval_hub %}
+            <a class="mobile-bottom-nav__link" href="{% url 'approval-hub' %}" data-mobile-path="{% url 'approval-hub' %}" hx-get="{% url 'approval-hub' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
+                <span class="mobile-bottom-nav__icon-wrap">
+                    <ion-icon name="checkmark-done-outline"></ion-icon>
+                    {% pending_checkin_approvals request.user as employee_approval_count %}
+                    {% if employee_approval_count %}<span class="mobile-bottom-nav__badge">{{ employee_approval_count }}</span>{% endif %}
+                </span>
+                <span>Duyệt đơn</span>
+            </a>
+            {% endif %}
             <a class="mobile-bottom-nav__link" href="{% url 'bulletin' %}" data-mobile-path="{% url 'bulletin' %}" hx-get="{% url 'bulletin' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
                 <ion-icon name="newspaper-outline"></ion-icon><span>Bảng tin</span>
             </a>

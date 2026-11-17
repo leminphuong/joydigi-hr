@@ -98,18 +98,21 @@ def _approver_users(employee):
     company's check-in admins."""
     from django.contrib.auth.models import Group
 
-    from base.roles import ADMIN_ROLE
+    from base.roles import admin_level_group_q
 
     manager = employee.get_reporting_manager()
     if manager is not None and manager.employee_user_id_id:
         return [manager.employee_user_id]
     company = _company_id(employee)
-    group = Group.objects.filter(name=ADMIN_ROLE).first()
-    if group is None or company is None:
+    # The admins and Directors (2026-11-17) of the company.
+    groups = Group.objects.filter(admin_level_group_q()).distinct()
+    if not groups.exists() or company is None:
         return []
+    from joydigi_auth.models import JoydigiUser
+
     return [
         user
-        for user in group.user_set.filter(is_active=True)
+        for user in JoydigiUser.objects.filter(is_active=True, groups__in=groups).distinct()
         if getattr(user, "employee_get", None) is not None
         and _company_id(user.employee_get) == company
         and user.employee_get.pk != employee.pk

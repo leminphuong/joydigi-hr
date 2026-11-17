@@ -34,7 +34,11 @@ from django.utils.http import urlsafe_base64_encode
 from django.utils.translation import gettext_lazy as _
 
 from base.methods import reload_queryset
-from base.roles import ensure_standard_roles, standard_roles_queryset
+from base.roles import (
+    ensure_standard_roles,
+    role_grant_problem,
+    standard_roles_queryset,
+)
 from base.models import (
     Announcement,
     AnnouncementComment,
@@ -418,9 +422,12 @@ class UserGroupForm(ModelForm):
         """
         ModelForm save override
         """
+        from base.roles import is_director_group, keep_director_marker
+
         group = super().save(commit=False)
         if self.instance:
             group = self.instance
+        was_director = is_director_group(group)
         group.save()
 
         # Convert the selected codenames back to Permission instances
@@ -429,11 +436,22 @@ class UserGroupForm(ModelForm):
 
         # Set the associated permissions
         group.permissions.set(permissions)
+        # The Director marker is not a matrix permission (2026-11-17).
+        keep_director_marker(group, was_director)
 
         if commit:
             group.save()
 
         return group
+
+
+def _acting_user():
+    """The logged-in user of the current request, or None outside a request."""
+    from joydigi.joydigi_middlewares import _thread_locals
+
+    request = getattr(_thread_locals, "request", None)
+    user = getattr(request, "user", None) if request is not None else None
+    return user if getattr(user, "is_authenticated", False) else None
 
 
 class AssignUserGroup(Form):
@@ -515,6 +533,16 @@ class AssignUserGroup(Form):
         if emps is not None:
             self.errors.pop("employee", None)
         super().clean()
+        # Backend check of who may grant this role (2026-11-17, P0): the
+        # views using this form are superuser only, this is the second line.
+        group = self.cleaned_data.get("group")
+        targets = [
+            employee.employee_user_id
+            for employee in Employee.objects.entire().filter(id__in=[e for e in emps if str(e).isdigit()])
+        ]
+        problem = role_grant_problem(_acting_user(), [group], targets)
+        if problem:
+            raise ValidationError(problem)
         companies = list(self.cleaned_data.get("companies") or [])
         if self._grantable_company_ids is not None and companies:
             illegal = [c for c in companies if c.id not in self._grantable_company_ids]
@@ -641,6 +669,21 @@ class AddToUserGroupForm(Form):
         reload_queryset(self.fields)
         ensure_standard_roles()
         self.fields["group"].queryset = standard_roles_queryset()
+
+    def clean(self):
+        """Only a superuser saves this form (2026-11-17, P0): it replaces every
+        role of the employee, in every company."""
+        cleaned_data = super().clean()
+        employee = cleaned_data.get("employee")
+        problem = role_grant_problem(
+            _acting_user(),
+            list(cleaned_data.get("group") or []),
+            [getattr(employee, "employee_user_id", None)],
+            all_companies=True,
+        )
+        if problem:
+            raise ValidationError(problem)
+        return cleaned_data
 
     def save(self):
         """

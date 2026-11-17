@@ -133,34 +133,50 @@ def is_checkin_leader(user):
     return user_is_checkin_leader(user)
 
 
+@register.filter(name="can_open_approval_hub")
+def can_open_approval_hub(user):
+    """Menu "Duyệt đơn" (2026-11-17): the same rule as the page itself."""
+    from base.roles import can_open_approval_hub as rule
+
+    try:
+        return rule(user)
+    except DatabaseError:
+        return False
+
+
 @register.simple_tag
 def pending_checkin_approvals(user):
-    """Số đơn đang chờ trong phạm vi mà quản trị viên/trưởng nhóm được duyệt."""
-    if not user_is_checkin_leader(user):
-        return 0
+    """Số đơn đang chờ chính người này duyệt (2026-11-17).
+
+    Đơn nghỉ: đúng danh sách "Đơn nghỉ chờ tôi duyệt" của trang Duyệt đơn
+    (``leave.request_access.actionable_leave_ids``) — đơn nhiều bước chỉ được
+    đếm cho người duyệt của bước hiện tại, kể cả khi người đó không có vai
+    trò. Chấm công ngoài khu vực: như trước, cho Quản trị viên/Trưởng nhóm."""
     try:
         from attendance.models import Attendance
-        from leave.models import LeaveRequest
+        from leave.request_access import actionable_leave_ids
 
         employee = _get_employee_of_user(user)
+        employee_ids = None
         if user_is_checkin_admin(user):
-            employee_ids = Employee.objects.filter(is_active=True).values_list(
-                "pk", flat=True
+            employee_ids = list(
+                Employee.objects.filter(is_active=True).values_list("pk", flat=True)
             )
-        elif employee:
-            employee_ids = Employee.objects.filter(
-                is_active=True,
-                employee_work_info__reporting_manager_id=employee,
-            ).values_list("pk", flat=True)
-        else:
-            return 0
-        return LeaveRequest.objects.filter(
-            employee_id_id__in=employee_ids, status="requested"
-        ).count() + Attendance.objects.filter(
-            employee_id_id__in=employee_ids,
-            is_validate_request=True,
-            is_validate_request_approved=False,
-        ).count()
+        elif user_is_checkin_leader(user) and employee:
+            employee_ids = list(
+                Employee.objects.filter(
+                    is_active=True,
+                    employee_work_info__reporting_manager_id=employee,
+                ).values_list("pk", flat=True)
+            )
+        count = len(actionable_leave_ids(user, employee_ids))
+        if employee_ids:
+            count += Attendance.objects.filter(
+                employee_id_id__in=employee_ids,
+                is_validate_request=True,
+                is_validate_request_approved=False,
+            ).count()
+        return count
     except (DatabaseError, AttributeError):
         return 0
 

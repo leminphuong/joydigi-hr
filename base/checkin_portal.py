@@ -508,13 +508,21 @@ def approval_hub(request):
     my_pending_leaves = _decorate_leave_rows(
         request, list(leave_rows.filter(pk__in=pending_ids).order_by("requested_date", "id"))
     )
-    # History: my scope as before, plus every leave I approve a step of.
+    # Recent leaves: my scope as before, plus every leave I approve a step of.
     # employee_ids already has the Admin/Trưởng nhóm scope, so the unfiltered
-    # queryset matches the full approval page.
+    # queryset matches the full approval page. One compact table (2026-11-17,
+    # the layout before the Director upgrade): the leaves waiting for me
+    # first, then the most recent others, capped like every other section;
+    # the full list stays on "Mở trang duyệt đầy đủ".
     leave_queryset = leave_rows.filter(
         Q(employee_id_id__in=employee_ids) | Q(pk__in=assigned_leave_ids(request.user))
-    ).order_by("-requested_date", "-id")[:100]
+    ).exclude(pk__in=pending_ids).order_by("-requested_date", "-id")[:_HUB_RECENT_LIMIT]
     leave_requests = _decorate_leave_rows(request, list(leave_queryset))
+    for item in my_pending_leaves:
+        item.is_mine = True
+    for item in leave_requests:
+        item.is_mine = False
+    leave_table = my_pending_leaves + leave_requests
     # Phase UI-4E.1A: the hub is a summary, not a pending-only filter —
     # every section below shows recent history across ALL statuses
     # (Pending/Approved/Rejected), capped to the most recent
@@ -628,6 +636,7 @@ def approval_hub(request):
             "show_other_sections": show_other_sections,
             "my_pending_leaves": my_pending_leaves,
             "leave_requests": leave_requests,
+            "leave_table": leave_table,
             "outside_requests": outside_requests,
             "shift_requests": shift_requests,
             "late_early_requests": late_early_requests,

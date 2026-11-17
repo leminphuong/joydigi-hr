@@ -67,14 +67,15 @@ def holds_right_in_company(user, company_id, perm) -> bool:
         get_effective_permission_codenames,
         get_user_groups_for_company,
     )
-    from base.roles import ADMIN_ROLE
+    from base.roles import admin_level_group_q
 
     if company_id is None or company_id not in get_allowed_company_ids(user):
         return False
     codename = perm.split(".", 1)[-1] if perm else None
     if codename and codename in get_effective_permission_codenames(user, company_id):
         return True
-    return get_user_groups_for_company(user, company_id).filter(name=ADMIN_ROLE).exists()
+    # The admin role, or the Director role (2026-11-17), in that company.
+    return get_user_groups_for_company(user, company_id).filter(admin_level_group_q()).exists()
 
 
 def companies_with_right(user, perm) -> set:
@@ -250,7 +251,7 @@ def is_admin_for(user, employee) -> bool:
     companies: an admin role in company A approved company B's leaves.
     With company scoping switched off roles are global again, so is this."""
     from base.auth_backends import company_scoped_active, get_allowed_company_ids, get_user_groups_for_company
-    from base.roles import ADMIN_ROLE, is_checkin_admin
+    from base.roles import admin_level_group_q, is_checkin_admin
 
     if getattr(user, "is_superuser", False):
         return True
@@ -259,10 +260,27 @@ def is_admin_for(user, employee) -> bool:
     company = _company_id(employee)
     if not company_scoped_active() or company is None:
         return is_checkin_admin(user)
+    # The admin role or the Director role (2026-11-17) of that company.
     return (
         company in get_allowed_company_ids(user)
-        and get_user_groups_for_company(user, company).filter(name=ADMIN_ROLE).exists()
+        and get_user_groups_for_company(user, company).filter(admin_level_group_q()).exists()
     )
+
+
+def is_director_for(user, employee) -> bool:
+    """The Director role *in the employee's company* (2026-11-17). Not a
+    superuser shortcut: callers decide what a superuser may do."""
+    from base.auth_backends import company_scoped_active, get_allowed_company_ids
+    from base.roles import user_has_director_role
+
+    if not getattr(user, "is_authenticated", False) or employee is None:
+        return False
+    company = _company_id(employee)
+    if company is None:
+        return False  # no company: nobody is its Director
+    if not company_scoped_active():
+        return user_has_director_role(user)
+    return company in get_allowed_company_ids(user) and user_has_director_role(user, company)
 
 
 # -- compensatory leave requests (2026-11-14) ----------------------------------
@@ -373,3 +391,251 @@ def deletable_attachments(user, comment_model, request_obj, file_ids, comment_id
         if may_delete_comment(user, comment, FILE_DELETE_PERM):
             allowed.extend(comment.files.filter(id__in=ids).values_list("id", flat=True))
     return LeaverequestFile.objects.filter(id__in=allowed)
+
+
+# -- multi-step approval: one rule for the web, the API, the approval hub,
+# -- the menu and the pending count (2026-11-17) ------------------------------
+#
+# A leave whose type routes it through several approvers has one
+# ``LeaveRequestConditionApproval`` row per step. The approver of a step is
+# chosen when the leave is filed (``LeaveRequest._save_and_route``): the
+# reporting manager, the managers of a matching "Điều kiện duyệt nhiều cấp",
+# and by default an admin of the company. Nothing there looks at roles, so
+# every check below starts from the step rows, not from roles.
+
+NOT_CURRENT_STEP = "Bạn không phải người duyệt ở bước hiện tại."
+EARLIER_STEP_WAITING = "Đơn này chưa được duyệt ở bước trước."
+NOT_WAITING = "Đơn không còn ở trạng thái chờ duyệt."
+NOT_TEAM = {
+    "approve": "Bạn chỉ được duyệt đơn của thành viên trong nhóm mình.",
+    "reject": "Bạn chỉ được từ chối đơn của thành viên trong nhóm mình.",
+}
+APPROVE, REJECT = "approve", "reject"
+OVERRIDE_REASON_MIN = 10
+
+
+def _step_model():
+    from leave.models import LeaveRequestConditionApproval
+
+    return LeaveRequestConditionApproval
+
+
+def steps_of(leave_request) -> list:
+    """The leave's steps in order (read through the base manager)."""
+    return list(
+        _step_model()
+        ._base_manager.filter(leave_request_id_id=leave_request.pk)
+        .select_related("manager_id", "acted_by")
+        .order_by("sequence", "id")
+    )
+
+
+def current_step(leave_request, steps=None):
+    """The first step neither approved nor rejected, or None."""
+    for step in steps if steps is not None else steps_of(leave_request):
+        if not step.is_approved and not step.is_rejected:
+            return step
+    return None
+
+
+def step_was_decided(step, leave_request) -> bool:
+    """A step someone decided: rejected, or approved by somebody other than
+    the employee (a step whose approver is the employee is approved by
+    itself when the leave is filed, see ``leave.signals``)."""
+    if step.is_rejected:
+        return True
+    return bool(step.is_approved and step.manager_id_id != leave_request.employee_id_id)
+
+
+def review_problem(user, leave_request, action=APPROVE, *, steps=None, admin_cache=None):
+    """None when ``user`` may approve (or reject) ``leave_request`` now, else
+    the reason. The single rule of the web views, the API, the approval hub
+    and the pending count.
+
+    * A waiting leave with steps: only the approver of the *current* step,
+      whatever role they hold, superuser included (a superuser who is not
+      that approver decides on someone's behalf, with a reason:
+      ``override_problem``). Never several steps at once.
+    * Otherwise (a one-step leave; a decided multi-step leave: HR rejecting
+      an approved leave; or a waiting leave whose every step is already
+      approved, e.g. an admin's own leave whose only step approved itself):
+      a superuser; else never one's own leave; else an admin or Director of
+      the employee's company, or the employee's own reporting manager.
+    """
+    from django.utils.translation import gettext as _
+
+    if not getattr(user, "is_authenticated", False):
+        return _("You do not have permission to perform this action.")
+    actor = actor_of(user)
+    steps = steps if steps is not None else steps_of(leave_request)
+    step = current_step(leave_request, steps) if leave_request.status == "requested" else None
+    if step is not None:
+        if actor is None or step.manager_id_id != actor.pk:
+            if actor is not None and any(
+                later.manager_id_id == actor.pk and not later.is_approved and not later.is_rejected
+                for later in steps
+            ):
+                return EARLIER_STEP_WAITING
+            return NOT_CURRENT_STEP
+        if leave_request.employee_id_id == actor.pk:
+            return _("You cannot approve your own leave request.")
+        return None
+    if getattr(user, "is_superuser", False):
+        return None
+    if actor is None:
+        return _("You do not have permission to perform this action.")
+    if leave_request.employee_id_id == actor.pk:
+        return _("You cannot approve your own leave request.")
+    employee = leave_request.employee_id
+    if admin_cache is not None:
+        company = _company_id(employee)
+        if company not in admin_cache:
+            admin_cache[company] = is_admin_for(user, employee)
+        is_admin = admin_cache[company]
+    else:
+        is_admin = is_admin_for(user, employee)
+    if is_admin or is_direct_manager(user, employee):
+        return None
+    return NOT_TEAM.get(action, NOT_TEAM[APPROVE])
+
+
+def _pending_steps_of_actor(actor):
+    return _step_model()._base_manager.filter(
+        manager_id_id=actor.pk,
+        is_approved=False,
+        is_rejected=False,
+        leave_request_id__status="requested",
+        leave_request_id__employee_id__is_active=True,
+    )
+
+
+def has_assigned_step(user) -> bool:
+    """The user approves a step of a leave that is still waiting."""
+    actor = actor_of(user)
+    if actor is None:
+        return False
+    return _pending_steps_of_actor(actor).exists()
+
+
+def has_any_step(user) -> bool:
+    """The user approves, or approved, a step of some leave (the approval
+    hub also shows them the history of those leaves)."""
+    actor = actor_of(user)
+    if actor is None:
+        return False
+    return _step_model()._base_manager.filter(manager_id_id=actor.pk).exists()
+
+
+def assigned_leave_ids(user) -> list:
+    """Every leave with a step approved, rejected or still to be decided by
+    the user, any status (their history included)."""
+    actor = actor_of(user)
+    if actor is None:
+        return []
+    return list(
+        _step_model()
+        ._base_manager.filter(manager_id_id=actor.pk)
+        .values_list("leave_request_id_id", flat=True)
+        .distinct()
+    )
+
+
+def current_step_leave_ids(user) -> list:
+    """Waiting leaves whose *current* step is the user's."""
+    actor = actor_of(user)
+    if actor is None:
+        return []
+    candidate_ids = set(
+        _pending_steps_of_actor(actor).values_list("leave_request_id_id", flat=True)
+    )
+    if not candidate_ids:
+        return []
+    firsts = {}
+    for leave_id, manager_id in (
+        _step_model()
+        ._base_manager.filter(
+            leave_request_id_id__in=candidate_ids, is_approved=False, is_rejected=False
+        )
+        .order_by("leave_request_id_id", "sequence", "id")
+        .values_list("leave_request_id_id", "manager_id_id")
+    ):
+        firsts.setdefault(leave_id, manager_id)
+    return sorted(
+        leave_id for leave_id, manager_id in firsts.items() if manager_id == actor.pk
+    )
+
+
+def actionable_leave_ids(user, one_step_employee_ids=None) -> list:
+    """Waiting leaves the user may decide now: those whose current step is
+    theirs, plus one-step leaves of ``one_step_employee_ids`` (the screen's
+    own employee scope) that ``review_problem`` lets them decide."""
+    from leave.models import LeaveRequest
+
+    ids = set(current_step_leave_ids(user))
+    if one_step_employee_ids is not None:
+        # A leave with a step still to decide belongs to that step's approver;
+        # every other waiting leave (no steps, or every step approved) follows
+        # the one-step rule.
+        with_steps = _step_model()._base_manager.filter(
+            is_approved=False, is_rejected=False
+        ).values("leave_request_id_id")
+        candidates = (
+            LeaveRequest._base_manager.filter(
+                status="requested",
+                employee_id_id__in=list(one_step_employee_ids),
+                employee_id__is_active=True,
+            )
+            .exclude(pk__in=with_steps)
+            .select_related("employee_id")
+        )
+        actor = actor_of(user)
+        if actor is not None:
+            # Never one's own leave in "waiting for me" (a superuser may
+            # still decide it on the full page, as before).
+            candidates = candidates.exclude(employee_id_id=actor.pk)
+        admin_cache = {}
+        for leave in candidates:
+            if review_problem(user, leave, steps=[], admin_cache=admin_cache) is None:
+                ids.add(leave.pk)
+    return sorted(ids)
+
+
+def clean_reason(reason, minimum=1):
+    """The reason, stripped, or None when it is shorter than ``minimum``."""
+    text = reason.strip() if isinstance(reason, str) else ""
+    return text if len(text) >= minimum else None
+
+
+def override_problem(user, leave_request, *, steps=None, director_cache=None):
+    """None when ``user`` may decide the current step of ``leave_request`` on
+    behalf of its approver (2026-11-17), else the reason.
+
+    A Director of the employee's company, or a superuser; never one's own
+    leave; only a waiting leave with steps, only its current step, and not a
+    step that is the caller's own (that is an ordinary decision). The reason
+    is checked by the caller (``OVERRIDE_REASON_MIN``)."""
+    if not getattr(user, "is_authenticated", False):
+        return "Bạn không có quyền duyệt thay."
+    if leave_request.status != "requested":
+        return NOT_WAITING
+    steps = steps if steps is not None else steps_of(leave_request)
+    step = current_step(leave_request, steps)
+    if step is None:
+        return "Đơn không có bước duyệt đang chờ."
+    actor = actor_of(user)
+    if actor is not None and leave_request.employee_id_id == actor.pk:
+        return "Bạn không thể duyệt thay đơn nghỉ của chính mình."
+    if getattr(user, "is_superuser", False):
+        is_director = True
+    elif director_cache is not None:
+        company = _company_id(leave_request.employee_id)
+        if company not in director_cache:
+            director_cache[company] = is_director_for(user, leave_request.employee_id)
+        is_director = director_cache[company]
+    else:
+        is_director = is_director_for(user, leave_request.employee_id)
+    if not is_director:
+        return "Chỉ Giám đốc của công ty nhân viên mới được duyệt thay."
+    if actor is not None and step.manager_id_id == actor.pk:
+        return "Đây là bước của bạn, hãy duyệt hoặc từ chối bình thường."
+    return None

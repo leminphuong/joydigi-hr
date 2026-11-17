@@ -58,15 +58,20 @@ class ManagerPermission(BasePermission):
 
     def has_permission(self, request, perm):
         user = request.user
-        employee = user.employee_get
-        if perm in self.leave_perm:
-            is_approval_manager = MultipleApprovalManagers.objects.filter(
-                employee_id=employee.id
-            ).exists()
+        employee = getattr(user, "employee_get", None)
+        if perm in self.leave_perm and employee is not None:
+            from leave.request_access import has_assigned_step
+
+            # 2026-11-17: the approver of a step of a waiting leave, as on
+            # the web; the view decides (``review_problem``).
+            is_approval_manager = (
+                MultipleApprovalManagers.objects.filter(employee_id=employee.id).exists()
+                or has_assigned_step(user)
+            )
             if is_approval_manager:
                 return True
 
-        is_manager = EmployeeWorkInformation.objects.filter(
+        is_manager = employee is not None and EmployeeWorkInformation.objects.filter(
             reporting_manager_id=employee
         ).exists()
 

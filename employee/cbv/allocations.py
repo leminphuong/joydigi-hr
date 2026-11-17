@@ -29,7 +29,7 @@ from employee.models import Employee, EmployeeBankDetails, EmployeeWorkInformati
 from employee.models import models as django_models
 from joydigi.joydigi_middlewares import _thread_locals
 from joydigi.http import JoydigiRedirect
-from joydigi.decorators import manager_can_enter
+from joydigi.decorators import manager_can_enter, superuser_required
 from joydigi_views.cbv_methods import (
     hx_request_required,
     login_required,
@@ -989,12 +989,19 @@ class Groups(TemplateView):
 
 
 @method_decorator(login_required, name="dispatch")
-@method_decorator(
-    recruitment_manager_can_enter(perm="recruitment.view_recruitment"), name="dispatch"
-)
+@method_decorator(superuser_required, name="dispatch")
 class GroupAssignView(TemplateView):
     """
     View to assign multiple groups to a single employee
+
+    Superuser only (2026-11-17, P0). It used to be guarded by
+    ``manager_can_enter("employee.change_employee")``, which also lets in
+    anybody who is the reporting manager of one employee: a team leader
+    could give himself, or anyone, the admin role, and
+    ``AddToUserGroupForm`` grants a role in every company. The same action
+    on the employee profile (``employee_profile.GroupAssignView``) was
+    already superuser only; this is the same rule, and the form checks it
+    again.
     """
 
     template_name = "cbv/allocations/auth/group_form.html"

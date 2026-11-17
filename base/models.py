@@ -192,6 +192,12 @@ class CompanyGroupAssignment(JoydigiModel):
         verbose_name_plural = _("Company group assignments")
         unique_together = ["user", "company", "group"]
         app_label = "base"
+        # The Director role marker (2026-11-17, ``base.roles``): the group
+        # carrying it is the Director role, whatever its name. Given only by
+        # migration ``base 0017`` to the group it creates.
+        permissions = [
+            ("director_role", "Đánh dấu vai trò Giám đốc (hệ thống)"),
+        ]
 
     def __str__(self) -> str:
         return f"{self.user} - {self.group} @ {self.company}"

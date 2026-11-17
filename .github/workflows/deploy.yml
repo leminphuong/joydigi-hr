@@ -6,10 +6,15 @@ on:
       - main
 
   workflow_dispatch:
+    inputs:
+      ssh_check_only:
+        description: "Only check SSH to the VPS (no deploy, nothing on the server changes)"
+        type: boolean
+        default: false
 
 concurrency:
   group: joydigi-hr-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -20,16 +25,181 @@ jobs:
       - name: Configure SSH
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          # Optional. Unset = 22. A secret, so the port is masked in logs.
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          # Host key verification, strongest first (both optional):
+          #   VPS_KNOWN_HOSTS     the server's known_hosts line(s), taken once
+          #                       by the administrator on a trusted network;
+          #   VPS_HOST_KEY_SHA256 the server's key fingerprint, "SHA256:...",
+          #                       from `ssh-keygen -lf` on the server.
+          # With neither, the key is scanned and trusted on first use, with a
+          # warning, exactly as before.
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_HOST_KEY_SHA256: ${{ secrets.VPS_HOST_KEY_SHA256 }}
+          # Cloudflare's published IPv4 ranges (cloudflare.com/ips-v4), only to
+          # explain a failure: the website's domain is behind Cloudflare's proxy,
+          # which carries HTTP(S) but never SSH.
+          CLOUDFLARE_RANGES: >-
+            173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22
+            141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20
+            197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13
+            104.24.0.0/14 172.64.0.0/13 131.0.72.0/22
         run: |
+          set -euo pipefail
+
+          # 1. Secrets present: by name only, never a value.
+          missing=""
+          [ -n "${VPS_HOST:-}" ] || missing="$missing VPS_HOST"
+          [ -n "${VPS_USER:-}" ] || missing="$missing VPS_USER"
+          [ -n "${VPS_SSH_KEY:-}" ] || missing="$missing VPS_SSH_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error title=Missing deploy secrets::Not set or empty:$missing. Nothing was deployed."
+            exit 1
+          fi
+
+          # 2. Port: a whole number 1-65535 (leading zeros refused).
+          PORT="${VPS_PORT:-22}"
+          if ! printf '%s' "$PORT" | grep -Eq '^[1-9][0-9]{0,4}$' || [ "$PORT" -gt 65535 ]; then
+            echo "::error title=Invalid VPS_PORT::VPS_PORT must be a whole number from 1 to 65535. Nothing was deployed."
+            exit 1
+          fi
+
+          # 3. Host and user: bare values (user@, a scheme, :port or spaces are
+          # the usual wrong secrets, and would only time out later).
+          if ! printf '%s' "$VPS_HOST" | grep -Eq '^[A-Za-z0-9.-]+$'; then
+            echo "::error title=Invalid VPS_HOST::VPS_HOST must be a bare host name or IPv4 address (no user@, scheme, :port or spaces). Put the port in VPS_PORT."
+            exit 1
+          fi
+          if ! printf '%s' "$VPS_USER" | grep -Eq '^[a-z_][a-z0-9_.-]*$'; then
+            echo "::error title=Invalid VPS_USER::VPS_USER must be a plain Linux user name."
+            exit 1
+          fi
+
+          # 4. Private key: written with no group/other access, CRs of a key
+          # pasted from Windows removed, and proved to parse (output dropped).
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-
-          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          umask 077
+          printf '%s\n' "$VPS_SSH_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
+          if ! ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null 2>&1; then
+            echo "::error title=Invalid VPS_SSH_KEY::VPS_SSH_KEY is not a usable private key (full BEGIN/END block, no passphrase). Its value is never printed."
+            exit 1
+          fi
 
-          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          # 5. Host key.
+          : > ~/.ssh/known_hosts
+          if [ -n "${VPS_KNOWN_HOSTS:-}" ]; then
+            printf '%s\n' "$VPS_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+            if ! ssh-keygen -lf ~/.ssh/known_hosts > /dev/null 2>&1; then
+              echo "::error title=Invalid VPS_KNOWN_HOSTS::VPS_KNOWN_HOSTS is not a known_hosts file. Nothing was deployed."
+              exit 1
+            fi
+            echo "Host key: pinned (VPS_KNOWN_HOSTS)"
+          else
+            # Retried with a longer timeout: one slow answer must not fail a
+            # production deploy. -T 15 instead of the 5-second default.
+            scanned=""
+            for attempt in 1 2 3; do
+              if ssh-keyscan -T 15 -p "$PORT" -t ed25519,ecdsa,rsa -H "$VPS_HOST" \
+                  > ~/.ssh/known_hosts.scan 2> ~/.ssh/keyscan.err \
+                && [ -s ~/.ssh/known_hosts.scan ]; then
+                scanned=1
+                break
+              fi
+              # ssh-keyscan's own message names the host, a secret: only
+              # whether it said anything is reported.
+              echo "ssh-keyscan attempt $attempt: no host key (stderr lines: $(wc -l < ~/.ssh/keyscan.err)); retrying in $((attempt * 10))s"
+              sleep $((attempt * 10))
+            done
+            rm -f ~/.ssh/keyscan.err
+            if [ -z "$scanned" ]; then
+              # Which layer failed, never the host itself: the repository is
+              # public, and so is this log. Runs only after the scan failed.
+              dns="does not resolve"; cf="no"; tcp="not tried"; banner="not tried"
+              addr=$(getent ahostsv4 "$VPS_HOST" 2>/dev/null | awk 'NR==1 {print $1}') || true
+              if [ -n "$addr" ]; then
+                dns="resolves"
+                if ADDR="$addr" CF="$CLOUDFLARE_RANGES" python3 -c 'import ipaddress, os, sys; a = ipaddress.ip_address(os.environ["ADDR"]); sys.exit(0 if any(a in ipaddress.ip_network(n) for n in os.environ["CF"].split()) else 1)'; then
+                  cf="YES (Cloudflare does not carry SSH: VPS_HOST must be the server's own IP or a DNS-only name)"
+                fi
+                if timeout 10 bash -c 'exec 3<>"/dev/tcp/$0/$1"' "$addr" "$PORT" 2>/dev/null; then
+                  tcp="open"
+                  if [ "$(timeout 10 bash -c 'exec 3<>"/dev/tcp/$0/$1"; head -c 4 <&3' "$addr" "$PORT" 2>/dev/null || true)" = "SSH-" ]; then
+                    banner="SSH banner received"
+                  else
+                    banner="no SSH banner within 10 s (sshd overloaded or hung, or another service on this port)"
+                  fi
+                else
+                  rc=$?
+                  if [ "$rc" = 124 ]; then
+                    tcp="no answer in 10 s (packets dropped: firewall / fail2ban / provider, or the address is not the VPS)"
+                  else
+                    tcp="refused or unreachable (the VPS answered, but nothing listens on this port)"
+                  fi
+                fi
+              fi
+              # The runner's own public address (not a secret), to look up in
+              # `fail2ban-client status sshd` and the firewall log.
+              runner_ip=$(curl -fsS --max-time 5 https://checkip.amazonaws.com 2>/dev/null | tr -d '[:space:]' || true)
+              echo "Diagnosis | VPS_HOST: $dns | Cloudflare proxy address: $cf | TCP to the SSH port: $tcp | $banner | this runner's public IP: ${runner_ip:-unknown}"
+              if [ -z "$addr" ]; then
+                echo "::error title=VPS_HOST does not resolve::The name in VPS_HOST has no IPv4 address in DNS. Nothing was deployed."
+                exit 1
+              fi
+              echo "::error title=SSH port unreachable::No SSH host key from the VPS on the configured port after 3 tries (15 s each). The VPS must accept TCP on that port from GitHub Actions: check sshd, the port, ufw / the provider firewall / fail2ban. Nothing was deployed."
+              exit 1
+            fi
+            if [ -n "${VPS_HOST_KEY_SHA256:-}" ]; then
+              if ! ssh-keygen -lf ~/.ssh/known_hosts.scan 2>/dev/null | grep -qF " $VPS_HOST_KEY_SHA256 "; then
+                echo "::error title=Host key mismatch::The VPS presented a host key whose fingerprint is not VPS_HOST_KEY_SHA256. Possible man-in-the-middle or a re-installed server: nothing was sent and nothing was deployed."
+                exit 1
+              fi
+              echo "Host key: scanned and matched VPS_HOST_KEY_SHA256"
+            else
+              echo "::warning title=Host key not pinned::The host key was trusted on first use. Set VPS_KNOWN_HOSTS or VPS_HOST_KEY_SHA256 to verify it."
+              # Public fingerprints only (never secret), for the administrator
+              # to compare with `ssh-keygen -lf /etc/ssh/ssh_host_*_key.pub`.
+              ssh-keygen -lf ~/.ssh/known_hosts.scan | awk '{print "presented:", $2, $NF}'
+            fi
+            cat ~/.ssh/known_hosts.scan > ~/.ssh/known_hosts
+            rm -f ~/.ssh/known_hosts.scan
+          fi
           chmod 600 ~/.ssh/known_hosts
+
+          # 6. One alias for every later step: host, port, user, key, strict
+          # host key checking and timeouts in one place.
+          {
+            echo "Host joydigi-vps"
+            echo "  HostName $VPS_HOST"
+            echo "  Port $PORT"
+            echo "  User $VPS_USER"
+            echo "  IdentityFile ~/.ssh/id_ed25519"
+            echo "  IdentitiesOnly yes"
+            echo "  BatchMode yes"
+            echo "  StrictHostKeyChecking yes"
+            echo "  UserKnownHostsFile ~/.ssh/known_hosts"
+            echo "  ConnectTimeout 20"
+            echo "  ConnectionAttempts 3"
+            echo "  ServerAliveInterval 15"
+            echo "  ServerAliveCountMax 4"
+          } > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+          # 7. The whole chain once (port + host key + key + user) before any
+          # step changes the server.
+          # -F: the alias file is named, whatever the HOME of the ssh binary.
+          if ! ssh -F ~/.ssh/config joydigi-vps true; then
+            echo "::error title=SSH login failed::SSH to the VPS failed: the port did not answer, or the server refused VPS_USER / the key in authorized_keys / the pinned host key. Nothing was deployed."
+            exit 1
+          fi
+          echo "SSH to the VPS is ready (port and host key verified, login OK)"
+
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.ssh_check_only }}" = "true" ]; then
+            echo "::notice title=SSH check only::SSH works. No deploy step runs in this check-only run."
+          fi
 
       # The Firebase Admin private key, installed before the deploy step so
       # that the service restart at the end of it comes back up already able
@@ -45,6 +215,7 @@ jobs:
       # in-app notifications keep working, which is exactly how
       # `joydigi_api/push.py` behaves without a credential.
       - name: Install Firebase credential
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.ssh_check_only) }}
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -91,10 +262,8 @@ jobs:
           # therefore uses double quotes, which is safe because it
           # contains no `$` for the remote shell to touch.
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" | ssh \
-            -o BatchMode=yes \
-            -o ConnectTimeout=20 \
-            -i ~/.ssh/id_ed25519 \
-            "$VPS_USER@$VPS_HOST" \
+            -F ~/.ssh/config \
+            joydigi-vps \
             '
           set -eu
           umask 077
@@ -126,15 +295,14 @@ jobs:
       # in .env — database, SECRET_KEY, ALLOWED_HOSTS — is carried across
       # untouched.
       - name: Configure FIREBASE_CREDENTIALS_FILE in .env
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.ssh_check_only) }}
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           ssh \
-            -o BatchMode=yes \
-            -o ConnectTimeout=20 \
-            -i ~/.ssh/id_ed25519 \
-            "$VPS_USER@$VPS_HOST" \
+            -F ~/.ssh/config \
+            joydigi-vps \
             'bash -s' <<'REMOTE'
           set -eu
           umask 077
@@ -169,6 +337,7 @@ jobs:
       # gunicorn re-read settings. Writing the value afterwards would leave
       # every running worker on the old one until the next deployment.
       - name: Configure ATTENDANCE_FORGOTTEN_FINALIZATION_CUTOFF in .env
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.ssh_check_only) }}
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -205,10 +374,8 @@ jobs:
           # that way rather than over stdin because stdin already carries
           # the script below.
           ssh \
-            -o BatchMode=yes \
-            -o ConnectTimeout=20 \
-            -i ~/.ssh/id_ed25519 \
-            "$VPS_USER@$VPS_HOST" \
+            -F ~/.ssh/config \
+            joydigi-vps \
             "CUTOFF='$CUTOFF' bash -s" <<'REMOTE'
           set -eu
           umask 077
@@ -250,6 +417,7 @@ jobs:
       # here. Base64 so that no character it happens to contain can end the
       # quoting.
       - name: Configure Office IP updater in .env
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.ssh_check_only) }}
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -361,22 +529,19 @@ jobs:
           echo "Office IP updater configured in .env"
           REMOTE
           } | ssh \
-            -o BatchMode=yes \
-            -o ConnectTimeout=20 \
-            -i ~/.ssh/id_ed25519 \
-            "$VPS_USER@$VPS_HOST" \
+            -F ~/.ssh/config \
+            joydigi-vps \
             'bash -s'
 
       - name: Deploy to VPS
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.ssh_check_only) }}
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           ssh \
-            -o BatchMode=yes \
-            -o ConnectTimeout=20 \
-            -i ~/.ssh/id_ed25519 \
-            "$VPS_USER@$VPS_HOST" \
+            -F ~/.ssh/config \
+            joydigi-vps \
             "/usr/local/bin/deploy-joydigi-hr"
 
 
@@ -394,15 +559,14 @@ jobs:
       # the office — the one mistake this feature must never make. Resolving
       # the route proves it exists without sending anything.
       - name: Verify Office IP updater configuration
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.ssh_check_only) }}
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           ssh \
-            -o BatchMode=yes \
-            -o ConnectTimeout=20 \
-            -i ~/.ssh/id_ed25519 \
-            "$VPS_USER@$VPS_HOST" \
+            -F ~/.ssh/config \
+            joydigi-vps \
             'bash -s' <<'REMOTE'
           set -eu
           cd /var/www/joydigi-hr
@@ -442,15 +606,14 @@ jobs:
       # without revealing any of it: only the permission bits and a boolean
       # are ever printed.
       - name: Verify Firebase credential
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.ssh_check_only) }}
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           ssh \
-            -o BatchMode=yes \
-            -o ConnectTimeout=20 \
-            -i ~/.ssh/id_ed25519 \
-            "$VPS_USER@$VPS_HOST" \
+            -F ~/.ssh/config \
+            joydigi-vps \
             'bash -s' <<'REMOTE'
           set -eu
           CRED=/var/www/joydigi-hr/secrets/firebase-service-account.json
@@ -469,6 +632,7 @@ jobs:
           REMOTE
 
       - name: Verify website
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.ssh_check_only) }}
         run: |
           curl \
             --fail \

@@ -27,6 +27,8 @@ urlpatterns = [
     path("holiday/<int:pk>/", HolidayGetUpdateDeleteAPIView.as_view()),
     path("approve/<int:pk>/", LeaveRequestApproveAPIView.as_view()),
     path("reject/<int:pk>/", LeaveRequestRejectAPIView.as_view()),
+    # 2026-11-17: a Director decides the current step on its approver's behalf.
+    path("override/<int:pk>/", LeaveRequestOverrideAPIView.as_view()),
     path("cancel/<int:pk>/", LeaveRequestCancelAPIView.as_view()),
     # 2026-11-13: cancelling an approved leave needs a manager/HR decision.
     path("cancellation-requests/", LeaveCancellationRequestListAPIView.as_view()),

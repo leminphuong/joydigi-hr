@@ -173,7 +173,6 @@ from base.models import (
     WorkTypeRequestComment,
 )
 from base.roles import (
-    STANDARD_ROLE_NAMES,
     ensure_standard_roles,
     is_checkin_admin,
     is_checkin_leader,
@@ -1575,10 +1574,18 @@ def _build_permission_matrix():
     return permissions, no_permission_models
 
 
+def _role_groups():
+    """The role groups: the three named roles and the Director group
+    (2026-11-17, recognised by its marker, not by name)."""
+    from base.roles import standard_roles_queryset
+
+    return standard_roles_queryset()
+
+
 def _user_groups_queryset(search=""):
     """Chỉ hiển thị ba vai trò cố định của hệ thống."""
     ensure_standard_roles()
-    groups = Group.objects.filter(name__in=STANDARD_ROLE_NAMES).annotate(
+    groups = _role_groups().annotate(
         member_count=Count("user", distinct=True),
         perm_count=Count("permissions", distinct=True),
     ).order_by("name")
@@ -1718,7 +1725,7 @@ def user_group_detail(request, obj_id):
     group = get_object_or_404(
         Group.objects.prefetch_related(
             "permissions", "user_set", "user_set__employee_get"
-        ).filter(name__in=STANDARD_ROLE_NAMES),
+        ).filter(id__in=_role_groups().values("id")),
         id=obj_id,
     )
     return render(request, "base/auth/group_detail.html", _group_detail_context(group))
@@ -1734,9 +1741,7 @@ def update_group_permission(
     This method is used to remove user permission.
     """
     group_id = request.POST.get("id")
-    instance = Group.objects.filter(
-        id=group_id, name__in=STANDARD_ROLE_NAMES
-    ).first()
+    instance = _role_groups().filter(id=group_id).first()
     if not instance:
         messages.error(request, _("Không tìm thấy vai trò."))
         return JsonResponse({"message": "Không tìm thấy vai trò.", "type": "danger"})
@@ -1750,7 +1755,11 @@ def update_group_permission(
         return JsonResponse({})
     perms = form.cleaned_data.get("permissions")
     if not perms:
+        from base.roles import is_director_group, keep_director_marker
+
+        was_director = is_director_group(instance)
         instance.permissions.clear()
+        keep_director_marker(instance, was_director)
         messages.info(request, _("Đã xóa toàn bộ quyền của vai trò."))
         return JsonResponse({})
     messages.error(request, _("Không thể cập nhật quyền hạn."))
@@ -1775,9 +1784,7 @@ def group_assign(request):
     )
     if not group_id:
         return JoydigiRedirect(request, message=_("Thiếu thông tin vai trò."))
-    group = Group.objects.filter(
-        id=group_id, name__in=STANDARD_ROLE_NAMES
-    ).first()
+    group = _role_groups().filter(id=group_id).first()
     if not group:
         return JoydigiRedirect(request, message=_("Không tìm thấy vai trò."))
 
@@ -1868,9 +1875,7 @@ def group_assign_view(request):
     if request.GET.get("search") is not None:
         search = request.GET.get("search")
     ensure_standard_roles()
-    groups = Group.objects.filter(
-        name__in=STANDARD_ROLE_NAMES, name__icontains=search
-    )
+    groups = _role_groups().filter(name__icontains=search)
     previous_data = request.GET.urlencode()
     return render(
         request,
@@ -1889,7 +1894,7 @@ def user_group_view(request):
     if request.GET.get("search") is not None:
         search = request.GET["search"]
     ensure_standard_roles()
-    user_group = Group.objects.filter(name__in=STANDARD_ROLE_NAMES)
+    user_group = _role_groups()
     return render(request, "base/auth/group_assign.html", {"data": user_group})
 
 
@@ -1903,8 +1908,18 @@ def user_group_permission_remove(request, pid, gid):
         pid: permission id
         gid: group id
     """
-    group = get_object_or_404(Group, id=gid, name__in=STANDARD_ROLE_NAMES)
+    from base.roles import DIRECTOR_MARKER_APP_LABEL, DIRECTOR_MARKER_CODENAME
+
+    group = get_object_or_404(_role_groups(), id=gid)
     permission = get_object_or_404(Permission, id=pid)
+    if (
+        permission.codename == DIRECTOR_MARKER_CODENAME
+        and permission.content_type.app_label == DIRECTOR_MARKER_APP_LABEL
+    ):
+        # What makes the group the Director role (2026-11-17); revoking
+        # the role is removing its members, never this.
+        messages.error(request, _("Không thể gỡ dấu hiệu vai trò Giám đốc."))
+        return JoydigiRedirect(request)
     group.permissions.remove(permission)
     return JoydigiRedirect(request)
 
@@ -1921,7 +1936,7 @@ def group_remove_user(request, uid, gid):
         uid: user instance id
         gid: group instance id
     """
-    group = Group.objects.filter(id=gid, name__in=STANDARD_ROLE_NAMES).first()
+    group = _role_groups().filter(id=gid).first()
     user = JoydigiUser.objects.filter(id=uid).first()
     company_id = request.POST.get("company_id") or request.GET.get("company_id")
     fully_removed = True

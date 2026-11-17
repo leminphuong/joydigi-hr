@@ -93,7 +93,22 @@ from leave.request_access import (
     requested_ids,
     whole_number,
 )
+from leave.request_access import (
+    APPROVE,
+    REJECT,
+    assigned_leave_ids,
+    clean_reason,
+    current_step,
+    review_problem,
+)
 from leave.services import compensatory_leave_type_for, evaluate_leave_type_conditions
+from leave.step_decisions import (
+    REJECT_REASON_REQUIRED,
+    decide_on_behalf,
+    log_decision,
+    mark_step,
+    notify_next_step,
+)
 from leave.threading import LeaveMailSendThread
 from notifications.signals import notify
 
@@ -1007,6 +1022,16 @@ def leave_request_delete(request, id):
     return redirect(reverse("request-filter"))
 
 
+def _leave_for_decision(user, leave_id):
+    """The leave to decide: through the company-scoped manager as before,
+    or — for a leave the user approves a step of (2026-11-17) — whatever
+    company is selected: the step is assigned to them."""
+    leave_request = LeaveRequest.objects.filter(id=leave_id).first()
+    if leave_request is None and whole_number(leave_id) in assigned_leave_ids(user):
+        leave_request = LeaveRequest._base_manager.filter(id=leave_id).first()
+    return leave_request
+
+
 @login_required
 @manager_can_enter("leave.change_leaverequest")
 @transaction.atomic  # rows below are locked (2026-11-13)
@@ -1024,26 +1049,26 @@ def leave_request_approve(request, id, emp_id=None):
     GET : If `emp_id` is provided, it returns to the "/employee/employee-view/{employee_id}/" template after approval.
           Otherwise, it returns to the default leave request view template.
     """
-    leave_request = relock(LeaveRequest.objects.filter(id=id).first())
+    leave_request = relock(_leave_for_decision(request.user, id))
     if not leave_request:
         return JoydigiRedirect(
             request, message=_("No leave rquest found matching the query.")
         )
     employee_id = leave_request.employee_id
     actor = getattr(request.user, "employee_get", None)
-    # A check-in admin of the employee's company (2026-11-14): under "All my
-    # companies" the admin role of any company used to count.
-    if not leave_request.multiple_approvals() and not is_admin_for(request.user, leave_request.employee_id):
-        if employee_id.get_reporting_manager() != actor:
-            messages.error(request, "Bạn chỉ được duyệt đơn của thành viên trong nhóm mình.")
-            return JoydigiRedirect(request)
-    if not request.user.is_superuser:
-        if employee_id == request.user.employee_get:
-            messages.error(request, _("You cannot approve your own leave request."))
-            if emp_id is not None:
-                employee_id = emp_id
-                return redirect(f"/employee/employee-view/{employee_id}/")
-            return JoydigiRedirect(request)
+    # One rule for the web, the API and the approval hub (2026-11-17):
+    # ``review_problem``. With several steps, only the approver of the
+    # current step; otherwise an admin or Director of the employee's company,
+    # or the reporting manager; never one's own leave (a superuser may, as
+    # before, decide a one-step leave).
+    problem = review_problem(request.user, leave_request, APPROVE)
+    if problem:
+        log_decision(request.user, leave_request, decision=APPROVE, result="refused",
+                     step=current_step(leave_request), request=request, message=problem)
+        messages.error(request, problem)
+        if emp_id is not None and employee_id == actor:
+            return redirect(f"/employee/employee-view/{emp_id}/")
+        return JoydigiRedirect(request)
     leave_type_id = leave_request.leave_type_id
     try:
         available_leave = AvailableLeave._base_manager.select_for_update().get(
@@ -1097,11 +1122,16 @@ def leave_request_approve(request, id, emp_id=None):
                 available_leave.carryforward_days = temp - leave_request.requested_days
                 leave_request.approved_carryforward_days = leave_request.requested_days
             leave_request.status = "approved"
-            if not leave_request.multiple_approvals():
+            pending_step = current_step(leave_request) if leave_request.multiple_approvals() else None
+            if pending_step is None:
+                # One step, or every step already approved (2026-11-17: such
+                # a leave used to stay waiting for good on the web).
                 leave_request.save()
                 available_leave.save()
                 send_notification = True
                 approved = True
+                log_decision(request.user, leave_request, decision=APPROVE, result="ok",
+                             request=request)
             else:
                 conditional_requests = leave_request.multiple_approvals()
                 condition_approval = (
@@ -1125,32 +1155,14 @@ def leave_request_approve(request, id, emp_id=None):
                     error_message = "Đơn này chưa được duyệt ở bước trước."
                     messages.error(request, error_message)
                 else:
-                    condition_approval.is_approved = True
-                    condition_approval.acted_at = timezone.now()
-                    condition_approval.acted_by = actor
-                    condition_approval.save(
-                        update_fields=["is_approved", "acted_at", "acted_by"]
-                    )
+                    # Only this step; who and when (2026-11-17: also via the API).
+                    mark_step(condition_approval, actor, approved=True)
                     approved = True
-                    next_approval = (
-                        LeaveRequestConditionApproval.objects.filter(
-                            leave_request_id=leave_request,
-                            is_approved=False,
-                            is_rejected=False,
-                        )
-                        .order_by("sequence")
-                        .select_related("manager_id__employee_user_id")
-                        .first()
-                    )
-                    if next_approval:
-                        with contextlib.suppress(Exception):
-                            notify.send(
-                                actor,
-                                recipient=next_approval.manager_id.employee_user_id,
-                                verb="Có đơn nghỉ phép đang chờ bạn duyệt.",
-                                icon="people-circle",
-                                redirect=f"/leave/request-view?id={leave_request.id}",
-                            )
+                    log_decision(request.user, leave_request, decision=APPROVE, result="ok",
+                                 step=condition_approval, request=request)
+                    if current_step(leave_request) is not None:
+                        # The next approver is told; the leave stays waiting.
+                        notify_next_step(leave_request, actor)
                     else:
                         leave_request.save()
                         available_leave.save()
@@ -1272,6 +1284,83 @@ def leave_bulk_reject(request):
     return JoydigiRedirect(request)
 
 
+def _reject_leave(request, leave_id, reason):
+    """Reject a leave (or, for HR, an approved one: its days come back).
+    Returns ``(ok, message)``. Must run inside ``transaction.atomic``.
+
+    Shared by the rejection form and the approval hub (2026-11-17): the
+    same rule as the approval (``review_problem``), only the current step
+    of a waiting multi-step leave, the reason is required, and the step
+    records who rejected and when."""
+    reason = clean_reason(reason)
+    if reason is None:
+        return False, REJECT_REASON_REQUIRED
+    leave_request = relock(_leave_for_decision(request.user, leave_id))
+    if leave_request is None:
+        return False, _("No leave rquest found matching the query.")
+    actor = getattr(request.user, "employee_get", None)
+    # Nobody — a check-in admin or superuser included — rejects their
+    # own leave to get its days back (2026-11-13, P1-4).
+    if (
+        actor is not None
+        and leave_request.employee_id_id == actor.pk
+        and (leave_request.approved_available_days or leave_request.approved_carryforward_days)
+    ):
+        return False, "Bạn không thể tự từ chối đơn đã duyệt của chính mình để lấy lại ngày phép; hãy gửi yêu cầu hủy để quản lý hoặc HR duyệt."
+    if leave_request.status == "rejected":
+        return False, _("Leave request already rejected.")
+    current_approval = (
+        current_step(leave_request) if leave_request.status == "requested" else None
+    )
+    problem = review_problem(request.user, leave_request, REJECT)
+    if problem:
+        log_decision(request.user, leave_request, decision=REJECT, result="refused",
+                     step=current_approval, request=request, message=problem)
+        return False, problem
+    employee_id = leave_request.employee_id
+    leave_type_id = leave_request.leave_type_id
+    available_leave = (
+        AvailableLeave._base_manager.select_for_update()
+        .filter(leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id)
+        .first()
+    )
+    if available_leave is None:
+        return False, _("No available leave record found for this employee and leave type.")
+    available_leave.available_days += leave_request.approved_available_days
+    available_leave.carryforward_days += leave_request.approved_carryforward_days
+    leave_request.approved_available_days = 0
+    leave_request.approved_carryforward_days = 0
+    leave_request.status = "rejected"
+    leave_request.leave_clashes_count = 0
+    if current_approval:
+        mark_step(current_approval, actor, approved=False)
+    leave_request.reject_reason = reason
+    leave_request.save()
+    available_leave.save()
+    comment = LeaverequestComment()
+    comment.request_id = leave_request
+    comment.employee_id = request.user.employee_get
+    comment.comment = leave_request.reject_reason
+    comment.save()
+    log_decision(request.user, leave_request, decision=REJECT, result="ok",
+                 step=current_approval, reason=reason, request=request)
+    with contextlib.suppress(Exception):
+        notify.send(
+            request.user.employee_get,
+            recipient=leave_request.employee_id.employee_user_id,
+            verb="Đơn nghỉ phép của bạn đã bị từ chối.",
+            verb_ar="تم رفض طلب الإجازة الخاص بك",
+            verb_de="Ihr Urlaubsantrag wurde abgelehnt",
+            verb_es="Tu solicitud de permiso ha sido rechazada",
+            verb_fr="Votre demande de congé a été rejetée",
+            icon="people-circle",
+            redirect=reverse("user-request-view") + f"?id={leave_request.id}",
+        )
+    mail_thread = LeaveMailSendThread(request, leave_request, type="reject")
+    transaction.on_commit(mail_thread.start)  # after the locked rows are saved
+    return True, _("Leave request rejected successfully..")
+
+
 @login_required
 @hx_request_required
 @manager_can_enter("leave.change_leaverequest")
@@ -1294,93 +1383,11 @@ def leave_request_cancel(request, id, emp_id=None):
     if request.method == "POST":
         form = RejectForm(request.POST)
         if form.is_valid():
-            leave_request = relock(LeaveRequest.objects.get(id=id))
-            current_approval = (
-                LeaveRequestConditionApproval.objects.filter(
-                    leave_request_id=leave_request,
-                    is_approved=False,
-                    is_rejected=False,
-                )
-                .order_by("sequence")
-                .first()
-            )
-            actor = getattr(request.user, "employee_get", None)
-            # Nobody — a check-in admin or superuser included — rejects their
-            # own leave to get its days back (2026-11-13, P1-4).
-            if (
-                actor is not None
-                and leave_request.employee_id_id == actor.pk
-                and (leave_request.approved_available_days or leave_request.approved_carryforward_days)
-            ):
-                messages.error(request, "Bạn không thể tự từ chối đơn đã duyệt của chính mình để lấy lại ngày phép; hãy gửi yêu cầu hủy để quản lý hoặc HR duyệt.")
+            ok, message = _reject_leave(request, id, form.cleaned_data["reason"])
+            if not ok:
+                messages.error(request, message)
                 return JoydigiRedirect(request)
-            if not current_approval and not is_admin_for(request.user, leave_request.employee_id):
-                if leave_request.employee_id.get_reporting_manager() != actor:
-                    messages.error(
-                        request, "Bạn chỉ được từ chối đơn của thành viên trong nhóm mình."
-                    )
-                    return JoydigiRedirect(request)
-            if current_approval and current_approval.manager_id != actor:
-                messages.error(request, "Bạn không phải người duyệt ở bước hiện tại.")
-                return JoydigiRedirect(request)
-            employee_id = leave_request.employee_id
-            leave_type_id = leave_request.leave_type_id
-            available_leave = AvailableLeave._base_manager.select_for_update().get(
-                leave_type_id=balance_leave_type(leave_type_id), employee_id=employee_id
-            )
-            if leave_request.status != "rejected":
-                available_leave.available_days += leave_request.approved_available_days
-                available_leave.carryforward_days += (
-                    leave_request.approved_carryforward_days
-                )
-                leave_request.approved_available_days = 0
-                leave_request.approved_carryforward_days = 0
-                leave_request.status = "rejected"
-                leave_request.leave_clashes_count = 0
-
-                if current_approval:
-                    current_approval.is_approved = False
-                    current_approval.is_rejected = True
-                    current_approval.acted_at = timezone.now()
-                    current_approval.acted_by = actor
-                    current_approval.save(
-                        update_fields=[
-                            "is_approved",
-                            "is_rejected",
-                            "acted_at",
-                            "acted_by",
-                        ]
-                    )
-
-                leave_request.reject_reason = form.cleaned_data["reason"]
-                leave_request.save()
-                available_leave.save()
-                comment = LeaverequestComment()
-                comment.request_id = leave_request
-                comment.employee_id = request.user.employee_get
-                comment.comment = leave_request.reject_reason
-                comment.save()
-
-                messages.success(request, _("Leave request rejected successfully.."))
-                with contextlib.suppress(Exception):
-                    notify.send(
-                        request.user.employee_get,
-                        recipient=leave_request.employee_id.employee_user_id,
-                        verb="Đơn nghỉ phép của bạn đã bị từ chối.",
-                        verb_ar="تم رفض طلب الإجازة الخاص بك",
-                        verb_de="Ihr Urlaubsantrag wurde abgelehnt",
-                        verb_es="Tu solicitud de permiso ha sido rechazada",
-                        verb_fr="Votre demande de congé a été rejetée",
-                        icon="people-circle",
-                        redirect=reverse("user-request-view")
-                        + f"?id={leave_request.id}",
-                    )
-
-                mail_thread = LeaveMailSendThread(request, leave_request, type="reject")
-                transaction.on_commit(mail_thread.start)  # after the locked rows are saved
-            else:
-                messages.error(request, _("Leave request already rejected."))
-
+            messages.success(request, message)
             if request.headers.get("HX-Request"):
                 response = HttpResponse("", status=200)
                 response["HX-Trigger"] = json.dumps(
@@ -1400,6 +1407,34 @@ def leave_request_cancel(request, id, emp_id=None):
     return render(
         request, "leave/leave_request/cancel_form.html", {"form": form, "id": id}
     )
+
+
+def _back_to_hub(request):
+    return redirect(reverse("approval-hub"))
+
+
+@login_required
+@require_http_methods(["POST"])
+@transaction.atomic  # rows below are locked
+def approval_hub_leave_reject(request, id):
+    """Reject a leave from the approval hub (2026-11-17): a plain POST with
+    the reason, decided by the same rule and code as the rejection form."""
+    ok, message = _reject_leave(request, id, request.POST.get("reason"))
+    (messages.success if ok else messages.error)(request, message)
+    return _back_to_hub(request)
+
+
+@login_required
+@require_http_methods(["POST"])
+def approval_hub_leave_override(request, id):
+    """A Director (or a superuser) approves or rejects the current step of a
+    waiting leave on behalf of its approver, with a reason (2026-11-17)."""
+    decision = request.POST.get("decision")
+    ok, message = decide_on_behalf(
+        request.user, whole_number(id), decision, request.POST.get("reason"), request=request
+    )
+    (messages.success if ok else messages.error)(request, message)
+    return _back_to_hub(request)
 
 
 @login_required

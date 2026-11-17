@@ -90,14 +90,18 @@ def manager_can_enter(function, perm):
         if not getattr(self, "request", None):
             self.request = request
         user = request.user
-        employee = user.employee_get
-        if perm in leave_perm:
-            is_approval_manager = MultipleApprovalManagers.objects.filter(
-                employee_id=employee.id
-            ).exists()
+        employee = getattr(user, "employee_get", None)
+        if perm in leave_perm and employee is not None:
+            from leave.request_access import has_assigned_step
+
+            # 2026-11-17: the approver of a step of a waiting leave gets in.
+            is_approval_manager = (
+                MultipleApprovalManagers.objects.filter(employee_id=employee.id).exists()
+                or has_assigned_step(user)
+            )
             if is_approval_manager:
                 return function(self, *args, **kwargs)
-        is_manager = EmployeeWorkInformation.objects.filter(
+        is_manager = employee is not None and EmployeeWorkInformation.objects.filter(
             reporting_manager_id=employee
         ).exists()
         if user.has_perm(perm) or is_manager:

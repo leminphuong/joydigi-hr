@@ -28,20 +28,49 @@ from django.contrib.auth.models import Permission
 from joydigi.joydigi_middlewares import _thread_locals, get_selected_company
 
 
+# Apps whose permissions are system administration, never business rights:
+# a Director does not inherit them from the admin role (2026-11-17).
+SYSTEM_PERMISSION_APPS = ("admin", "auth", "contenttypes", "sessions")
+
+
+def inherited_admin_permissions():
+    """The business permissions of the admin role group, which a Director
+    holds in the companies of their Director assignment (2026-11-17).
+
+    Read live from the admin group, so a change the superuser makes to the
+    admin role reaches Directors too; nothing is copied. System permissions
+    (``SYSTEM_PERMISSION_APPS``) and the Director marker itself are left out."""
+    from base.roles import ADMIN_ROLE, DIRECTOR_MARKER_CODENAME
+
+    return (
+        Permission.objects.filter(group__name=ADMIN_ROLE)
+        .exclude(content_type__app_label__in=SYSTEM_PERMISSION_APPS)
+        .exclude(codename=DIRECTOR_MARKER_CODENAME)
+    )
+
+
 class CompanyScopedBackend(ModelBackend):
     """ModelBackend with per-company group permission resolution."""
 
     def _get_group_permissions(self, user_obj):
+        from base.roles import director_group_q
+
         if not getattr(settings, "COMPANY_SCOPED_PERMISSIONS", False):
-            return super()._get_group_permissions(user_obj)
+            permissions = super()._get_group_permissions(user_obj)
+            if user_obj.groups.filter(director_group_q()).exists():
+                permissions = permissions | inherited_admin_permissions()
+            return permissions.distinct()
 
         company_id = self._resolve_company_id(user_obj)
         assignments = user_obj.company_group_assignments.all()
         if company_id is not None:
             assignments = assignments.filter(company_id=company_id)
-        return Permission.objects.filter(
+        permissions = Permission.objects.filter(
             group__company_assignments__in=assignments
-        ).distinct()
+        )
+        if assignments.filter(director_group_q("group__")).exists():
+            permissions = permissions | inherited_admin_permissions()
+        return permissions.distinct()
 
     @staticmethod
     def _resolve_company_id(user_obj):
@@ -224,12 +253,16 @@ def get_effective_permission_codenames(user, company_id=None, include_direct=Tru
     if include_direct:
         codenames.update(user.user_permissions.values_list("codename", flat=True))
 
+    from base.roles import director_group_q
+
     if not company_scoped_active():
         codenames.update(
             Permission.objects.filter(group__user=user).values_list(
                 "codename", flat=True
             )
         )
+        if user.groups.filter(director_group_q()).exists():
+            codenames.update(inherited_admin_permissions().values_list("codename", flat=True))
         return sorted(codenames)
 
     company_id = _normalize_company_id(company_id)
@@ -241,6 +274,8 @@ def get_effective_permission_codenames(user, company_id=None, include_direct=Tru
             group__company_assignments__in=assignments
         ).values_list("codename", flat=True)
     )
+    if assignments.filter(director_group_q("group__")).exists():
+        codenames.update(inherited_admin_permissions().values_list("codename", flat=True))
     return sorted(set(codenames))
 
 

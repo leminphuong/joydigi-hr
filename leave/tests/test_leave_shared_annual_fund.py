@@ -204,7 +204,9 @@ class SharedAnnualFundTests(SharedFundFixtures):
         request_id = self.ask(self.annual, NEXT_MONDAY).json()["id"]
         self.approve(request_id)
         admin_rows_before = sorted(AvailableLeave._base_manager.filter(employee_id__employee_user_id=self.admin).values_list("pk", "available_days"))
-        self.assertEqual(self.admin_api.put(f"/api/leave/reject/{request_id}/", {}, format="json").status_code, 200)
+        # 2026-11-17: a rejection needs a reason, on the API as on the web.
+        self.assertEqual(self.admin_api.put(f"/api/leave/reject/{request_id}/", {"reason": "kiểm tra"},
+                                            format="json").status_code, 200)
         self.assertEqual(self.fund(self.me).available_days, 11, "refunded to the employee's fund")
         self.assertEqual(self.admin_api.put(f"/api/leave/reject/{request_id}/", {}, format="json").status_code, 400)
         self.assertEqual(self.fund(self.me).available_days, 11, "not twice")

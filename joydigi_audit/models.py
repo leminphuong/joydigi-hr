@@ -406,10 +406,12 @@ class AuditModelConfig(JoydigiModel):
 class UserActivityLog(models.Model):
     """Nhật ký tập trung cho mọi thao tác của người dùng đã đăng nhập."""
 
+    ROLE_DIRECTOR = "director"
     ROLE_ADMIN = "admin"
     ROLE_LEADER = "leader"
     ROLE_EMPLOYEE = "employee"
     ROLE_CHOICES = (
+        (ROLE_DIRECTOR, "Giám đốc"),
         (ROLE_ADMIN, "Quản trị viên"),
         (ROLE_LEADER, "Trưởng nhóm"),
         (ROLE_EMPLOYEE, "Nhân viên"),

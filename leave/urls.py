@@ -207,6 +207,18 @@ urlpatterns = [
         name="leave-requests-bulk-reject",
     ),
     path("request-cancel/<int:id>/", views.leave_request_cancel, name="request-cancel"),
+    # 2026-11-17: reject from the approval hub (reason required), and decide
+    # the current step on its approver's behalf (Director, with a reason).
+    path(
+        "approval-hub/reject/<int:id>/",
+        views.approval_hub_leave_reject,
+        name="approval-hub-leave-reject",
+    ),
+    path(
+        "approval-hub/override/<int:id>/",
+        views.approval_hub_leave_override,
+        name="approval-hub-leave-override",
+    ),
     # 2026-11-13: cancelling an approved leave needs a manager/HR decision.
     path(
         "cancellation-requests/",

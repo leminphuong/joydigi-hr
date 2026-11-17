@@ -26,6 +26,8 @@
     <img src="{% static 'images/ui/attendance-check.png' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
     <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Chấm công hôm nay</span>
 </a>
+{% endif %}
+{% if request.user|can_open_approval_hub %}
 <a href="{% url 'approval-hub' %}" class="sideboxmain group flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition duration-300" data-menu="Duyệt đơn" hx-get="{% url 'approval-hub' %}" hx-target="#ohMainContent" hx-select="#ohMainContent > *" hx-swap="innerHTML show:window:top" hx-push-url="true">
     <img src="{% static 'images/ui/approve.png' %}" alt="" class="w-4.5 h-4.5 flex-shrink-0 transition duration-300">
     <span class="oh-sidebar-label text-sm font-medium truncate flex-1 text-left">Duyệt đơn</span>

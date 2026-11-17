@@ -37,7 +37,7 @@ def _resolve_employee(value: str):
 
 
 def _may_authorise(user, company_id) -> bool:
-    from base.roles import ADMIN_ROLE
+    from base.roles import admin_level_group_q
 
     if not user.is_active:
         return False
@@ -45,7 +45,8 @@ def _may_authorise(user, company_id) -> bool:
         return True
     employee = getattr(user, "employee_get", None)
     same_company = employee is not None and employee_company_id(employee) == company_id
-    return same_company and user.groups.filter(name=ADMIN_ROLE).exists()
+    # An HR admin, or a Director (2026-11-17), of that company.
+    return same_company and user.groups.filter(admin_level_group_q()).exists()
 
 
 class Command(BaseCommand):

@@ -4,9 +4,9 @@ from ipaddress import ip_address
 from time import monotonic
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import DatabaseError
+from django.db import DatabaseError, transaction
 
-from base.roles import is_checkin_admin, is_checkin_leader
+from base.roles import is_checkin_admin, is_checkin_director, is_checkin_leader
 from joydigi_audit.models import UserActivityLog
 
 
@@ -43,6 +43,8 @@ ACTION_HINTS = {
 
 
 def _role_of(user):
+    if is_checkin_director(user):
+        return UserActivityLog.ROLE_DIRECTOR
     if is_checkin_admin(user):
         return UserActivityLog.ROLE_ADMIN
     if is_checkin_leader(user):
@@ -201,3 +203,42 @@ class UserActivityLogMiddleware:
             return user.employee_get.employee_work_info.company_id_id
         except (AttributeError, ObjectDoesNotExist):
             return None
+
+
+def log_business_event(user, *, action, resource, details, request=None, company_id=None, status_code=200):
+    """One explicit activity-log row for a business decision (2026-11-17).
+
+    The middleware logs every request, but not what came of it: a refused
+    approval is a 200 with a message. Leave approvals, rejections and
+    decisions on someone else's behalf write this row with the outcome, the
+    step and the reason. Never breaks the decision it records."""
+    try:
+        actor_name, actor_email, _employee = _actor_details(user)
+        if company_id is None and request is not None:
+            company_id = UserActivityLogMiddleware._company_id(request, user)
+        fields = {
+            "user": user if getattr(user, "pk", None) else None,
+            "company_id": company_id,
+            "actor_name": actor_name,
+            "actor_email": actor_email,
+            "role": _role_of(user),
+            "action": action[:255],
+            "resource": resource[:255],
+            "method": "EVENT",
+            "path": "-",
+            "status_code": status_code,
+            "details": details,
+        }
+        if request is not None:
+            fields["method"] = request.method.upper()[:10]
+            fields["path"] = request.path[:500] or "-"
+            fields["route_name"] = (
+                getattr(getattr(request, "resolver_match", None), "url_name", "") or ""
+            )[:150]
+            fields["ip_address"] = _client_ip(request)
+            fields["user_agent"] = (request.META.get("HTTP_USER_AGENT") or "")[:500]
+        # A savepoint: a failed log row must not poison the caller's transaction.
+        with transaction.atomic():
+            UserActivityLog.objects.create(**fields)
+    except (DatabaseError, AttributeError, TypeError, ValueError):
+        pass

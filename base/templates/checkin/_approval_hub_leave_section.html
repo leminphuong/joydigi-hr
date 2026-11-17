@@ -1,0 +1,155 @@
+{% comment %}
+Đơn xin phép trên trang Duyệt đơn (2026-11-17, sửa giao diện).
+
+Một bảng gọn như giao diện trước đợt Giám đốc, dùng chung cho Admin, Giám đốc,
+Trưởng nhóm và người được giao bước: đơn chờ chính người này duyệt nằm đầu,
+sau đó là các đơn gần đây. Trên điện thoại mỗi đơn là một thẻ.
+
+Nút chỉ hiện khi backend cho phép (``can_act`` / ``can_reject`` /
+``can_override`` đều tính bằng ``leave.request_access``). Từ chối và duyệt thay
+mở hộp thoại nhập lý do; backend vẫn bắt buộc lý do.
+
+Màu dùng CSS riêng ở dưới: bảng màu Tailwind của theme bị ghi đè (chỉ có
+primary, secondary, dark...), nên ``bg-green-600`` không tồn tại và nút
+"Duyệt" cũ có chữ trắng trên nền trong suốt.
+{% endcomment %}
+<style>
+    .ahl-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .ahl-table th { text-align: left; font-weight: 500; color: #6b7280; background: #f9fafb; padding: 0.6rem 0.9rem; white-space: nowrap; }
+    .ahl-table td { padding: 0.55rem 0.9rem; border-top: 1px solid #f3f4f6; vertical-align: middle; }
+    .ahl-row-mine td { background: #fffbeb; }
+    .ahl-name { font-weight: 600; color: #111827; }
+    .ahl-sub { font-size: 0.75rem; color: #6b7280; }
+    .ahl-nowrap { white-space: nowrap; }
+    .ahl-steps { font-size: 0.75rem; line-height: 1.35; color: #374151; }
+    .ahl-step-done { color: #15803d; }
+    .ahl-step-rejected { color: #b91c1c; }
+    .ahl-step-waiting { color: #b45309; }
+    .ahl-step-note { color: #6b7280; }
+    .ahl-badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+    .ahl-badge-waiting { background: #fef3c7; color: #92400e; }
+    .ahl-badge-approved { background: #dcfce7; color: #166534; }
+    .ahl-badge-rejected { background: #fee2e2; color: #991b1b; }
+    .ahl-badge-mine { background: #fde68a; color: #78350f; margin-left: 0.35rem; }
+    .ahl-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+    .ahl-actions form { margin: 0; }
+    .ahl-btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 0.5rem; padding: 0.35rem 0.7rem; font-size: 0.75rem; font-weight: 600; line-height: 1.2; cursor: pointer; white-space: nowrap; border: 1px solid transparent; }
+    .ahl-btn-approve { background: #16a34a; color: #fff; }
+    .ahl-btn-approve:hover { background: #15803d; }
+    .ahl-btn-reject { background: #fff; color: #dc2626; border-color: #fecaca; }
+    .ahl-btn-reject:hover { background: #fef2f2; }
+    .ahl-btn-override { background: #fff; color: #374151; border-color: #d1d5db; }
+    .ahl-btn-override:hover { background: #f9fafb; }
+    .ahl-wait { font-size: 0.75rem; color: #b45309; }
+    .ahl-muted { font-size: 0.75rem; color: #6b7280; }
+    .ahl-cards { display: none; }
+    .ahl-card { padding: 0.75rem 1rem; border-top: 1px solid #f3f4f6; }
+    .ahl-card.ahl-row-mine { background: #fffbeb; }
+    .ahl-card-head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: flex-start; }
+    .ahl-card .ahl-steps, .ahl-card .ahl-actions { margin-top: 0.4rem; }
+    @media (max-width: 767px) {
+        .ahl-table-wrap { display: none; }
+        .ahl-cards { display: block; }
+    }
+    .ahl-dialog { border: none; border-radius: 0.9rem; padding: 0; width: min(28rem, calc(100vw - 2rem)); box-shadow: 0 20px 50px rgba(0,0,0,.25); }
+    .ahl-dialog::backdrop { background: rgba(17, 24, 39, .45); }
+    .ahl-dialog form { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.6rem; }
+    .ahl-dialog h3 { font-size: 1rem; font-weight: 600; color: #111827; margin: 0; }
+    .ahl-dialog textarea { width: 100%; border: 1px solid #d1d5db; border-radius: 0.5rem; padding: 0.5rem 0.6rem; font-size: 0.875rem; resize: vertical; }
+    .ahl-dialog .ahl-dialog-actions { display: flex; justify-content: flex-end; gap: 0.5rem; flex-wrap: wrap; }
+</style>
+
+<div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden" id="leaveApprovalSection">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-900">Đơn xin phép{% if my_pending_leaves %} <span class="ahl-badge ahl-badge-mine" id="leavePendingCount">{{ my_pending_leaves|length }} đơn chờ bạn duyệt</span>{% endif %}</h2>
+        {% if show_other_sections %}<a href="{% url 'request-view' %}" class="text-sm text-primary-600 hover:underline">Mở trang duyệt đầy đủ</a>{% endif %}
+    </div>
+
+    <div class="ahl-table-wrap overflow-x-auto">
+        <table class="ahl-table">
+            <thead><tr><th>Nhân viên</th><th>Thời gian</th><th>Số ngày</th><th>Trạng thái</th><th>Các bước duyệt</th><th>Thao tác</th></tr></thead>
+            <tbody>
+                {% for item in leave_table %}
+                <tr class="{% if item.is_mine %}ahl-row-mine{% endif %}" data-leave-id="{{ item.id }}">
+                    <td><div class="ahl-name">{{ item.employee_id.get_full_name }}</div><div class="ahl-sub">{{ item.leave_type_id }}</div></td>
+                    <td class="ahl-nowrap">{{ item.start_date|date:"d/m/Y" }}{% if item.end_date and item.end_date != item.start_date %} – {{ item.end_date|date:"d/m/Y" }}{% endif %}</td>
+                    <td class="ahl-nowrap">{{ item.requested_days|default:"—" }}</td>
+                    <td>{% include "checkin/_approval_hub_leave_status.html" %}</td>
+                    <td>{% include "checkin/_approval_hub_leave_steps.html" %}</td>
+                    <td>{% include "checkin/_approval_hub_leave_actions.html" %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-5 py-9 text-center text-gray-400">Chưa có đơn xin phép.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="ahl-cards">
+        {% for item in leave_table %}
+        <div class="ahl-card {% if item.is_mine %}ahl-row-mine{% endif %}" data-leave-id="{{ item.id }}">
+            <div class="ahl-card-head">
+                <div><div class="ahl-name">{{ item.employee_id.get_full_name }}</div>
+                    <div class="ahl-sub">{{ item.leave_type_id }} · {{ item.start_date|date:"d/m/Y" }}{% if item.end_date and item.end_date != item.start_date %} – {{ item.end_date|date:"d/m/Y" }}{% endif %} · {{ item.requested_days|default:"—" }} ngày</div></div>
+                {% include "checkin/_approval_hub_leave_status.html" %}
+            </div>
+            {% include "checkin/_approval_hub_leave_steps.html" %}
+            {% include "checkin/_approval_hub_leave_actions.html" %}
+        </div>
+        {% empty %}
+        <div class="px-5 py-9 text-center text-gray-400">Chưa có đơn xin phép.</div>
+        {% endfor %}
+    </div>
+</div>
+
+<dialog class="ahl-dialog" id="leaveDecisionDialog">
+    <form method="post" action="" id="leaveDecisionForm">
+        {% csrf_token %}
+        <h3 id="leaveDecisionTitle">Từ chối đơn nghỉ</h3>
+        <p class="ahl-muted" id="leaveDecisionHint"></p>
+        <textarea name="reason" id="leaveDecisionReason" rows="3" maxlength="500" required placeholder="Nhập lý do"></textarea>
+        <div class="ahl-dialog-actions">
+            <button type="button" class="ahl-btn ahl-btn-override" data-ahl-close>Hủy</button>
+            <button type="submit" class="ahl-btn ahl-btn-reject" name="decision" value="reject" id="leaveDecisionReject">Xác nhận từ chối</button>
+            <button type="submit" class="ahl-btn ahl-btn-approve" name="decision" value="approve" id="leaveDecisionApprove">Duyệt thay</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+(function () {
+    if (window.__ahlLeaveDialogBound) { return; }
+    window.__ahlLeaveDialogBound = true;
+    document.addEventListener("click", function (event) {
+        var opener = event.target.closest("[data-ahl-open]");
+        var dialog = document.getElementById("leaveDecisionDialog");
+        if (!dialog) { return; }
+        if (event.target.closest("[data-ahl-close]")) { dialog.close(); return; }
+        if (!opener) { return; }
+        event.preventDefault();
+        var mode = opener.getAttribute("data-ahl-open");
+        var form = document.getElementById("leaveDecisionForm");
+        var reason = document.getElementById("leaveDecisionReason");
+        var reject = document.getElementById("leaveDecisionReject");
+        var approve = document.getElementById("leaveDecisionApprove");
+        form.setAttribute("action", opener.getAttribute("data-url"));
+        reason.value = "";
+        var who = opener.getAttribute("data-employee") || "";
+        if (mode === "override") {
+            document.getElementById("leaveDecisionTitle").textContent = "Duyệt thay bước " + opener.getAttribute("data-step");
+            document.getElementById("leaveDecisionHint").textContent = "Đơn của " + who + ". Bước này đang chờ " + opener.getAttribute("data-manager") + ". Lý do bắt buộc (ít nhất 10 ký tự) và được ghi vào nhật ký.";
+            reason.setAttribute("minlength", "10");
+            reject.textContent = "Từ chối thay";
+            approve.style.display = "";
+        } else {
+            document.getElementById("leaveDecisionTitle").textContent = "Từ chối đơn nghỉ";
+            document.getElementById("leaveDecisionHint").textContent = "Đơn của " + who + ". Lý do sẽ được gửi cho nhân viên.";
+            reason.setAttribute("minlength", "1");
+            reject.textContent = "Xác nhận từ chối";
+            approve.style.display = "none";
+        }
+        if (typeof dialog.showModal === "function") { dialog.showModal(); } else { dialog.setAttribute("open", ""); }
+        reason.focus();
+    });
+})();
+</script>
